@@ -26,12 +26,12 @@ import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.ForwardingEventful;
 import org.apache.zookeeper.util.Parameters;
 
+import com.google.common.collect.Lists;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
-import com.google.inject.internal.Lists;
 
 public class ClientSession extends ForwardingEventful {
 

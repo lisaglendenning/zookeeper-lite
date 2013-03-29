@@ -23,6 +23,7 @@ import org.apache.zookeeper.util.Main;
 import org.apache.zookeeper.util.ServiceMonitor;
 import org.apache.zookeeper.util.VerboseThreadFactory;
 
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
@@ -30,7 +31,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-import com.google.inject.internal.Lists;
 
 public class ClientMain extends Main {
 
