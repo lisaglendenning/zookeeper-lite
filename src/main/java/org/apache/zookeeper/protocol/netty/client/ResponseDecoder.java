@@ -93,7 +93,7 @@ public class ResponseDecoder extends MessageToMessageCodec<BufEvent, Operation.R
     @Override
     protected Object encode(ChannelHandlerContext ctx, Operation.Request msg)
             throws Exception {
-        Object request = decoder.apply(msg);
-        return request;
+        msg = decoder.apply(msg).get();
+        return msg;
     }
 }

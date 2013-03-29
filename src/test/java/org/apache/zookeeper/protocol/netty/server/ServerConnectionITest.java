@@ -28,6 +28,7 @@ import org.apache.zookeeper.protocol.netty.client.AnonymousClientConnection;
 import org.apache.zookeeper.protocol.netty.client.ClientConnection;
 import org.apache.zookeeper.util.EventfulEventBus;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;

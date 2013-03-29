@@ -4,9 +4,11 @@ import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.protocol.OpCallResult;
 import org.apache.zookeeper.protocol.OpCallResponse;
 import org.apache.zookeeper.protocol.Operation;
-import org.apache.zookeeper.protocol.Pipeline;
+import org.apache.zookeeper.util.PipeProcessor;
 
-public class GetZxidProcessor implements Pipeline.Processor<Operation.Response> {
+import com.google.common.base.Optional;
+
+public class GetZxidProcessor implements PipeProcessor<Operation.Response> {
 
     public static GetZxidProcessor create() {
         return new GetZxidProcessor(Zxid.create());
@@ -27,10 +29,10 @@ public class GetZxidProcessor implements Pipeline.Processor<Operation.Response> 
     }
 
     @Override
-    public Operation.Response apply(Operation.Response response) {
+    public Optional<Operation.Response> apply(Operation.Response response) {
         if ((response.operation() == Operation.CREATE_SESSION) 
                 || (response instanceof Operation.CallResponse)) {
-            return response;
+            return Optional.of(response);
         }
         
         Operation.CallRequest callRequest = null;
@@ -51,6 +53,6 @@ public class GetZxidProcessor implements Pipeline.Processor<Operation.Response> 
         if (callRequest != null) {
             callResponse = OpCallResult.create(callRequest, callResponse);
         }
-        return callResponse;
+        return Optional.<Operation.Response>of(callResponse);
     }
 }

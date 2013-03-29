@@ -100,8 +100,8 @@ public class RequestDecoder
     @Override
     protected Object encode(ChannelHandlerContext ctx, Operation.Response msg)
             throws Exception {
-        Object request = decoder.apply(msg);
-        return request;
+        msg = decoder.apply(msg).get();
+        return msg;
     }
     
 }

@@ -3,7 +3,7 @@ package org.apache.zookeeper.util;
 import com.google.common.eventbus.EventBus;
 import com.google.inject.AbstractModule;
 
-public class EventfulEventBus implements Eventful {
+public class EventfulEventBus extends EventBus implements Eventful {
     
     public static class EventfulModule extends AbstractModule {
 
@@ -18,7 +18,11 @@ public class EventfulEventBus implements Eventful {
             bind(Eventful.class).to(EventfulEventBus.class);
         }
     }
-
+    
+    public EventfulEventBus() {
+        super();
+    }
+/*
     protected final EventBus delegate;
     
     public EventfulEventBus() {
@@ -48,5 +52,5 @@ public class EventfulEventBus implements Eventful {
     public void unregister(Object object) {
         delegate().unregister(object);
     }
-
+*/
 }
