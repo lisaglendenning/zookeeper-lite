@@ -112,7 +112,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy, 
     public long boundTimeout(long timeOut, TimeUnit unit) {
         TimeUnit timeoutUnit = timeoutUnit();
         long maxTimeout = unit.convert(maxTimeout(), timeoutUnit);
-        if (timeOut > maxTimeout) {
+        if (maxTimeout != SessionParameters.NEVER_TIMEOUT && timeOut > maxTimeout) {
             timeOut = maxTimeout;
         } else {
             long minTimeout = unit.convert(minTimeout(), timeoutUnit);
