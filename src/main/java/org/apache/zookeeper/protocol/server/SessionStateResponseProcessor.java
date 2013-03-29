@@ -5,11 +5,9 @@ import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.SessionConnectionState;
 import org.apache.zookeeper.protocol.OpCreateSessionAction;
 import org.apache.zookeeper.protocol.Operation;
-import org.apache.zookeeper.util.PipeProcessor;
+import org.apache.zookeeper.util.Processor;
 
-import com.google.common.base.Optional;
-
-public class SessionStateResponseProcessor implements PipeProcessor<Operation.Response>  {
+public class SessionStateResponseProcessor implements Processor<Operation.Response, Operation.Response>  {
 
     public static SessionStateResponseProcessor create(SessionConnectionState state) {
         return new SessionStateResponseProcessor(state);
@@ -26,7 +24,7 @@ public class SessionStateResponseProcessor implements PipeProcessor<Operation.Re
     }
 
     @Override
-    public Optional<Operation.Response> apply(Operation.Response response) {
+    public Operation.Response apply(Operation.Response response) {
         switch (state.get()) {
         case CLOSED:
         case ERROR:
@@ -53,6 +51,6 @@ public class SessionStateResponseProcessor implements PipeProcessor<Operation.Re
             break;
         }
         
-        return Optional.of(response);
+        return response;
     }
 }

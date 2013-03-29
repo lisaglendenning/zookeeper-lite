@@ -19,6 +19,7 @@ import org.apache.zookeeper.protocol.OpPingAction;
 import org.apache.zookeeper.protocol.Operation;
 import org.apache.zookeeper.protocol.Operations;
 import org.apache.zookeeper.protocol.Records;
+import org.apache.zookeeper.util.Processor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,22 +33,22 @@ public class RequestManager {
     protected final Logger logger = LoggerFactory.getLogger(RequestManager.class);
 
     protected final SessionManager sessions;
-    protected final BiMap<Long, Processor> processors;
+    protected final BiMap<Long, Processor<Operation.Request, Operation.Response>> processors;
     
     @Inject
     public RequestManager(SessionManager sessions) {
         this(sessions,
-                Maps.synchronizedBiMap(HashBiMap.<Long, Processor>create()));
+                Maps.synchronizedBiMap(HashBiMap.<Long, Processor<Operation.Request, Operation.Response>>create()));
     }
     
     protected RequestManager(SessionManager sessions,
-            BiMap<Long, Processor> processors) {
+            BiMap<Long, Processor<Operation.Request, Operation.Response>> processors) {
         this.processors = processors;
         this.sessions = sessions;
         sessions.register(this);
     }
     
-    protected BiMap<Long, Processor> processors() {
+    protected BiMap<Long, Processor<Operation.Request, Operation.Response>> processors() {
         return processors;
     }
     
@@ -55,13 +56,13 @@ public class RequestManager {
         return sessions;
     }
     
-    public synchronized Processor processor(long sessionId) {
+    public synchronized Processor<Operation.Request, Operation.Response> processor(long sessionId) {
         return processors().get(sessionId);
     }
 
-    public synchronized Session session(Processor processor) {
+    public synchronized Session session(Processor<Operation.Request, Operation.Response> processor) {
         Session session = null;
-        Map<Processor, Long> inverse = processors().inverse();
+        Map<Processor<Operation.Request, Operation.Response>, Long> inverse = processors().inverse();
         if (inverse.containsKey(processor)) {
             long id = inverse.get(checkNotNull(processor));
             session = sessions().get(id);

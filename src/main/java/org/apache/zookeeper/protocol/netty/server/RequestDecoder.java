@@ -100,7 +100,7 @@ public class RequestDecoder
     @Override
     protected Object encode(ChannelHandlerContext ctx, Operation.Response msg)
             throws Exception {
-        msg = decoder.apply(msg).get();
+        msg = decoder.apply(msg);
         return msg;
     }
     

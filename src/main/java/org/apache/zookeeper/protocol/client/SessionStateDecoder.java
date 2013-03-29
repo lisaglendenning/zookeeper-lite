@@ -12,17 +12,16 @@ import org.apache.zookeeper.protocol.Decoder;
 import org.apache.zookeeper.protocol.OpCallResult;
 import org.apache.zookeeper.protocol.OpResult;
 import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.util.ChainedProcessor;
 import org.apache.zookeeper.util.Eventful;
-import org.apache.zookeeper.util.PipeProcessor;
-import org.apache.zookeeper.util.SimplePipeProcessor;
+import org.apache.zookeeper.util.Processor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.inject.Inject;
 
-public class SessionStateDecoder implements PipeProcessor<Operation.Request>, Decoder<Operation.Response> {
+public class SessionStateDecoder implements Processor<Operation.Request, Operation.Request>, Decoder<Operation.Response> {
 
     public static SessionStateDecoder create(Eventful eventful) {
         return new SessionStateDecoder(eventful);
@@ -68,7 +67,7 @@ public class SessionStateDecoder implements PipeProcessor<Operation.Request>, De
     protected final Logger logger = LoggerFactory.getLogger(SessionStateDecoder.class);
     protected final Queue<Operation.Request> requests;
     protected final SessionConnectionState state;
-    protected final SimplePipeProcessor<Operation.Request> processor;
+    protected final ChainedProcessor<Operation.Request> processor;
     protected final SessionStateResponseDecoder decoder;
     protected final Function<Integer, Operation> xidToOp;
 
@@ -94,8 +93,9 @@ public class SessionStateDecoder implements PipeProcessor<Operation.Request>, De
         this.state = state;
         this.decoder = SessionStateResponseDecoder.create(state);
         this.xidToOp = new NextCallRequest(requests);
-        this.processor = SimplePipeProcessor.create(AssignXidProcessor.create(xid));
-        processor.setNextProcessor(SimplePipeProcessor.create(SessionStateRequestProcessor.create(state)));
+        this.processor = ChainedProcessor.create();
+        processor.add(AssignXidProcessor.create(xid));
+        processor.add(SessionStateRequestProcessor.create(state));
     }
     
     public SessionConnectionState state() {
@@ -107,8 +107,8 @@ public class SessionStateDecoder implements PipeProcessor<Operation.Request>, De
     }
     
     @Override
-    public Optional<Operation.Request> apply(Operation.Request request) throws Exception {
-        request = processor.apply(request).get();
+    public Operation.Request apply(Operation.Request request) throws Exception {
+        request = processor.apply(request);
         // FIXME: I know we don't track pings or auth, TODO the other
         // special xid requests
         switch (request.operation()) {
@@ -119,7 +119,7 @@ public class SessionStateDecoder implements PipeProcessor<Operation.Request>, De
             requests().add(request);
             break;
         }
-        return Optional.of(request);
+        return request;
     }
 
     @Override

@@ -3,11 +3,9 @@ package org.apache.zookeeper.protocol.client;
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.SessionConnectionState;
 import org.apache.zookeeper.protocol.Operation;
-import org.apache.zookeeper.util.PipeProcessor;
+import org.apache.zookeeper.util.Processor;
 
-import com.google.common.base.Optional;
-
-public class SessionStateRequestProcessor implements PipeProcessor<Operation.Request>  {
+public class SessionStateRequestProcessor implements Processor<Operation.Request, Operation.Request>  {
 
     public static SessionStateRequestProcessor create(SessionConnectionState state) {
         return new SessionStateRequestProcessor(state);
@@ -24,7 +22,7 @@ public class SessionStateRequestProcessor implements PipeProcessor<Operation.Req
     }
 
     @Override
-    public Optional<Operation.Request> apply(Operation.Request request) {
+    public Operation.Request apply(Operation.Request request) {
         switch (state.get()) {
         case CLOSING:
         case CLOSED:
@@ -45,6 +43,6 @@ public class SessionStateRequestProcessor implements PipeProcessor<Operation.Req
             break;
         }
         
-        return Optional.of(request);
+        return request;
     }
 }

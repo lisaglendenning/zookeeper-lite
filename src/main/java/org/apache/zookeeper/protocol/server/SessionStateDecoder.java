@@ -4,18 +4,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import org.apache.zookeeper.SessionConnectionState;
 import org.apache.zookeeper.Zxid;
+import org.apache.zookeeper.util.ChainedProcessor;
 import org.apache.zookeeper.util.Eventful;
-import org.apache.zookeeper.util.PipeProcessor;
-import org.apache.zookeeper.util.SimplePipeProcessor;
+import org.apache.zookeeper.util.Processor;
 import org.apache.zookeeper.protocol.Decoder;
 import org.apache.zookeeper.protocol.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Optional;
 import com.google.inject.Inject;
 
-public class SessionStateDecoder implements PipeProcessor<Operation.Response>, Decoder<Operation.Request> {
+public class SessionStateDecoder implements Processor<Operation.Response, Operation.Response>, Decoder<Operation.Request> {
 
     public static SessionStateDecoder create(
             Zxid zxid, Eventful eventful) {
@@ -24,7 +23,7 @@ public class SessionStateDecoder implements PipeProcessor<Operation.Response>, D
 
     protected final Logger logger = LoggerFactory.getLogger(SessionStateDecoder.class);
     protected final SessionConnectionState state;
-    protected final SimplePipeProcessor<Operation.Response> processor;
+    protected final ChainedProcessor<Operation.Response> processor;
     protected final SessionStateRequestDecoder decoder;
 
     @Inject
@@ -36,8 +35,9 @@ public class SessionStateDecoder implements PipeProcessor<Operation.Response>, D
         super();
         this.state = state;
         this.decoder = SessionStateRequestDecoder.create(state);
-        this.processor = SimplePipeProcessor.create(GetZxidProcessor.create(zxid));
-        processor.setNextProcessor(SimplePipeProcessor.create(SessionStateResponseProcessor.create(state)));
+        this.processor = ChainedProcessor.create();
+        processor.add(GetZxidProcessor.create(zxid));
+        processor.add(SessionStateResponseProcessor.create(state));
     }
     
     public SessionConnectionState state() {
@@ -45,7 +45,7 @@ public class SessionStateDecoder implements PipeProcessor<Operation.Response>, D
     }
 
     @Override
-    public Optional<Operation.Response> apply(Operation.Response response) throws Exception {
+    public Operation.Response apply(Operation.Response response) throws Exception {
         return processor.apply(response);
     }
 
