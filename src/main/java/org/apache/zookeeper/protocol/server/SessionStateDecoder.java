@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import org.apache.zookeeper.SessionConnectionState;
 import org.apache.zookeeper.Zxid;
-import org.apache.zookeeper.util.ChainedProcessor;
+import org.apache.zookeeper.util.ProcessorChain;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.Processor;
 import org.apache.zookeeper.protocol.Decoder;
@@ -23,7 +23,7 @@ public class SessionStateDecoder implements Processor<Operation.Response, Operat
 
     protected final Logger logger = LoggerFactory.getLogger(SessionStateDecoder.class);
     protected final SessionConnectionState state;
-    protected final ChainedProcessor<Operation.Response> processor;
+    protected final ProcessorChain<Operation.Response> processor;
     protected final SessionStateRequestDecoder decoder;
 
     @Inject
@@ -35,7 +35,7 @@ public class SessionStateDecoder implements Processor<Operation.Response, Operat
         super();
         this.state = state;
         this.decoder = SessionStateRequestDecoder.create(state);
-        this.processor = ChainedProcessor.create();
+        this.processor = ProcessorChain.create();
         processor.add(GetZxidProcessor.create(zxid));
         processor.add(SessionStateResponseProcessor.create(state));
     }

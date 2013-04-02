@@ -1,5 +1,7 @@
 package org.apache.zookeeper.server;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.util.concurrent.TimeUnit;
 
 import org.apache.zookeeper.Session;
@@ -9,34 +11,28 @@ import org.apache.zookeeper.proto.ConnectResponse;
 import org.apache.zookeeper.protocol.OpCreateSessionAction;
 import org.apache.zookeeper.protocol.Operation;
 import org.apache.zookeeper.protocol.Records;
+import org.apache.zookeeper.util.FilteredProcessor;
+import org.apache.zookeeper.util.FilteringProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.inject.Inject;
 
 
-public class OpCreateSessionTask extends OpRequestTask {
+public class OpCreateSessionProcessor extends OpRequestProcessor {
 
-    public static OpCreateSessionTask create(
-            Operation.Request request,
+    public static FilteringProcessor<Operation.Request, Operation.Response> create(
             SessionManager sessions) {
-        return new OpCreateSessionTask((OpCreateSessionAction.Request)request, sessions);
+        return FilteredProcessor.create(EqualsFilter.create(Operation.CREATE_SESSION),
+                new OpCreateSessionProcessor(sessions));
     }
     
-    public static OpCreateSessionTask create(
-            OpCreateSessionAction.Request request,
-            SessionManager sessions) {
-        return new OpCreateSessionTask(request, sessions);
-    }
-    
-    protected final Logger logger = LoggerFactory.getLogger(OpCreateSessionTask.class);
+    protected final Logger logger = LoggerFactory.getLogger(OpCreateSessionProcessor.class);
     protected final SessionManager sessions;
     
     @Inject
-    protected OpCreateSessionTask(
-            OpCreateSessionAction.Request request,
+    protected OpCreateSessionProcessor(
             SessionManager sessions) {
-        super(request);
         this.sessions = sessions;
     }
 
@@ -45,17 +41,14 @@ public class OpCreateSessionTask extends OpRequestTask {
     }
     
     @Override
-    public OpCreateSessionAction.Request request() {
-        return (OpCreateSessionAction.Request) super.request();
-    }
-
-    @Override
-    public OpCreateSessionAction.Response call() throws Exception {
-        OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response) super.call();
-        ConnectResponse response = apply(request().record());
+    public OpCreateSessionAction.Response apply(Operation.Request request) throws Exception {
+        checkArgument(request.operation() == Operation.CREATE_SESSION);
+        OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response) super.apply(request);
+        OpCreateSessionAction.Request opRequest = (OpCreateSessionAction.Request)request;
+        ConnectResponse response = apply(opRequest.record());
         opResponse.setResponse(response)
-            .setReadOnly(request().readOnly())
-            .setWraps(request().wraps());
+            .setReadOnly(opRequest.readOnly())
+            .setWraps(opRequest.wraps());
         return opResponse;
     }
 

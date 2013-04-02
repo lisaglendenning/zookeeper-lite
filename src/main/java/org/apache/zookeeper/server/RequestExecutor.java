@@ -1,71 +1,75 @@
 package org.apache.zookeeper.server;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 
-import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.protocol.Operation;
-import org.apache.zookeeper.util.TaskExecutor;
+import org.apache.zookeeper.util.Pair;
+import org.apache.zookeeper.util.Processor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 
-public class RequestExecutor extends TaskExecutor<OpResultTask, Operation.Result> implements RequestExecutorService {
+public class RequestExecutor implements RequestExecutorService, Callable<ListenableFuture<Operation.Result>> {
 
-    protected final Logger logger = LoggerFactory.getLogger(RequestExecutor.class);
-    protected final ExecutorService executor;
-    protected final Zxid zxid;
-    protected final SessionManager sessions;
-    
-    @Inject
-    public RequestExecutor(ExecutorService executor, Zxid zxid, SessionManager sessions) {
-        super();
-        this.executor = executor;
-        this.zxid = zxid;
-        this.sessions = sessions;
+    public static RequestExecutorService create(ExecutorService executor, Processor<Operation.Request, Operation.Result> processor) {
+        return new RequestExecutor(executor, processor);
     }
     
-    public ExecutorService executor() {
+    protected final Logger logger = LoggerFactory.getLogger(RequestExecutor.class);
+    protected final BlockingQueue<Pair<Operation.Request, SettableFuture<Operation.Result>>> requests;
+    protected final Processor<Operation.Request, Operation.Result> processor;
+    protected final ExecutorService executor;
+
+    @Inject
+    public RequestExecutor(ExecutorService executor, Processor<Operation.Request, Operation.Result> processor) {
+        super();
+        this.requests = new LinkedBlockingQueue<Pair<Operation.Request, SettableFuture<Operation.Result>>>();
+        this.executor = executor;
+        this.processor = processor;
+    }
+    
+    protected ExecutorService executor() {
         return executor;
     }
-
-    public Zxid zxid() {
-        return zxid;
-    }
-
-    public SessionManager sessions() {
-        return sessions;
+    
+    protected Processor<Operation.Request, Operation.Result> processor() {
+        return processor;
     }
     
+    protected BlockingQueue<Pair<Operation.Request, SettableFuture<Operation.Result>>> requests() {
+        return requests;
+    }
+
     @Override
     public ListenableFuture<Operation.Result> submit(Operation.Request request) throws InterruptedException {
         logger.debug("Submitting request {}", request);
-        OpResultTask task = createTask(request);
-        ListenableFuture<Operation.Result> future = submit(task);
+        SettableFuture<Operation.Result> future = SettableFuture.create();
+        Pair<Operation.Request, SettableFuture<Operation.Result>> task = Pair.create(request, future);
+        requests().put(task);
         executor().submit(this);
         return future;
     }
     
-    public OpResultTask createTask(Operation.Request request) {
-        OpRequestTask task;
-        switch (request.operation()) {
-        case CREATE_SESSION:
-            task = OpCreateSessionTask.create(request, sessions());
-            break;
-        default:
-            task = OpRequestTask.create(request);
-            break;
+    public ListenableFuture<Operation.Result> call() throws Exception {
+        Pair<Operation.Request, SettableFuture<Operation.Result>> request = requests().poll();
+        if (request != null) {
+            Operation.Result result = null;
+            try {
+                result = processor().apply(request.first());
+            } catch (Throwable t) {
+                request.second().setException(t);
+                return request.second();
+            }
+            request.second().set(result);
+            return request.second();
+        } else {
+            return null;
         }
-        return createTask(task);
     }
-
-    public OpResultTask createTask(OpRequestTask task) {
-        return createTask(OpCallResponseTask.create(zxid(), task));
-    }
-    
-    public OpResultTask createTask(OpCallResponseTask task) {
-        return OpResultTask.create(task);
-    }
-    
 }

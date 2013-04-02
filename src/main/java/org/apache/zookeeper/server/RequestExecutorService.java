@@ -1,13 +1,11 @@
 package org.apache.zookeeper.server;
 
-import java.util.concurrent.Callable;
-
 import org.apache.zookeeper.protocol.Operation;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Provider;
 
-public interface RequestExecutorService extends Callable<Operation.Result> {
+public interface RequestExecutorService {
     
     public static interface Factory extends Provider<RequestExecutorService> {
         RequestExecutorService get();

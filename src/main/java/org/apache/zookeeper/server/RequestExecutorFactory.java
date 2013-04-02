@@ -9,6 +9,11 @@ import org.apache.zookeeper.SessionStateEvent;
 import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.protocol.Operation;
 import org.apache.zookeeper.protocol.Operations;
+import org.apache.zookeeper.util.FilteredProcessor;
+import org.apache.zookeeper.util.FilteredProcessors;
+import org.apache.zookeeper.util.OptionalProcessor;
+import org.apache.zookeeper.util.Processor;
+import org.apache.zookeeper.util.ProcessorBridge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,9 +22,47 @@ import com.google.common.eventbus.Subscribe;
 import com.google.inject.Inject;
 
 public class RequestExecutorFactory extends RequestExecutor implements RequestExecutorService, RequestExecutorService.Factory {
+
+    protected static Processor<Operation.Request, Operation.Result> getMainProcessor(
+            Zxid zxid,
+            SessionManager sessions) {
+        @SuppressWarnings("unchecked")
+        Processor<Operation.Request, Operation.Response> requestProcessor =
+                FilteredProcessors.create(
+                        OpCreateSessionProcessor.create(sessions),
+                        FilteredProcessor.create(
+                                OpRequestProcessor.NotEqualsFilter.create(Operation.CREATE_SESSION), 
+                                OpRequestProcessor.create()));
+        return getProcessor(zxid, requestProcessor);
+    }
+
+    protected static Processor<Operation.Request, Operation.Result> getSessionProcessor(
+            Zxid zxid,
+            SessionManager sessions,
+            long sessionId) {
+        @SuppressWarnings("unchecked")
+        Processor<Operation.Request, Operation.Response> requestProcessor =
+                FilteredProcessors.create(
+                        OpCloseSessionProcessor.create(sessionId, sessions),
+                        FilteredProcessor.create(
+                                OpRequestProcessor.NotEqualsFilter.create(Operation.CLOSE_SESSION), 
+                                OpRequestProcessor.create()));
+        return getProcessor(zxid, requestProcessor);
+    }
+    
+    protected static Processor<Operation.Request, Operation.Result> getProcessor(Zxid zxid, Processor<Operation.Request, Operation.Response> requestProcessor) {
+        requestProcessor = OpErrorProcessor.create(requestProcessor);
+        requestProcessor = ProcessorBridge.create(requestProcessor,
+                OptionalProcessor.create(AssignZxidProcessor.create(zxid)));
+        Processor<Operation.Request, Operation.Result> processor = 
+                OpResultProcessor.create(requestProcessor);
+        return processor;        
+    }
     
     protected final Logger logger = LoggerFactory.getLogger(RequestExecutorFactory.class);
     protected final Map<Long, RequestExecutorService> executors;
+    protected final Zxid zxid;
+    protected final SessionManager sessions;
     
     @Inject
     public RequestExecutorFactory(
@@ -33,13 +76,23 @@ public class RequestExecutorFactory extends RequestExecutor implements RequestEx
             ExecutorService executor, 
             Zxid zxid, SessionManager sessions,
             Map<Long, RequestExecutorService> executors) {
-        super(executor, zxid, sessions);
+        super(executor, getMainProcessor(zxid, sessions));
         this.executors = executors;
+        this.zxid = zxid;
+        this.sessions = sessions;
         sessions.register(this);
     }
     
     protected Map<Long, RequestExecutorService> executors() {
         return executors;
+    }
+    
+    public Zxid zxid() {
+        return zxid;
+    }
+
+    public SessionManager sessions() {
+        return sessions;
     }
     
     public RequestExecutorService get(Session session) {
@@ -60,14 +113,15 @@ public class RequestExecutorFactory extends RequestExecutor implements RequestEx
     }
     
     protected RequestExecutorService newExecutor(long sessionId) {
-        return SessionRequestExecutor.create(executor(), zxid(), sessions(), sessionId);
+        return RequestExecutor.create(executor(), getSessionProcessor(
+                zxid(), sessions(), sessionId));
     }
 
     @Override
     public RequestExecutorService get() {
         return this;
     }
-    
+
     @Subscribe
     public void handleEvent(SessionStateEvent event) throws InterruptedException {
         Session session = event.session();

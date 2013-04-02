@@ -4,6 +4,10 @@ import com.google.common.base.Objects;
 
 public class Pair<U,V> {
 
+    public static <U,V> Pair<U,V> create(U first, V second) {
+        return new Pair<U,V>(first, second);
+    }
+
     protected final U first;
     protected final V second;
     

@@ -5,19 +5,19 @@ import java.util.List;
 import com.google.common.collect.ForwardingList;
 import com.google.common.collect.Lists;
 
-public class ChainedProcessor<T> extends ForwardingList<Processor<T,T>> implements Processor<T,T> {
+public class ProcessorChain<T> extends ForwardingList<Processor<T,T>> implements Processor<T,T> {
     
-    public static <T> ChainedProcessor<T> create() {
-        return new ChainedProcessor<T>();
+    public static <T> ProcessorChain<T> create() {
+        return new ProcessorChain<T>();
     }
 
     protected final List<Processor<T,T>> processors;
 
-    protected ChainedProcessor() {
+    protected ProcessorChain() {
         this(Lists.<Processor<T,T>>newArrayList());
     }
 
-    protected ChainedProcessor(List<Processor<T,T>> processors) {
+    protected ProcessorChain(List<Processor<T,T>> processors) {
         this.processors = processors;
     }
 

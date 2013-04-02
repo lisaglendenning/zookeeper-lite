@@ -12,7 +12,7 @@ import org.apache.zookeeper.protocol.Decoder;
 import org.apache.zookeeper.protocol.OpCallResult;
 import org.apache.zookeeper.protocol.OpResult;
 import org.apache.zookeeper.protocol.Operation;
-import org.apache.zookeeper.util.ChainedProcessor;
+import org.apache.zookeeper.util.ProcessorChain;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.Processor;
 import org.slf4j.Logger;
@@ -67,7 +67,7 @@ public class SessionStateDecoder implements Processor<Operation.Request, Operati
     protected final Logger logger = LoggerFactory.getLogger(SessionStateDecoder.class);
     protected final Queue<Operation.Request> requests;
     protected final SessionConnectionState state;
-    protected final ChainedProcessor<Operation.Request> processor;
+    protected final ProcessorChain<Operation.Request> processor;
     protected final SessionStateResponseDecoder decoder;
     protected final Function<Integer, Operation> xidToOp;
 
@@ -93,7 +93,7 @@ public class SessionStateDecoder implements Processor<Operation.Request, Operati
         this.state = state;
         this.decoder = SessionStateResponseDecoder.create(state);
         this.xidToOp = new NextCallRequest(requests);
-        this.processor = ChainedProcessor.create();
+        this.processor = ProcessorChain.create();
         processor.add(AssignXidProcessor.create(xid));
         processor.add(SessionStateRequestProcessor.create(state));
     }
