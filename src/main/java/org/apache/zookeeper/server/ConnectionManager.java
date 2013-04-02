@@ -114,9 +114,24 @@ public class ConnectionManager {
             Futures.addCallback(future, this);
         }
 
+        @Subscribe
+        public void handleEvent(Operation.Response event) {
+            // Somehow notifications need to end up here?
+            Connection connection = connection();
+            switch (connection.state()) {
+            case OPENING:
+            case OPENED:
+                logger.debug("Sending {} to {}", event, connection().remoteAddress());
+                connection.send(event);
+                break;
+            default:
+                logger.debug("Dropping: {}", event);
+                break;
+            }
+        }
+        
         @Override
         public void onSuccess(Operation.Result result) {
-            logger.debug("Sending result {} to {}", result, connection().remoteAddress());
             if (result.operation() == Operation.CREATE_SESSION) {
                 long sessionId = ((OpCreateSessionAction.Response)result.response()).record().getSessionId();
                 if (sessionId != Session.UNINITIALIZED_ID) {
@@ -137,16 +152,7 @@ public class ConnectionManager {
                             result.request(), connection().remoteAddress());
                 }
             }
-            Connection connection = connection();
-            switch (connection.state()) {
-            case OPENING:
-            case OPENED:
-                connection.send(result);
-                break;
-            default:
-                logger.debug("Dropping result: {}", result);
-                break;
-            }
+            handleEvent((Operation.Response)result);
         }
 
         @Override
