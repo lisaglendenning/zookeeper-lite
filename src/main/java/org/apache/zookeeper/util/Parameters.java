@@ -28,19 +28,19 @@ public class Parameters implements Configurable {
             return defaultValue;
         }
         
-        public T getValue() {
+        public synchronized T getValue() {
             if (value.isPresent()) {
                 return value.get();
             }
             return defaultValue;
         }
 
-        public void setValue(T value) {
+        public synchronized void setValue(T value) {
             this.value = Optional.of(value);
         }
 
         @Override
-        public void configure(Configuration configuration) {
+        public synchronized void configure(Configuration configuration) {
             setValue(configuration.get(key, defaultValue));
         }
     }
@@ -54,9 +54,17 @@ public class Parameters implements Configurable {
     }
 
     @SuppressWarnings("rawtypes")
-    protected Map<String, Parameter> parameters = Maps.newHashMap();
+    protected final Map<String, Parameter> parameters;
+
+    @SuppressWarnings("rawtypes")
+    protected Parameters() {
+        this(Collections.synchronizedMap(Maps.<String, Parameter>newHashMap()));
+    }
     
-    protected Parameters() {}
+    @SuppressWarnings("rawtypes")
+    protected Parameters(Map<String, Parameter> parameters) {
+        this.parameters = parameters;
+    }
 
     @SuppressWarnings("rawtypes")
     protected Map<String, Parameter> delegate() {
@@ -64,7 +72,7 @@ public class Parameters implements Configurable {
     }
 
     @SuppressWarnings("rawtypes")
-    public Parameters add(Parameter parameter) {
+    public synchronized Parameters add(Parameter parameter) {
         checkNotNull(parameter);
         String key = parameter.getKey();
         Map<String, Parameter> parameters = delegate();
@@ -73,7 +81,7 @@ public class Parameters implements Configurable {
         return this;
     }
     
-    public <T> T getValue(String key) {
+    public synchronized <T> T getValue(String key) {
         @SuppressWarnings("unchecked")
         Parameter<T> parameter = parameters.get(key);
         checkArgument(parameter != null, "key");
@@ -82,7 +90,7 @@ public class Parameters implements Configurable {
 
     @SuppressWarnings("rawtypes")
     @Override
-    public void configure(Configuration configuration) {
+    public synchronized void configure(Configuration configuration) {
         Collection<Parameter> parameters = Collections.unmodifiableCollection(delegate().values());
         for (Parameter parameter: parameters) {
             parameter.configure(configuration);

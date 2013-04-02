@@ -56,7 +56,7 @@ public class OpCreateSessionActionTest {
         OpCreateSessionAction.Request output = OpCreateSessionAction.Request.create().decode(inStream);
         inStream.close();
         
-        assertEquals(input, output.request());
+        assertEquals(input, output.record());
         assertTrue(output.wraps());
     }
     

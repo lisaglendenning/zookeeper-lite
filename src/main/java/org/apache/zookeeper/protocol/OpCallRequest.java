@@ -2,16 +2,16 @@ package org.apache.zookeeper.protocol;
 
 import com.google.common.base.Objects;
 
-public class OpCallRequest<T extends Operation.Request> implements Operation.RequestValue<T>, Operation.CallRequest {
+public class OpCallRequest implements Operation.RequestValue, Operation.CallRequest {
 
-    public static <T extends Operation.Request> OpCallRequest<T> create(int xid, T request) {
-        return new OpCallRequest<T>(xid, request);
+    public static OpCallRequest create(int xid, Operation.Request request) {
+        return new OpCallRequest(xid, request);
     }
     
     protected int xid;
-    protected T request;
+    protected Operation.Request request;
     
-    public OpCallRequest(int xid, T request) {
+    public OpCallRequest(int xid, Operation.Request request) {
         super();
         this.xid = xid;
         this.request = request;
@@ -24,17 +24,17 @@ public class OpCallRequest<T extends Operation.Request> implements Operation.Req
         return xid;
     }
 
-    public OpCallRequest<T> setXid(int xid) {
+    public OpCallRequest setXid(int xid) {
         this.xid = xid;
         return this;
     }
 
     @Override
-    public T request() {
+    public Operation.Request request() {
         return request;
     }
 
-    public OpCallRequest<T> setRequest(T request) {
+    public OpCallRequest setRequest(Operation.Request request) {
         this.request = request;
         return this;
     }
@@ -68,8 +68,7 @@ public class OpCallRequest<T extends Operation.Request> implements Operation.Req
         if (getClass() != obj.getClass()) {
             return false;
         }
-        @SuppressWarnings("unchecked")
-        OpCallRequest<T> other = (OpCallRequest<T>) obj;
+        OpCallRequest other = (OpCallRequest) obj;
         return Objects.equal(xid(), other.xid()) 
                 && Objects.equal(request(), other.request());
     }

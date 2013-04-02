@@ -36,8 +36,13 @@ public class SessionStateResponseProcessor implements Processor<Operation.Respon
         switch (response.operation()) {
         case CREATE_SESSION:
         {
-            OpCreateSessionAction.Response createResponse = (OpCreateSessionAction.Response)response;
-            if (createResponse.response().getSessionId() == Session.UNINITIALIZED_ID) {
+            OpCreateSessionAction.Response createResponse;
+            if (response instanceof Operation.Result) {
+                createResponse = (OpCreateSessionAction.Response) ((Operation.Result)response).response();
+            } else {
+                createResponse = (OpCreateSessionAction.Response)response;
+            }
+            if (createResponse.record().getSessionId() == Session.UNINITIALIZED_ID) {
                 state.set(SessionConnection.State.ERROR);
             } else {
                 state.set(SessionConnection.State.CONNECTED);

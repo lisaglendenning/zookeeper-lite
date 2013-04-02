@@ -24,7 +24,6 @@ import org.apache.zookeeper.util.ConfigurableTime;
 import org.apache.zookeeper.util.Configuration;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.ForwardingEventful;
-import org.apache.zookeeper.util.Parameters;
 
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.Subscribe;
@@ -110,7 +109,6 @@ public class ClientSession extends ForwardingEventful {
             return null;
         }
         
-        @SuppressWarnings("unchecked")
         @Subscribe
         public void handleEvent(ConnectionEventValue<?> event) {
             try {
@@ -174,7 +172,7 @@ public class ClientSession extends ForwardingEventful {
     protected Session session;
     protected Connection connection;
     protected Zxid zxid;
-    protected List<Task> tasks;
+    protected List<Task<?>> tasks;
 
     @Inject
     protected ClientSession(Provider<Eventful> eventfulFactory) {
@@ -221,7 +219,7 @@ public class ClientSession extends ForwardingEventful {
         connection.register(this);
         
         OpCreateSessionAction.Request message = Operations.Requests.create(Operation.CREATE_SESSION);
-        ConnectRequest request = message.request();
+        ConnectRequest request = message.record();
         request.setProtocolVersion(Records.PROTOCOL_VERSION);
         request.setSessionId(Session.UNINITIALIZED_ID);
         request.setPasswd(SessionParameters.NO_PASSWORD);
@@ -295,7 +293,7 @@ public class ClientSession extends ForwardingEventful {
     }
     
     protected void onOpened(OpCreateSessionAction.Response response) {
-        if (response.response().getSessionId() == Session.UNINITIALIZED_ID) {
+        if (response.record().getSessionId() == Session.UNINITIALIZED_ID) {
             throw new IllegalArgumentException(response.toString());
         }
         this.session = Session.create(response);

@@ -79,7 +79,7 @@ public class SessionStateResponseDecoder {
             // this means "invalid request" and the server will now
             // close the connection without sending anything else
             OpCreateSessionAction.Response createResponse = (OpCreateSessionAction.Response)response;
-            if (createResponse.response().getSessionId() == Session.UNINITIALIZED_ID) {
+            if (createResponse.record().getSessionId() == Session.UNINITIALIZED_ID) {
                 state.set(SessionConnection.State.ERROR);
             } else {
                 state.set(SessionConnection.State.CONNECTED);

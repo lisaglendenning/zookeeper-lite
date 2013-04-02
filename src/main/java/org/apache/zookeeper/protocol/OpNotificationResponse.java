@@ -11,7 +11,7 @@ import org.apache.zookeeper.WatchedEvent;
 
 import com.google.common.base.Objects;
 
-public class OpNotificationResponse implements Operation.CallRequest, Operation.ResponseValue<WatchedEvent>, Encodable, Decodable {
+public class OpNotificationResponse implements Operation.CallRequest, Operation.Response, Encodable, Decodable {
 
     protected WatchedEvent response;
     
@@ -49,8 +49,7 @@ public class OpNotificationResponse implements Operation.CallRequest, Operation.
         return opXid().xid;
     }
 
-    @Override
-    public WatchedEvent response() {
+    public WatchedEvent event() {
         return response;
     }
     
@@ -69,20 +68,20 @@ public class OpNotificationResponse implements Operation.CallRequest, Operation.
 
     @Override
     public OutputStream encode(OutputStream stream) throws IOException {
-        checkState(response() != null);
-        return Records.Responses.serialize(response().getWrapper(), stream);
+        checkState(event() != null);
+        return Records.Responses.serialize(event().getWrapper(), stream);
     }
 
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .add("response", response())
+                .add("response", event())
                 .toString();
     }
     
     @Override
     public int hashCode() {
-        return Objects.hashCode(response());
+        return Objects.hashCode(event());
     }
     
     @Override
@@ -97,6 +96,6 @@ public class OpNotificationResponse implements Operation.CallRequest, Operation.
             return false;
         }
         OpNotificationResponse other = (OpNotificationResponse) obj;
-        return Objects.equal(response(), other.response());
+        return Objects.equal(event(), other.event());
     }
 }

@@ -17,7 +17,6 @@ public class OpCallReplyEncoder implements Encoder<Operation.CallReply> {
     
     public OpCallReplyEncoder() {}
 
-    @SuppressWarnings("rawtypes")
     @Override
     public OutputStream encode(Operation.CallReply callReply, OutputStream stream) throws IOException {
         KeeperException.Code err = KeeperException.Code.OK;
@@ -30,11 +29,8 @@ public class OpCallReplyEncoder implements Encoder<Operation.CallReply> {
                 err = ((Operation.Error)response).error();
             }
             if (response instanceof Operation.ResponseValue) {
-                Operation.ResponseValue responseValue = (Operation.ResponseValue)response;
-                if (responseValue.response() instanceof Operation.Response) {
-                    response = (Operation.Response) responseValue.response();
-                    unwrapping = true;
-                }
+                response = ((Operation.ResponseValue) response).response();
+                unwrapping = true;
             }
         }
         Records.Responses.Headers.serialize(callReply.xid(), callReply.zxid(), err, stream);

@@ -2,16 +2,16 @@ package org.apache.zookeeper.protocol;
 
 import com.google.common.base.Objects;
 
-public class OpResult<T extends Operation.Request, V> implements Operation.Result<T, V> {
+public class OpResult implements Operation.Result {
 
-    public static <T extends Operation.Request, V> Operation.Result<T,V> create(T request, V result) {
-        return new OpResult<T,V>(request, result);
+    public static Operation.Result create(Operation.Request request, Operation.Response response) {
+        return new OpResult(request, response);
     }
     
-    protected T request;
-    protected V response;
+    protected final Operation.Request request;
+    protected final Operation.Response response;
     
-    public OpResult(T request, V response) {
+    public OpResult(Operation.Request request, Operation.Response response) {
         super();
         this.request = request;
         this.response = response;
@@ -23,21 +23,13 @@ public class OpResult<T extends Operation.Request, V> implements Operation.Resul
     }
 
     @Override
-    public V response() {
-        return response;
-    }
-
-    @Override
-    public T request() {
+    public Operation.Request request() {
         return request;
     }
 
-    public void setRequest(T request) {
-        this.request = request;
-    }
-
-    public void setResponse(V response) {
-        this.response = response;
+    @Override
+    public Operation.Response response() {
+        return response;
     }
 
     @Override
@@ -64,8 +56,7 @@ public class OpResult<T extends Operation.Request, V> implements Operation.Resul
         if (getClass() != obj.getClass()) {
             return false;
         }
-        @SuppressWarnings("unchecked")
-        OpResult<T,V> other = (OpResult<T,V>) obj;
+        OpResult other = (OpResult) obj;
         return Objects.equal(request(), other.request()) 
                 && Objects.equal(response(), other.response());
     }

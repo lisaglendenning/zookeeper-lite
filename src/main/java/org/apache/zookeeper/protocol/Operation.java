@@ -82,19 +82,19 @@ public enum Operation {
     public static interface Response extends Action {
     }
 
-    public static interface RequestValue<T> extends Request {
-        T request();
+    public static interface RequestValue extends Request {
+        Operation.Request request();
     }
 
-    public static interface ResponseValue<T> extends Response {
-        T response();
+    public static interface ResponseValue extends Response {
+        Operation.Response response();
     }
 
     public static interface Error extends Response {
         KeeperException.Code error();
     }
       
-    public static interface Result<T extends Operation.Request, V> extends RequestValue<T>, ResponseValue<V> {
+    public static interface Result extends RequestValue, ResponseValue {
     }
     
     public static interface CallRequest extends Request {
@@ -108,7 +108,7 @@ public enum Operation {
     public static interface CallReply extends CallRequest, CallResponse {
     }
     
-    public static interface CallResult<T extends Operation.Request, V> extends CallReply, Result<T, V> {
+    public static interface CallResult extends CallReply, Result {
     }
 
     protected static final Map<Integer, Operation> codeToOperation = Maps.newHashMap();

@@ -14,18 +14,25 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.Subscribe;
 import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
 
 public class ExpiringSessionManager extends SessionManager {
 
-    public static class SessionManagerModule extends AbstractModule {
+    public static ExpiringSessionManager create(
+            Eventful eventful,
+            SessionParametersPolicy policy) {
+        return new ExpiringSessionManager(eventful, policy);
+    }
+    
+    public static class Module extends AbstractModule {
 
-        public static SessionManagerModule get() {
-            return new SessionManagerModule();
+        public static Module get() {
+            return new Module();
         }
         
-        protected SessionManagerModule() {}
+        protected Module() {}
     
         @Override
         protected void configure() {
@@ -34,65 +41,46 @@ public class ExpiringSessionManager extends SessionManager {
     }
     
     protected final Logger logger = LoggerFactory.getLogger(ExpiringSessionManager.class);
-
     protected final Map<Long, Long> touches;
     
     @Inject
     protected ExpiringSessionManager(
-            SessionParametersPolicy policy,
-            Eventful eventful) {
-        this(policy, eventful,
+            Eventful eventful,
+            SessionParametersPolicy policy) {
+        this(eventful, policy,
                 Collections.synchronizedMap(Maps.<Long, Long>newHashMap()));
     }
 
     protected ExpiringSessionManager(
-            SessionParametersPolicy policy,
             Eventful eventful,
+            SessionParametersPolicy policy,
             Map<Long, Long> touches) {
-        super(policy, eventful);
+        super(eventful, policy);
         this.touches = touches;
-    }
-    
-    public synchronized Session add() {
-        Session session = super.add();
-        touch(session.id());
-        return session;
-    }
-    
-    public synchronized Session add(long id, SessionParameters parameters) {
-        Session session = super.add(id, parameters);
-        touch(session);
-        return session;
+        register(this);
     }
 
-    public synchronized Session add(SessionParameters parameters) {
-        Session session = super.add(parameters);
-        touch(session);
-        return session;
-    }
-    
-    public synchronized Session remove(long id) {
-        Session session = super.remove(id);
-        touches.remove(id);
-        return session;
-    }
-    
-    public synchronized boolean touch(long id) {
-        Session session = sessions.get(id);
+    public boolean touch(long id) {
+        Session session = get(id);
         if (session != null) {
-            return touch(sessions.get(id));
+            return touch(session);
         }
         return false;
     }
 
-    protected synchronized boolean touch(Session session) {
+    protected boolean touch(Session session) {
         return touch(session, timestamp());
     }
     
-    protected synchronized boolean touch(Session session, long timestamp) {
+    protected boolean touch(Session session, long timestamp) {
+        long sessionId = session.id();
         if (session.parameters().timeOut() != SessionParameters.NEVER_TIMEOUT) {
-            touches.put(session.id(), timestamp);
-            return true;
+            synchronized (sessions) {
+                if (sessions.containsKey(sessionId)) {
+                    touches.put(sessionId, timestamp);
+                    return true;
+                }
+            }
         }
         return false;
     }
@@ -114,7 +102,7 @@ public class ExpiringSessionManager extends SessionManager {
         long timestamp = timestamp();
         TimeUnit timestampUnit = timestampUnit();
         Set<Long> expired = Sets.newHashSet();
-        synchronized (this) {
+        synchronized (sessions) {
             for (Map.Entry<Long, Session> entry: sessions.entrySet()) {
                 long id = entry.getKey();
                 if (! touches.containsKey(id)) {
@@ -142,5 +130,20 @@ public class ExpiringSessionManager extends SessionManager {
 
     protected TimeUnit timestampUnit() {
         return TimeUnit.MILLISECONDS;
+    }
+    
+    @Subscribe
+    public void handleSessionStateEvent(SessionStateEvent event) {
+        Session session = event.session();
+        switch(event.event()) {
+        case OPENED:
+            touch(session.id());
+            break;
+        case CLOSED:
+            touches.remove(session.id());
+            break;
+        default:
+            break;
+        }
     }
 }

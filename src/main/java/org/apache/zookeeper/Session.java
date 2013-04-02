@@ -70,7 +70,7 @@ public class Session {
     }
 
     public static Session create(OpCreateSessionAction.Response message) {
-        return new Session(message.response().getSessionId(),
+        return new Session(message.record().getSessionId(),
                 SessionParameters.create(message));
     }
     

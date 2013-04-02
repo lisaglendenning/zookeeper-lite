@@ -18,7 +18,7 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
 
     public static Operation OPERATION = Operation.CREATE_SESSION;
     
-    public static class Request extends OpCreateSessionAction<Request, ConnectRequest> implements Operation.RequestValue<ConnectRequest> {
+    public static class Request extends OpCreateSessionAction<Request, ConnectRequest> implements Operation.Request {
     
         public static ConnectRequest createRecord() {
             return Records.Requests.<ConnectRequest>create(OPERATION);
@@ -41,11 +41,6 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
                 boolean wraps) {
             super(record, readOnly, wraps);
         }
-    
-        @Override
-        public ConnectRequest request() {
-            return record();
-        }
         
         public Request setRequest(ConnectRequest request) {
             setRecord(request);
@@ -61,7 +56,7 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
         }
     }
 
-    public static class Response extends OpCreateSessionAction<Response, ConnectResponse> implements Operation.ResponseValue<ConnectResponse> {
+    public static class Response extends OpCreateSessionAction<Response, ConnectResponse> implements Operation.Response {
 
         public static ConnectResponse createRecord() {
             return Records.Responses.<ConnectResponse>create(OPERATION);
@@ -85,11 +80,6 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
             super(record, readOnly, wraps);
         }
         
-        @Override
-        public ConnectResponse response() {
-            return record();
-        }
-
         public Response setResponse(ConnectResponse response) {
             setRecord(response);
             return this;
@@ -176,6 +166,7 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
+              .add("operation", operation())
               .add("record", Records.toString(record()))
               .add("readOnly", readOnly())
               .add("wraps", wraps())

@@ -1,13 +1,25 @@
 package org.apache.zookeeper.protocol;
 
-public class OpCallResult<T extends Operation.CallRequest, V extends Operation.CallResponse> extends OpResult<T,V> implements Operation.CallResult<T,V> {
 
-    public static <T extends Operation.CallRequest, V extends Operation.CallResponse> Operation.CallResult<T,V> create(T request, V response) {
-        return new OpCallResult<T,V>(request, response);
+public class OpCallResult extends OpResult implements Operation.CallResult {
+
+    public static Operation.CallResult create(Operation.CallRequest request, Operation.CallResponse response) {
+        return new OpCallResult(request, response);
     }
     
-    public OpCallResult(T request, V response) {
+    public OpCallResult(Operation.CallRequest request, Operation.CallResponse response) {
         super(request, response);
+    }
+    
+
+    @Override
+    public Operation.CallRequest request() {
+        return (Operation.CallRequest)request;
+    }
+
+    @Override
+    public Operation.CallResponse response() {
+        return (Operation.CallResponse)response;
     }
     
     @Override

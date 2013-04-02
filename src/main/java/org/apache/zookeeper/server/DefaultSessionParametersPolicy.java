@@ -20,10 +20,10 @@ import com.google.inject.Inject;
 
 public class DefaultSessionParametersPolicy implements SessionParametersPolicy, Configurable {
 
-    public static class SessionParametersPolicyModule extends AbstractModule {
+    public static class Module extends AbstractModule {
         
-        public static SessionParametersPolicyModule get() {
-            return new SessionParametersPolicyModule();
+        public static Module get() {
+            return new Module();
         }
         
         @Override
@@ -32,6 +32,10 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy, 
         }
     }
     
+    public static DefaultSessionParametersPolicy create() {
+        return new DefaultSessionParametersPolicy();
+    }
+
     public static final ByteOrder BYTE_ORDER = ByteOrder.BIG_ENDIAN;
     public static final TimeUnit TIMEOUT_UNIT = TimeUnit.MILLISECONDS;
 
@@ -57,10 +61,6 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy, 
     public final Parameters parameters = Parameters.newInstance()
             .add(PARAM_MIN_TIMEOUT).add(PARAM_MAX_TIMEOUT).add(PARAM_TIMEOUT_UNIT);
 
-    public static DefaultSessionParametersPolicy create() {
-        return new DefaultSessionParametersPolicy();
-    }
-    
     @Inject
     protected DefaultSessionParametersPolicy(Configuration configuration) {
         this();
@@ -72,7 +72,9 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy, 
     @Override
     public void configure(Configuration configuration) {
         parameters.configure(configuration);
-        checkArgument(PARAM_MIN_TIMEOUT.getValue() <= PARAM_MAX_TIMEOUT.getValue());
+        if (PARAM_MAX_TIMEOUT.getValue() != SessionParameters.NEVER_TIMEOUT) {
+            checkArgument(PARAM_MIN_TIMEOUT.getValue() <= PARAM_MAX_TIMEOUT.getValue());
+        }
         checkArgument(TimeUnit.valueOf(PARAM_TIMEOUT_UNIT.getValue()) != null);
     }
 
@@ -91,7 +93,8 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy, 
     }
 
     @Override
-    public long newSessionId() {
+    public synchronized long newSessionId() {
+        // synchronized since unsure that Random is thread-safe
         // TODO: add some other non-time-based seed
         // to avoid collision with other servers
         // ideally, seed would look like:

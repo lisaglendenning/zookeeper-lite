@@ -12,7 +12,7 @@ import com.google.common.base.Objects;
 
 public abstract class OpRecordAction<T extends Record> implements Operation.Action, Encodable, Decodable {
 
-    public static class Request<T extends Record> extends OpRecordAction<T> implements Operation.RequestValue<T> {
+    public static class Request<T extends Record> extends OpRecordAction<T> implements Operation.Request {
     
         public static <T extends Record> Request<T> create(T record) {
             return new Request<T>(record);
@@ -38,14 +38,9 @@ public abstract class OpRecordAction<T extends Record> implements Operation.Acti
             Records.Requests.<T>deserialize(record(), stream);
             return this;
         }
-    
-        @Override
-        public T request() {
-            return record();
-        }
     }
 
-    public static class Response<T extends Record> extends OpRecordAction<T> implements Operation.ResponseValue<T> {
+    public static class Response<T extends Record> extends OpRecordAction<T> implements Operation.Response {
     
         public static <T extends Record> Response<T> create(T record) {
             return new Response<T>(record);
@@ -70,11 +65,6 @@ public abstract class OpRecordAction<T extends Record> implements Operation.Acti
             checkState(record() != null);
             Records.Responses.<T>deserialize(record(), stream);
             return this;
-        }
-    
-        @Override
-        public T response() {
-            return record();
         }
     }
 
@@ -119,7 +109,8 @@ public abstract class OpRecordAction<T extends Record> implements Operation.Acti
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .add("record", record())
+                .add("operation", operation())
+                .add("record", Records.toString(record()))
                 .toString();
     }
     
@@ -141,6 +132,7 @@ public abstract class OpRecordAction<T extends Record> implements Operation.Acti
         }
         @SuppressWarnings("unchecked")
         OpRecordAction<T> other = (OpRecordAction<T>) obj;
-        return Objects.equal(record(), other.record());
+        return Objects.equal(operation(), other.operation())
+                && Objects.equal(record(), other.record());
     }
 }

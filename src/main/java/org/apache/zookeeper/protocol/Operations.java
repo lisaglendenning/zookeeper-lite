@@ -89,7 +89,6 @@ public class Operations {
             return (T) response;
         }
         
-        @SuppressWarnings("rawtypes")
         public static Operation.CallResult decode(Function<Integer, Operation> xidToOp, InputStream stream) throws IOException {
             Operation.Response response = null;
             ReplyHeader header = Records.Responses.Headers.deserialize(stream);

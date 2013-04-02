@@ -99,7 +99,6 @@ public class PingSessionsTask implements Configurable {
             }
         }
 
-        @SuppressWarnings("unchecked")
         @Subscribe
         public void handleOperationResponseEvent(Operation.Response event) {
             if (event.operation() == Operation.PING) {
@@ -108,8 +107,8 @@ public class PingSessionsTask implements Configurable {
                         handlePingResponse((OpPingAction.Response)event);
                         break;
                     } else if (event instanceof Operation.ResponseValue
-                            && ((Operation.ResponseValue<?>)event).response() instanceof Operation.Response) {
-                        event = ((Operation.ResponseValue<Operation.Response>)event).response();
+                            && ((Operation.ResponseValue)event).response() instanceof Operation.Response) {
+                        event = ((Operation.ResponseValue)event).response();
                     } else {
                         break;
                     }

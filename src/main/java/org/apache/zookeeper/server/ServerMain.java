@@ -65,7 +65,7 @@ public class ServerMain extends Main {
         return Lists.<Module>newArrayList(
                 EventfulEventBus.EventfulModule.get(),
                 ApplicationService.ApplicationModule.get(),
-                DefaultSessionParametersPolicy.SessionParametersPolicyModule.get());
+                DefaultSessionParametersPolicy.Module.get());
     }
 
     @Override 
@@ -73,7 +73,7 @@ public class ServerMain extends Main {
         bind(ServiceMonitor.class).in(Singleton.class);
         bind(ExpiringSessionManager.class).in(Singleton.class);
         bind(ExpireSessionsTask.class).in(Singleton.class);
-        bind(RequestManager.class).in(Singleton.class);
+        bind(RequestExecutorService.Factory.class).to(RequestExecutorFactory.class).in(Singleton.class);
     }
     
     @Provides @Singleton

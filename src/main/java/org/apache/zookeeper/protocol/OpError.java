@@ -4,16 +4,16 @@ import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Objects;
 
-public class OpError<T extends Operation.Response> implements Operation.Error, Operation.ResponseValue<T> {
+public class OpError implements Operation.Error, Operation.ResponseValue {
 
-    public static <T extends Operation.Response> OpError<T> create(T action, KeeperException.Code error) {
-        return new OpError<T>(action, error);
+    public static OpError create(Operation.Response response, KeeperException.Code error) {
+        return new OpError(response, error);
     }
     
-    protected T response;
+    protected Operation.Response response;
     protected KeeperException.Code error;
         
-    public OpError(T response, KeeperException.Code error) {
+    public OpError(Operation.Response response, KeeperException.Code error) {
         super();
         this.response = response;
         this.error = error;
@@ -25,7 +25,7 @@ public class OpError<T extends Operation.Response> implements Operation.Error, O
     }
     
     @Override
-    public T response() {
+    public Operation.Response response() {
         return response;
     }
 
@@ -47,7 +47,6 @@ public class OpError<T extends Operation.Response> implements Operation.Error, O
         return Objects.hashCode(response(), error());
     }
     
-    @SuppressWarnings("unchecked")
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -59,7 +58,7 @@ public class OpError<T extends Operation.Response> implements Operation.Error, O
         if (getClass() != obj.getClass()) {
             return false;
         }
-        OpError<T> other = (OpError<T>) obj;
+        OpError other = (OpError) obj;
         return Objects.equal(response(), other.response()) 
                 && Objects.equal(error(), other.error());
     }

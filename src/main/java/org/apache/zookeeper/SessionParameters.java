@@ -24,7 +24,7 @@ public class SessionParameters {
     }
     
     public static SessionParameters create(OpCreateSessionAction.Response message) {
-        ConnectResponse response = message.response();
+        ConnectResponse response = message.record();
         return new SessionParameters(response.getTimeOut(), response.getPasswd());
     }
     

@@ -10,93 +10,86 @@ import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionParameters;
 import org.apache.zookeeper.SessionStateEvent;
 import org.apache.zookeeper.util.Eventful;
+import org.apache.zookeeper.util.ForwardingEventful;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Maps;
-import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
 
-public class SessionManager implements Eventful {
+public class SessionManager extends ForwardingEventful {
 
-    public static class SessionManagerModule extends AbstractModule {
-
-        public static SessionManagerModule get() {
-            return new SessionManagerModule();
-        }
-        
-        protected SessionManagerModule() {}
-    
-        @Override
-        protected void configure() {
-        }
+    public static SessionManager create(
+            Eventful eventful, SessionParametersPolicy policy) {
+        return new SessionManager(eventful, policy);
     }
     
     protected final Logger logger = LoggerFactory.getLogger(SessionManager.class);
-
-    protected final Eventful eventful;
     protected final SessionParametersPolicy policy;
     protected final Map<Long, Session> sessions;
     
     @Inject
-    protected SessionManager(SessionParametersPolicy policy,
-            Eventful eventful) {
-        this(policy, eventful,
+    protected SessionManager(
+            Eventful eventful, SessionParametersPolicy policy) {
+        this(eventful, policy, 
                 Collections.synchronizedMap(Maps.<Long, Session>newHashMap()));
     }
     
     protected SessionManager(
-            SessionParametersPolicy policy,
             Eventful eventful,
+            SessionParametersPolicy policy,
             Map<Long, Session> sessions) {
+        super(eventful);
         this.policy = policy;
-        this.eventful = eventful;
         this.sessions = sessions;
     }
 
-    public synchronized Session add() {
+    public Session add() {
         long id = policy.newSessionId();
         long timeOut = policy.maxTimeout();
         byte[] passwd = policy.newPassword(id);
         TimeUnit timeOutUnit = policy.timeoutUnit();
         SessionParameters parameters = SessionParameters.create(timeOut, passwd, timeOutUnit);
-        return newSession(id, parameters);
+        Session session = newSession(id, parameters);
+        post(SessionStateEvent.create(session, Session.State.OPENED));
+        return session;
     }
     
-    public synchronized Session add(long id, SessionParameters parameters) {
+    public Session add(long id, SessionParameters parameters) {
         checkNotNull(parameters);
-        Session session = sessions.get(id);
+        Session session = get(id);
         if (session == null) {
             checkArgument(id == Session.UNINITIALIZED_ID);
             session = add(parameters);
+            post(SessionStateEvent.create(session, Session.State.OPENED));
         } else {
             checkArgument(policy.validatePassword(id, parameters.password()));
         }
         return session;
     }
 
-    public synchronized Session add(SessionParameters parameters) {
-        checkNotNull(parameters);
-        Session session = newSession(parameters);
+    public Session add(SessionParameters parameters) {
+        Session session = newSession(checkNotNull(parameters));
+        post(SessionStateEvent.create(session, Session.State.OPENED));
         return session;
     }
     
-    public synchronized Session get(long id) {
+    public Session get(long id) {
         return sessions.get(id);
     }
     
-    public synchronized Session remove(long id) {
+    public Session remove(long id) {
         Session session = sessions.remove(id);
-        if (logger.isDebugEnabled()) {
-            if (session != null) {
-                logger.debug("Removed session: {}", session);
+        if (session != null) {
+            if (logger.isDebugEnabled()) {
+                    logger.debug("Removed session: {}", session);
             }
             post(SessionStateEvent.create(session, Session.State.CLOSED));
         }
         return session;
     }
     
-    protected synchronized Session newSession(SessionParameters parameters) {
+    protected Session newSession(SessionParameters parameters) {
         long id = policy.newSessionId();
         TimeUnit timeOutUnit = parameters.timeOutUnit();
         long timeOut = policy.boundTimeout(parameters.timeOut(),
@@ -106,29 +99,13 @@ public class SessionManager implements Eventful {
         return newSession(id, parameters);
     }
 
-    protected synchronized Session newSession(long id, SessionParameters parameters) {
-        assert (! sessions.containsKey(id));
+    protected Session newSession(long id, SessionParameters parameters) {
         Session session = Session.create(id, parameters);
-        sessions.put(id, session);
+        Session prev = sessions.put(id, session);
+        assert (prev == null);
         if (logger.isDebugEnabled()) {
             logger.debug("Added session: {}", session);
         }
-        post(SessionStateEvent.create(session, Session.State.OPENED));
         return session;
-    }
-
-    @Override
-    public void post(Object event) {
-        eventful.post(event);
-    }
-
-    @Override
-    public void register(Object object) {
-        eventful.register(object);
-    }
-
-    @Override
-    public void unregister(Object object) {
-        eventful.unregister(object);
     }
 }

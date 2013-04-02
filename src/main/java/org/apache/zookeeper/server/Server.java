@@ -5,13 +5,13 @@ import com.google.inject.Inject;
 
 public class Server extends AbstractIdleService  {
 
-    protected RequestManager requests;
-    protected SessionConnectionManager sessions;
+    protected RequestExecutorFactory requests;
+    protected ConnectionManager sessions;
     protected ServerConnectionGroup connections;
     
     @Inject
-    protected Server(RequestManager requests, 
-            SessionConnectionManager sessions,
+    protected Server(RequestExecutorFactory requests, 
+            ConnectionManager sessions,
             ServerConnectionGroup connections) {
         this.requests = requests;
         this.sessions = sessions;

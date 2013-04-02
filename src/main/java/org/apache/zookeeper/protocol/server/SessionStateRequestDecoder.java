@@ -3,12 +3,10 @@ package org.apache.zookeeper.protocol.server;
 import java.io.IOException;
 import java.io.InputStream;
 
-import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.SessionConnectionState;
 import org.apache.zookeeper.protocol.Operation;
 import org.apache.zookeeper.protocol.Operations;
-import org.apache.zookeeper.util.Eventful;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
