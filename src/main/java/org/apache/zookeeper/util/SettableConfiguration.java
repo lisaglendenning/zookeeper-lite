@@ -10,20 +10,6 @@ import static com.google.common.base.Preconditions.*;
 
 public class SettableConfiguration implements Configuration {
 
-    public static class ConfigurationModule extends AbstractModule {
-        
-        public static ConfigurationModule get() {
-            return new ConfigurationModule();
-        }
-        
-        protected ConfigurationModule() {}
-        
-        @Override 
-        protected void configure() {
-          bind(Configuration.class).to(SettableConfiguration.class);
-        }
-    }
-    
     protected final Map<String, String> options;
 
     public SettableConfiguration() {

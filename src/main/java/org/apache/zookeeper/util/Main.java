@@ -1,7 +1,5 @@
 package org.apache.zookeeper.util;
 
-import static com.google.common.base.Preconditions.*;
-
 import java.util.List;
 
 import org.apache.zookeeper.util.Arguments;

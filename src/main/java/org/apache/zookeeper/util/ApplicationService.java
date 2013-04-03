@@ -8,25 +8,10 @@ import com.google.common.util.concurrent.Monitor;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.Service.State;
-import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
-import com.google.inject.Singleton;
 
 public class ApplicationService extends ExecutorServiceApplication {
 
-    public static class ApplicationModule extends AbstractModule {
-        public static ApplicationModule get() {
-            return new ApplicationModule();
-        }
-        
-        protected ApplicationModule() {}
-        
-        @Override
-        protected void configure() {
-            bind(Application.class).to(ApplicationService.class).in(Singleton.class);
-        }
-    }
-    
     protected static class ApplicationServiceListener implements Service.Listener {
         
         protected ApplicationService service;

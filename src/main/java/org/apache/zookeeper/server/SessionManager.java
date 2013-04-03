@@ -3,6 +3,7 @@ package org.apache.zookeeper.server;
 import static com.google.common.base.Preconditions.*;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -17,7 +18,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 
-public class SessionManager extends ForwardingEventful {
+public class SessionManager extends ForwardingEventful implements Iterable<Session> {
 
     public static SessionManager create(
             Eventful eventful, SessionParametersPolicy policy) {
@@ -42,6 +43,11 @@ public class SessionManager extends ForwardingEventful {
         super(eventful);
         this.policy = policy;
         this.sessions = sessions;
+    }
+
+    @Override
+    public Iterator<Session> iterator() {
+        return sessions.values().iterator();
     }
 
     public Session add() {

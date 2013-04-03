@@ -215,7 +215,10 @@ public class SimpleArguments implements Arguments {
 
     @Override
     public void parse() {
-        setArgs(parse(getArgs()));
+        String[] args = getArgs();
+        if (args != null) {
+            setArgs(parse(args));
+        }
     }
     
     @Override

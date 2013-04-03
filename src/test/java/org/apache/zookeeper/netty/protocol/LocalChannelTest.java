@@ -19,9 +19,11 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelGroupFuture;
 import io.netty.handler.codec.MessageToMessageEncoder;
 
+import org.apache.zookeeper.netty.LocalModule;
 import org.apache.zookeeper.netty.protocol.BufEvent;
 import org.apache.zookeeper.netty.protocol.BufEventDecoder;
 import org.apache.zookeeper.netty.protocol.BufEventEncoder;
+import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.EventfulEventBus;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -50,7 +52,6 @@ public class LocalChannelTest {
         
         public static void createInjector() {
             injector = Guice.createInjector(
-                    EventfulEventBus.EventfulModule.get(),
                     Module.get());
         }
 
@@ -60,6 +61,7 @@ public class LocalChannelTest {
         
         @Override
         protected void configure() {
+            bind(Eventful.class).to(EventfulEventBus.class);
         }
         
         @Provides

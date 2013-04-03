@@ -3,30 +3,12 @@ package org.apache.zookeeper.util;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
-import javax.annotation.Nullable;
-
 import com.google.common.base.Optional;
 import com.google.common.reflect.TypeToken;
-import com.google.inject.AbstractModule;
-
 import static com.google.common.base.Preconditions.*;
 
 public class PreferenceConfiguration implements Configuration {
 
-    public static class ConfigurationModule extends AbstractModule {
-        
-        public static ConfigurationModule get() {
-            return new ConfigurationModule();
-        }
-        
-        protected ConfigurationModule() {}
-        
-        @Override 
-        protected void configure() {
-          bind(Configuration.class).to(PreferenceConfiguration.class);
-        }
-    }
-    
     public static class PreferenceConfigurationArguments {
         public static final String OPTION_PREFS_ROOT = "prefs-root";
         public static final String OPTION_PREFS_PATH = "prefs-path";

@@ -15,23 +15,10 @@ import org.apache.zookeeper.util.Configurable;
 import org.apache.zookeeper.util.Configuration;
 import org.apache.zookeeper.util.Parameters;
 
-import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
 
 public class DefaultSessionParametersPolicy implements SessionParametersPolicy, Configurable {
 
-    public static class Module extends AbstractModule {
-        
-        public static Module get() {
-            return new Module();
-        }
-        
-        @Override
-        protected void configure() {
-            bind(SessionParametersPolicy.class).to(DefaultSessionParametersPolicy.class);
-        }
-    }
-    
     public static DefaultSessionParametersPolicy create() {
         return new DefaultSessionParametersPolicy();
     }

@@ -1,6 +1,7 @@
 package org.apache.zookeeper;
 
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.zookeeper.proto.ConnectResponse;
@@ -99,7 +100,7 @@ public class SessionParameters {
         if (getClass() != obj.getClass())
             return false;
         SessionParameters other = (SessionParameters) obj;
-        return Objects.equal(password(), other.password()) 
+        return Arrays.equals(password(), other.password()) 
                 && Objects.equal(timeOut(), other.timeOut())
                 && Objects.equal(timeOutUnit(), other.timeOutUnit());
     }

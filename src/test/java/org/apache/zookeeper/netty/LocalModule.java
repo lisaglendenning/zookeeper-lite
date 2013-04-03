@@ -1,4 +1,4 @@
-package org.apache.zookeeper.netty.protocol;
+package org.apache.zookeeper.netty;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;

@@ -27,6 +27,7 @@ import org.apache.zookeeper.protocol.OpPingAction;
 import org.apache.zookeeper.protocol.OpResult;
 import org.apache.zookeeper.protocol.Operation;
 import org.apache.zookeeper.protocol.Operations;
+import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.EventfulEventBus;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -56,7 +57,6 @@ public class ServerConnectionITest extends TestEmbeddedChannels {
         
         public static void createInjector() {
             injector = Guice.createInjector(
-                    EventfulEventBus.EventfulModule.get(),
                     Module.get());
         }
 
@@ -66,6 +66,7 @@ public class ServerConnectionITest extends TestEmbeddedChannels {
         
         @Override
         protected void configure() {
+            bind(Eventful.class).to(EventfulEventBus.class);
         }
 
         @Provides

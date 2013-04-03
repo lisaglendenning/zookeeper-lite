@@ -21,6 +21,10 @@ import com.google.inject.Inject;
 
 public class ServiceMonitor extends AbstractIdleService {
 
+    public static ServiceMonitor create(Executor executor) {
+        return new ServiceMonitor(executor);
+    }
+    
     protected static class ServiceMonitorListener implements Service.Listener {
 
         protected final Logger logger = LoggerFactory
@@ -103,7 +107,7 @@ public class ServiceMonitor extends AbstractIdleService {
     protected List<Service> services;
 
     @Inject
-    public ServiceMonitor(Executor executor) {
+    protected ServiceMonitor(Executor executor) {
         this(executor, 
             MoreExecutors.sameThreadExecutor(),
             Collections.synchronizedList(Lists.<Service> newArrayList()));
@@ -133,7 +137,7 @@ public class ServiceMonitor extends AbstractIdleService {
 
     public void add(Service service) {
         checkNotNull(service);
-        checkState(isAddable());
+        checkState(isAddable(), state());
         services().add(service);
         listen(service);
         notifyChange();

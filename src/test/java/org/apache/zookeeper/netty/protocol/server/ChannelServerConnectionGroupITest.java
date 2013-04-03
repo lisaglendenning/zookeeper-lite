@@ -17,8 +17,8 @@ import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.Xid;
 import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.client.ClientConnectionGroup;
+import org.apache.zookeeper.netty.LocalModule;
 import org.apache.zookeeper.netty.protocol.ChannelConnection;
-import org.apache.zookeeper.netty.protocol.LocalModule;
 import org.apache.zookeeper.netty.protocol.client.ChannelClientConnectionGroup;
 import org.apache.zookeeper.netty.protocol.client.ClientConnection;
 import org.apache.zookeeper.netty.protocol.server.ChannelServerConnectionGroup;
@@ -53,10 +53,7 @@ public class ChannelServerConnectionGroupITest {
         
         public static void createInjector() {
             injector = Guice.createInjector(
-                    //SettableConfiguration.ConfigurationModule.get(),
-                    EventfulEventBus.EventfulModule.get(),
                     Module.get());
-//                    ChannelServerConnectionGroup.ConnectionServerGroupModule.get());
         }
         
         public static Module get() {
@@ -65,6 +62,7 @@ public class ChannelServerConnectionGroupITest {
         
         @Override
         protected void configure() {
+            bind(Eventful.class).to(EventfulEventBus.class);
             bind(ServerConnectionGroup.class).to(ChannelServerConnectionGroup.class);
             bind(ClientConnectionGroup.class).to(ChannelClientConnectionGroup.class);
         }

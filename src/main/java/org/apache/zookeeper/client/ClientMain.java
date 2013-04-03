@@ -17,7 +17,7 @@ import org.apache.zookeeper.protocol.client.PingSessionsTask;
 import org.apache.zookeeper.util.Application;
 import org.apache.zookeeper.util.ApplicationService;
 import org.apache.zookeeper.util.Arguments;
-import org.apache.zookeeper.util.Configuration;
+import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.EventfulEventBus;
 import org.apache.zookeeper.util.Main;
 import org.apache.zookeeper.util.ServiceMonitor;
@@ -61,14 +61,15 @@ public class ClientMain extends Main {
 
     @Override
     protected List<Module> modules() {
-        return Lists.<Module>newArrayList(
-                EventfulEventBus.EventfulModule.get(),
-                ApplicationService.ApplicationModule.get());
+        return Lists.<Module>newArrayList();
     }
 
     @Override 
     protected void configure() {
+        super.configure();
+        bind(Eventful.class).to(EventfulEventBus.class);
         bind(ServiceMonitor.class).in(Singleton.class);
+        bind(Application.class).to(ApplicationService.class).in(Singleton.class);
     }
     
     @Provides

@@ -12,14 +12,11 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.zookeeper.RequestExecutorService;
-import org.apache.zookeeper.Xid;
 import org.apache.zookeeper.Zxid;
-import org.apache.zookeeper.client.Client;
-import org.apache.zookeeper.protocol.client.PingSessionsTask;
 import org.apache.zookeeper.util.Application;
 import org.apache.zookeeper.util.ApplicationService;
 import org.apache.zookeeper.util.Arguments;
-import org.apache.zookeeper.util.Configuration;
+import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.EventfulEventBus;
 import org.apache.zookeeper.util.Main;
 import org.apache.zookeeper.util.ServiceMonitor;
@@ -63,18 +60,19 @@ public class ServerMain extends Main {
 
     @Override
     protected List<Module> modules() {
-        return Lists.<Module>newArrayList(
-                EventfulEventBus.EventfulModule.get(),
-                ApplicationService.ApplicationModule.get(),
-                DefaultSessionParametersPolicy.Module.get());
+        return Lists.<Module>newArrayList();
     }
 
     @Override 
     protected void configure() {
+        super.configure();
+        bind(Eventful.class).to(EventfulEventBus.class);
         bind(ServiceMonitor.class).in(Singleton.class);
         bind(ExpiringSessionManager.class).in(Singleton.class);
         bind(ExpireSessionsTask.class).in(Singleton.class);
+        bind(SessionParametersPolicy.class).to(DefaultSessionParametersPolicy.class);
         bind(RequestExecutorService.Factory.class).to(RequestExecutorFactory.class).in(Singleton.class);
+        bind(Application.class).to(ApplicationService.class).in(Singleton.class);
     }
     
     @Provides @Singleton

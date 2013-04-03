@@ -7,7 +7,6 @@ import org.apache.zookeeper.server.ServerConnectionGroup;
 import org.apache.zookeeper.server.ServerMain;
 import org.apache.zookeeper.netty.protocol.server.ChannelServerConnectionGroup;
 import org.apache.zookeeper.netty.protocol.server.ServerConnection;
-import org.apache.zookeeper.netty.server.NioServerBootstrapFactory.ServerBootstrapModule;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.ServiceMonitor;
 

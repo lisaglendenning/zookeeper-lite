@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
-import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
 
 public class ExpiringSessionManager extends SessionManager {
@@ -24,20 +23,6 @@ public class ExpiringSessionManager extends SessionManager {
             Eventful eventful,
             SessionParametersPolicy policy) {
         return new ExpiringSessionManager(eventful, policy);
-    }
-    
-    public static class Module extends AbstractModule {
-
-        public static Module get() {
-            return new Module();
-        }
-        
-        protected Module() {}
-    
-        @Override
-        protected void configure() {
-            bind(SessionManager.class).to(ExpiringSessionManager.class);
-        }
     }
     
     protected final Logger logger = LoggerFactory.getLogger(ExpiringSessionManager.class);

@@ -9,18 +9,13 @@ import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.apache.zookeeper.client.Client;
 import org.apache.zookeeper.util.Arguments;
 import org.apache.zookeeper.util.Configurable;
 import org.apache.zookeeper.util.ConfigurableSocketAddress;
 import org.apache.zookeeper.util.Configuration;
-import org.apache.zookeeper.util.Parameters;
-
 import com.google.common.collect.Maps;
 import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
