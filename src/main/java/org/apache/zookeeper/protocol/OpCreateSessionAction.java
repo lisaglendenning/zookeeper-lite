@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.Record;
+import org.apache.zookeeper.Session;
 import org.apache.zookeeper.proto.ConnectRequest;
 import org.apache.zookeeper.proto.ConnectResponse;
 
@@ -66,18 +67,22 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
             return new Response();
         }
 
-        public Response() {
-            super(createRecord());
-        }
-    
         public static Response create(ConnectResponse record, boolean readOnly,
                 boolean wraps) {
             return new Response(record, readOnly, wraps);
         }
     
+        public Response() {
+            super(createRecord());
+        }
+
         public Response(ConnectResponse record, boolean readOnly,
                 boolean wraps) {
             super(record, readOnly, wraps);
+        }
+        
+        public boolean isValid() {
+            return (record() != null && record().getSessionId() != Session.UNINITIALIZED_ID);
         }
         
         public Response setResponse(ConnectResponse response) {

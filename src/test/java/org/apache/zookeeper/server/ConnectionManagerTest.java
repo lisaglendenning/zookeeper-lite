@@ -2,6 +2,7 @@ package org.apache.zookeeper.server;
 
 import java.util.concurrent.ExecutorService;
 
+import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.netty.protocol.LocalModule;
 import org.apache.zookeeper.netty.protocol.server.ChannelServerConnectionGroup;
 import org.apache.zookeeper.util.EventfulEventBus;

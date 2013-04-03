@@ -9,6 +9,7 @@ import java.util.Set;
 import org.apache.zookeeper.Connection;
 import org.apache.zookeeper.ConnectionEventValue;
 import org.apache.zookeeper.ConnectionStateEvent;
+import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.protocol.OpCreateSessionAction;
@@ -27,12 +28,14 @@ import com.google.inject.Inject;
 public class ConnectionManager {
 
     protected class ConnectionHandler implements FutureCallback<Operation.Result> {
-        protected Connection connection;
+        protected final Connection connection;
         protected Session session;
+        protected RequestExecutorService executor;
         
         public ConnectionHandler(Connection connection) {
             this.connection = checkNotNull(connection);
             this.session = null;
+            this.executor = null;
             anonymousHandlers.add(this);
             connection.register(this);
         }
@@ -51,6 +54,7 @@ public class ConnectionManager {
                     if (sessionHandlers.get(session().id()) == this) {
                         sessionHandlers.remove(session().id());
                         connection().unregister(this);
+                        this.executor.unregister(this);
                     }
                 }
             } else {
@@ -98,7 +102,7 @@ public class ConnectionManager {
         
         @Subscribe
         public void handleEvent(Operation.Request event) throws InterruptedException {
-            logger.debug("Received request {} from {}", event, connection().remoteAddress());
+            logger.debug("Received {} from {}", event, connection().remoteAddress());
             Session session = session();
             ListenableFuture<Operation.Result> future;
             if (session != null) {
@@ -116,7 +120,7 @@ public class ConnectionManager {
 
         @Subscribe
         public void handleEvent(Operation.Response event) {
-            // Somehow notifications need to end up here?
+            // notifications are supposed to end up here
             Connection connection = connection();
             switch (connection.state()) {
             case OPENING:
@@ -133,24 +137,7 @@ public class ConnectionManager {
         @Override
         public void onSuccess(Operation.Result result) {
             if (result.operation() == Operation.CREATE_SESSION) {
-                long sessionId = ((OpCreateSessionAction.Response)result.response()).record().getSessionId();
-                if (sessionId != Session.UNINITIALIZED_ID) {
-                    this.session = sessions().get(sessionId);
-                    assert session != null;
-                    anonymousHandlers.remove(this);
-                    synchronized (sessionHandlers) {
-                        ConnectionHandler prev = sessionHandlers.remove(sessionId);
-                        if (prev != null) {
-                            prev.close();
-                        }
-                        sessionHandlers.put(sessionId, this);
-                    }
-                    logger.debug("Established session 0x{} with client {}", 
-                            sessionId, connection().remoteAddress());
-                } else {
-                    logger.debug("Invalid session request {} from client {}",
-                            result.request(), connection().remoteAddress());
-                }
+                onConnected((OpCreateSessionAction.Response)result.response());
             }
             handleEvent((Operation.Response)result);
         }
@@ -158,6 +145,26 @@ public class ConnectionManager {
         @Override
         public void onFailure(Throwable t) {
             close();
+        }
+        
+        protected void onConnected(OpCreateSessionAction.Response response) {
+            if (response.isValid()) {
+                anonymousHandlers.remove(this);
+                long sessionId = response.record().getSessionId();
+                this.session = sessions().get(sessionId);
+                assert session != null;
+                this.executor = executor().get(sessionId);
+                this.executor.register(this);
+                synchronized (sessionHandlers) {
+                    ConnectionHandler prev = sessionHandlers.remove(sessionId);
+                    if (prev != null) {
+                        prev.close();
+                    }
+                    sessionHandlers.put(sessionId, this);
+                }
+                logger.debug("Established session 0x{} with client {}", 
+                        sessionId, connection().remoteAddress());
+            }
         }
     }
 

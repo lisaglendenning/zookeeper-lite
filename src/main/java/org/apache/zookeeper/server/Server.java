@@ -1,5 +1,7 @@
 package org.apache.zookeeper.server;
 
+import org.apache.zookeeper.RequestExecutorService;
+
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.inject.Inject;
 

@@ -11,6 +11,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Xid;
 import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.client.Client;

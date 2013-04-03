@@ -128,6 +128,7 @@ public class SessionStateDecoder implements Processor<Operation.Request, Operati
         switch (response.operation()) {
         case AUTH:
         case PING:
+        case NOTIFICATION:
             return response;
         default:
             break;

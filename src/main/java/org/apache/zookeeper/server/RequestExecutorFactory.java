@@ -4,11 +4,13 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
+import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionStateEvent;
 import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.protocol.Operation;
 import org.apache.zookeeper.protocol.Operations;
+import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.FilteredProcessor;
 import org.apache.zookeeper.util.FilteredProcessors;
 import org.apache.zookeeper.util.OptionalProcessor;
@@ -20,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.inject.Inject;
+import com.google.inject.Provider;
 
 public class RequestExecutorFactory extends RequestExecutor implements RequestExecutorService, RequestExecutorService.Factory {
 
@@ -60,23 +63,27 @@ public class RequestExecutorFactory extends RequestExecutor implements RequestEx
     }
     
     protected final Logger logger = LoggerFactory.getLogger(RequestExecutorFactory.class);
+    protected final Provider<Eventful> eventfulFactory;
     protected final Map<Long, RequestExecutorService> executors;
     protected final Zxid zxid;
     protected final SessionManager sessions;
     
     @Inject
     public RequestExecutorFactory(
+            Provider<Eventful> eventfulFactory,
             ExecutorService executor, 
             Zxid zxid, SessionManager sessions) {
-        this(executor, zxid, sessions,
+        this(eventfulFactory, executor, zxid, sessions,
                 Collections.synchronizedMap(Maps.<Long, RequestExecutorService>newHashMap()));
     }
     
     protected RequestExecutorFactory(
+            Provider<Eventful> eventfulFactory,
             ExecutorService executor, 
             Zxid zxid, SessionManager sessions,
             Map<Long, RequestExecutorService> executors) {
-        super(executor, getMainProcessor(zxid, sessions));
+        super(eventfulFactory.get(), executor, getMainProcessor(zxid, sessions));
+        this.eventfulFactory = eventfulFactory;
         this.executors = executors;
         this.zxid = zxid;
         this.sessions = sessions;
@@ -113,7 +120,7 @@ public class RequestExecutorFactory extends RequestExecutor implements RequestEx
     }
     
     protected RequestExecutorService newExecutor(long sessionId) {
-        return RequestExecutor.create(executor(), getSessionProcessor(
+        return RequestExecutor.create(eventfulFactory.get(), executor(), getSessionProcessor(
                 zxid(), sessions(), sessionId));
     }
 
