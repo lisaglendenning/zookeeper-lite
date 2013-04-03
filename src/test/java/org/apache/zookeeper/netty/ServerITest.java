@@ -12,7 +12,6 @@ import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Session;
 import org.apache.zookeeper.Xid;
 import org.apache.zookeeper.Zxid;
-import org.apache.zookeeper.client.Client;
 import org.apache.zookeeper.client.ClientConnectionGroup;
 import org.apache.zookeeper.client.ClientSession;
 import org.apache.zookeeper.netty.protocol.client.ChannelClientConnectionGroup;
@@ -20,9 +19,7 @@ import org.apache.zookeeper.netty.protocol.client.ClientConnection;
 import org.apache.zookeeper.netty.protocol.server.ChannelServerConnectionGroup;
 import org.apache.zookeeper.netty.protocol.server.ServerConnection;
 import org.apache.zookeeper.protocol.Operation;
-import org.apache.zookeeper.protocol.client.PingSessionsTask;
 import org.apache.zookeeper.server.DefaultSessionParametersPolicy;
-import org.apache.zookeeper.server.ExpireSessionsTask;
 import org.apache.zookeeper.server.ExpiringSessionManager;
 import org.apache.zookeeper.server.RequestExecutorFactory;
 import org.apache.zookeeper.server.Server;
@@ -44,7 +41,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Guice;
@@ -155,21 +151,6 @@ public class ServerITest {
             return MoreExecutors.listeningDecorator(executor);
         }
     }
-    
-    public static class CallbackSink<T> implements FutureCallback<T> {
-
-        public T result;
-        
-        @Override
-        public void onFailure(Throwable t) {
-            throw new AssertionError(t);
-        }
-
-        @Override
-        public void onSuccess(T result) {
-            this.result = result;
-        }
-    }
 
     @BeforeClass
     public static void createInjector() {
@@ -200,6 +181,8 @@ public class ServerITest {
         result = clientSession.close().get();
         assertEquals(Operation.CLOSE_SESSION, result.operation());
         assertEquals(Session.State.CLOSED, clientSession.state());
+        assertEquals(0, Iterables.size(sessions));
+        
         
         monitor.stopAndWait();
     }

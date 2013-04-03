@@ -2,9 +2,7 @@ package org.apache.zookeeper.client;
 
 import static com.google.common.base.Preconditions.*;
 
-import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -13,10 +11,8 @@ import org.apache.zookeeper.ConnectionEventValue;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Session;
-import org.apache.zookeeper.SessionEventValue;
 import org.apache.zookeeper.SessionParameters;
 import org.apache.zookeeper.SessionState;
-import org.apache.zookeeper.SessionStateEvent;
 import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.proto.ConnectRequest;
 import org.apache.zookeeper.protocol.OpCallResult;
@@ -32,7 +28,6 @@ import org.apache.zookeeper.util.ForwardingEventful;
 import org.apache.zookeeper.util.Pair;
 import org.apache.zookeeper.util.SettableTask;
 
-import com.google.common.collect.Lists;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -216,11 +211,19 @@ public class ClientSession extends ForwardingEventful implements RequestExecutor
         
         switch (event.operation()) {
         case CREATE_SESSION:
-            onOpened((OpCreateSessionAction.Response)response);
+        {
+            OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response)response;
+            if (opResponse.isValid()) {
+                this.session = Session.create(opResponse);
+                state.set(Session.State.OPENED);
+            }
             break;
+        }
         case CLOSE_SESSION:
-            onClosed(response);
+        {
+            state.set(Session.State.CLOSED);
             break;
+        }
         default:
             break;
         }
@@ -243,23 +246,28 @@ public class ClientSession extends ForwardingEventful implements RequestExecutor
                 }
                 task = tasks.poll();
                 assert (task != null);
-                future.set(result);
+                
+                if (event.operation() == Operation.CREATE_SESSION) {
+                    OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response)response;
+                    if (opResponse.isValid()) {
+                        future.set(result);
+                    } else {
+                        future.setException(new KeeperException.SessionExpiredException());
+                    }
+                } else {
+                    future.set(result);
+                }
             }
         }
 
-        post(event);
-    }
-    
-    protected void onOpened(OpCreateSessionAction.Response response) {
-        if (response.isValid()) {
-            this.session = Session.create(response);
-            state.set(Session.State.OPENED);
-        } else {
-            throw new IllegalArgumentException(response.toString());
+        if (event.operation() == Operation.CLOSE_SESSION) {
+            Connection connection = this.connection;
+            disconnect();
+            if (connection != null) {
+                connection.close();
+            }
         }
-    }
-    
-    protected void onClosed(Operation.Response response) {
-        state.set(Session.State.CLOSED);
+        
+        post(event);
     }
 }
