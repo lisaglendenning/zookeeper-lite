@@ -38,29 +38,6 @@
 		        <artifactId>log4j</artifactId>
 		      </exclusion>
 		    </exclusions> 
-<!-- As long as we depend on zookeeper.jar I think we have to use log4j12! -->
-<!-- 	        <exclusions> -->
-<!--                 <exclusion> -->
-<!--                     <groupId>org.slf4j</groupId> -->
-<!--                     <artifactId>slf4j-log4j12</artifactId> -->
-<!--                 </exclusion> -->
-<!--                 <exclusion> -->
-<!--                     <groupId>log4j</groupId> -->
-<!--                     <artifactId>log4j</artifactId> -->
-<!--                 </exclusion> -->
-<!-- 	            <exclusion> -->
-<!-- 	                <groupId>com.sun.jmx</groupId> -->
-<!-- 	                <artifactId>jmxri</artifactId> -->
-<!-- 	            </exclusion> -->
-<!-- 	            <exclusion> -->
-<!-- 	                <groupId>com.sun.jdmk</groupId> -->
-<!-- 	                <artifactId>jmxtools</artifactId> -->
-<!-- 	            </exclusion> -->
-<!-- 	            <exclusion> -->
-<!-- 	                <groupId>javax.jms</groupId> -->
-<!-- 	                <artifactId>jms</artifactId> -->
-<!-- 	            </exclusion> -->
-<!-- 	        </exclusions> -->
 		</dependency>
 	    <dependency>
             <groupId>com.google.guava</groupId>
@@ -92,18 +69,6 @@
 			<version>LATEST</version>
 			<scope>compile</scope>
 		</dependency>
-<!--         <dependency> -->
-<!--             <groupId>org.slf4j</groupId> -->
-<!--             <artifactId>slf4j-log4j12</artifactId> -->
-<!--             <version>LATEST</version> -->
-<!--             <scope>test</scope> -->
-<!--         </dependency> -->
-<!--         <dependency> -->
-<!--             <groupId>log4j</groupId> -->
-<!--             <artifactId>log4j</artifactId> -->
-<!--             <version>LATEST</version> -->
-<!--             <scope>test</scope> -->
-<!--         </dependency>   -->
 		<dependency>
 			<groupId>org.apache.logging.log4j.adapters</groupId>
 			<artifactId>log4j-slf4j-impl</artifactId>
