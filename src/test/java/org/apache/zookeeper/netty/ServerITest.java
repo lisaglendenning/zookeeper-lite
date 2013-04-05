@@ -15,7 +15,6 @@ import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.Xid;
 import org.apache.zookeeper.Zxid;
-import org.apache.zookeeper.client.Client;
 import org.apache.zookeeper.client.ClientConnectionGroup;
 import org.apache.zookeeper.client.ClientSessionConnection;
 import org.apache.zookeeper.data.Operation;
@@ -60,7 +59,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
-import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
@@ -90,29 +88,27 @@ public class ServerITest {
             super.configure();
             
             // utilities
+            bind(Executor.class).to(ExecutorService.class).in(Singleton.class);
             bind(Arguments.class).to(SimpleArguments.class).in(Singleton.class);
             bind(Configuration.class).to(SettableConfiguration.class).in(Singleton.class);
             bind(Eventful.class).to(EventfulEventBus.class);
             bind(ServiceMonitor.class).in(Singleton.class);
             
             // server
+            bind(Zxid.class).in(Singleton.class);
             bind(SessionParametersPolicy.class).to(DefaultSessionParametersPolicy.class).in(Singleton.class);
             bind(ExpiringSessionManager.class).in(Singleton.class);
             bind(SessionManager.class).to(ExpiringSessionManager.class).in(Singleton.class);
             bind(ChannelServerConnectionGroup.class).in(Singleton.class);
             bind(RequestExecutorService.Factory.class).to(RequestExecutor.Factory.class).in(Singleton.class);
+            bind(ServerConnection.Factory.class).in(Singleton.class);
             bind(Server.class).in(Singleton.class);
 
             // client
+            bind(Xid.class).in(Singleton.class);
             bind(ChannelClientConnectionGroup.class).in(Singleton.class);
+            bind(ClientConnection.Factory.class).in(Singleton.class);
             bind(ClientSessionConnection.Factory.class).in(Singleton.class);
-            bind(Client.Factory.class).in(Singleton.class);
-            bind(Client.class).toProvider(Client.Factory.class);
-        }
-
-        @Provides @Singleton
-        public Zxid zxid() {
-            return Zxid.create();
         }
 
         @Provides @Singleton
@@ -122,34 +118,14 @@ public class ServerITest {
         }
 
         @Provides @Singleton
-        protected ServerConnection.Factory getServerConnectionFactory(Provider<Eventful> eventfulFactory, Zxid zxid) {
-            return ServerConnection.Factory.get(eventfulFactory, zxid);
-        }
-
-        @Provides @Singleton
-        public Xid xid() {
-            return Xid.create();
-        }
-        
-        @Provides @Singleton
         protected ClientConnectionGroup getClientConnectionGroup(ChannelClientConnectionGroup group, ServiceMonitor monitor) {
             monitor.add(group);
             return group;
         }
 
         @Provides @Singleton
-        protected ClientConnection.Factory getClientConnectionFactory(Provider<Eventful> eventfulFactory, Xid xid) {
-            return ClientConnection.Factory.get(eventfulFactory, xid);
-        }
-        
-        @Provides @Singleton
         public ScheduledExecutorService scheduledExecutorService() {
             return Executors.newSingleThreadScheduledExecutor();
-        }
-
-        @Provides @Singleton
-        public Executor getExecutor(ExecutorService executor) {
-            return executor;
         }
 
         @Provides @Singleton

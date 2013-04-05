@@ -66,18 +66,22 @@ public class ServerMain extends Main {
     @Override 
     protected void configure() {
         super.configure();
+        bind(ThreadFactory.class).to(VerboseThreadFactory.class).in(Singleton.class);
+        bind(Executor.class).to(ExecutorService.class).in(Singleton.class);
         bind(Eventful.class).to(EventfulEventBus.class);
         bind(ServiceMonitor.class).in(Singleton.class);
+        bind(Zxid.class).in(Singleton.class);
         bind(ExpiringSessionManager.class).in(Singleton.class);
         bind(ExpireSessionsTask.class).in(Singleton.class);
         bind(SessionParametersPolicy.class).to(DefaultSessionParametersPolicy.class);
         bind(RequestExecutorService.Factory.class).to(RequestExecutor.Factory.class).in(Singleton.class);
         bind(Application.class).to(ApplicationService.class).in(Singleton.class);
+        //bind(ExpireSessionsTask.class).asEagerSingleton();
     }
     
     @Provides @Singleton
     public SessionManager getSessionManager(ExpiringSessionManager manager,
-            ExpireSessionsTask task,
+    		ExpireSessionsTask task,
             ServiceMonitor monitor) {
         monitor.add(task);
         return manager;
@@ -89,11 +93,6 @@ public class ServerMain extends Main {
         return monitor;
     }
 
-    @Provides @Singleton
-    public Zxid zxid() {
-        return Zxid.create();
-    }
-    
     @Provides @Singleton
     public ExecutorService executorService(ThreadFactory threads) {
         int corePoolSize = 4;
@@ -116,17 +115,7 @@ public class ServerMain extends Main {
     }
 
     @Provides @Singleton
-    public Executor executor(ExecutorService executor) {
-        return executor;
-    }
-
-    @Provides @Singleton
     public ListeningExecutorService listeningExecutorService(ExecutorService executor) {
         return MoreExecutors.listeningDecorator(executor);
-    }
-    
-    @Provides @Singleton
-    public ThreadFactory threadFactory() {
-        return new VerboseThreadFactory();
     }
 }

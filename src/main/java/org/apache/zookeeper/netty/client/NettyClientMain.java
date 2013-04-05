@@ -2,14 +2,11 @@ package org.apache.zookeeper.netty.client;
 
 import java.util.List;
 
-import org.apache.zookeeper.Xid;
 import org.apache.zookeeper.client.ClientConnectionGroup;
 import org.apache.zookeeper.client.ClientMain;
-import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.ServiceMonitor;
 
 import com.google.inject.Module;
-import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
@@ -30,6 +27,7 @@ public class NettyClientMain extends ClientMain {
     protected void configure() {
         super.configure();
         bind(ChannelClientConnectionGroup.class).in(Singleton.class);
+        bind(ClientConnection.Factory.class).in(Singleton.class);
     }
     
     @Provides @Singleton
@@ -38,11 +36,6 @@ public class NettyClientMain extends ClientMain {
         return group;
     }
 
-    @Provides @Singleton
-    protected ClientConnection.Factory getClientConnectionFactory(Provider<Eventful> eventfulFactory, Xid xid) {
-        return ClientConnection.Factory.get(eventfulFactory, xid);
-    }
-    
     @Override
     protected List<Module> modules() {
         List<Module> modules = super.modules();

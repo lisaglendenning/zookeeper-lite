@@ -32,25 +32,23 @@ public class ChannelClientConnectionGroup extends ChannelConnectionGroup impleme
     }
     
     protected class ConnectListener implements ChannelFutureListener {
-        protected SocketAddress remoteAddress;
-        
-        public ConnectListener(SocketAddress remoteAddress) {
-            this.remoteAddress = remoteAddress;
+    	protected SettableFuture<Connection> promise;
+    	
+        public ConnectListener(SettableFuture<Connection> promise) {
+            this.promise = promise;
         }
         
         // called when connect() completes
         @Override
         public void operationComplete(ChannelFuture future) throws Exception {
-            SettableFuture<Connection> connectFuture = connectFutures.remove(remoteAddress);
-            assert (connectFuture != null);
             if (future.isSuccess()) {
                 ChannelConnection connection = ChannelClientConnectionGroup.super.add(future.channel());
-                connectFuture.set(connection);
+                promise.set(connection);
             } else {
                 if (future.isCancelled()) {
-                    connectFuture.cancel(true);
+                    promise.cancel(true);
                 } else {
-                    connectFuture.setException(future.cause());
+                    promise.setException(future.cause());
                 }
             }
         }
@@ -76,12 +74,9 @@ public class ChannelClientConnectionGroup extends ChannelConnectionGroup impleme
     
     @Override
     public ListenableFuture<Connection> connect(SocketAddress remoteAddress) {
-        SettableFuture<Connection> future = connectFutures.putIfAbsent(remoteAddress, SettableFuture.<Connection>create());
-        if (future == null) {
-        	future = connectFutures.get(remoteAddress);
-        	ChannelFuture channelFuture = bootstrap().connect(remoteAddress);
-        	channelFuture.addListener(new ConnectListener(remoteAddress));
-        }
+        SettableFuture<Connection> future = SettableFuture.create();
+    	ChannelFuture channelFuture = bootstrap().connect(remoteAddress);
+    	channelFuture.addListener(new ConnectListener(future));
         return future;
     }
 

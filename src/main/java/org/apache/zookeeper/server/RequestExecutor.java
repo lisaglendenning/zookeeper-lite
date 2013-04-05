@@ -34,12 +34,16 @@ import com.google.inject.Provider;
 
 public class RequestExecutor extends ForwardingEventful implements RequestExecutorService, Callable<ListenableFuture<Operation.Result>> {
 
-    public static RequestExecutorService create(Eventful eventful, ExecutorService executor, Processor<Operation.Request, Operation.Result> processor) {
-        return new RequestExecutor(eventful, executor, processor);
-    }
-    
     public static class Factory implements RequestExecutorService.Factory {
 
+    	public static Factory create(
+    			Provider<Eventful> eventfulFactory,
+    			ExecutorService executor,
+    			SessionManager sessions,
+    			Zxid zxid) {
+    		return new Factory(eventfulFactory, executor, sessions, zxid);
+    	}
+    	
         protected final Map<Long, RequestExecutorService> executors;
     	protected final Provider<Eventful> eventfulFactory;
     	protected final ExecutorService executor;
@@ -183,6 +187,10 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
         }
         
     }
+
+    public static RequestExecutorService create(Eventful eventful, ExecutorService executor, Processor<Operation.Request, Operation.Result> processor) {
+        return new RequestExecutor(eventful, executor, processor);
+    }
     
     protected final Logger logger = LoggerFactory.getLogger(RequestExecutor.class);
     protected final BlockingQueue<SettableTask<Operation.Request, Operation.Result>> requests;
@@ -190,11 +198,23 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
     protected final ExecutorService executor;
 
     @Inject
-    public RequestExecutor(Eventful eventful, ExecutorService executor, Processor<Operation.Request, Operation.Result> processor) {
+    public RequestExecutor(
+    		Eventful eventful,
+    		ExecutorService executor,
+    		Processor<Operation.Request, Operation.Result> processor) {
+        this(eventful, executor, processor,
+        		new LinkedBlockingQueue<SettableTask<Operation.Request, Operation.Result>>());
+    }
+    
+    protected RequestExecutor(
+    		Eventful eventful,
+    		ExecutorService executor,
+    		Processor<Operation.Request, Operation.Result> processor,
+    		BlockingQueue<SettableTask<Operation.Request, Operation.Result>> requests) {
         super(eventful);
-        this.requests = new LinkedBlockingQueue<SettableTask<Operation.Request, Operation.Result>>();
         this.executor = executor;
         this.processor = processor;
+    	this.requests = requests;
     }
     
     protected ExecutorService executor() {
@@ -212,9 +232,9 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
     @Override
     public ListenableFuture<Operation.Result> submit(Operation.Request request) {
         logger.debug("Submitting request {}", request);
-        SettableTask<Operation.Request, Operation.Result> task = SettableTask.create(request);
+        SettableTask<Operation.Request, Operation.Result> task = newTask(request);
         requests().add(task);
-        executor().submit(this);
+        schedule();
         return task.future();
     }
     
@@ -233,5 +253,13 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
         } else {
             return null;
         }
+    }
+    
+    protected SettableTask<Operation.Request, Operation.Result> newTask(Operation.Request request) {
+    	return SettableTask.create(request);
+    }
+    
+    protected void schedule() {
+        executor().submit(this);
     }
 }

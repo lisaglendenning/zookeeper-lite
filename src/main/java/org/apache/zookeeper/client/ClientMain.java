@@ -11,8 +11,8 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.zookeeper.Connection;
 import org.apache.zookeeper.Xid;
-import org.apache.zookeeper.client.Client;
 import org.apache.zookeeper.protocol.client.PingSessionsTask;
 import org.apache.zookeeper.util.Application;
 import org.apache.zookeeper.util.ApplicationService;
@@ -67,25 +67,27 @@ public class ClientMain extends Main {
     @Override 
     protected void configure() {
         super.configure();
+        bind(ThreadFactory.class).to(VerboseThreadFactory.class).in(Singleton.class);
+        bind(Executor.class).to(ExecutorService.class).in(Singleton.class);
         bind(Eventful.class).to(EventfulEventBus.class);
         bind(ServiceMonitor.class).in(Singleton.class);
-        bind(Application.class).to(ApplicationService.class).in(Singleton.class);
-        bind(ClientSessionConnection.Factory.class).in(Singleton.class);
-        bind(Client.Factory.class).in(Singleton.class);
-        bind(Client.class).toProvider(Client.Factory.class).in(Singleton.class);
-    }
-
-    @Provides @Singleton
-    public Service getService(Client client, PingSessionsTask pinging, ServiceMonitor monitor) {
-        monitor.add(client);
-        return monitor;
-    }
-
-    @Provides @Singleton
-    public Xid xid() {
-        return Xid.create();
+        bind(ApplicationService.class).in(Singleton.class);
+        bind(Application.class).to(ApplicationService.class);
+        bind(Xid.class).in(Singleton.class);
+        bind(SingleClientConnectionFactory.class).in(Singleton.class);
+        bind(ClientSessionConnection.ConnectionFactory.class).in(Singleton.class);
+        bind(Connection.class).toProvider(SingleClientConnectionFactory.class);
+        bind(ClientSessionConnection.class).toProvider(ClientSessionConnection.ConnectionFactory.class);
+        bind(ClientSessionConnectionService.class).in(Singleton.class);
+        bind(PingSessionsTask.class).asEagerSingleton();
     }
     
+    @Provides @Singleton
+    public Service getService(ClientSessionConnectionService service, ServiceMonitor monitor) {
+    	monitor.add(service);
+    	return monitor;
+    }
+
     @Provides @Singleton
     public ExecutorService executorService(ThreadFactory threads) {
         int corePoolSize = 4;
@@ -108,17 +110,7 @@ public class ClientMain extends Main {
     }
 
     @Provides @Singleton
-    public Executor executor(ExecutorService executor) {
-        return executor;
-    }
-
-    @Provides @Singleton
     public ListeningExecutorService listeningExecutorService(ExecutorService executor) {
         return MoreExecutors.listeningDecorator(executor);
-    }
-    
-    @Provides @Singleton
-    public ThreadFactory threadFactory() {
-        return new VerboseThreadFactory();
     }
 }

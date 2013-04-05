@@ -41,6 +41,12 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
 
     public static class Factory {
 
+    	public static Factory create(
+        		Configuration configuration,
+                Provider<Eventful> eventfulFactory) {
+    		return new Factory(configuration, eventfulFactory);
+    	}
+    	
         public static final String PARAM_KEY_TIMEOUT = "Client.Timeout";
         public static final int PARAM_DEFAULT_TIMEOUT = 60;
         public static final String PARAM_KEY_TIMEOUT_UNIT = "Client.TimeoutUnit";
@@ -51,7 +57,8 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
         protected Provider<Eventful> eventfulFactory;
         
         @Inject
-        public Factory(Configuration configuration,
+        protected Factory(
+        		Configuration configuration,
                 Provider<Eventful> eventfulFactory) {
             this.configuration = configuration;
             this.eventfulFactory = eventfulFactory;
@@ -63,6 +70,31 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
         
         public ClientSessionConnection get(Connection connection) {
             return ClientSessionConnection.create(connection, eventfulFactory, timeOut);
+        }
+    }
+    
+    public static class ConnectionFactory extends Factory implements Provider<ClientSessionConnection> {
+
+    	public static ConnectionFactory create(
+        		Configuration configuration,
+                Provider<Eventful> eventfulFactory,
+                Provider<Connection> connectionFactory) {
+    		return new ConnectionFactory(configuration, eventfulFactory, connectionFactory);
+    	}
+    	
+    	protected final Provider<Connection> connectionFactory;
+    	
+    	@Inject
+		protected ConnectionFactory(Configuration configuration,
+                Provider<Eventful> eventfulFactory,
+                Provider<Connection> connectionFactory) {
+	        super(configuration, eventfulFactory);
+	        this.connectionFactory = connectionFactory;
+        }
+
+		@Override
+        public ClientSessionConnection get() {
+	        return get(connectionFactory.get());
         }
     }
     
