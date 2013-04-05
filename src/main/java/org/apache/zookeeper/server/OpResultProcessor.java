@@ -1,6 +1,5 @@
 package org.apache.zookeeper.server;
 
-import org.apache.zookeeper.data.OpCallResult;
 import org.apache.zookeeper.data.OpResult;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.Processor;
@@ -19,14 +18,8 @@ public class OpResultProcessor implements Processor<Operation.Request, Operation
     
     @Override
     public Operation.Result apply(Operation.Request request) throws Exception {
-        Operation.Result result;
         Operation.Response response = processor.apply(request);
-        if (request instanceof Operation.CallRequest && response instanceof Operation.CallResponse) {
-            result = OpCallResult.create((Operation.CallRequest)request, 
-                    (Operation.CallResponse) response);
-        } else {
-            result = OpResult.create(request, response);
-        }
+    	Operation.Result result = OpResult.create(request, response);
         return result;
     }
 }

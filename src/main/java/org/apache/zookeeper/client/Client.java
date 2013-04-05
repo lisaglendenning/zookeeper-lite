@@ -1,10 +1,15 @@
 package org.apache.zookeeper.client;
 
+import java.net.SocketAddress;
+
 import org.apache.zookeeper.Connection;
 import org.apache.zookeeper.util.Arguments;
 import org.apache.zookeeper.util.Configurable;
 import org.apache.zookeeper.util.ConfigurableSocketAddress;
 import org.apache.zookeeper.util.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -59,8 +64,9 @@ public class Client extends AbstractIdleService implements Configurable {
     public static final String PARAM_KEY_ADDRESS = "Client.Address";
     public static final String PARAM_DEFAULT_ADDRESS = "localhost";
     public static final String PARAM_KEY_PORT = "Client.Port";
-    public static final int PARAM_DEFAULT_PORT = 2180;
+    public static final int PARAM_DEFAULT_PORT = 2181;
     
+    protected final Logger logger = LoggerFactory.getLogger(Client.class);
     protected final ConfigurableSocketAddress address;
     protected final ClientConnectionGroup connections;
     protected final ClientSessionConnection.Factory sessionFactory;
@@ -95,7 +101,9 @@ public class Client extends AbstractIdleService implements Configurable {
 
     @Override
     protected void startUp() throws Exception {
-        Connection connection = connections.connect(address.socketAddress()).get();
+    	SocketAddress server = address.socketAddress();
+    	logger.debug("Connecting to {}", server);
+        Connection connection = connections.connect(server).get();
         this.session = sessionFactory.get(connection);
         session.connect().get();
     }

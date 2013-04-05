@@ -69,6 +69,7 @@ public class ChannelServerConnectionGroup extends ChannelConnectionGroup impleme
         serverChannel = (ServerChannel) serverBootstrap()
                 .childHandler(new ChildInitializer())
                 .bind().sync().channel();
+        logger.info("Listening on {}", serverChannel.localAddress());
         serverChannel().closeFuture().addListener(new CloseListener());
         super.startUp();
     }

@@ -13,5 +13,5 @@ public interface RequestExecutorService extends Eventful {
         RequestExecutorService get(long sessionId);
     }
     
-    ListenableFuture<Operation.Result> submit(Operation.Request request) throws InterruptedException;
+    ListenableFuture<Operation.Result> submit(Operation.Request request);
 }
