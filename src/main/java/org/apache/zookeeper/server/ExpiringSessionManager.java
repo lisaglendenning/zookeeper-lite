@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionParameters;
-import org.apache.zookeeper.SessionStateEvent;
+import org.apache.zookeeper.event.SessionStateEvent;
 import org.apache.zookeeper.util.Eventful;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,7 +79,7 @@ public class ExpiringSessionManager extends SessionManager {
             if (logger.isDebugEnabled()) {
                 logger.debug("Expiring session {}", session);
             }
-            post(SessionStateEvent.create(session, Session.State.EXPIRED));
+            post(SessionStateEvent.create(session, Session.State.SESSION_EXPIRED));
         }
     }
     
@@ -121,10 +121,10 @@ public class ExpiringSessionManager extends SessionManager {
     public void handleSessionStateEvent(SessionStateEvent event) {
         Session session = event.session();
         switch(event.event()) {
-        case OPENED:
+        case SESSION_OPENED:
             touch(session.id());
             break;
-        case CLOSED:
+        case SESSION_CLOSED:
             touches.remove(session.id());
             break;
         default:

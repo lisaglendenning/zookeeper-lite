@@ -3,12 +3,11 @@ package org.apache.zookeeper.protocol.client;
 import java.io.IOException;
 import java.io.InputStream;
 
-import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.SessionConnectionState;
-import org.apache.zookeeper.protocol.OpCreateSessionAction;
-import org.apache.zookeeper.protocol.Operation;
-import org.apache.zookeeper.protocol.Operations;
+import org.apache.zookeeper.data.OpCreateSessionAction;
+import org.apache.zookeeper.data.Operation;
+import org.apache.zookeeper.data.Operations;
 import com.google.common.base.Function;
 
 public class SessionStateResponseDecoder {
@@ -36,6 +35,19 @@ public class SessionStateResponseDecoder {
             }
         };
 
+    	public static StateDecoder get(SessionConnection.State state) {
+            switch (state) {
+            case ANONYMOUS:
+            case CONNECTING:
+                return CONNECTING;
+            case CONNECTED:
+            case DISCONNECTING:
+                return CONNECTED;
+            default:
+                throw new IllegalArgumentException();
+            }
+    	}
+    	
         public abstract SessionConnection.State state();
         
         public abstract Operation.Response decode(Function<Integer, Operation> xidToOp, InputStream stream) throws IOException;
@@ -56,20 +68,7 @@ public class SessionStateResponseDecoder {
     }
 
     public Operation.Response decode(Function<Integer, Operation> xidToOp, InputStream stream) throws IOException {
-        StateDecoder decoder;
-        switch (state.get()) {
-        case ANONYMOUS:
-        case CONNECTING:
-            decoder = StateDecoder.CONNECTING;
-            break;
-        case CONNECTED:
-        case CLOSING:
-            decoder = StateDecoder.CONNECTED;
-            break;
-        default:
-            throw new IllegalStateException();
-        }
-        
+        StateDecoder decoder = StateDecoder.get(state.get());
         Operation.Response response = decoder.decode(xidToOp, stream);
         
         switch (response.operation()) {
@@ -79,14 +78,14 @@ public class SessionStateResponseDecoder {
             // this means "invalid request" and the server will now
             // close the connection without sending anything else
             OpCreateSessionAction.Response createResponse = (OpCreateSessionAction.Response)response;
-            if (createResponse.record().getSessionId() == Session.UNINITIALIZED_ID) {
-                state.set(SessionConnection.State.ERROR);
-            } else {
+            if (createResponse.isValid()) {
                 state.set(SessionConnection.State.CONNECTED);
+            } else {
+                state.set(SessionConnection.State.ERROR);
             }
             break;
         case CLOSE_SESSION:
-            state.set(SessionConnection.State.CLOSED);
+            state.set(SessionConnection.State.DISCONNECTED);
             break;
         default:
             break;

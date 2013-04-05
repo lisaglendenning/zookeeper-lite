@@ -3,9 +3,9 @@ package org.apache.zookeeper.netty.protocol.client;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import org.apache.zookeeper.data.Operation;
+import org.apache.zookeeper.data.Operation.CallRequest;
 import org.apache.zookeeper.protocol.Encodable;
-import org.apache.zookeeper.protocol.Operation;
-import org.apache.zookeeper.protocol.Operation.CallRequest;
 import org.apache.zookeeper.protocol.client.OpCallRequestEncoder;
 
 import io.netty.channel.ChannelHandler;

@@ -6,10 +6,10 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionParameters;
+import org.apache.zookeeper.data.OpCreateSessionAction;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.proto.ConnectRequest;
 import org.apache.zookeeper.proto.ConnectResponse;
-import org.apache.zookeeper.protocol.OpCreateSessionAction;
-import org.apache.zookeeper.protocol.Operation;
 import org.apache.zookeeper.protocol.Records;
 import org.apache.zookeeper.util.FilteredProcessor;
 import org.apache.zookeeper.util.FilteringProcessor;

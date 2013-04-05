@@ -4,7 +4,7 @@ import org.apache.zookeeper.util.AutomataState;
 
 
 // TODO
-public class SessionConnection {
+public interface SessionConnection {
 
     public static enum State implements AutomataState<State> {
         ANONYMOUS {
@@ -24,16 +24,16 @@ public class SessionConnection {
             @Override
             public boolean validTransition(State nextState) {
                 return super.validTransition(nextState)
-                        || CLOSING.validTransition(nextState);
+                        || DISCONNECTING.validTransition(nextState);
             }
-        }, CLOSING {
+        }, DISCONNECTING {
             @Override
             public boolean validTransition(State nextState) {
                 return super.validTransition(nextState)
-                        || CLOSED.validTransition(nextState)
+                        || DISCONNECTED.validTransition(nextState)
                         || ERROR.validTransition(nextState);
             }
-        }, CLOSED {
+        }, DISCONNECTED {
             @Override
             public boolean isTerminal() {
                 return true;
@@ -50,13 +50,11 @@ public class SessionConnection {
             return false;
         }
         
-        public State initial() {
-            return ANONYMOUS;
-        }
-        
         @Override
         public boolean validTransition(State nextState) {
             return (this == nextState);
         }
     }
+    
+    State state();
 }

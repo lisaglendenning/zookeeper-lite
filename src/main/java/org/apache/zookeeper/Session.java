@@ -2,7 +2,7 @@ package org.apache.zookeeper;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.apache.zookeeper.protocol.OpCreateSessionAction;
+import org.apache.zookeeper.data.OpCreateSessionAction;
 import org.apache.zookeeper.util.AutomataState;
 
 import com.google.common.base.Objects;
@@ -10,33 +10,24 @@ import com.google.common.base.Objects;
 public class Session {
     
     public static final long UNINITIALIZED_ID = 0;
+    public static final Session UNINITIALIZED = new Session();
 
     public static enum State implements AutomataState<State> {
-        OPENING {},
-        OPENED {}, 
-        CLOSED {
-            @Override
-            public boolean isTerminal() {
-                return true;
-            }
-        }, 
-        EXPIRED {
-            @Override
-            public boolean isTerminal() {
-                return true;
-            }
-        };
+    	SESSION_UNINITIALIZED {},
+        SESSION_OPENED {}, 
+        SESSION_EXPIRED {},
+        SESSION_CLOSED {};
         
         @Override
         public boolean isTerminal() {
-            return false;
+            switch (this) {
+            case SESSION_CLOSED:
+            	return true;
+        	default:
+        		return false;
+            }
         }
 
-        @Override
-        public State initial() {
-            return OPENING;
-        }
-        
         @Override
         public boolean validTransition(State nextState) {
             checkNotNull(nextState);
@@ -45,14 +36,17 @@ public class Session {
                 valid = true;
             } else {
                 switch (this) {
-                case OPENING:
-                    valid = true;
+                case SESSION_UNINITIALIZED:
+                    valid = (nextState == SESSION_OPENED);
                     break;
-                case OPENED:
-                    valid = (nextState != OPENING);
+                case SESSION_OPENED:
+                    valid = (nextState != SESSION_UNINITIALIZED);
                     break;
-                case CLOSED:
-                    valid = (nextState == EXPIRED);
+                case SESSION_EXPIRED:
+                    valid = (nextState == SESSION_CLOSED);
+                    break;
+                case SESSION_CLOSED:
+                    valid = false;
                     break;
                 default:
                     break;
@@ -66,7 +60,7 @@ public class Session {
     protected final SessionParameters parameters;
     
     public static Session create() {
-        return new Session();
+        return UNINITIALIZED;
     }
 
     public static Session create(OpCreateSessionAction.Response message) {
@@ -89,6 +83,10 @@ public class Session {
     
     public long id() {
         return id;
+    }
+    
+    public boolean initialized() {
+    	return id() != UNINITIALIZED_ID;
     }
 
     public SessionParameters parameters() {

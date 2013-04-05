@@ -6,7 +6,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.zookeeper.RequestExecutorService;
-import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.ForwardingEventful;
 import org.apache.zookeeper.util.Pair;

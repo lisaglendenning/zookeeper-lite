@@ -8,10 +8,10 @@ import javax.annotation.Nullable;
 
 import org.apache.zookeeper.SessionConnectionState;
 import org.apache.zookeeper.Xid;
+import org.apache.zookeeper.data.OpCallResult;
+import org.apache.zookeeper.data.OpResult;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.protocol.Decoder;
-import org.apache.zookeeper.protocol.OpCallResult;
-import org.apache.zookeeper.protocol.OpResult;
-import org.apache.zookeeper.protocol.Operation;
 import org.apache.zookeeper.util.ProcessorChain;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.Processor;

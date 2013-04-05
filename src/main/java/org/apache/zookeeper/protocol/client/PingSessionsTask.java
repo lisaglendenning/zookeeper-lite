@@ -7,12 +7,12 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.zookeeper.Connection;
-import org.apache.zookeeper.ConnectionEventValue;
-import org.apache.zookeeper.ConnectionStateEvent;
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.client.ClientConnectionGroup;
-import org.apache.zookeeper.protocol.OpPingAction;
-import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.data.OpPingAction;
+import org.apache.zookeeper.data.Operation;
+import org.apache.zookeeper.event.ConnectionEventValue;
+import org.apache.zookeeper.event.ConnectionStateEvent;
 import org.apache.zookeeper.util.Configurable;
 import org.apache.zookeeper.util.ConfigurableTime;
 import org.apache.zookeeper.util.Configuration;
@@ -58,11 +58,11 @@ public class PingSessionsTask implements Configurable {
                 logger.trace("PING: {}", lastPing);
             }
             switch (connection.state()) {
-            case OPENED:
+            case CONNECTION_OPENED:
                 connection.send(lastPing);
                 break;
-            case CLOSING:
-            case CLOSED:
+            case CONNECTION_CLOSING:
+            case CONNECTION_CLOSED:
                 stop();
                 break;
             default:
@@ -81,8 +81,8 @@ public class PingSessionsTask implements Configurable {
         @Subscribe
         public void handleConnectionStateEvent(ConnectionStateEvent event) {
             switch(event.event()) {
-            case CLOSING:
-            case CLOSED:
+            case CONNECTION_CLOSING:
+            case CONNECTION_CLOSED:
                 stop();
                 break;
             default:
@@ -133,8 +133,8 @@ public class PingSessionsTask implements Configurable {
             case CONNECTED:
                 start();
                 break;
-            case CLOSING:
-            case CLOSED:
+            case DISCONNECTING:
+            case DISCONNECTED:
             case ERROR:    
                 stop();
                 break;

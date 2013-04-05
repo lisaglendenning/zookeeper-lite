@@ -1,6 +1,6 @@
 package org.apache.zookeeper;
 
-import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.Eventful;
 
 import com.google.common.util.concurrent.ListenableFuture;

@@ -5,8 +5,8 @@ import java.io.InputStream;
 
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.SessionConnectionState;
-import org.apache.zookeeper.protocol.Operation;
-import org.apache.zookeeper.protocol.Operations;
+import org.apache.zookeeper.data.Operation;
+import org.apache.zookeeper.data.Operations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,7 +84,7 @@ public class SessionStateRequestDecoder {
             state.set(SessionConnection.State.CONNECTING);
             break;
         case CLOSE_SESSION:
-            state.set(SessionConnection.State.CLOSING);
+            state.set(SessionConnection.State.DISCONNECTING);
             break;
         default:
             break;

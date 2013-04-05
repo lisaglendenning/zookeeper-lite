@@ -4,8 +4,8 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.zookeeper.data.OpCreateSessionAction;
 import org.apache.zookeeper.proto.ConnectResponse;
-import org.apache.zookeeper.protocol.OpCreateSessionAction;
 
 import com.google.common.base.Objects;
 
@@ -81,13 +81,15 @@ public class SessionParameters {
         } else if (password.length == 0) {
             passwordStr = "";
         } else {
-            BigInteger bi = new BigInteger(1, password);
-            passwordStr = String.format("%0" + (password.length << 1) + "X", bi);
+        	// just output a hash
+        	passwordStr = String.format("0x%08X", password.hashCode());
+            //BigInteger bi = new BigInteger(1, password);
+            //passwordStr = String.format("0x%0" + (password.length << 1) + "X", bi);
         }
         return Objects.toStringHelper(this)
                 .add("password", passwordStr)
                 .add("timeOut", timeOut())
-                .add("timeOutUnit", timeOutUnit())
+                .add("timeOutUnit", timeOutUnit().name())
                 .toString();
     }
 

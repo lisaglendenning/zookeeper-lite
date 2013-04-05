@@ -7,8 +7,8 @@ import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.util.ProcessorChain;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.Processor;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.protocol.Decoder;
-import org.apache.zookeeper.protocol.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

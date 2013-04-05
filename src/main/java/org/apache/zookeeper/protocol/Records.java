@@ -15,6 +15,7 @@ import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.MultiResponse;
 import org.apache.zookeeper.MultiTransactionRecord;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.proto.*;
 
 import com.google.common.base.Objects;

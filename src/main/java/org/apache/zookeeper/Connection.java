@@ -10,25 +10,25 @@ import com.google.common.util.concurrent.ListenableFuture;
 public interface Connection extends Eventful {
     
     public static enum State implements AutomataState<State> {
-        OPENING {
+        CONNECTION_OPENING {
             @Override
             public boolean validTransition(State nextState) {
                 return super.validTransition(nextState)
-                        || OPENED.validTransition(nextState);
+                        || CONNECTION_OPENED.validTransition(nextState);
             }
-        }, OPENED {
+        }, CONNECTION_OPENED {
             @Override
             public boolean validTransition(State nextState) {
                 return super.validTransition(nextState)
-                        || CLOSING.validTransition(nextState);
+                        || CONNECTION_CLOSING.validTransition(nextState);
             }
-        }, CLOSING {
+        }, CONNECTION_CLOSING {
             @Override
             public boolean validTransition(State nextState) {
                 return super.validTransition(nextState)
-                        || CLOSED.validTransition(nextState);
+                        || CONNECTION_CLOSED.validTransition(nextState);
             }
-        }, CLOSED {
+        }, CONNECTION_CLOSED {
             @Override
             public boolean isTerminal() {
                 return true;
@@ -38,11 +38,6 @@ public interface Connection extends Eventful {
         @Override
         public boolean isTerminal() {
             return false;
-        }
-        
-        @Override
-        public State initial() {
-            return OPENING;
         }
         
         @Override
@@ -56,11 +51,11 @@ public interface Connection extends Eventful {
     SocketAddress localAddress();
     SocketAddress remoteAddress();
 
-    ListenableFuture<Void> send(Object message);
-
-    ListenableFuture<Void> flush();
-
-    ListenableFuture<Void> close();
-    
     void read();
+
+	<T> ListenableFuture<T> send(T message);
+
+    ListenableFuture<Connection> flush();
+
+    ListenableFuture<Connection> close();
 }

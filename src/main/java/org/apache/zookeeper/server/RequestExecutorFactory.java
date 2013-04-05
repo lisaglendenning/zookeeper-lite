@@ -6,10 +6,10 @@ import java.util.concurrent.ExecutorService;
 
 import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Session;
-import org.apache.zookeeper.SessionStateEvent;
 import org.apache.zookeeper.Zxid;
-import org.apache.zookeeper.protocol.Operation;
-import org.apache.zookeeper.protocol.Operations;
+import org.apache.zookeeper.data.Operation;
+import org.apache.zookeeper.data.Operations;
+import org.apache.zookeeper.event.SessionStateEvent;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.FilteredProcessor;
 import org.apache.zookeeper.util.FilteredProcessors;
@@ -134,12 +134,12 @@ public class RequestExecutorFactory extends RequestExecutor implements RequestEx
         Session session = event.session();
         RequestExecutorService executor = get(session);
         switch (event.event()) {
-        case CLOSED:
+        case SESSION_CLOSED:
         {
             executors().remove(session.id());
             break;
         }
-        case EXPIRED:
+        case SESSION_EXPIRED:
         {
             // here is where the session closing is actually initiated
             // there's no point sending the close response

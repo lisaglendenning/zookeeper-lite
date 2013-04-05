@@ -1,9 +1,9 @@
 package org.apache.zookeeper.server;
 
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.protocol.OpAction;
-import org.apache.zookeeper.protocol.OpError;
-import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.data.OpAction;
+import org.apache.zookeeper.data.OpError;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.Processor;
 
 public class OpErrorProcessor implements Processor<Operation.Request, Operation.Response> {

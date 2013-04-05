@@ -8,6 +8,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedMessageChannel;
 
 import org.apache.zookeeper.Randomizer;
+import org.apache.zookeeper.netty.TestEmbeddedChannels;
 import org.apache.zookeeper.netty.protocol.BufEvent;
 import org.apache.zookeeper.netty.protocol.FrameDecoder;
 import org.apache.zookeeper.netty.protocol.Header;

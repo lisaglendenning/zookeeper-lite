@@ -2,8 +2,8 @@ package org.apache.zookeeper.server;
 
 import java.util.Set;
 
-import org.apache.zookeeper.protocol.Operation;
-import org.apache.zookeeper.protocol.Operations;
+import org.apache.zookeeper.data.Operation;
+import org.apache.zookeeper.data.Operations;
 import org.apache.zookeeper.util.Processor;
 
 import com.google.common.base.Predicate;

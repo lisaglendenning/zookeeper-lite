@@ -3,7 +3,7 @@ package org.apache.zookeeper.server;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.FilteredProcessor;
 import org.apache.zookeeper.util.FilteringProcessor;
 import org.slf4j.Logger;

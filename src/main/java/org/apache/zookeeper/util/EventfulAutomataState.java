@@ -19,7 +19,7 @@ public class EventfulAutomataState<T extends AutomataState<T>> extends EventfulR
     public T getAndSet(T nextState) {
         T prevState = state.get();
         if (! compareAndSet(prevState, nextState)) {
-            throw new IllegalStateException();
+            return null;
         }
         return prevState;
     }
@@ -27,7 +27,7 @@ public class EventfulAutomataState<T extends AutomataState<T>> extends EventfulR
     @Override
     public boolean compareAndSet(T prevState, T nextState) {
         if (! prevState.validTransition(nextState)) {
-            throw new IllegalStateException();
+            return false;
         }
         return super.compareAndSet(prevState, nextState);
     }

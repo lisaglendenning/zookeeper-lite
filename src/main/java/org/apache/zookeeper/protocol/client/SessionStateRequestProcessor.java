@@ -2,7 +2,7 @@ package org.apache.zookeeper.protocol.client;
 
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.SessionConnectionState;
-import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.Processor;
 
 public class SessionStateRequestProcessor implements Processor<Operation.Request, Operation.Request>  {
@@ -24,8 +24,8 @@ public class SessionStateRequestProcessor implements Processor<Operation.Request
     @Override
     public Operation.Request apply(Operation.Request request) {
         switch (state.get()) {
-        case CLOSING:
-        case CLOSED:
+        case DISCONNECTING:
+        case DISCONNECTED:
         case ERROR:
             throw new IllegalStateException();
         default:
@@ -37,7 +37,7 @@ public class SessionStateRequestProcessor implements Processor<Operation.Request
             state.set(SessionConnection.State.CONNECTING);
             break;
         case CLOSE_SESSION:
-            state.set(SessionConnection.State.CLOSING);
+            state.set(SessionConnection.State.DISCONNECTING);
             break;
         default:
             break;

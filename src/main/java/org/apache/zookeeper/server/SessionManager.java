@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionParameters;
-import org.apache.zookeeper.SessionStateEvent;
+import org.apache.zookeeper.event.SessionStateEvent;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.ForwardingEventful;
 import org.slf4j.Logger;
@@ -57,7 +57,7 @@ public class SessionManager extends ForwardingEventful implements Iterable<Sessi
         TimeUnit timeOutUnit = policy.timeoutUnit();
         SessionParameters parameters = SessionParameters.create(timeOut, passwd, timeOutUnit);
         Session session = newSession(id, parameters);
-        post(SessionStateEvent.create(session, Session.State.OPENED));
+        post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
         return session;
     }
     
@@ -67,7 +67,6 @@ public class SessionManager extends ForwardingEventful implements Iterable<Sessi
         if (session == null) {
             checkArgument(id == Session.UNINITIALIZED_ID);
             session = add(parameters);
-            post(SessionStateEvent.create(session, Session.State.OPENED));
         } else {
             checkArgument(policy.validatePassword(id, parameters.password()));
         }
@@ -76,7 +75,7 @@ public class SessionManager extends ForwardingEventful implements Iterable<Sessi
 
     public Session add(SessionParameters parameters) {
         Session session = newSession(checkNotNull(parameters));
-        post(SessionStateEvent.create(session, Session.State.OPENED));
+        post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
         return session;
     }
     
@@ -90,7 +89,7 @@ public class SessionManager extends ForwardingEventful implements Iterable<Sessi
             if (logger.isDebugEnabled()) {
                     logger.debug("Removed session: {}", session);
             }
-            post(SessionStateEvent.create(session, Session.State.CLOSED));
+            post(SessionStateEvent.create(session, Session.State.SESSION_CLOSED));
         }
         return session;
     }

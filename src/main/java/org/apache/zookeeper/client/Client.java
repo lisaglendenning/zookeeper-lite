@@ -7,21 +7,24 @@ import org.apache.zookeeper.util.ConfigurableSocketAddress;
 import org.apache.zookeeper.util.Configuration;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.inject.Inject;
+import com.google.inject.Provider;
 
 public class Client extends AbstractIdleService implements Configurable {
 
-    public static class Factory {
+    public static class Factory implements Provider<Client> {
 
         public static final String ARG_ADDRESS = "address";
         public static final String ARG_PORT = "port";
         
-        protected Configuration configuration;
-        protected ClientConnectionGroup connections;
+        protected final Configuration configuration;
+        protected final ClientConnectionGroup connections;
+        protected final ClientSessionConnection.Factory sessionFactory;
         
         @Inject
         public Factory(Arguments arguments,
                 Configuration configuration,
-                ClientConnectionGroup connections) throws Exception {
+                ClientConnectionGroup connections,
+                ClientSessionConnection.Factory sessionFactory) throws Exception {
             arguments.add(arguments.newOption(ARG_ADDRESS, "ServerAddress"))
                 .add(arguments.newOption(ARG_PORT, "ServerPort"));
             arguments.parse();
@@ -33,23 +36,24 @@ public class Client extends AbstractIdleService implements Configurable {
             }
             this.configuration = configuration;
             this.connections = connections;
+            this.sessionFactory = sessionFactory;
         }
         
-        public Client newClient(ClientSession session) {
-            return Client.create(configuration, connections, session);
+        public Client get() {
+            return Client.create(configuration, connections, sessionFactory);
         }
     }
     
     public static Client create(Configuration configuration, 
             ClientConnectionGroup connections,
-            ClientSession session) {
-        return new Client(configuration, connections, session);
+            ClientSessionConnection.Factory sessionFactory) {
+        return new Client(configuration, connections, sessionFactory);
     }
     
     public static Client create(
             ClientConnectionGroup connections,
-            ClientSession session) {
-        return new Client(connections, session);
+            ClientSessionConnection.Factory sessionFactory) {
+        return new Client(connections, sessionFactory);
     }
     
     public static final String PARAM_KEY_ADDRESS = "Client.Address";
@@ -58,27 +62,29 @@ public class Client extends AbstractIdleService implements Configurable {
     public static final int PARAM_DEFAULT_PORT = 2180;
     
     protected final ConfigurableSocketAddress address;
-    protected ClientConnectionGroup connections;
-    protected ClientSession session;
+    protected final ClientConnectionGroup connections;
+    protected final ClientSessionConnection.Factory sessionFactory;
+    protected ClientSessionConnection session;
     
     @Inject
     protected Client(Configuration configuration, 
             ClientConnectionGroup connections,
-            ClientSession session) {
-        this(connections, session);
+            ClientSessionConnection.Factory sessionFactory) {
+        this(connections, sessionFactory);
         configure(configuration);
     }
 
     protected Client(
             ClientConnectionGroup connections,
-            ClientSession session) {
+            ClientSessionConnection.Factory sessionFactory) {
         this.address = ConfigurableSocketAddress.create(PARAM_KEY_ADDRESS,
                 PARAM_DEFAULT_ADDRESS, PARAM_KEY_PORT, PARAM_DEFAULT_PORT);
         this.connections = connections;
-        this.session = session;
+        this.sessionFactory = sessionFactory;
+        this.session = null;
     }
     
-    public ClientSession session() {
+    public ClientSessionConnection session() {
         return session;
     }
     
@@ -90,14 +96,12 @@ public class Client extends AbstractIdleService implements Configurable {
     @Override
     protected void startUp() throws Exception {
         Connection connection = connections.connect(address.socketAddress()).get();
-        session.connect(connection).get();
+        this.session = sessionFactory.get(connection);
+        session.connect().get();
     }
 
     @Override
     protected void shutDown() throws Exception {
-        Connection connection = session.connection();
-        session.close().get();
-        connection.close();
+        session.disconnect().get();
     }
-    
 }

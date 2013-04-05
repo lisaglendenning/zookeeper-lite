@@ -5,8 +5,6 @@ import java.util.List;
 import org.apache.zookeeper.Xid;
 import org.apache.zookeeper.client.ClientConnectionGroup;
 import org.apache.zookeeper.client.ClientMain;
-import org.apache.zookeeper.netty.protocol.client.ChannelClientConnectionGroup;
-import org.apache.zookeeper.netty.protocol.client.ClientConnection;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.ServiceMonitor;
 

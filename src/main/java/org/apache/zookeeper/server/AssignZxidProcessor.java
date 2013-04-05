@@ -1,8 +1,8 @@
 package org.apache.zookeeper.server;
 
 import org.apache.zookeeper.Zxid;
-import org.apache.zookeeper.protocol.OpCallResponse;
-import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.data.OpCallResponse;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.FilteredProcessor;
 import org.apache.zookeeper.util.FilteringProcessor;
 import org.apache.zookeeper.util.Processor;

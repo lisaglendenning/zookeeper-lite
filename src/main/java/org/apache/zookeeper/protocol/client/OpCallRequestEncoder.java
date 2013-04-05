@@ -3,9 +3,9 @@ package org.apache.zookeeper.protocol.client;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.protocol.Encodable;
 import org.apache.zookeeper.protocol.Encoder;
-import org.apache.zookeeper.protocol.Operation;
 import org.apache.zookeeper.protocol.Records;
 
 

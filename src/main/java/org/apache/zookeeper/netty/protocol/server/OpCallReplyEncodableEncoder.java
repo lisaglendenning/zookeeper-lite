@@ -3,8 +3,8 @@ package org.apache.zookeeper.netty.protocol.server;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.protocol.Encodable;
-import org.apache.zookeeper.protocol.Operation;
 import org.apache.zookeeper.protocol.server.OpCallReplyEncoder;
 
 import io.netty.channel.ChannelHandler;

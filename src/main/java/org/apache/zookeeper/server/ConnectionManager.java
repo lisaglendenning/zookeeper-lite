@@ -7,13 +7,14 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.zookeeper.Connection;
-import org.apache.zookeeper.ConnectionEventValue;
-import org.apache.zookeeper.ConnectionStateEvent;
 import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionConnection;
-import org.apache.zookeeper.protocol.OpCreateSessionAction;
-import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.data.OpCreateSessionAction;
+import org.apache.zookeeper.data.Operation;
+import org.apache.zookeeper.event.ConnectionEventValue;
+import org.apache.zookeeper.event.ConnectionStateEvent;
+import org.apache.zookeeper.event.SessionStateEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +69,7 @@ public class ConnectionManager {
         @Subscribe
         public void handleEvent(ConnectionStateEvent event) {
             switch (event.event()) {
-            case CLOSED:
+            case CONNECTION_CLOSED:
                 close();
                 break;
             default:
@@ -92,7 +93,7 @@ public class ConnectionManager {
             // TODO: right now, we don't close the connection
             // if the session expires and the connection doesn't close!
             switch (event) {
-            case CLOSED:
+            case DISCONNECTED:
                 close();
                 break;
             default:
@@ -123,8 +124,8 @@ public class ConnectionManager {
             // notifications are supposed to end up here
             Connection connection = connection();
             switch (connection.state()) {
-            case OPENING:
-            case OPENED:
+            case CONNECTION_OPENING:
+            case CONNECTION_OPENED:
                 logger.debug("Sending {} to {}", event, connection().remoteAddress());
                 connection.send(event);
                 break;
@@ -197,6 +198,7 @@ public class ConnectionManager {
         this.anonymousHandlers = anonymousHandlers;
         this.sessionHandlers = sessionHandlers;
         connections.register(this);
+        sessions.register(this);
     }
     
     public ExpiringSessionManager sessions() {
@@ -210,6 +212,22 @@ public class ConnectionManager {
     @Subscribe
     public void handleConnection(Connection connection) {
         newConnectionHandler(connection);
+    }
+    
+    @Subscribe
+    public void handleSessionStateEvent(SessionStateEvent event) {
+    	// we initiate closing expired connections
+    	switch (event.event()) {
+    	case SESSION_EXPIRED: {
+    		ConnectionHandler handler = sessionHandlers.get(event.session().id());
+    		if (handler != null) {
+    			handler.close();
+    		}
+    		break;
+    	}
+		default:
+			break;
+    	}
     }
 
     protected ConnectionHandler newConnectionHandler(Connection connection) {

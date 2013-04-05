@@ -3,8 +3,8 @@ package org.apache.zookeeper.protocol.server;
 import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.SessionConnectionState;
-import org.apache.zookeeper.protocol.OpCreateSessionAction;
-import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.data.OpCreateSessionAction;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.Processor;
 
 public class SessionStateResponseProcessor implements Processor<Operation.Response, Operation.Response>  {
@@ -26,7 +26,7 @@ public class SessionStateResponseProcessor implements Processor<Operation.Respon
     @Override
     public Operation.Response apply(Operation.Response response) {
         switch (state.get()) {
-        case CLOSED:
+        case DISCONNECTED:
         case ERROR:
             throw new IllegalStateException();
         default:
@@ -50,7 +50,7 @@ public class SessionStateResponseProcessor implements Processor<Operation.Respon
             break;
         }
         case CLOSE_SESSION:
-            state.set(SessionConnection.State.CLOSED);
+            state.set(SessionConnection.State.DISCONNECTED);
             break;
         default:
             break;

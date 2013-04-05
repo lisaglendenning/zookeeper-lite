@@ -18,7 +18,7 @@ public class ConnectionState extends EventfulAutomataState<Connection.State> {
 
     @Inject
     protected ConnectionState(Eventful eventful) {
-        this(eventful, Connection.State.OPENING);
+        this(eventful, Connection.State.CONNECTION_OPENING);
     }
 
     protected ConnectionState(Eventful eventful, Connection.State state) {

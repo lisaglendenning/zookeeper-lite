@@ -70,16 +70,9 @@ public class ClientMain extends Main {
         bind(Eventful.class).to(EventfulEventBus.class);
         bind(ServiceMonitor.class).in(Singleton.class);
         bind(Application.class).to(ApplicationService.class).in(Singleton.class);
-    }
-    
-    @Provides
-    public ClientSession getClientSession(ClientSession.Factory factory) {
-        return factory.get();
-    }
-    
-    @Provides @Singleton
-    public Client getClient(Client.Factory factory, ClientSession session) {
-        return factory.newClient(session);
+        bind(ClientSessionConnection.Factory.class).in(Singleton.class);
+        bind(Client.Factory.class).in(Singleton.class);
+        bind(Client.class).toProvider(Client.Factory.class).in(Singleton.class);
     }
 
     @Provides @Singleton

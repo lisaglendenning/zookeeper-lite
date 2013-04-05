@@ -18,7 +18,7 @@ public class SessionState extends EventfulAutomataState<Session.State> {
 
     @Inject
     protected SessionState(Eventful eventful) {
-        this(eventful, Session.State.OPENED);
+        this(eventful, Session.State.SESSION_UNINITIALIZED);
     }
 
     protected SessionState(Eventful eventful, Session.State state) {

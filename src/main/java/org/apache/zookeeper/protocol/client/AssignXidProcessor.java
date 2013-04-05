@@ -1,8 +1,8 @@
 package org.apache.zookeeper.protocol.client;
 
 import org.apache.zookeeper.Xid;
-import org.apache.zookeeper.protocol.OpCallRequest;
-import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.data.OpCallRequest;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.Processor;
 
 public class AssignXidProcessor implements Processor<Operation.Request, Operation.Request> {

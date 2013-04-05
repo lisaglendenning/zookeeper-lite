@@ -5,7 +5,7 @@ import static org.junit.Assert.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.embedded.EmbeddedMessageChannel;
 
-import org.apache.zookeeper.netty.protocol.TestEmbeddedChannels;
+import org.apache.zookeeper.netty.TestEmbeddedChannels;
 import org.apache.zookeeper.netty.protocol.client.FourLetterCommandEncoder;
 import org.apache.zookeeper.protocol.FourLetterCommand;
 import org.junit.Rule;

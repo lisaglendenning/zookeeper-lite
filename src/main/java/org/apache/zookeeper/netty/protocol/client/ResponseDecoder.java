@@ -13,8 +13,8 @@ import java.io.InputStream;
 
 import org.apache.zookeeper.SessionConnectionState;
 import org.apache.zookeeper.Xid;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.netty.protocol.BufEvent;
-import org.apache.zookeeper.protocol.Operation;
 import org.apache.zookeeper.protocol.client.SessionStateDecoder;
 import org.apache.zookeeper.util.Eventful;
 import org.slf4j.Logger;

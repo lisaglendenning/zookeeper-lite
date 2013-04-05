@@ -1,8 +1,8 @@
 package org.apache.zookeeper.server;
 
-import org.apache.zookeeper.protocol.OpCallResult;
-import org.apache.zookeeper.protocol.OpResult;
-import org.apache.zookeeper.protocol.Operation;
+import org.apache.zookeeper.data.OpCallResult;
+import org.apache.zookeeper.data.OpResult;
+import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.Processor;
 
 public class OpResultProcessor implements Processor<Operation.Request, Operation.Result> {
