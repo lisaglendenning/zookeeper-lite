@@ -138,7 +138,9 @@ public class ConnectionManager {
         @Override
         public void onSuccess(Operation.Result result) {
             if (result.operation() == Operation.CREATE_SESSION) {
-                onConnected((OpCreateSessionAction.Response)result.response());
+            	if (! (result.response() instanceof Operation.Error)) {
+            		onConnected((OpCreateSessionAction.Response)result.response());
+            	}
             }
             handleEvent((Operation.Response)result);
         }
@@ -149,23 +151,21 @@ public class ConnectionManager {
         }
         
         protected void onConnected(OpCreateSessionAction.Response response) {
-            if (! (response instanceof Operation.Error)) {
-                anonymousHandlers.remove(this);
-                long sessionId = response.record().getSessionId();
-                this.session = sessions().get(sessionId);
-                assert session != null;
-                this.executor = executor().get(sessionId);
-                this.executor.register(this);
-                synchronized (sessionHandlers) {
-                    ConnectionHandler prev = sessionHandlers.remove(sessionId);
-                    if (prev != null) {
-                        prev.close();
-                    }
-                    sessionHandlers.put(sessionId, this);
+            anonymousHandlers.remove(this);
+            long sessionId = response.record().getSessionId();
+            this.session = sessions().get(sessionId);
+            assert session != null;
+            this.executor = executor().get(sessionId);
+            this.executor.register(this);
+            synchronized (sessionHandlers) {
+                ConnectionHandler prev = sessionHandlers.remove(sessionId);
+                if (prev != null) {
+                    prev.close();
                 }
-                logger.debug("Established session 0x{} with client {}", 
-                        sessionId, connection().remoteAddress());
+                sessionHandlers.put(sessionId, this);
             }
+            logger.debug("Established session 0x{} with client {}", 
+                    sessionId, connection().remoteAddress());
         }
     }
 

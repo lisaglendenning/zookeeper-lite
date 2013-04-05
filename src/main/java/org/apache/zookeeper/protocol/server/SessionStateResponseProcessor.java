@@ -1,9 +1,7 @@
 package org.apache.zookeeper.protocol.server;
 
-import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.SessionConnectionState;
-import org.apache.zookeeper.data.OpCreateSessionAction;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.Processor;
 
@@ -36,17 +34,11 @@ public class SessionStateResponseProcessor implements Processor<Operation.Respon
         switch (response.operation()) {
         case CREATE_SESSION:
         {
-            OpCreateSessionAction.Response createResponse;
-            if (response instanceof Operation.Result) {
-                createResponse = (OpCreateSessionAction.Response) ((Operation.Result)response).response();
-            } else {
-                createResponse = (OpCreateSessionAction.Response)response;
-            }
-            if (createResponse.record().getSessionId() == Session.UNINITIALIZED_ID) {
+        	if (response instanceof Operation.Error) {
                 state.set(SessionConnection.State.ERROR);
-            } else {
+        	} else {
                 state.set(SessionConnection.State.CONNECTED);
-            }
+        	}
             break;
         }
         case CLOSE_SESSION:
