@@ -6,17 +6,10 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.data.OpPingAction.Response;
-import org.apache.zookeeper.data.OpRecordAction.Request;
 import org.apache.zookeeper.proto.ReplyHeader;
 import org.apache.zookeeper.proto.RequestHeader;
 import org.apache.zookeeper.protocol.Decodable;
 import org.apache.zookeeper.protocol.Records;
-import org.apache.zookeeper.protocol.Records.OperationXid;
-import org.apache.zookeeper.protocol.Records.Requests;
-import org.apache.zookeeper.protocol.Records.Responses;
-import org.apache.zookeeper.protocol.Records.Requests.Headers;
-
 import com.google.common.base.Function;
 
 public class Operations {

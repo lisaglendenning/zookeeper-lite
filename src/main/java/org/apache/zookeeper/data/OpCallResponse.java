@@ -1,18 +1,40 @@
 package org.apache.zookeeper.data;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
+import org.apache.zookeeper.KeeperException.Code;
 
 import com.google.common.base.Objects;
+
 
 public class OpCallResponse implements Operation.ResponseValue, Operation.CallResponse {
 
     public static Operation.CallResponse create(long zxid, Operation.Response response) {
-        return new OpCallResponse(zxid, response);
+    	Operation.CallResponse callResponse;
+    	if (response instanceof Operation.Error) {
+    		callResponse = new OpCallResponseError(zxid, response);
+    	} else {
+    		callResponse = new OpCallResponse(zxid, response);
+    	}
+    	return callResponse;
+    }
+    
+    public static class OpCallResponseError extends OpCallResponse implements Operation.Error {
+        protected OpCallResponseError(long zxid, Operation.Response response) {
+            super(zxid, response);
+            checkArgument(response instanceof Operation.Error);
+        }
+
+		@Override
+        public Code error() {
+	        return ((Operation.Error) response).error();
+        }
     }
 
     protected long zxid;
     protected Operation.Response response;
     
-    public OpCallResponse(long zxid, Operation.Response response) {
+    protected OpCallResponse(long zxid, Operation.Response response) {
         super();
         this.zxid = zxid;
         this.response = response;

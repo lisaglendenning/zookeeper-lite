@@ -1,14 +1,41 @@
 package org.apache.zookeeper.data;
 
 
+import static com.google.common.base.Preconditions.checkArgument;
+
+import org.apache.zookeeper.KeeperException.Code;
+
 import com.google.common.base.Objects;
 
 public class OpResult implements Operation.Result {
 
     public static Operation.Result create(Operation.Request request, Operation.Response response) {
-        return new OpResult(request, response);
+        Operation.Result result;
+        if (request instanceof Operation.CallRequest && response instanceof Operation.CallResponse) {
+        	result = OpCallResult.create((Operation.CallRequest) request,
+        			(Operation.CallResponse) response);
+        } else if (response instanceof Operation.Error) {
+        	result = new OpResultError(request, response);
+        } else {
+        	result = new OpResult(request, response);
+        }
+        return result;
     }
-    
+
+    public static class OpResultError extends OpResult implements Operation.Error {
+
+        protected OpResultError(Operation.Request request, Operation.Response response) {
+            super(request, response);
+            checkArgument(response instanceof Operation.Error);
+        }
+
+		@Override
+        public Code error() {
+	        return ((Operation.Error) response).error();
+        }
+    	
+    }
+
     protected final Operation.Request request;
     protected final Operation.Response response;
     

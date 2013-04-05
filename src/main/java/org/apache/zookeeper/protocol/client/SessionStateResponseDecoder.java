@@ -5,7 +5,6 @@ import java.io.InputStream;
 
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.SessionConnectionState;
-import org.apache.zookeeper.data.OpCreateSessionAction;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.data.Operations;
 import com.google.common.base.Function;
@@ -77,11 +76,10 @@ public class SessionStateResponseDecoder {
             // (and other fields will be set to zero) then
             // this means "invalid request" and the server will now
             // close the connection without sending anything else
-            OpCreateSessionAction.Response createResponse = (OpCreateSessionAction.Response)response;
-            if (createResponse.isValid()) {
-                state.set(SessionConnection.State.CONNECTED);
-            } else {
+            if (response instanceof Operation.Error) {
                 state.set(SessionConnection.State.ERROR);
+            } else {
+                state.set(SessionConnection.State.CONNECTED);
             }
             break;
         case CLOSE_SESSION:

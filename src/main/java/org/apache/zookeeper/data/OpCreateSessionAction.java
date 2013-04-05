@@ -9,13 +9,13 @@ import java.io.OutputStream;
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.Record;
+import org.apache.zookeeper.KeeperException.Code;
+import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.Session;
+import org.apache.zookeeper.SessionParameters;
 import org.apache.zookeeper.proto.ConnectRequest;
 import org.apache.zookeeper.proto.ConnectResponse;
 import org.apache.zookeeper.protocol.Records;
-import org.apache.zookeeper.protocol.Records.Requests;
-import org.apache.zookeeper.protocol.Records.Responses;
-
 import com.google.common.base.Objects;
 
 public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>, T extends Record> extends OpRecordAction<T> {
@@ -25,11 +25,17 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
     public static class Request extends OpCreateSessionAction<Request, ConnectRequest> implements Operation.Request {
     
         public static ConnectRequest createRecord() {
-            return Records.Requests.<ConnectRequest>create(OPERATION);
+        	ConnectRequest request = Records.Requests.<ConnectRequest>create(OPERATION);
+        	request.setProtocolVersion(Records.PROTOCOL_VERSION);
+        	return request;
         }
         
         public static Request create() {
             return new Request();
+        }
+
+        public static Request create(ConnectRequest record) {
+            return new Request(record);
         }
     
         public static Request create(ConnectRequest record, boolean readOnly,
@@ -38,7 +44,11 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
         }
     
         public Request() {
-            super(createRecord());
+            this(createRecord());
+        }
+
+        public Request(ConnectRequest record) {
+            super(record);
         }
     
         public Request(ConnectRequest record, boolean readOnly,
@@ -63,11 +73,17 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
     public static class Response extends OpCreateSessionAction<Response, ConnectResponse> implements Operation.Response {
 
         public static ConnectResponse createRecord() {
-            return Records.Responses.<ConnectResponse>create(OPERATION);
+        	ConnectResponse response = Records.Responses.<ConnectResponse>create(OPERATION);
+        	response.setProtocolVersion(Records.PROTOCOL_VERSION);
+        	return response;
         }
         
         public static Response create() {
             return new Response();
+        }
+
+        public static Response create(ConnectResponse record) {
+            return new Response(record);
         }
 
         public static Response create(ConnectResponse record, boolean readOnly,
@@ -76,16 +92,16 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
         }
     
         public Response() {
-            super(createRecord());
+            this(createRecord());
+        }
+        
+        public Response(ConnectResponse record) {
+        	super(record);
         }
 
         public Response(ConnectResponse record, boolean readOnly,
                 boolean wraps) {
             super(record, readOnly, wraps);
-        }
-        
-        public boolean isValid() {
-            return (record() != null && record().getSessionId() != Session.UNINITIALIZED_ID);
         }
         
         public Response setResponse(ConnectResponse response) {
@@ -98,7 +114,49 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
             if (record() == null) {
                 setRecord(createRecord());
             }
-            return super.decode(stream);
+            super.decode(stream);
+
+            if (record().getSessionId() == Session.UNINITIALIZED_ID) {
+            	return InvalidResponse.create();
+            }
+            return this;
+        }
+    }
+    
+    public static class InvalidResponse extends Response implements Operation.Error {
+
+        public static ConnectResponse createRecord() {
+        	ConnectResponse record = Response.createRecord();
+    		record.setSessionId(Session.UNINITIALIZED_ID);
+    		record.setTimeOut(0);
+    		record.setPasswd(SessionParameters.NO_PASSWORD);
+    		return record;
+        }
+        
+        public static InvalidResponse create() {
+            return new InvalidResponse();
+        }
+
+        public static InvalidResponse create(boolean readOnly, boolean wraps) {
+            return new InvalidResponse(readOnly, wraps);
+        }
+    
+        public InvalidResponse() {
+            super(createRecord());
+        }
+
+        public InvalidResponse(boolean readOnly, boolean wraps) {
+            super(createRecord(), readOnly, wraps);
+        }
+        
+        public Response setResponse(ConnectResponse response) {
+            throw new UnsupportedOperationException();
+        }
+
+		@Override
+        public Code error() {
+	        // TODO
+	        return KeeperException.Code.SESSIONEXPIRED;
         }
     }
 

@@ -15,6 +15,7 @@ import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.Xid;
 import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.client.ClientConnectionGroup;
+import org.apache.zookeeper.data.OpCreateSessionAction;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.data.Operations;
 import org.apache.zookeeper.event.ConnectionEvent;
@@ -158,7 +159,7 @@ public class ChannelServerConnectionGroupITest {
         assertTrue(event.event() instanceof Operation.Request);
         assertEquals(connectRequest, ((Operation.Request)event.event()));
         
-        Operation.Response connectResponse = Operations.Responses.create(Operation.CREATE_SESSION);
+        Operation.Response connectResponse = OpCreateSessionAction.InvalidResponse.create();
         serverConnection.send(connectResponse).get();
         serverConnection.flush().get();
         clientConnection.read();

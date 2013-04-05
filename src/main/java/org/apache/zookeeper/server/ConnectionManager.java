@@ -149,7 +149,7 @@ public class ConnectionManager {
         }
         
         protected void onConnected(OpCreateSessionAction.Response response) {
-            if (response.isValid()) {
+            if (! (response instanceof Operation.Error)) {
                 anonymousHandlers.remove(this);
                 long sessionId = response.record().getSessionId();
                 this.session = sessions().get(sessionId);

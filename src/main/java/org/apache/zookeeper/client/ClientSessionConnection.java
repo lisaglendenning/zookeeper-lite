@@ -254,8 +254,8 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
 	    switch (event.operation()) {
 	    case CREATE_SESSION:
 	    {
-	        OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response)response;
-	        if (opResponse.isValid()) {
+	        if (! (response instanceof Operation.Error)) {
+		        OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response)response;
 	            this.session = Session.create(opResponse);
 	            this.state.set(SessionConnection.State.CONNECTED);
 	        }
@@ -309,11 +309,10 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
 	    if (task != null) {
 	        SettableFuture<Operation.Result> future = task.future();
             if (event.operation() == Operation.CREATE_SESSION) {
-                OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response)response;
-                if (opResponse.isValid()) {
+                if (! (response instanceof Operation.Error)) {
                     future.set(result);
                 } else {
-                    future.setException(new KeeperException.SessionExpiredException());
+                    future.setException(KeeperException.create(((Operation.Error)response).error()));
                 }
             } else {
                 future.set(result);

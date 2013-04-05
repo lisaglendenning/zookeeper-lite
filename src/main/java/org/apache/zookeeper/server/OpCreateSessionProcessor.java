@@ -10,7 +10,6 @@ import org.apache.zookeeper.data.OpCreateSessionAction;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.proto.ConnectRequest;
 import org.apache.zookeeper.proto.ConnectResponse;
-import org.apache.zookeeper.protocol.Records;
 import org.apache.zookeeper.util.FilteredProcessor;
 import org.apache.zookeeper.util.FilteringProcessor;
 import org.slf4j.Logger;
@@ -45,36 +44,31 @@ public class OpCreateSessionProcessor extends OpRequestProcessor {
         checkArgument(request.operation() == Operation.CREATE_SESSION);
         OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response) super.apply(request);
         OpCreateSessionAction.Request opRequest = (OpCreateSessionAction.Request)request;
-        ConnectResponse response = apply(opRequest.record());
-        opResponse.setResponse(response)
-            .setReadOnly(opRequest.readOnly())
+        try {
+        	apply(opRequest.record(), opResponse.record());
+        } catch (IllegalArgumentException e) {
+        	opResponse = OpCreateSessionAction.InvalidResponse.create();
+        }
+        opResponse.setReadOnly(opRequest.readOnly())
             .setWraps(opRequest.wraps());
         return opResponse;
     }
 
     // TODO: check lastZxid, readOnly?
-    public ConnectResponse apply(ConnectRequest request) {
+    public void apply(ConnectRequest request, ConnectResponse response) {
         long sessionId = request.getSessionId();
         byte[] passwd = request.getPasswd();
         int timeOut = request.getTimeOut();
         SessionParameters parameters = SessionParameters.create(timeOut, passwd);
-        try {
-            Session session = sessions().add(sessionId, parameters);
-            sessionId = session.id();
-            timeOut = Long.valueOf(TimeUnit.MILLISECONDS.convert(
-                    session.parameters().timeOut(),
-                    session.parameters().timeOutUnit())).intValue();
-            passwd = session.parameters().password();
-        } catch(IllegalArgumentException e) {
-            sessionId = Session.UNINITIALIZED_ID;
-            timeOut = 0;
-            passwd = new byte[SessionParameters.PASSWORD_LENGTH];
-        }
-        ConnectResponse response = Records.Responses.create(Operation.CREATE_SESSION);
+        Session session = sessions().add(sessionId, parameters);
+        sessionId = session.id();
+        timeOut = Long.valueOf(TimeUnit.MILLISECONDS.convert(
+                session.parameters().timeOut(),
+                session.parameters().timeOutUnit())).intValue();
+        passwd = session.parameters().password();
         response.setProtocolVersion(request.getProtocolVersion());
         response.setSessionId(sessionId);
         response.setTimeOut(timeOut);
         response.setPasswd(passwd);
-        return response;
     }
 }
