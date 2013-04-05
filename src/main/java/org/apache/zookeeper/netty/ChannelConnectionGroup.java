@@ -6,19 +6,14 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.group.ChannelGroup;
 
-import java.net.SocketAddress;
-import java.util.Iterator;
 import org.apache.zookeeper.AbstractConnectionGroup;
-import org.apache.zookeeper.Connection;
-import org.apache.zookeeper.ConnectionGroup;
 import org.apache.zookeeper.util.Eventful;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.util.concurrent.Service;
 import com.google.inject.Inject;
 
-public class ChannelConnectionGroup extends AbstractConnectionGroup implements ConnectionGroup, Service {
+public class ChannelConnectionGroup extends AbstractConnectionGroup {
 
     @ChannelHandler.Sharable
     protected class ChildInitializer extends ChannelInitializer<Channel> {
@@ -26,7 +21,7 @@ public class ChannelConnectionGroup extends AbstractConnectionGroup implements C
         
         @Override
         public void initChannel(Channel channel) throws Exception {
-            ChannelConnectionGroup.this.initChannel(channel);
+            ChannelConnectionGroup.this.add(channel);
         }
     }
     
@@ -52,17 +47,7 @@ public class ChannelConnectionGroup extends AbstractConnectionGroup implements C
         return connectionFactory;
     }
     
-    @Override
-    public Connection get(SocketAddress remoteAddress) {
-        return connections().get(remoteAddress);
-    }
-
-    @Override
-    public Iterator<Connection> iterator() {
-        return connections().values().iterator();
-    }
-    
-    protected ChannelConnection initChannel(Channel channel) {
+    protected ChannelConnection add(Channel channel) {
     	checkState(state() == State.RUNNING);
         logger.trace("New Channel: {}", channel);
         channels().add(channel);

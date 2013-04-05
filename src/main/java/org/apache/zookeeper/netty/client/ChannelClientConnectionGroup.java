@@ -44,7 +44,7 @@ public class ChannelClientConnectionGroup extends ChannelConnectionGroup impleme
             SettableFuture<Connection> connectFuture = connectFutures.remove(remoteAddress);
             assert (connectFuture != null);
             if (future.isSuccess()) {
-                ChannelConnection connection = ChannelClientConnectionGroup.super.initChannel(future.channel());
+                ChannelConnection connection = ChannelClientConnectionGroup.super.add(future.channel());
                 connectFuture.set(connection);
             } else {
                 if (future.isCancelled()) {
@@ -86,7 +86,7 @@ public class ChannelClientConnectionGroup extends ChannelConnectionGroup impleme
     }
 
     @Override
-    protected ChannelConnection initChannel(Channel channel) {
+    protected ChannelConnection add(Channel channel) {
         return null;
     }
 

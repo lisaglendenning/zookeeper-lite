@@ -33,6 +33,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Guice;
@@ -135,9 +136,9 @@ public class ChannelServerConnectionGroupITest {
         ListenableFuture<Connection> future = clients.connect(server.localAddress());
         Connection clientConnection = future.get();
         assertNotNull(clientConnection);
-        assertEquals(clientConnection, clients.get(server.localAddress()));
+        assertEquals(clientConnection, Iterables.getOnlyElement(clients));
         Connection serverConnection = callback.connections.take();
-        assertEquals(serverConnection, server.get(clientConnection.localAddress()));
+        assertEquals(serverConnection, Iterables.getOnlyElement(server));
         assertTrue(clientConnection.state() == Connection.State.CONNECTION_OPENED);
         assertTrue(serverConnection.state() == Connection.State.CONNECTION_OPENED);
         

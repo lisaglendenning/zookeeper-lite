@@ -11,6 +11,7 @@ import org.apache.zookeeper.Connection;
 import org.apache.zookeeper.ConnectionGroup;
 import org.apache.zookeeper.event.ConnectionStateEvent;
 import org.apache.zookeeper.util.Eventful;
+import org.apache.zookeeper.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,29 +27,32 @@ import com.google.inject.Inject;
 public abstract class AbstractConnectionGroup extends AbstractIdleService implements ConnectionGroup, Service {
     
     protected final Logger logger = LoggerFactory.getLogger(AbstractConnectionGroup.class);
-    protected final ConcurrentMap<SocketAddress, Connection> connections;
+    protected final ConcurrentMap<Pair<SocketAddress, SocketAddress>, Connection> connections;
     protected final Eventful eventful;
 
     @Inject
     public AbstractConnectionGroup(
             Eventful eventful) {
-    	this(eventful, Maps.<SocketAddress, Connection>newConcurrentMap());
+    	this(eventful, Maps.<Pair<SocketAddress, SocketAddress>, Connection>newConcurrentMap());
     }
     
     protected AbstractConnectionGroup(
             Eventful eventful,
-            ConcurrentMap<SocketAddress, Connection> connections) {
+            ConcurrentMap<Pair<SocketAddress, SocketAddress>, Connection> connections) {
         this.eventful = checkNotNull(eventful);
         this.connections = checkNotNull(connections);
     }
+    
+    protected Eventful eventful() {
+    	return eventful;
+    }
 
-    protected ConcurrentMap<SocketAddress, Connection> connections() {
+    protected ConcurrentMap<Pair<SocketAddress, SocketAddress>, Connection> connections() {
         return connections;
     }
     
-    @Override
-    public Connection get(SocketAddress remoteAddress) {
-        return connections().get(remoteAddress);
+    public Connection get(Pair<SocketAddress, SocketAddress> endpoints) {
+        return connections().get(endpoints);
     }
 
     @Override
@@ -58,7 +62,10 @@ public abstract class AbstractConnectionGroup extends AbstractIdleService implem
     
     protected Connection add(Connection connection) {
         logger.trace("Added Connection: {}", connection);
-        Connection prev = connections.put(connection.remoteAddress(), connection);
+        Pair<SocketAddress, SocketAddress> endpoints = Pair.create(
+        		connection.localAddress(),
+        		connection.remoteAddress());
+        Connection prev = connections().put(endpoints, connection);
         if (prev != null) {
         	prev.close();
         }
@@ -99,16 +106,16 @@ public abstract class AbstractConnectionGroup extends AbstractIdleService implem
 
     @Override
     public void post(Object event) {
-        eventful.post(event);
+        eventful().post(event);
     }
 
     @Override
     public void register(Object object) {
-        eventful.register(object);
+        eventful().register(object);
     }
 
     @Override
     public void unregister(Object object) {
-        eventful.unregister(object);
+        eventful().unregister(object);
     }
 }

@@ -218,7 +218,7 @@ public class ServerITest {
         assertSame(clientConnection, clientEventSink.take(Connection.class));
         assertSame(clientConnection, Iterables.getOnlyElement(clientConnections));
         clientConnection.register(clientEventSink);
-        
+
         // connect
         ClientSessionConnection clientSession = injector.getInstance(ClientSessionConnection.Factory.class).get(clientConnection);
         clientSession.register(clientEventSink);
@@ -253,7 +253,7 @@ public class ServerITest {
         Connection serverConnection = serverEventSink.take(Connection.class);
         assertSame(serverConnection, Iterables.getOnlyElement(serverConnections));
         serverConnection.register(serverEventSink);
-        
+
         // disconnect
         result = clientSession.disconnect().get();
         assertEquals(Operation.CLOSE_SESSION, result.operation());
