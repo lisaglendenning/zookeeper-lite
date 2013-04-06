@@ -2,7 +2,7 @@ package org.apache.zookeeper;
 
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.EventfulAutomataState;
-import org.apache.zookeeper.util.EventfulReference;
+import org.apache.zookeeper.util.EventfulAtomicUpdater;
 
 import com.google.inject.Inject;
 

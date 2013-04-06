@@ -9,6 +9,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Session;
+import org.apache.zookeeper.SessionConnection;
+import org.apache.zookeeper.SessionConnectionState;
 import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.data.Operations;
@@ -32,7 +34,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
-public class RequestExecutor extends ForwardingEventful implements RequestExecutorService, Callable<ListenableFuture<Operation.Result>> {
+public class RequestExecutor extends ForwardingEventful implements RequestExecutorService, SessionConnection, Callable<ListenableFuture<Operation.Result>> {
 
     public static class Factory implements RequestExecutorService.Factory {
 
@@ -143,14 +145,14 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
 
 	    protected RequestExecutorService newExecutor() {
 	        return RequestExecutor.create(
-	        		eventfulFactory.get(), 
+	        		eventfulFactory, 
 	        		executor(), 
 	        		getAnonymousProcessor());
 	    }
 	    
 	    protected RequestExecutorService newExecutor(long sessionId) {
 	        return RequestExecutor.create(
-	        		eventfulFactory.get(), 
+	        		eventfulFactory, 
 	        		executor(), 
 	        		getSessionProcessor(sessionId));
 	    }
@@ -188,30 +190,32 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
         
     }
 
-    public static RequestExecutorService create(Eventful eventful, ExecutorService executor, Processor<Operation.Request, Operation.Result> processor) {
-        return new RequestExecutor(eventful, executor, processor);
+    public static RequestExecutorService create(Provider<Eventful> eventfulFactory, ExecutorService executor, Processor<Operation.Request, Operation.Result> processor) {
+        return new RequestExecutor(eventfulFactory, executor, processor);
     }
     
     protected final Logger logger = LoggerFactory.getLogger(RequestExecutor.class);
-    protected final BlockingQueue<SettableTask<Operation.Request, Operation.Result>> requests;
-    protected final Processor<Operation.Request, Operation.Result> processor;
     protected final ExecutorService executor;
+    protected final Processor<Operation.Request, Operation.Result> processor;
+    protected final BlockingQueue<SettableTask<Operation.Request, Operation.Result>> requests;
+    protected final SessionConnectionState state;
 
     @Inject
     public RequestExecutor(
-    		Eventful eventful,
+    		Provider<Eventful> eventfulFactory,
     		ExecutorService executor,
     		Processor<Operation.Request, Operation.Result> processor) {
-        this(eventful, executor, processor,
+        this(eventfulFactory, executor, processor,
         		new LinkedBlockingQueue<SettableTask<Operation.Request, Operation.Result>>());
     }
     
     protected RequestExecutor(
-    		Eventful eventful,
+    		Provider<Eventful> eventfulFactory,
     		ExecutorService executor,
     		Processor<Operation.Request, Operation.Result> processor,
     		BlockingQueue<SettableTask<Operation.Request, Operation.Result>> requests) {
-        super(eventful);
+        super(eventfulFactory.get());
+        this.state = SessionConnectionState.create(eventfulFactory.get());
         this.executor = executor;
         this.processor = processor;
     	this.requests = requests;
@@ -230,6 +234,12 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
     }
 
     @Override
+	public State state() {
+	    // TODO Auto-generated method stub
+	    return null;
+	}
+
+	@Override
     public ListenableFuture<Operation.Result> submit(Operation.Request request) {
         logger.debug("Submitting request {}", request);
         SettableTask<Operation.Request, Operation.Result> task = newTask(request);

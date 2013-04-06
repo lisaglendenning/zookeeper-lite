@@ -1,16 +1,9 @@
 package org.apache.zookeeper.netty;
 
 import static org.junit.Assert.*;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundMessageHandlerAdapter;
-
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingQueue;
-
 import org.apache.zookeeper.Connection;
-import org.apache.zookeeper.Session;
+import org.apache.zookeeper.EventSink;
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.Xid;
 import org.apache.zookeeper.Zxid;
@@ -19,8 +12,9 @@ import org.apache.zookeeper.data.OpCreateSessionAction;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.data.Operations;
 import org.apache.zookeeper.event.ConnectionEvent;
-import org.apache.zookeeper.event.ConnectionEventValue;
-import org.apache.zookeeper.netty.ChannelConnection;
+import org.apache.zookeeper.event.ConnectionMessageEvent;
+import org.apache.zookeeper.event.ConnectionSessionStateEvent;
+import org.apache.zookeeper.event.ConnectionStateEvent;
 import org.apache.zookeeper.netty.client.ChannelClientConnectionGroup;
 import org.apache.zookeeper.netty.client.ClientConnection;
 import org.apache.zookeeper.netty.server.ChannelServerConnectionGroup;
@@ -29,24 +23,23 @@ import org.apache.zookeeper.server.ServerConnectionGroup;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.EventfulEventBus;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
-import com.google.inject.Provider;
-import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
 @RunWith(JUnit4.class)
 public class ChannelServerConnectionGroupITest {
 
-    //@Rule
-    //public Timeout globalTimeout = new Timeout(10000); 
+    @Rule
+    public Timeout globalTimeout = new Timeout(10000); 
 
     public static class Module extends LocalModule {
 
@@ -64,56 +57,24 @@ public class ChannelServerConnectionGroupITest {
         @Override
         protected void configure() {
             bind(Eventful.class).to(EventfulEventBus.class);
+            bind(Xid.class).in(Singleton.class);
+            bind(Zxid.class).in(Singleton.class);
             bind(ServerConnectionGroup.class).to(ChannelServerConnectionGroup.class);
             bind(ClientConnectionGroup.class).to(ChannelClientConnectionGroup.class);
-        }
-        
-        @Provides
-        public Xid xid() {
-            return Xid.create();
-        }
-        
-        @Provides
-        public Zxid zxid() {
-            return Zxid.create();
-        }
-        
-        @Provides @Singleton
-        protected ServerConnection.Factory getServerConnectionFactory(Provider<Eventful> eventfulFactory, Zxid zxid) {
-            return ServerConnection.Factory.get(eventfulFactory, zxid);
-        }
-
-        @Provides @Singleton
-        protected ClientConnection.Factory getClientConnectionFactory(Provider<Eventful> eventfulFactory, Xid xid) {
-            return ClientConnection.Factory.get(eventfulFactory, xid);
+            bind(ServerConnection.Factory.class).in(Singleton.class);
+            bind(ClientConnection.Factory.class).in(Singleton.class);
         }
     }
     
-    public static class ConnectionCallback {
-
-        public BlockingQueue<Connection> connections;
-        
-        public ConnectionCallback() {
-            this.connections = new LinkedBlockingQueue<Connection>();
-        }
-        
+    public static class EventfulSink extends EventSink {
         @Subscribe
-        public void handle(Connection connection) throws InterruptedException {
-            connections.put(connection);
-        }
-    }
-    
-    public static class EventSink {
-
-        public BlockingQueue<ConnectionEventValue> events;
-
-        public EventSink() {
-            this.events = new LinkedBlockingQueue<ConnectionEventValue>();
+        public void handle(Connection event) throws InterruptedException {
+            put(Connection.class, event);
         }
         
-        @Subscribe
-        public void handle(ConnectionEventValue event) throws InterruptedException {
-            events.put(event);
+    	@Subscribe
+        public void handle(ConnectionEvent event) throws InterruptedException {
+            put(event);
         }
     }
 
@@ -123,70 +84,78 @@ public class ChannelServerConnectionGroupITest {
     }
     
     @Test
-    public void test() throws InterruptedException, ExecutionException {
+    public void testInvalidConnect() throws InterruptedException, ExecutionException {
         Injector injector = Module.injector;
-        ConnectionCallback callback = injector.getInstance(ConnectionCallback.class);
+        
+        EventfulSink[] sinks = { new EventfulSink(), new EventfulSink() };
+        EventfulSink clientSink = sinks[0];
+        EventfulSink serverSink = sinks[1];
+        
         ChannelServerConnectionGroup server = injector.getInstance(ChannelServerConnectionGroup.class);
-        server.register(callback);
+        server.register(serverSink);
         server.startAndWait();
         
         ChannelClientConnectionGroup clients = injector.getInstance(ChannelClientConnectionGroup.class);
+        clients.register(clientSink);
         clients.startAndWait();
         
-        ListenableFuture<Connection> future = clients.connect(server.localAddress());
-        Connection clientConnection = future.get();
+        Connection clientConnection = clients.connect(server.localAddress()).get();
         assertNotNull(clientConnection);
         assertEquals(clientConnection, Iterables.getOnlyElement(clients));
-        Connection serverConnection = callback.connections.take();
-        assertEquals(serverConnection, Iterables.getOnlyElement(server));
-        assertTrue(clientConnection.state() == Connection.State.CONNECTION_OPENED);
-        assertTrue(serverConnection.state() == Connection.State.CONNECTION_OPENED);
-        
-        EventSink serverSink = new EventSink();
-        serverConnection.register(serverSink);
-        EventSink clientSink = new EventSink();
+        assertEquals(clientConnection, clientSink.take(Connection.class));
+        assertTrue(clientConnection.state() == Connection.State.CONNECTION_OPENING
+        		|| clientConnection.state() == Connection.State.CONNECTION_OPENED);
         clientConnection.register(clientSink);
+        
+        Connection serverConnection = serverSink.take(Connection.class);
+        assertEquals(serverConnection, Iterables.getOnlyElement(server));
+        assertTrue(serverConnection.state() == Connection.State.CONNECTION_OPENING
+        		|| serverConnection.state() == Connection.State.CONNECTION_OPENED);
+        serverConnection.register(serverSink);
         
         Operation.Request connectRequest = Operations.Requests.create(Operation.CREATE_SESSION);
         clientConnection.send(connectRequest).get();
         clientConnection.flush().get();
         serverConnection.read();
         
-        ConnectionEventValue event = clientSink.events.take();
-        assertEquals(SessionConnection.State.CONNECTING, event.event());
-        event = serverSink.events.take();
-        assertEquals(SessionConnection.State.CONNECTING, event.event());
-        event = serverSink.events.take();
-        assertTrue(event.event() instanceof Operation.Request);
-        assertEquals(connectRequest, ((Operation.Request)event.event()));
+        for (EventfulSink sink: sinks) {
+        	ConnectionSessionStateEvent sessionStateEvent = sink.take(ConnectionSessionStateEvent.class);
+        	assertEquals(SessionConnection.State.CONNECTING, sessionStateEvent.event());
+        }
+        
+        ConnectionMessageEvent<?> messageEvent = serverSink.take(ConnectionMessageEvent.class);
+        assertEquals(serverConnection, messageEvent.connection());
+        assertTrue(messageEvent.event() instanceof Operation.Request);
+        assertEquals(connectRequest, ((Operation.Request)messageEvent.event()));
         
         Operation.Response connectResponse = OpCreateSessionAction.InvalidResponse.create();
         serverConnection.send(connectResponse).get();
         serverConnection.flush().get();
         clientConnection.read();
-
-        event = serverSink.events.take();
-        assertEquals(SessionConnection.State.ERROR, event.event());
-        event = clientSink.events.take();
-        assertEquals(SessionConnection.State.ERROR, event.event());
-        event = clientSink.events.take();
-        assertTrue(event.event() instanceof Operation.Result);
-        Operation.Result result = (Operation.Result)event.event();
+        
+        for (EventfulSink sink: sinks) {
+        	ConnectionSessionStateEvent sessionStateEvent = sink.take(ConnectionSessionStateEvent.class);
+        	assertEquals(SessionConnection.State.ERROR, sessionStateEvent.event());
+        }
+        
+        messageEvent = clientSink.take(ConnectionMessageEvent.class);
+        assertEquals(clientConnection, messageEvent.connection());
+        assertTrue(messageEvent.event() instanceof Operation.Result);
+        Operation.Result result = (Operation.Result)messageEvent.event();
         assertEquals(connectRequest, result.request());
         assertEquals(connectResponse, result.response());
         
         clients.stopAndWait();
         server.stopAndWait();
 
-        while (! serverSink.events.isEmpty()) {
-            event = serverSink.events.take();
+        for (EventfulSink sink: sinks) {
+        	ConnectionStateEvent connectionStateEvent = sink.take(ConnectionStateEvent.class);
+        	while (connectionStateEvent.event() != Connection.State.CONNECTION_CLOSED) {
+            	connectionStateEvent = sink.take(ConnectionStateEvent.class);
+        	}
+        	assertTrue(sink.toString(), sink.isEmpty());
         }
-        assertEquals(Connection.State.CONNECTION_CLOSED, event.event());
-        while (! clientSink.events.isEmpty()) {
-            event = clientSink.events.take();
-        }
-        assertEquals(Connection.State.CONNECTION_CLOSED, event.event());
-
+        
         assertEquals(Connection.State.CONNECTION_CLOSED, clientConnection.state());
         assertEquals(Connection.State.CONNECTION_CLOSED, serverConnection.state());
     }

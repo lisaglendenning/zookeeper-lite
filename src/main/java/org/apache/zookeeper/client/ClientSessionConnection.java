@@ -175,7 +175,18 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
     
     public ListenableFuture<Operation.Result> connect() {
     	boolean valid = state.compareAndSet(State.ANONYMOUS, State.CONNECTING);
-        checkState(valid);
+        if (! valid) {
+        	SettableFuture<Operation.Result> future = SettableFuture.create();
+        	switch (state()) {
+        	case CONNECTING:
+        	case CONNECTED:
+        		future.set(null);
+        		break;
+    		default:
+    			future.setException(new IllegalStateException());
+        	}
+        	return future;
+        }
         
         state.register(this);
         connection.register(this);
@@ -198,7 +209,18 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
     
     public ListenableFuture<Operation.Result> disconnect() {
     	boolean valid = state.compareAndSet(State.CONNECTED, State.DISCONNECTING);
-        checkState(valid);
+        if (! valid) {
+        	SettableFuture<Operation.Result> future = SettableFuture.create();
+        	switch (state()) {
+        	case DISCONNECTING:
+        	case DISCONNECTED:
+        		future.set(null);
+        		break;
+    		default:
+    			future.setException(new IllegalStateException());
+        	}
+        	return future;
+        }
         
 	    Operation.Request message = Operations.Requests.create(Operation.CLOSE_SESSION);
 	    return send(message);
@@ -295,7 +317,6 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
 	    }
 	    case CLOSE_SESSION:
 	    {
-	    	// TODO: need to unwrap?!
 	    	if (! (response instanceof Operation.Error)) {
 	    		this.state.set(SessionConnection.State.DISCONNECTED);
 	    	}

@@ -1,34 +1,17 @@
 package org.apache.zookeeper.util;
 
 import org.apache.zookeeper.util.Eventful;
-import org.apache.zookeeper.util.EventfulReference;
+import org.apache.zookeeper.util.EventfulAtomicUpdater;
 
 
-public class EventfulAutomataState<T extends AutomataState<T>> extends EventfulReference<T> {
+public class EventfulAutomataState<T extends AutomataState<T>> extends EventfulAtomicUpdater<T> {
     
     public static <T extends AutomataState<T>> EventfulAutomataState<T> create(Eventful eventful, T state) {
         return new EventfulAutomataState<T>(eventful, state);
     }
 
     protected EventfulAutomataState(Eventful eventful, T state) {
-        super(eventful, state);
+        super(eventful, AutomataState.Reference.create(state));
         eventful.post(state);
-    }
-
-    @Override
-    public T getAndSet(T nextState) {
-        T prevState = state.get();
-        if (! compareAndSet(prevState, nextState)) {
-            return null;
-        }
-        return prevState;
-    }
-    
-    @Override
-    public boolean compareAndSet(T prevState, T nextState) {
-        if (! prevState.validTransition(nextState)) {
-            return false;
-        }
-        return super.compareAndSet(prevState, nextState);
     }
 }
