@@ -56,6 +56,7 @@ public class ChannelServerConnectionGroupITest {
         
         @Override
         protected void configure() {
+            super.configure();
             bind(Eventful.class).to(EventfulEventBus.class);
             bind(Xid.class).in(Singleton.class);
             bind(Zxid.class).in(Singleton.class);

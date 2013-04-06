@@ -26,12 +26,12 @@ public class NettyServerMain extends ServerMain {
     @Override
     protected void configure() {
         super.configure();
-        bind(ChannelServerConnectionGroup.class).in(Singleton.class);
+        bind(ConfigurableChannelServerConnectionGroup.class).in(Singleton.class);
         bind(ServerConnection.Factory.class).in(Singleton.class);
     }
     
     @Provides @Singleton
-    protected ServerConnectionGroup getServerConnectionGroup(ChannelServerConnectionGroup group, ServiceMonitor monitor) {
+    protected ServerConnectionGroup getServerConnectionGroup(ConfigurableChannelServerConnectionGroup group, ServiceMonitor monitor) {
         monitor.add(group);
         return group;
     }
@@ -39,7 +39,7 @@ public class NettyServerMain extends ServerMain {
     @Override
     protected List<Module> modules() {
         List<Module> modules = super.modules();
-        modules.add(NioServerBootstrapFactory.ServerBootstrapModule.get());
+        modules.add(NioServerBootstrapFactory.get());
         return modules;
     }
 }

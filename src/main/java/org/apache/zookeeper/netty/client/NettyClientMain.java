@@ -39,7 +39,7 @@ public class NettyClientMain extends ClientMain {
     @Override
     protected List<Module> modules() {
         List<Module> modules = super.modules();
-        modules.add(NioBootstrapFactory.BootstrapModule.get());
+        modules.add(NioBootstrapFactory.get());
         return modules;
     }
 }
