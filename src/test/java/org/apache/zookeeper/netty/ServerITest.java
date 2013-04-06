@@ -37,6 +37,7 @@ import org.apache.zookeeper.server.Server;
 import org.apache.zookeeper.server.ServerConnectionGroup;
 import org.apache.zookeeper.server.SessionManager;
 import org.apache.zookeeper.server.SessionParametersPolicy;
+import org.apache.zookeeper.server.SessionRequestExecutor;
 import org.apache.zookeeper.util.Arguments;
 import org.apache.zookeeper.util.Configuration;
 import org.apache.zookeeper.util.Eventful;
@@ -100,7 +101,7 @@ public class ServerITest {
             bind(ExpiringSessionManager.class).in(Singleton.class);
             bind(SessionManager.class).to(ExpiringSessionManager.class).in(Singleton.class);
             bind(ChannelServerConnectionGroup.class).in(Singleton.class);
-            bind(RequestExecutorService.Factory.class).to(RequestExecutor.Factory.class).in(Singleton.class);
+            bind(RequestExecutorService.Factory.class).to(SessionRequestExecutor.Factory.class).in(Singleton.class);
             bind(ServerConnection.Factory.class).in(Singleton.class);
             bind(Server.class).in(Singleton.class);
 
