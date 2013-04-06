@@ -1,5 +1,7 @@
 package org.apache.zookeeper.server;
 
+import static com.google.common.base.Preconditions.*;
+
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -9,8 +11,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Session;
-import org.apache.zookeeper.SessionConnection;
-import org.apache.zookeeper.SessionConnectionState;
 import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.data.Operations;
@@ -34,7 +34,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
-public class RequestExecutor extends ForwardingEventful implements RequestExecutorService, SessionConnection, Callable<ListenableFuture<Operation.Result>> {
+public class RequestExecutor extends ForwardingEventful implements RequestExecutorService, Callable<ListenableFuture<Operation.Result>> {
 
     public static class Factory implements RequestExecutorService.Factory {
 
@@ -147,36 +147,39 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
 	        return RequestExecutor.create(
 	        		eventfulFactory, 
 	        		executor(), 
-	        		getAnonymousProcessor());
+	        		getResponseProcessor(getAnonymousProcessor()));
 	    }
 	    
 	    protected RequestExecutorService newExecutor(long sessionId) {
 	        return RequestExecutor.create(
 	        		eventfulFactory, 
 	        		executor(), 
-	        		getSessionProcessor(sessionId));
+	        		getResponseProcessor(getSessionProcessor(sessionId)));
 	    }
 	    
-		protected Processor<Operation.Request, Operation.Result> getAnonymousProcessor() {
+		protected Processor<Operation.Request, Operation.Response> getAnonymousProcessor() {
             @SuppressWarnings("unchecked")
             Processor<Operation.Request, Operation.Response> requestProcessor =
                     FilteredProcessors.create(
                             OpCreateSessionProcessor.create(sessions),
                             FilteredProcessor.create(
                                     OpRequestProcessor.NotEqualsFilter.create(Operation.CREATE_SESSION), 
-                                    OpRequestProcessor.create()));
-            return getResponseProcessor(requestProcessor);
+                                    OpRequestErrorProcessor.create()));
+            return requestProcessor;
         }
 
-        protected Processor<Operation.Request, Operation.Result> getSessionProcessor(long sessionId) {
+        protected Processor<Operation.Request, Operation.Response> getSessionProcessor(long sessionId) {
             @SuppressWarnings("unchecked")
             Processor<Operation.Request, Operation.Response> requestProcessor =
                     FilteredProcessors.create(
+                            FilteredProcessor.create(
+                                    OpRequestProcessor.EqualsFilter.create(Operation.CREATE_SESSION), 
+                                    OpRequestErrorProcessor.create()),
                             OpCloseSessionProcessor.create(sessionId, sessions),
                             FilteredProcessor.create(
                                     OpRequestProcessor.NotEqualsFilter.create(Operation.CLOSE_SESSION), 
                                     OpRequestProcessor.create()));
-            return getResponseProcessor(requestProcessor);
+            return requestProcessor;
         }
 
         protected Processor<Operation.Request, Operation.Result> getResponseProcessor(Processor<Operation.Request, Operation.Response> requestProcessor) {
@@ -190,7 +193,10 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
         
     }
 
-    public static RequestExecutorService create(Provider<Eventful> eventfulFactory, ExecutorService executor, Processor<Operation.Request, Operation.Result> processor) {
+    public static RequestExecutorService create(
+            Provider<Eventful> eventfulFactory, 
+            ExecutorService executor, Processor<Operation.Request, 
+            Operation.Result> processor) {
         return new RequestExecutor(eventfulFactory, executor, processor);
     }
     
@@ -198,10 +204,9 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
     protected final ExecutorService executor;
     protected final Processor<Operation.Request, Operation.Result> processor;
     protected final BlockingQueue<SettableTask<Operation.Request, Operation.Result>> requests;
-    protected final SessionConnectionState state;
 
     @Inject
-    public RequestExecutor(
+    protected RequestExecutor(
     		Provider<Eventful> eventfulFactory,
     		ExecutorService executor,
     		Processor<Operation.Request, Operation.Result> processor) {
@@ -215,7 +220,6 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
     		Processor<Operation.Request, Operation.Result> processor,
     		BlockingQueue<SettableTask<Operation.Request, Operation.Result>> requests) {
         super(eventfulFactory.get());
-        this.state = SessionConnectionState.create(eventfulFactory.get());
         this.executor = executor;
         this.processor = processor;
     	this.requests = requests;
@@ -233,14 +237,9 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
         return requests;
     }
 
-    @Override
-	public State state() {
-	    // TODO Auto-generated method stub
-	    return null;
-	}
-
 	@Override
     public ListenableFuture<Operation.Result> submit(Operation.Request request) {
+	    checkNotNull(request);
         logger.debug("Submitting request {}", request);
         SettableTask<Operation.Request, Operation.Result> task = newTask(request);
         requests().add(task);

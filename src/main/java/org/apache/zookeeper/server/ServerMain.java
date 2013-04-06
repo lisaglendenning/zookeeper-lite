@@ -74,7 +74,7 @@ public class ServerMain extends Main {
         bind(ExpiringSessionManager.class).in(Singleton.class);
         bind(ExpireSessionsTask.class).in(Singleton.class);
         bind(SessionParametersPolicy.class).to(DefaultSessionParametersPolicy.class);
-        bind(RequestExecutorService.Factory.class).to(RequestExecutor.Factory.class).in(Singleton.class);
+        bind(RequestExecutorService.Factory.class).to(SessionRequestExecutor.Factory.class).in(Singleton.class);
         bind(Application.class).to(ApplicationService.class).in(Singleton.class);
         //bind(ExpireSessionsTask.class).asEagerSingleton();
     }
