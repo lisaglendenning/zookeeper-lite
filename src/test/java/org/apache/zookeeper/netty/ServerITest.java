@@ -30,10 +30,10 @@ import org.apache.zookeeper.netty.client.ChannelClientConnectionGroup;
 import org.apache.zookeeper.netty.client.ClientConnection;
 import org.apache.zookeeper.netty.server.ChannelServerConnectionGroup;
 import org.apache.zookeeper.netty.server.ServerConnection;
+import org.apache.zookeeper.server.ConnectionManager;
 import org.apache.zookeeper.server.DefaultSessionParametersPolicy;
 import org.apache.zookeeper.server.ExpiringSessionManager;
 import org.apache.zookeeper.server.RequestExecutor;
-import org.apache.zookeeper.server.Server;
 import org.apache.zookeeper.server.ServerConnectionGroup;
 import org.apache.zookeeper.server.SessionManager;
 import org.apache.zookeeper.server.SessionParametersPolicy;
@@ -103,7 +103,7 @@ public class ServerITest {
             bind(ChannelServerConnectionGroup.class).in(Singleton.class);
             bind(RequestExecutorService.Factory.class).to(SessionRequestExecutor.Factory.class).in(Singleton.class);
             bind(ServerConnection.Factory.class).in(Singleton.class);
-            bind(Server.class).in(Singleton.class);
+            bind(ConnectionManager.class).asEagerSingleton();
 
             // client
             bind(Xid.class).in(Singleton.class);
@@ -161,9 +161,6 @@ public class ServerITest {
     public static void startup() {
         Module.createInjector();
         Injector injector = Module.injector;
-        injector.getInstance(Server.class);
-        injector.getInstance(ServerConnectionGroup.class);
-        injector.getInstance(ClientConnectionGroup.class);
         ServiceMonitor monitor = injector.getInstance(ServiceMonitor.class);
         monitor.startAndWait();
     }

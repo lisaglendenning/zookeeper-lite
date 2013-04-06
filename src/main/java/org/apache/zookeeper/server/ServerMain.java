@@ -70,11 +70,13 @@ public class ServerMain extends Main {
         bind(Executor.class).to(ExecutorService.class).in(Singleton.class);
         bind(Eventful.class).to(EventfulEventBus.class);
         bind(ServiceMonitor.class).in(Singleton.class);
+        bind(Service.class).to(ServiceMonitor.class);
         bind(Zxid.class).in(Singleton.class);
         bind(ExpiringSessionManager.class).in(Singleton.class);
         bind(ExpireSessionsTask.class).in(Singleton.class);
         bind(SessionParametersPolicy.class).to(DefaultSessionParametersPolicy.class);
         bind(RequestExecutorService.Factory.class).to(SessionRequestExecutor.Factory.class).in(Singleton.class);
+        bind(ConnectionManager.class).asEagerSingleton();
         bind(Application.class).to(ApplicationService.class).in(Singleton.class);
         //bind(ExpireSessionsTask.class).asEagerSingleton();
     }
@@ -85,12 +87,6 @@ public class ServerMain extends Main {
             ServiceMonitor monitor) {
         monitor.add(task);
         return manager;
-    }
-
-    @Provides @Singleton
-    public Service getService(Server server, ServiceMonitor monitor) {
-        monitor.add(server);
-        return monitor;
     }
 
     @Provides @Singleton
