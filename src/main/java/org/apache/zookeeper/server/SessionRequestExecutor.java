@@ -4,10 +4,12 @@ import static com.google.common.base.Preconditions.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import org.apache.zookeeper.RequestExecutorService;
+import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.SessionConnectionState;
 import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.data.Operation;
+import org.apache.zookeeper.event.SessionConnectionStateEvent;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.FilteredProcessor;
 import org.apache.zookeeper.util.FilteringProcessor;
@@ -15,6 +17,7 @@ import org.apache.zookeeper.util.OptionalProcessor;
 import org.apache.zookeeper.util.Processor;
 import org.apache.zookeeper.util.ProcessorBridge;
 
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -43,9 +46,11 @@ public class SessionRequestExecutor extends RequestExecutor implements RequestEx
 	    @Override
 	    protected RequestExecutorService newExecutor(long sessionId) {
 	        SessionConnectionState state = SessionConnectionState.create(eventfulFactory.get(), State.CONNECTED);
+	        Session session = sessions().get(sessionId);
 	        return SessionRequestExecutor.create(
 	        		eventfulFactory, 
 	        		executor(),
+	        		session,
 	        		state,
 	        		getResponseProcessor(getSessionProcessor(sessionId, state)));
 	    }
@@ -90,25 +95,35 @@ public class SessionRequestExecutor extends RequestExecutor implements RequestEx
     public static SessionRequestExecutor create(
             Provider<Eventful> eventfulFactory,
             ExecutorService executor,
+            Session session,
             SessionConnectionState state,
             Processor<Operation.Request, Operation.Result> processor) {
         return new SessionRequestExecutor(
                 eventfulFactory,
                 executor,
+                session,
                 state,
                 processor);
     }
 
+    protected final Session session;
     protected final SessionConnectionState state;
 
     @Inject
     protected SessionRequestExecutor(
     		Provider<Eventful> eventfulFactory,
     		ExecutorService executor,
+    		Session session,
     		SessionConnectionState state,
     		Processor<Operation.Request, Operation.Result> processor) {
         super(eventfulFactory, executor, processor);
+        this.session = session;
         this.state = state;
+        state.register(this);
+    }
+    
+    public Session session() {
+        return session;
     }
 
     @Override
@@ -127,4 +142,9 @@ public class SessionRequestExecutor extends RequestExecutor implements RequestEx
 	    
 	    return super.submit(request);
     }
+	
+	@Subscribe
+	public void handleSessionConnectionStateEvent(SessionConnection.State event) {
+        post(SessionConnectionStateEvent.create(session(), event));
+	}
 }
