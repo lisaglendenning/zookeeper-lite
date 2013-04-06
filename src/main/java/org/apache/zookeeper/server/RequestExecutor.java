@@ -20,7 +20,6 @@ import org.apache.zookeeper.util.FilteredProcessor;
 import org.apache.zookeeper.util.FilteredProcessors;
 import org.apache.zookeeper.util.ForwardingEventful;
 import org.apache.zookeeper.util.OptionalProcessor;
-import org.apache.zookeeper.util.Pair;
 import org.apache.zookeeper.util.Processor;
 import org.apache.zookeeper.util.ProcessorBridge;
 import org.apache.zookeeper.util.SettableTask;
@@ -30,7 +29,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
@@ -248,20 +246,24 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
     }
     
     public ListenableFuture<Operation.Result> call() throws Exception {
-        Pair<Operation.Request, SettableFuture<Operation.Result>> request = requests().poll();
-        if (request != null) {
-            Operation.Result result = null;
-            try {
-                result = processor().apply(request.first());
-            } catch (Throwable t) {
-                request.second().setException(t);
-                return request.second();
-            }
-            request.second().set(result);
-            return request.second();
+        SettableTask<Operation.Request, Operation.Result> task = requests().poll();
+        if (task != null) {
+            return apply(task);
         } else {
             return null;
         }
+    }
+    
+    protected ListenableFuture<Operation.Result> apply(SettableTask<Operation.Request, Operation.Result> task) {
+        Operation.Result result = null;
+        try {
+            result = processor().apply(task.task());
+        } catch (Throwable t) {
+            task.future().setException(t);
+            return task.future();
+        }
+        task.future().set(result);
+        return task.future();
     }
     
     protected SettableTask<Operation.Request, Operation.Result> newTask(Operation.Request request) {
