@@ -9,9 +9,8 @@ import org.apache.zookeeper.ZooDefs.OpCode;
 
 import com.google.common.collect.Maps;
 
-
 public enum Operation {
-    
+
     NOTIFICATION(OpCode.notification) {
     },
 
@@ -75,7 +74,7 @@ public enum Operation {
     public static interface Action {
         Operation operation();
     }
-    
+
     public static interface Request extends Action {
     }
 
@@ -93,25 +92,26 @@ public enum Operation {
     public static interface Error extends Response {
         KeeperException.Code error();
     }
-      
+
     public static interface Result extends RequestValue, ResponseValue {
     }
-    
+
     public static interface CallRequest extends Request {
         int xid();
     }
-    
+
     public static interface CallResponse extends ResponseValue {
         long zxid();
     }
 
     public static interface CallReply extends CallRequest, CallResponse {
     }
-    
+
     public static interface CallResult extends CallReply, Result {
     }
 
-    protected static final Map<Integer, Operation> codeToOperation = Maps.newHashMap();
+    protected static final Map<Integer, Operation> codeToOperation = Maps
+            .newHashMap();
     static {
         for (Operation item : Operation.values()) {
             Integer opcode = item.code();

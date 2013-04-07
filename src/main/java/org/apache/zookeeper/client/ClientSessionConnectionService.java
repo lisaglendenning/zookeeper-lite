@@ -4,26 +4,27 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
-public class ClientSessionConnectionService extends AbstractIdleService implements Provider<ClientSessionConnection> {
-    
+public class ClientSessionConnectionService extends AbstractIdleService
+        implements Provider<ClientSessionConnection> {
+
     public static ClientSessionConnectionService create(
-    		Provider<ClientSessionConnection> sessionFactory) {
+            Provider<ClientSessionConnection> sessionFactory) {
         return new ClientSessionConnectionService(sessionFactory);
     }
-    
+
     protected final Provider<ClientSessionConnection> sessionFactory;
     protected ClientSessionConnection session;
 
     @Inject
     protected ClientSessionConnectionService(
-    		Provider<ClientSessionConnection> sessionFactory) {
-    	this.sessionFactory = sessionFactory;
+            Provider<ClientSessionConnection> sessionFactory) {
+        this.sessionFactory = sessionFactory;
         this.session = null;
     }
-    
+
     @Override
     protected void startUp() throws Exception {
-    	session = sessionFactory.get();
+        session = sessionFactory.get();
         get().connect().get();
     }
 
@@ -32,8 +33,8 @@ public class ClientSessionConnectionService extends AbstractIdleService implemen
         get().disconnect().get();
     }
 
-	@Override
+    @Override
     public ClientSessionConnection get() {
-	    return session;
+        return session;
     }
 }

@@ -20,13 +20,14 @@ import org.slf4j.LoggerFactory;
 
 @RunWith(JUnit4.class)
 public class BufEventDecoderTest extends TestEmbeddedChannels {
-    
+
     @Rule
-    public Timeout globalTimeout = new Timeout(1000); 
+    public Timeout globalTimeout = new Timeout(1000);
 
     protected static Randomizer RANDOM = new Randomizer();
-    
-    protected static final Logger logger = LoggerFactory.getLogger(BufEventDecoderTest.class);
+
+    protected static final Logger logger = LoggerFactory
+            .getLogger(BufEventDecoderTest.class);
 
     @Test
     public void testDecoder() {
@@ -34,11 +35,11 @@ public class BufEventDecoderTest extends TestEmbeddedChannels {
                 BufEventDecoder.create());
         testEmptyDecode(inputChannel);
         testCompleteDecode(inputChannel);
-        testPartialDecode(inputChannel);       
-        testFailedDecode(inputChannel);    
+        testPartialDecode(inputChannel);
+        testFailedDecode(inputChannel);
         inputChannel.close();
     }
-    
+
     protected void testEmptyDecode(EmbeddedByteChannel inputChannel) {
         // zero-length buffer shouldn't trigger an event
         int length = 0;
@@ -48,7 +49,7 @@ public class BufEventDecoderTest extends TestEmbeddedChannels {
         writeInbound(inputChannel, inputBuf);
         inputBuf.release();
     }
-    
+
     protected void testCompleteDecode(EmbeddedByteChannel inputChannel) {
         // completely-read buffer shouldn't trigger another event
         int length = 4;
@@ -72,17 +73,17 @@ public class BufEventDecoderTest extends TestEmbeddedChannels {
     protected void testPartialDecode(EmbeddedByteChannel inputChannel) {
         // partially read buffer should trigger another event
         int chunk = 2;
-        int length = chunk*2;
+        int length = chunk * 2;
         byte[] inputData = RANDOM.randomBytes(length);
         ByteBuf inputBuf = Unpooled.wrappedBuffer(inputData);
         inputBuf.retain();
         BufEvent event = writeInboundAndRead(inputChannel, inputBuf);
         byte[] outputData = new byte[length];
-        for (int i=0; i<2; ++i) {
+        for (int i = 0; i < 2; ++i) {
             assertNotNull(event);
             ByteBuf outputBuf = event.getBuf();
-            assertEquals(outputBuf.readableBytes(), (2-i)*chunk);
-            outputBuf.readBytes(outputData, i*chunk, chunk);
+            assertEquals(outputBuf.readableBytes(), (2 - i) * chunk);
+            outputBuf.readBytes(outputData, i * chunk, chunk);
             event.getCallback().onSuccess(null);
             inputChannel.runPendingTasks();
             inputChannel.checkException();
@@ -106,7 +107,7 @@ public class BufEventDecoderTest extends TestEmbeddedChannels {
         try {
             inputChannel.checkException();
             fail("Expected exception: " + t.toString());
-        } catch (Exception e) {    
+        } catch (Exception e) {
         }
     }
 }

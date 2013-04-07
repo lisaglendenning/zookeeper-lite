@@ -19,25 +19,28 @@ public class ServerMain extends ServiceMain {
         return new ServerMain();
     }
 
-    protected ServerMain() {}
-    
-    @Override 
+    protected ServerMain() {
+    }
+
+    @Override
     protected void configure() {
         super.configure();
         bind(Service.class).to(ServiceMonitor.class);
         bind(Zxid.class).in(Singleton.class);
         bind(ExpiringSessionManager.class).in(Singleton.class);
         bind(ExpireSessionsTask.class).in(Singleton.class);
-        bind(SessionParametersPolicy.class).to(DefaultSessionParametersPolicy.class);
-        bind(RequestExecutorService.Factory.class).to(SessionRequestExecutor.Factory.class).in(Singleton.class);
+        bind(SessionParametersPolicy.class).to(
+                DefaultSessionParametersPolicy.class);
+        bind(RequestExecutorService.Factory.class).to(
+                SessionRequestExecutor.Factory.class).in(Singleton.class);
         bind(ConnectionManager.class).asEagerSingleton();
-        //bind(ExpireSessionsTask.class).asEagerSingleton();
+        // bind(ExpireSessionsTask.class).asEagerSingleton();
     }
-    
-    @Provides @Singleton
+
+    @Provides
+    @Singleton
     public SessionManager getSessionManager(ExpiringSessionManager manager,
-    		ExpireSessionsTask task,
-            ServiceMonitor monitor) {
+            ExpireSessionsTask task, ServiceMonitor monitor) {
         monitor.add(task);
         return manager;
     }

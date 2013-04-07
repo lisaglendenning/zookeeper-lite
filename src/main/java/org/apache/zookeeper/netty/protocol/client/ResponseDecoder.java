@@ -22,12 +22,13 @@ import org.slf4j.LoggerFactory;
 
 import com.google.inject.Inject;
 
-public class ResponseDecoder extends MessageToMessageCodec<BufEvent, Operation.Request> {
+public class ResponseDecoder extends
+        MessageToMessageCodec<BufEvent, Operation.Request> {
 
-    public static final String STATE_ATTRIBUTE_NAME = 
-            SessionStateDecoder.class.getName();
-    public static final AttributeKey<SessionConnectionState> STATE_ATTRIBUTE_KEY = 
-            new AttributeKey<SessionConnectionState>(STATE_ATTRIBUTE_NAME);
+    public static final String STATE_ATTRIBUTE_NAME = SessionStateDecoder.class
+            .getName();
+    public static final AttributeKey<SessionConnectionState> STATE_ATTRIBUTE_KEY = new AttributeKey<SessionConnectionState>(
+            STATE_ATTRIBUTE_NAME);
 
     public static ResponseDecoder create(Xid xid, Eventful eventful) {
         return new ResponseDecoder(xid, eventful);
@@ -41,21 +42,23 @@ public class ResponseDecoder extends MessageToMessageCodec<BufEvent, Operation.R
     protected ResponseDecoder(Xid xid, Eventful eventful) {
         this.decoder = SessionStateDecoder.create(eventful, xid);
     }
-    
+
     public SessionConnectionState state() {
         return decoder.state();
     }
 
     @Override
     public void afterAdd(ChannelHandlerContext ctx) throws Exception {
-        Attribute<SessionConnectionState> attr = ctx.channel().attr(STATE_ATTRIBUTE_KEY);
+        Attribute<SessionConnectionState> attr = ctx.channel().attr(
+                STATE_ATTRIBUTE_KEY);
         attr.compareAndSet(null, state());
         super.afterAdd(ctx);
     }
-    
+
     @Override
     public void beforeRemove(ChannelHandlerContext ctx) throws Exception {
-        Attribute<SessionConnectionState> attr = ctx.channel().attr(STATE_ATTRIBUTE_KEY);
+        Attribute<SessionConnectionState> attr = ctx.channel().attr(
+                STATE_ATTRIBUTE_KEY);
         attr.compareAndSet(state(), null);
         super.beforeRemove(ctx);
     }

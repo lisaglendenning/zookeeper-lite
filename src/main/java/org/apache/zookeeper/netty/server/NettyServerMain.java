@@ -21,17 +21,22 @@ public class NettyServerMain extends ServerMain {
         return new NettyServerMain();
     }
 
-    protected NettyServerMain() {}
-    
+    protected NettyServerMain() {
+    }
+
     @Override
     protected void configure() {
         super.configure();
-        bind(ConfigurableChannelServerConnectionGroup.class).in(Singleton.class);
+        bind(ConfigurableChannelServerConnectionGroup.class)
+                .in(Singleton.class);
         bind(ServerConnection.Factory.class).in(Singleton.class);
     }
-    
-    @Provides @Singleton
-    protected ServerConnectionGroup getServerConnectionGroup(ConfigurableChannelServerConnectionGroup group, ServiceMonitor monitor) {
+
+    @Provides
+    @Singleton
+    protected ServerConnectionGroup getServerConnectionGroup(
+            ConfigurableChannelServerConnectionGroup group,
+            ServiceMonitor monitor) {
         monitor.add(group);
         return group;
     }

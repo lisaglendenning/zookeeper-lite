@@ -17,8 +17,8 @@ import io.netty.channel.ChannelInboundMessageHandlerAdapter;
  * All code must be called from the same thread for the same channel
  * Processes one header at a time
  */
-public class HeaderEventDecoder 
-        extends ChannelInboundMessageHandlerAdapter<BufEvent> {
+public class HeaderEventDecoder extends
+        ChannelInboundMessageHandlerAdapter<BufEvent> {
 
     public static HeaderEventDecoder create() {
         return new HeaderEventDecoder();
@@ -27,7 +27,7 @@ public class HeaderEventDecoder
     public class Callback implements FutureCallback<Void> {
         protected final HeaderEvent event;
         protected final FutureCallback<Void> callback;
-        
+
         public Callback(HeaderEvent event, FutureCallback<Void> callback) {
             this.event = checkNotNull(event);
             this.callback = checkNotNull(callback);
@@ -47,14 +47,15 @@ public class HeaderEventDecoder
             callback.onFailure(t);
         }
     }
-    
-    protected final Logger logger = LoggerFactory.getLogger(HeaderEventDecoder.class);
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(HeaderEventDecoder.class);
     protected HeaderEvent event;
 
     public HeaderEventDecoder() {
         this.event = null;
     }
-    
+
     @Override
     public void afterAdd(ChannelHandlerContext ctx) throws Exception {
         checkState(event == null);
@@ -68,36 +69,37 @@ public class HeaderEventDecoder
         event = null;
         super.afterRemove(ctx);
     }
-    
+
     @Override
-    public void messageReceived(ChannelHandlerContext ctx,
-            BufEvent msg) throws Exception {
+    public void messageReceived(ChannelHandlerContext ctx, BufEvent msg)
+            throws Exception {
         ByteBuf header = event.getHeader();
         if (header == null) {
             header = Header.alloc(ctx.alloc());
             event.setHeader(header);
         }
-        
+
         if (header.isWritable()) {
             ByteBuf in = msg.getBuf();
-            in.readBytes(header, Math.min(in.readableBytes(), header.writableBytes()));
+            in.readBytes(header,
+                    Math.min(in.readableBytes(), header.writableBytes()));
             if (header.isWritable()) {
-                assert(! msg.getBuf().isReadable());
+                assert (!msg.getBuf().isReadable());
                 msg.getCallback().onSuccess(null);
             } else {
                 if (logger.isTraceEnabled()) {
                     String headerHex = BufUtil.hexDump(event.getHeader());
-                    logger.trace("Read header 0x{} from {}", 
-                            headerHex, ctx.channel().remoteAddress());
+                    logger.trace("Read header 0x{} from {}", headerHex, ctx
+                            .channel().remoteAddress());
                 }
             }
         }
-        
+
         // pass on if header is complete
-        if (! header.isWritable()) {
+        if (!header.isWritable()) {
             if (event.getBuf() != msg.getBuf()) {
-                assert(event.getBuf() == null);
-                assert(event.getCallback() == null);
+                assert (event.getBuf() == null);
+                assert (event.getCallback() == null);
             }
             if (event.getBuf() == null) {
                 event.setBuf(msg.getBuf());
@@ -107,4 +109,3 @@ public class HeaderEventDecoder
         }
     }
 }
-    

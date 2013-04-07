@@ -26,26 +26,28 @@ import com.google.common.util.concurrent.FutureCallback;
 public class HeaderEventEncoderTest extends TestEmbeddedChannels {
 
     @Rule
-    public Timeout globalTimeout = new Timeout(1000); 
+    public Timeout globalTimeout = new Timeout(1000);
 
     protected static Randomizer RANDOM = new Randomizer();
-    
-    protected static final Logger logger = LoggerFactory.getLogger(HeaderEventEncoderTest.class);
-    
+
+    protected static final Logger logger = LoggerFactory
+            .getLogger(HeaderEventEncoderTest.class);
+
     public static class HeaderEventTracker extends HeaderEvent {
         public class Callback implements FutureCallback<Void> {
             @Override
             public void onSuccess(Void result) {
                 completed = true;
             }
+
             @Override
             public void onFailure(Throwable t) {
                 fail(t.toString());
             }
         }
-        
+
         public boolean completed = false;
-        
+
         public HeaderEventTracker(ByteBuf header, ByteBuf buf) {
             super();
             setHeader(header);
@@ -59,16 +61,18 @@ public class HeaderEventEncoderTest extends TestEmbeddedChannels {
         EmbeddedMessageChannel outputChannel = new EmbeddedMessageChannel(
                 HeaderEventEncoder.create());
         testLengthEncode(outputChannel, Header.LENGTH);
-        testLengthEncode(outputChannel, Header.LENGTH*2);
+        testLengthEncode(outputChannel, Header.LENGTH * 2);
         outputChannel.close();
     }
-    
-    protected void testLengthEncode(EmbeddedMessageChannel outputChannel, int length) {
+
+    protected void testLengthEncode(EmbeddedMessageChannel outputChannel,
+            int length) {
         // non-empty payload
         byte[] inputData = RANDOM.randomBytes(length);
         ByteBuf inputBuf = Unpooled.wrappedBuffer(inputData);
         inputBuf.retain();
-        ByteBuf inputHeader = inputBuf.slice(inputBuf.readerIndex(), Header.LENGTH);
+        ByteBuf inputHeader = inputBuf.slice(inputBuf.readerIndex(),
+                Header.LENGTH);
         inputBuf.skipBytes(Header.LENGTH);
         HeaderEventTracker msg = new HeaderEventTracker(inputHeader, inputBuf);
         BufEvent outputMsg = writeOutboundAndRead(outputChannel, msg);

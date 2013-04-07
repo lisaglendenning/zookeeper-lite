@@ -8,7 +8,7 @@ public abstract class OpXid implements Operation.CallRequest {
     public Operation operation() {
         return opXid().operation();
     }
-    
+
     @Override
     public int xid() {
         return opXid().xid();

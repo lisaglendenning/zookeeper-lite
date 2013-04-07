@@ -9,21 +9,23 @@ import org.apache.zookeeper.util.Processor;
 
 import com.google.inject.Inject;
 
-public class AssignZxidProcessor implements Processor<Operation.Response, Operation.Response> {
+public class AssignZxidProcessor implements
+        Processor<Operation.Response, Operation.Response> {
 
     public static FilteringProcessor<Operation.Response, Operation.Response> create(
             Zxid zxid) {
-        return FilteredProcessor.create(OpRequestProcessor.NotEqualsFilter.create(Operation.CREATE_SESSION),
+        return FilteredProcessor.create(OpRequestProcessor.NotEqualsFilter
+                .create(Operation.CREATE_SESSION),
                 new AssignZxidProcessor(zxid));
     }
-    
+
     protected final Zxid zxid;
-    
+
     @Inject
     protected AssignZxidProcessor(Zxid zxid) {
         this.zxid = zxid;
     }
-    
+
     public Zxid zxid() {
         return zxid;
     }
@@ -37,14 +39,12 @@ public class AssignZxidProcessor implements Processor<Operation.Response, Operat
             output = input;
             break;
         case PING:
-        case AUTH:
-        {
+        case AUTH: {
             long zxid = zxid().get();
             output = OpCallResponse.create(zxid, input);
             break;
         }
-        default:
-        {
+        default: {
             long zxid = zxid().incrementAndGet();
             output = OpCallResponse.create(zxid, input);
             break;

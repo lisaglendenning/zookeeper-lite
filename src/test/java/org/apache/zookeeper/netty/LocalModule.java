@@ -21,8 +21,9 @@ public class LocalModule extends NettyServerModule {
     public static LocalModule get() {
         return new LocalModule();
     }
-    
-    protected LocalModule() {}
+
+    protected LocalModule() {
+    }
 
     @Override
     protected void configure() {
@@ -32,14 +33,14 @@ public class LocalModule extends NettyServerModule {
 
     @Provides
     public ServerBootstrap getServerBootstrap(
-            Class<? extends ServerChannel> channelType, 
+            Class<? extends ServerChannel> channelType,
             Provider<EventLoopGroup> eventLoopGroupFactory) {
-        return newServerBootstrap(channelType, eventLoopGroupFactory).localAddress(LocalAddress.ANY);
+        return newServerBootstrap(channelType, eventLoopGroupFactory)
+                .localAddress(LocalAddress.ANY);
     }
 
     @Provides
-    public Bootstrap getBootstrap(
-            Class<? extends Channel> channelType,
+    public Bootstrap getBootstrap(Class<? extends Channel> channelType,
             EventLoopGroup group) {
         return newBootstrap(channelType, group);
     }

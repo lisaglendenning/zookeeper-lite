@@ -11,14 +11,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @ChannelHandler.Sharable
-public class HeaderEventEncoder 
-    extends MessageToMessageEncoder<HeaderEvent> {
+public class HeaderEventEncoder extends MessageToMessageEncoder<HeaderEvent> {
 
     public static HeaderEventEncoder create() {
         return new HeaderEventEncoder();
     }
-    
-    protected final Logger logger = LoggerFactory.getLogger(HeaderEventEncoder.class);
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(HeaderEventEncoder.class);
 
     @Override
     protected Object encode(ChannelHandlerContext ctx, HeaderEvent msg)
@@ -27,16 +27,15 @@ public class HeaderEventEncoder
         ByteBuf buf = msg.getBuf();
         if (logger.isTraceEnabled()) {
             String headerHex = BufUtil.hexDump(header);
-            logger.trace("Sending header 0x{} to {}", 
-                    headerHex, ctx.channel().remoteAddress());
+            logger.trace("Sending header 0x{} to {}", headerHex, ctx.channel()
+                    .remoteAddress());
         }
         CompositeByteBuf compositeBuf = ctx.alloc().compositeBuffer()
                 .addComponents(header, buf);
         int readableBytes = header.readableBytes() + buf.readableBytes();
         compositeBuf.writerIndex(compositeBuf.writerIndex() + readableBytes);
-        BufEvent event = new BufEvent()
-            .setBuf(compositeBuf)
-            .setCallback(msg.getCallback());
+        BufEvent event = new BufEvent().setBuf(compositeBuf).setCallback(
+                msg.getCallback());
         return event;
     }
 }

@@ -13,12 +13,12 @@ import org.apache.zookeeper.protocol.Records;
 import com.google.common.base.Function;
 
 public class Operations {
-    
+
     public static class Requests {
 
         public static Operation.Request unwrap(Operation.Request request) {
             while (request instanceof Operation.RequestValue) {
-                request = ((Operation.RequestValue)request).request();
+                request = ((Operation.RequestValue) request).request();
             }
             return request;
         }
@@ -26,7 +26,7 @@ public class Operations {
         @SuppressWarnings("unchecked")
         public static <T extends Operation.Request> T create(Operation op) {
             Operation.Request request;
-            switch(op) {
+            switch (op) {
             case CREATE_SESSION:
                 request = OpCreateSessionAction.Request.create();
                 break;
@@ -46,15 +46,18 @@ public class Operations {
         }
 
         @SuppressWarnings("unchecked")
-        public static <T extends Operation.Request> T decode(Operation op, InputStream stream) throws IOException {
+        public static <T extends Operation.Request> T decode(Operation op,
+                InputStream stream) throws IOException {
             Operation.Request request = create(op);
             if (request instanceof Decodable) {
-                request = (Operation.Request) ((Decodable)request).decode(stream);
+                request = (Operation.Request) ((Decodable) request)
+                        .decode(stream);
             }
             return (T) request;
         }
-        
-        public static Operation.CallRequest decode(InputStream stream) throws IOException {
+
+        public static Operation.CallRequest decode(InputStream stream)
+                throws IOException {
             RequestHeader header = Records.Requests.Headers.deserialize(stream);
             Operation op = Operation.get(header.getType());
             Operation.Request request = decode(op, stream);
@@ -64,20 +67,20 @@ public class Operations {
             return (Operation.CallRequest) request;
         }
     }
-    
+
     public static class Responses {
 
         public static Operation.Response unwrap(Operation.Response response) {
             while (response instanceof Operation.ResponseValue) {
-                response = ((Operation.ResponseValue)response).response();
+                response = ((Operation.ResponseValue) response).response();
             }
             return response;
         }
-        
+
         @SuppressWarnings("unchecked")
         public static <T extends Operation.Response> T create(Operation op) {
             Operation.Response response;
-            switch(op) {
+            switch (op) {
             case CREATE_SESSION:
                 response = OpCreateSessionAction.Response.create();
                 break;
@@ -98,15 +101,19 @@ public class Operations {
         }
 
         @SuppressWarnings("unchecked")
-        public static <T extends Operation.Response> T decode(Operation op, InputStream stream) throws IOException {
+        public static <T extends Operation.Response> T decode(Operation op,
+                InputStream stream) throws IOException {
             Operation.Response response = create(op);
             if (response instanceof Decodable) {
-                response = (Operation.Response) ((Decodable)response).decode(stream);
+                response = (Operation.Response) ((Decodable) response)
+                        .decode(stream);
             }
             return (T) response;
         }
-        
-        public static Operation.CallResult decode(Function<Integer, Operation> xidToOp, InputStream stream) throws IOException {
+
+        public static Operation.CallResult decode(
+                Function<Integer, Operation> xidToOp, InputStream stream)
+                throws IOException {
             Operation.Response response = null;
             ReplyHeader header = Records.Responses.Headers.deserialize(stream);
             Operation op = null;
@@ -117,22 +124,24 @@ public class Operations {
                 op = xidToOp.apply(header.getXid());
             }
             checkArgument(op != null);
-            
-            KeeperException.Code err = KeeperException.Code.get(header.getErr());
+
+            KeeperException.Code err = KeeperException.Code
+                    .get(header.getErr());
             checkArgument(err != null);
             if (err != KeeperException.Code.OK) {
-                // FIXME: I'm not sure if there's ever a record following an error header?
+                // FIXME: I'm not sure if there's ever a record following an
+                // error header?
                 // It doesn't look like the client expects one
                 response = OpAction.Response.create(op);
                 response = OpError.create(response, err);
-            } else {           
+            } else {
                 response = decode(op, stream);
             }
 
             long zxid = header.getZxid();
             Operation.CallResult result = OpCallResult.create(
-                        OpCallRequest.create(xid, OpAction.Request.create(op)), 
-                        OpCallResponse.create(zxid, response));
+                    OpCallRequest.create(xid, OpAction.Request.create(op)),
+                    OpCallResponse.create(zxid, response));
             return result;
         }
     }

@@ -8,34 +8,36 @@ import org.apache.zookeeper.protocol.Records.OperationXid;
 import com.google.common.base.Objects;
 
 public abstract class OpPingAction extends OpXid {
-    
-    public static class Request extends OpPingAction implements Operation.Request {
+
+    public static class Request extends OpPingAction implements
+            Operation.Request {
         public static Request create() {
             return new Request();
         }
-        
+
         public Request() {
             super();
         }
     }
 
-    public static class Response extends OpPingAction implements Operation.Response {
+    public static class Response extends OpPingAction implements
+            Operation.Response {
         public static Response create() {
             return new Response();
         }
-        
+
         public Response() {
             super();
         }
     }
-    
+
     protected long timestamp;
     protected TimeUnit timeUnit;
-    
+
     protected OpPingAction() {
         this(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
     }
-    
+
     protected OpPingAction(long timestamp, TimeUnit timeUnit) {
         this.timestamp = timestamp;
         this.timeUnit = timeUnit;
@@ -45,7 +47,7 @@ public abstract class OpPingAction extends OpXid {
     public Records.OperationXid opXid() {
         return Records.OperationXid.PING;
     }
-    
+
     public long timestamp() {
         return timestamp;
     }
@@ -63,24 +65,23 @@ public abstract class OpPingAction extends OpXid {
         this.timeUnit = timeUnit;
         return this;
     }
-    
+
     public long difference(OpPingAction other) {
-        return timestamp() - timeUnit.convert(other.timestamp(), other.timeUnit());
+        return timestamp()
+                - timeUnit.convert(other.timestamp(), other.timeUnit());
     }
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
-                .add("timestamp", timestamp())
-                .add("timeUnit", timeUnit())
-                .toString();
+        return Objects.toStringHelper(this).add("timestamp", timestamp())
+                .add("timeUnit", timeUnit()).toString();
     }
-    
+
     @Override
     public int hashCode() {
         return Objects.hashCode(timestamp(), timeUnit());
     }
-    
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -93,7 +94,7 @@ public abstract class OpPingAction extends OpXid {
             return false;
         }
         OpPingAction other = (OpPingAction) obj;
-        return Objects.equal(timestamp(), other.timestamp()) 
+        return Objects.equal(timestamp(), other.timestamp())
                 && Objects.equal(timeUnit(), other.timeUnit());
     }
 }

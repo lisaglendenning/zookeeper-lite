@@ -11,13 +11,14 @@ import com.google.inject.Provider;
 import com.google.inject.Provides;
 
 public class NioServerBootstrapFactory extends NioServerModule {
-    
+
     public static NioServerBootstrapFactory get() {
         return new NioServerBootstrapFactory();
     }
-    
-    protected NioServerBootstrapFactory() {}
-    
+
+    protected NioServerBootstrapFactory() {
+    }
+
     @Override
     protected void configure() {
         super.configure();
@@ -25,11 +26,11 @@ public class NioServerBootstrapFactory extends NioServerModule {
 
     @Provides
     public ServerBootstrap getServerBootstrap(
-            Class<? extends ServerChannel> channelType, 
+            Class<? extends ServerChannel> channelType,
             Provider<EventLoopGroup> eventLoopGroupFactory) {
         return newServerBootstrap(channelType, eventLoopGroupFactory);
     }
-    
+
     @Override
     @SuppressWarnings("rawtypes")
     protected Map<ChannelOption, Object> getServerChannelOptions() {

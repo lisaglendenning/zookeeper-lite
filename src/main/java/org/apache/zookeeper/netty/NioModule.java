@@ -14,9 +14,9 @@ public class NioModule extends NettyModule {
     protected void configure() {
         super.configure();
         bind(EventLoopGroup.class).to(NioEventLoopGroup.class);
-        //bind(Channel.class).to(NioSocketChannel.class);
+        // bind(Channel.class).to(NioSocketChannel.class);
     }
-    
+
     @Provides
     public Class<? extends Channel> getChannelType() {
         return NioSocketChannel.class;

@@ -13,28 +13,30 @@ import com.google.common.collect.Maps;
 import com.google.inject.Provider;
 
 public class NettyServerModule extends NettyModule {
-    
+
     @Override
-    protected void configure() { 
+    protected void configure() {
         super.configure();
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected ServerBootstrap newServerBootstrap(
-            Class<? extends ServerChannel> channelType, 
+            Class<? extends ServerChannel> channelType,
             Provider<EventLoopGroup> eventLoopGroupFactory) {
-        ServerBootstrap bootstrap = new ServerBootstrap()
-        .group(eventLoopGroupFactory.get(), eventLoopGroupFactory.get())
-        .channel(channelType);
+        ServerBootstrap bootstrap = new ServerBootstrap().group(
+                eventLoopGroupFactory.get(), eventLoopGroupFactory.get())
+                .channel(channelType);
 
-        for (Entry<ChannelOption, Object> entry: getServerChannelOptions().entrySet()) {
+        for (Entry<ChannelOption, Object> entry : getServerChannelOptions()
+                .entrySet()) {
             bootstrap.option(entry.getKey(), entry.getValue());
         }
-    
-        for (Entry<ChannelOption, Object> entry: getChannelOptions().entrySet()) {
+
+        for (Entry<ChannelOption, Object> entry : getChannelOptions()
+                .entrySet()) {
             bootstrap.childOption(entry.getKey(), entry.getValue());
         }
-        
+
         return bootstrap;
     }
 

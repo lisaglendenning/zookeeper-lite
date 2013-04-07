@@ -18,7 +18,8 @@ import io.netty.channel.ChannelStateHandler;
 
 public class BufEventDecoder extends ChannelInboundByteHandlerAdapter {
 
-    public static class InboundBridge extends ChannelInboundMessageHandlerAdapter<ByteBuf> {
+    public static class InboundBridge extends
+            ChannelInboundMessageHandlerAdapter<ByteBuf> {
 
         @Override
         public void messageReceived(ChannelHandlerContext ctx, ByteBuf msg)
@@ -26,16 +27,16 @@ public class BufEventDecoder extends ChannelInboundByteHandlerAdapter {
             ctx.nextInboundByteBuffer().writeBytes(msg);
             ctx.fireInboundBufferUpdated();
         }
-        
+
     }
-    
+
     public static BufEventDecoder create() {
         return new BufEventDecoder();
     }
 
     public class Callback implements FutureCallback<Void>, Callable<Void> {
         protected final ChannelHandlerContext ctx;
-        
+
         public Callback(ChannelHandlerContext ctx) {
             this.ctx = checkNotNull(ctx);
         }
@@ -59,14 +60,17 @@ public class BufEventDecoder extends ChannelInboundByteHandlerAdapter {
         public Void call() throws Exception {
             // trigger a read event if there is more data to process
             // and we are not throttled
-            if (ctx.channel().config().isAutoRead() && ctx.inboundByteBuffer().isReadable()) {
-                ((ChannelStateHandler)(ctx.handler())).inboundBufferUpdated(ctx);
+            if (ctx.channel().config().isAutoRead()
+                    && ctx.inboundByteBuffer().isReadable()) {
+                ((ChannelStateHandler) (ctx.handler()))
+                        .inboundBufferUpdated(ctx);
             }
             return null;
         }
     }
 
-    protected final Logger logger = LoggerFactory.getLogger(BufEventDecoder.class);
+    protected final Logger logger = LoggerFactory
+            .getLogger(BufEventDecoder.class);
     protected Callback callback;
 
     public BufEventDecoder() {
@@ -78,7 +82,8 @@ public class BufEventDecoder extends ChannelInboundByteHandlerAdapter {
         checkState(callback == null);
         callback = new Callback(ctx);
         if (ctx.channel().metadata().bufferType() == BufType.MESSAGE) {
-            ctx.pipeline().addBefore(ctx.name(), InboundBridge.class.getName(), new InboundBridge());
+            ctx.pipeline().addBefore(ctx.name(), InboundBridge.class.getName(),
+                    new InboundBridge());
         }
         super.afterAdd(ctx);
     }
@@ -89,20 +94,18 @@ public class BufEventDecoder extends ChannelInboundByteHandlerAdapter {
         callback = null;
         super.afterRemove(ctx);
     }
-    
+
     @Override
     public void inboundBufferUpdated(ChannelHandlerContext ctx, ByteBuf in)
             throws Exception {
-        if (! in.isReadable()) {
+        if (!in.isReadable()) {
             return;
         }
         if (logger.isTraceEnabled()) {
-            logger.trace("Received {} bytes from {}", 
-                    in.readableBytes(), ctx.channel().remoteAddress());
+            logger.trace("Received {} bytes from {}", in.readableBytes(), ctx
+                    .channel().remoteAddress());
         }
-        BufEvent event = new BufEvent()
-            .setBuf(in)
-            .setCallback(callback);
+        BufEvent event = new BufEvent().setBuf(in).setCallback(callback);
         ctx.nextInboundMessageBuffer().add(event);
         ctx.fireInboundBufferUpdated();
     }

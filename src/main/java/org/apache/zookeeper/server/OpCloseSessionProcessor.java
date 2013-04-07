@@ -11,20 +11,20 @@ import org.slf4j.LoggerFactory;
 
 import com.google.inject.Inject;
 
-
 public class OpCloseSessionProcessor extends OpRequestProcessor {
 
     public static FilteringProcessor<Operation.Request, Operation.Response> create(
-            long sessionId, 
-            SessionManager sessions) {
-        return FilteredProcessor.create(EqualsFilter.create(Operation.CLOSE_SESSION),
+            long sessionId, SessionManager sessions) {
+        return FilteredProcessor.create(
+                EqualsFilter.create(Operation.CLOSE_SESSION),
                 new OpCloseSessionProcessor(sessionId, sessions));
     }
-    
-    protected final Logger logger = LoggerFactory.getLogger(OpCloseSessionProcessor.class);
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(OpCloseSessionProcessor.class);
     protected final long sessionId;
     protected final SessionManager sessions;
-    
+
     @Inject
     protected OpCloseSessionProcessor(long sessionId, SessionManager sessions) {
         this.sessionId = sessionId;
@@ -34,7 +34,7 @@ public class OpCloseSessionProcessor extends OpRequestProcessor {
     public long sessionId() {
         return sessionId;
     }
-    
+
     public SessionManager sessions() {
         return sessions;
     }

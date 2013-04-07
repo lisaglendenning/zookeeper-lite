@@ -2,14 +2,15 @@ package org.apache.zookeeper.util;
 
 import com.google.common.base.Predicate;
 
-public class OptionalProcessor<T> implements FilteringProcessor<T,T> {
+public class OptionalProcessor<T> implements FilteringProcessor<T, T> {
 
-    public static <T> OptionalProcessor<T> create(FilteringProcessor<T, T> processor) {
+    public static <T> OptionalProcessor<T> create(
+            FilteringProcessor<T, T> processor) {
         return new OptionalProcessor<T>(processor);
     }
-    
+
     protected final FilteringProcessor<T, T> processor;
-    
+
     public OptionalProcessor(FilteringProcessor<T, T> processor) {
         this.processor = processor;
     }

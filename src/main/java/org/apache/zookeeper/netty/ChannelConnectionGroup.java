@@ -17,15 +17,17 @@ public class ChannelConnectionGroup extends AbstractConnectionGroup {
 
     @ChannelHandler.Sharable
     protected class ChildInitializer extends ChannelInitializer<Channel> {
-        public ChildInitializer() {}
-        
+        public ChildInitializer() {
+        }
+
         @Override
         public void initChannel(Channel channel) throws Exception {
             ChannelConnectionGroup.this.add(channel);
         }
     }
-    
-    protected final Logger logger = LoggerFactory.getLogger(ChannelConnectionGroup.class);
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(ChannelConnectionGroup.class);
     protected final ChannelGroup channels;
     protected final ChannelConnection.Factory<? extends ChannelConnection> connectionFactory;
 
@@ -34,7 +36,7 @@ public class ChannelConnectionGroup extends AbstractConnectionGroup {
             Eventful eventful,
             ChannelConnection.Factory<? extends ChannelConnection> connectionFactory,
             ChannelGroup channels) {
-    	super(eventful);
+        super(eventful);
         this.connectionFactory = checkNotNull(connectionFactory);
         this.channels = checkNotNull(channels);
     }
@@ -42,13 +44,13 @@ public class ChannelConnectionGroup extends AbstractConnectionGroup {
     protected ChannelGroup channels() {
         return channels;
     }
-    
+
     protected ChannelConnection.Factory<? extends ChannelConnection> connectionFactory() {
         return connectionFactory;
     }
-    
+
     protected ChannelConnection add(Channel channel) {
-    	checkState(state() == State.RUNNING);
+        checkState(state() == State.RUNNING);
         logger.trace("New Channel: {}", channel);
         channels().add(channel);
         ChannelConnection connection = connectionFactory().get(channel);

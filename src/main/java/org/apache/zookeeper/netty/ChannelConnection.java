@@ -21,18 +21,18 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
-public abstract class ChannelConnection extends ForwardingEventful implements Connection {
+public abstract class ChannelConnection extends ForwardingEventful implements
+        Connection {
 
     public static interface Factory<T extends ChannelConnection> {
         public T get(Channel channel);
     }
-    
+
     protected final EventfulBridge eventfulBridge;
     protected final Channel channel;
-    
+
     @Inject
-    protected ChannelConnection(
-    		Channel channel,
+    protected ChannelConnection(Channel channel,
             Provider<Eventful> eventfulFactory) {
         super(eventfulFactory.get());
         this.eventfulBridge = new EventfulBridge(eventfulFactory.get(), this);
@@ -43,70 +43,73 @@ public abstract class ChannelConnection extends ForwardingEventful implements Co
     public Channel channel() {
         return channel;
     }
-    
+
     protected void initChannel() {
         DispatchHandler dispatcher = DispatchHandler.create(eventfulBridge);
         channel.pipeline().addLast(DispatchHandler.class.getName(), dispatcher);
-        ConnectionStateHandler stateHandler = ConnectionStateHandler.create(eventfulBridge);
-        channel.pipeline().addBefore(DispatchHandler.class.getName(), 
+        ConnectionStateHandler stateHandler = ConnectionStateHandler
+                .create(eventfulBridge);
+        channel.pipeline().addBefore(DispatchHandler.class.getName(),
                 ConnectionStateHandler.class.getName(), stateHandler);
     }
 
     @Override
-	public State state() {
-	    ConnectionStateHandler stateHandler = (ConnectionStateHandler) channel.pipeline().get(ConnectionStateHandler.class.getName());
-	    return stateHandler.state().get();
-	}
+    public State state() {
+        ConnectionStateHandler stateHandler = (ConnectionStateHandler) channel
+                .pipeline().get(ConnectionStateHandler.class.getName());
+        return stateHandler.state().get();
+    }
 
-	@Override
+    @Override
     public SocketAddress localAddress() {
         return channel.localAddress();
     }
-    
+
     @Override
     public SocketAddress remoteAddress() {
         return channel.remoteAddress();
     }
 
     @Override
-	public void read() {
-	    channel.read();
-	}
+    public void read() {
+        channel.read();
+    }
 
-	@Override
-	public <T> ListenableFuture<T> send(T message) {
-	    ChannelFuture future = channel.write(message);
-	    ListenableChannelFuture<T> wrapper = ListenableChannelFuture.create(future, message);
-	    return wrapper.promise();
-	}
-
-	@Override
-    public ListenableFuture<Connection> flush() {
-        ChannelFuture future = channel.flush();
-        ListenableChannelFuture<Connection> wrapper = ListenableChannelFuture.create(future, (Connection) this);
+    @Override
+    public <T> ListenableFuture<T> send(T message) {
+        ChannelFuture future = channel.write(message);
+        ListenableChannelFuture<T> wrapper = ListenableChannelFuture.create(
+                future, message);
         return wrapper.promise();
     }
 
     @Override
-	public ListenableFuture<Connection> close() {
-	    ChannelFuture future = channel.close();
-	    ListenableChannelFuture<Connection> wrapper = ListenableChannelFuture.create(future, (Connection) this);
-	    return wrapper.promise();
-	}
+    public ListenableFuture<Connection> flush() {
+        ChannelFuture future = channel.flush();
+        ListenableChannelFuture<Connection> wrapper = ListenableChannelFuture
+                .create(future, (Connection) this);
+        return wrapper.promise();
+    }
 
-	@Override
+    @Override
+    public ListenableFuture<Connection> close() {
+        ChannelFuture future = channel.close();
+        ListenableChannelFuture<Connection> wrapper = ListenableChannelFuture
+                .create(future, (Connection) this);
+        return wrapper.promise();
+    }
+
+    @Override
     public void post(Object event) {
-		if (! (event instanceof ConnectionEvent)) {
-			event = ConnectionEventValue.create(this, event);
-		}
+        if (!(event instanceof ConnectionEvent)) {
+            event = ConnectionEventValue.create(this, event);
+        }
         super.post(event);
     }
 
     @Override
     public String toString() {
-    	return Objects.toStringHelper(this)
-    			.add("state", state())
-    			.add("channel", channel())
-    			.toString();
+        return Objects.toStringHelper(this).add("state", state())
+                .add("channel", channel()).toString();
     }
 }

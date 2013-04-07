@@ -1,24 +1,25 @@
 package org.apache.zookeeper.data;
 
-
 import com.google.common.base.Objects;
 
-public class OpCallRequest implements Operation.RequestValue, Operation.CallRequest {
+public class OpCallRequest implements Operation.RequestValue,
+        Operation.CallRequest {
 
     public static OpCallRequest create(int xid, Operation.Request request) {
         return new OpCallRequest(xid, request);
     }
-    
+
     protected int xid;
     protected Operation.Request request;
-    
+
     public OpCallRequest(int xid, Operation.Request request) {
         super();
         this.xid = xid;
         this.request = request;
     }
-    
-    protected OpCallRequest() {}
+
+    protected OpCallRequest() {
+    }
 
     @Override
     public int xid() {
@@ -39,7 +40,7 @@ public class OpCallRequest implements Operation.RequestValue, Operation.CallRequ
         this.request = request;
         return this;
     }
-    
+
     @Override
     public Operation operation() {
         return request().operation();
@@ -47,17 +48,15 @@ public class OpCallRequest implements Operation.RequestValue, Operation.CallRequ
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
-                .add("xid", xid())
-                .add("request", request())
-                .toString();
+        return Objects.toStringHelper(this).add("xid", xid())
+                .add("request", request()).toString();
     }
-    
+
     @Override
     public int hashCode() {
         return Objects.hashCode(xid(), request());
     }
-    
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -70,7 +69,7 @@ public class OpCallRequest implements Operation.RequestValue, Operation.CallRequ
             return false;
         }
         OpCallRequest other = (OpCallRequest) obj;
-        return Objects.equal(xid(), other.xid()) 
+        return Objects.equal(xid(), other.xid())
                 && Objects.equal(request(), other.request());
     }
 }

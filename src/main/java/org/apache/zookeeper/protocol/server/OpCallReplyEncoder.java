@@ -14,11 +14,13 @@ public class OpCallReplyEncoder implements Encoder<Operation.CallReply> {
     public static OpCallReplyEncoder create() {
         return new OpCallReplyEncoder();
     }
-    
-    public OpCallReplyEncoder() {}
+
+    public OpCallReplyEncoder() {
+    }
 
     @Override
-    public OutputStream encode(Operation.CallReply callReply, OutputStream stream) throws IOException {
+    public OutputStream encode(Operation.CallReply callReply,
+            OutputStream stream) throws IOException {
         KeeperException.Code err = KeeperException.Code.OK;
         // unravel the layers...
         boolean unwrapping = true;
@@ -26,16 +28,17 @@ public class OpCallReplyEncoder implements Encoder<Operation.CallReply> {
         while (unwrapping) {
             unwrapping = false;
             if (response instanceof Operation.Error) {
-                err = ((Operation.Error)response).error();
+                err = ((Operation.Error) response).error();
             }
             if (response instanceof Operation.ResponseValue) {
                 response = ((Operation.ResponseValue) response).response();
                 unwrapping = true;
             }
         }
-        Records.Responses.Headers.serialize(callReply.xid(), callReply.zxid(), err, stream);
+        Records.Responses.Headers.serialize(callReply.xid(), callReply.zxid(),
+                err, stream);
         if (response instanceof Encodable) {
-            stream = ((Encodable)response).encode(stream);
+            stream = ((Encodable) response).encode(stream);
         }
         return stream;
     }

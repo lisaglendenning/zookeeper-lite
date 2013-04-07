@@ -24,7 +24,7 @@ public class ServiceMonitor extends AbstractIdleService {
     public static ServiceMonitor create(Executor executor) {
         return new ServiceMonitor(executor);
     }
-    
+
     protected static class ServiceMonitorListener implements Service.Listener {
 
         protected final Logger logger = LoggerFactory
@@ -32,8 +32,7 @@ public class ServiceMonitor extends AbstractIdleService {
         protected final ServiceMonitor monitor;
         protected final Service service;
 
-        public ServiceMonitorListener(ServiceMonitor monitor,
-                Service service) {
+        public ServiceMonitorListener(ServiceMonitor monitor, Service service) {
             this.monitor = monitor;
             this.service = service;
         }
@@ -108,13 +107,11 @@ public class ServiceMonitor extends AbstractIdleService {
 
     @Inject
     protected ServiceMonitor(Executor executor) {
-        this(executor, 
-            MoreExecutors.sameThreadExecutor(),
-            Collections.synchronizedList(Lists.<Service> newArrayList()));
+        this(executor, MoreExecutors.sameThreadExecutor(), Collections
+                .synchronizedList(Lists.<Service> newArrayList()));
     }
-    
-    protected ServiceMonitor(Executor executor, 
-            Executor listenerExecutor,
+
+    protected ServiceMonitor(Executor executor, Executor listenerExecutor,
             List<Service> services) {
         this.executor = executor;
         this.services = services;
@@ -125,7 +122,7 @@ public class ServiceMonitor extends AbstractIdleService {
     protected Executor executor() {
         return executor;
     }
-    
+
     protected List<Service> services() {
         return services;
     }
@@ -150,7 +147,7 @@ public class ServiceMonitor extends AbstractIdleService {
         }
         return false;
     }
-    
+
     @Override
     protected void startUp() throws Exception {
         try {
@@ -168,13 +165,14 @@ public class ServiceMonitor extends AbstractIdleService {
     }
 
     protected void listen(Service service) {
-        ServiceMonitorListener listener = new ServiceMonitorListener(this, service);
+        ServiceMonitorListener listener = new ServiceMonitorListener(this,
+                service);
         service.addListener(listener, listenerExecutor);
     }
 
     protected void notifyChange() {
         if (isRunning()) {
-            if (! monitorTasks()) {
+            if (!monitorTasks()) {
                 stop();
             }
         }
@@ -187,12 +185,12 @@ public class ServiceMonitor extends AbstractIdleService {
         synchronized (services()) {
             services = ImmutableList.copyOf(services());
         }
-        //List<ListenableFuture<State>> futures = Lists.newArrayList();
+        // List<ListenableFuture<State>> futures = Lists.newArrayList();
         for (Service e : services) {
             State state = e.state();
             switch (state) {
             case NEW:
-                //futures.add(e.start());
+                // futures.add(e.start());
                 // there may be dependencies between services
                 // so don't start concurrently
                 e.startAndWait();
@@ -206,8 +204,9 @@ public class ServiceMonitor extends AbstractIdleService {
             }
         }
         // wait for all to start
-        //ListenableFuture<List<State>> allFutures = Futures.allAsList(futures);
-        //allFutures.get();
+        // ListenableFuture<List<State>> allFutures =
+        // Futures.allAsList(futures);
+        // allFutures.get();
     }
 
     protected void stopTasks() throws Exception {
@@ -229,7 +228,7 @@ public class ServiceMonitor extends AbstractIdleService {
                 break;
             }
         }
-        
+
         // then, wait
         ListenableFuture<List<State>> allFutures = Futures.allAsList(futures);
         allFutures.get();

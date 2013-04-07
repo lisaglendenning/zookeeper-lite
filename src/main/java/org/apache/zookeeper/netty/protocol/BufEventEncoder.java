@@ -8,20 +8,20 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundMessageHandlerAdapter;
 
 @ChannelHandler.Sharable
-public class BufEventEncoder 
-    extends ChannelOutboundMessageHandlerAdapter<BufEvent> {
+public class BufEventEncoder extends
+        ChannelOutboundMessageHandlerAdapter<BufEvent> {
 
     public static BufEventEncoder create() {
         return new BufEventEncoder();
     }
-    
-    protected final Logger logger = LoggerFactory.getLogger(BufEventEncoder.class);
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(BufEventEncoder.class);
 
     @Override
-    public void flush(ChannelHandlerContext ctx, BufEvent msg)
-            throws Exception {
+    public void flush(ChannelHandlerContext ctx, BufEvent msg) throws Exception {
         if (logger.isTraceEnabled()) {
-            logger.trace("Sending {} bytes to {}", 
+            logger.trace("Sending {} bytes to {}",
                     msg.getBuf().readableBytes(), ctx.channel().remoteAddress());
         }
         ctx.nextOutboundMessageBuffer().add(msg.getBuf());

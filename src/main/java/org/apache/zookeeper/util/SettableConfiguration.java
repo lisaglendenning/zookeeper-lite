@@ -15,11 +15,12 @@ public class SettableConfiguration implements Configuration {
     public static SettableConfiguration create() {
         return new SettableConfiguration();
     }
-    
+
     protected final Map<String, Object> options;
 
     public SettableConfiguration() {
-        this.options = Collections.synchronizedMap(Maps.<String, Object>newHashMap());
+        this.options = Collections.synchronizedMap(Maps
+                .<String, Object> newHashMap());
     }
 
     public SettableConfiguration(Arguments arguments) {
@@ -29,7 +30,7 @@ public class SettableConfiguration implements Configuration {
 
     @Override
     public SettableConfiguration initialize(Arguments arguments) {
-        for (Arguments.Option option: checkNotNull(arguments)) {
+        for (Arguments.Option option : checkNotNull(arguments)) {
             if (option.hasValue()) {
                 options.put(option.getName(), option.getValue());
             }
@@ -49,17 +50,17 @@ public class SettableConfiguration implements Configuration {
         if (storedValue == null) {
             return defaultValue;
         }
-        
+
         T value = null;
         try {
             value = (T) storedValue;
             return value;
         } catch (ClassCastException e) {
         }
-        
+
         checkArgument(storedValue instanceof String);
         String valueStr = (String) storedValue;
-        
+
         Class<T> cls = (Class<T>) value.getClass();
         TypeToken<T> typeToken = TypeToken.of(cls);
         if (TypeToken.of(String.class).isAssignableFrom(typeToken)) {
@@ -88,7 +89,7 @@ public class SettableConfiguration implements Configuration {
     public void set(String name, Object value) {
         options.put(checkNotNull(name), checkNotNull(value));
     }
-    
+
     @Override
     public void flush() {
     }

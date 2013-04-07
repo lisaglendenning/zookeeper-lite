@@ -6,12 +6,13 @@ import org.apache.zookeeper.util.EventfulAutomataState;
 import com.google.inject.Inject;
 
 public class ConnectionState extends EventfulAutomataState<Connection.State> {
-    
+
     public static ConnectionState create(Eventful eventful) {
         return new ConnectionState(eventful);
     }
 
-    public static ConnectionState create(Eventful eventful, Connection.State state) {
+    public static ConnectionState create(Eventful eventful,
+            Connection.State state) {
         return new ConnectionState(eventful, state);
     }
 

@@ -18,8 +18,8 @@ import io.netty.handler.codec.DecoderException;
  * Interprets the header as the length of the following frame
  * Processes one frame at a time
  */
-public class FrameDecoder 
-        extends ChannelInboundMessageHandlerAdapter<HeaderEvent> {
+public class FrameDecoder extends
+        ChannelInboundMessageHandlerAdapter<HeaderEvent> {
 
     public static FrameDecoder create() {
         return new FrameDecoder();
@@ -29,8 +29,9 @@ public class FrameDecoder
         protected final HeaderEvent event;
         protected final ChannelHandlerContext ctx;
         protected final BufEvent msg;
-        
-        public Callback(HeaderEvent event, ChannelHandlerContext ctx, BufEvent msg) {
+
+        public Callback(HeaderEvent event, ChannelHandlerContext ctx,
+                BufEvent msg) {
             this.event = checkNotNull(event);
             this.ctx = checkNotNull(ctx);
             this.msg = checkNotNull(msg);
@@ -54,8 +55,10 @@ public class FrameDecoder
             if (logger.isDebugEnabled()) {
                 if (frame.isReadable()) {
                     // something probably went wrong
-                    logger.debug(String.format("%d unread bytes in frame from %s",
-                            frame.readableBytes(), ctx.channel().remoteAddress()));
+                    logger.debug(String.format(
+                            "%d unread bytes in frame from %s", frame
+                                    .readableBytes(), ctx.channel()
+                                    .remoteAddress()));
                 }
             }
             int length = frame.capacity();
@@ -72,7 +75,7 @@ public class FrameDecoder
             return null;
         }
     }
-    
+
     protected final Logger logger = LoggerFactory.getLogger(FrameDecoder.class);
     protected HeaderEvent event;
 
@@ -85,7 +88,7 @@ public class FrameDecoder
         event = new HeaderEvent();
         super.afterAdd(ctx);
     }
-    
+
     @Override
     public void afterRemove(ChannelHandlerContext ctx) throws Exception {
         event = null;
@@ -93,16 +96,16 @@ public class FrameDecoder
     }
 
     @Override
-    public void channelReadSuspended(ChannelHandlerContext ctx) throws Exception {
+    public void channelReadSuspended(ChannelHandlerContext ctx)
+            throws Exception {
         if (event.getHeader() == null) {
-//            ctx.channel().read();
+            // ctx.channel().read();
         }
         super.channelReadSuspended(ctx);
     }
 
     @Override
-    public void messageReceived(ChannelHandlerContext ctx, 
-            HeaderEvent msg)
+    public void messageReceived(ChannelHandlerContext ctx, HeaderEvent msg)
             throws Exception {
         if (event.getHeader() != null) {
             // still processing the previous frame
@@ -115,18 +118,17 @@ public class FrameDecoder
         if (length < 0) { // TODO max?
             throw new DecoderException();
         }
-        
+
         ByteBuf in = msg.getBuf();
         if (in.readableBytes() >= length) {
-            //in.retain();
+            // in.retain();
             ByteBuf frame = in.slice(in.readerIndex(), length);
-            //frame.retain();
-            event.setHeader(msg.getHeader())
-                .setBuf(frame)
-                .setCallback(new Callback(event, ctx, msg));
+            // frame.retain();
+            event.setHeader(msg.getHeader()).setBuf(frame)
+                    .setCallback(new Callback(event, ctx, msg));
             if (logger.isTraceEnabled()) {
-                logger.trace("Received frame of length {} from {}", 
-                        length, ctx.channel().remoteAddress());
+                logger.trace("Received frame of length {} from {}", length, ctx
+                        .channel().remoteAddress());
             }
 
             ctx.nextInboundMessageBuffer().add(event);

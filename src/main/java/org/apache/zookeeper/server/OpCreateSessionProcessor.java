@@ -17,40 +17,42 @@ import org.slf4j.LoggerFactory;
 
 import com.google.inject.Inject;
 
-
 public class OpCreateSessionProcessor extends OpRequestProcessor {
 
     public static FilteringProcessor<Operation.Request, Operation.Response> create(
             SessionManager sessions) {
-        return FilteredProcessor.create(EqualsFilter.create(Operation.CREATE_SESSION),
+        return FilteredProcessor.create(
+                EqualsFilter.create(Operation.CREATE_SESSION),
                 new OpCreateSessionProcessor(sessions));
     }
-    
-    protected final Logger logger = LoggerFactory.getLogger(OpCreateSessionProcessor.class);
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(OpCreateSessionProcessor.class);
     protected final SessionManager sessions;
-    
+
     @Inject
-    protected OpCreateSessionProcessor(
-            SessionManager sessions) {
+    protected OpCreateSessionProcessor(SessionManager sessions) {
         this.sessions = sessions;
     }
 
     public SessionManager sessions() {
         return sessions;
     }
-    
+
     @Override
-    public OpCreateSessionAction.Response apply(Operation.Request request) throws Exception {
+    public OpCreateSessionAction.Response apply(Operation.Request request)
+            throws Exception {
         checkArgument(request.operation() == Operation.CREATE_SESSION);
-        OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response) super.apply(request);
-        OpCreateSessionAction.Request opRequest = (OpCreateSessionAction.Request)request;
+        OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response) super
+                .apply(request);
+        OpCreateSessionAction.Request opRequest = (OpCreateSessionAction.Request) request;
         try {
-        	apply(opRequest.record(), opResponse.record());
+            apply(opRequest.record(), opResponse.record());
         } catch (IllegalArgumentException e) {
-        	opResponse = OpCreateSessionAction.InvalidResponse.create();
+            opResponse = OpCreateSessionAction.InvalidResponse.create();
         }
         opResponse.setReadOnly(opRequest.readOnly())
-            .setWraps(opRequest.wraps());
+                .setWraps(opRequest.wraps());
         return opResponse;
     }
 
@@ -59,12 +61,13 @@ public class OpCreateSessionProcessor extends OpRequestProcessor {
         long sessionId = request.getSessionId();
         byte[] passwd = request.getPasswd();
         int timeOut = request.getTimeOut();
-        SessionParameters parameters = SessionParameters.create(timeOut, passwd);
+        SessionParameters parameters = SessionParameters
+                .create(timeOut, passwd);
         Session session = sessions().add(sessionId, parameters);
         sessionId = session.id();
-        timeOut = Long.valueOf(TimeUnit.MILLISECONDS.convert(
-                session.parameters().timeOut(),
-                session.parameters().timeOutUnit())).intValue();
+        timeOut = Long.valueOf(
+                TimeUnit.MILLISECONDS.convert(session.parameters().timeOut(),
+                        session.parameters().timeOutUnit())).intValue();
         passwd = session.parameters().password();
         response.setProtocolVersion(request.getProtocolVersion());
         response.setSessionId(sessionId);

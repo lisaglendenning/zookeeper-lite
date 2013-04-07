@@ -5,19 +5,20 @@ import java.util.List;
 import com.google.common.collect.ForwardingList;
 import com.google.common.collect.Lists;
 
-public class ProcessorChain<T> extends ForwardingList<Processor<T,T>> implements Processor<T,T> {
-    
+public class ProcessorChain<T> extends ForwardingList<Processor<T, T>>
+        implements Processor<T, T> {
+
     public static <T> ProcessorChain<T> create() {
         return new ProcessorChain<T>();
     }
 
-    protected final List<Processor<T,T>> processors;
+    protected final List<Processor<T, T>> processors;
 
     protected ProcessorChain() {
-        this(Lists.<Processor<T,T>>newArrayList());
+        this(Lists.<Processor<T, T>> newArrayList());
     }
 
-    protected ProcessorChain(List<Processor<T,T>> processors) {
+    protected ProcessorChain(List<Processor<T, T>> processors) {
         this.processors = processors;
     }
 
@@ -28,7 +29,7 @@ public class ProcessorChain<T> extends ForwardingList<Processor<T,T>> implements
 
     @Override
     public T apply(T input) throws Exception {
-        for (Processor<T,T> processor: processors) {
+        for (Processor<T, T> processor : processors) {
             input = processor.apply(input);
         }
         return input;

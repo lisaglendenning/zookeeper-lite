@@ -12,11 +12,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @ChannelHandler.Sharable
-public class FourLetterCommandEncoder 
-    extends MessageToMessageEncoder<FourLetterCommand>
-    implements AnonymousHandler {
+public class FourLetterCommandEncoder extends
+        MessageToMessageEncoder<FourLetterCommand> implements AnonymousHandler {
 
-    protected static final Logger logger = LoggerFactory.getLogger(FourLetterCommandEncoder.class);
+    protected static final Logger logger = LoggerFactory
+            .getLogger(FourLetterCommandEncoder.class);
 
     public static FourLetterCommandEncoder create() {
         return new FourLetterCommandEncoder();
@@ -26,8 +26,8 @@ public class FourLetterCommandEncoder
     protected Object encode(ChannelHandlerContext ctx, FourLetterCommand msg)
             throws Exception {
         if (logger.isTraceEnabled()) {
-            logger.trace("Sending FourLetterCommand {} to {}",
-                    msg, ctx.channel().remoteAddress());
+            logger.trace("Sending FourLetterCommand {} to {}", msg, ctx
+                    .channel().remoteAddress());
         }
         ByteBuf buf = Unpooled.wrappedBuffer(msg.bytes());
         return buf;

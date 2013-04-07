@@ -31,18 +31,21 @@ public class Main extends AbstractModule {
 
     protected static Injector theInjector;
 
-    protected Main() {}
-    
-    @Override 
+    protected Main() {
+    }
+
+    @Override
     protected void configure() {
     }
 
-    @Provides @Singleton
+    @Provides
+    @Singleton
     protected Main getMain() {
         return this;
     }
-    
-    @Provides @Singleton
+
+    @Provides
+    @Singleton
     protected Arguments getArguments(Main main) {
         if (theArguments == null) {
             SimpleArguments arguments = new SimpleArguments();
@@ -51,8 +54,9 @@ public class Main extends AbstractModule {
         }
         return theArguments;
     }
-    
-    @Provides @Singleton
+
+    @Provides
+    @Singleton
     protected Configuration getConfiguration(Arguments arguments) {
         if (theConfiguration == null) {
             PreferenceConfiguration configuration = new PreferenceConfiguration();
@@ -61,7 +65,7 @@ public class Main extends AbstractModule {
         }
         return theConfiguration;
     }
-    
+
     protected Injector getInjector(List<Module> modules) {
         modules.add(this);
         if (theInjector == null) {
@@ -69,7 +73,7 @@ public class Main extends AbstractModule {
         }
         return theInjector;
     }
-    
+
     protected Arguments parse(String[] args) {
         Arguments arguments = getArguments(this);
         arguments.setArgs(args);
@@ -80,7 +84,7 @@ public class Main extends AbstractModule {
         }
         return arguments;
     }
-    
+
     protected void apply(String[] args) throws Exception {
         String ARG_MODULE = "module";
         Arguments arguments = getArguments(this);
@@ -90,13 +94,14 @@ public class Main extends AbstractModule {
         Application app = injector.getInstance(Application.class);
         app.call();
     }
-    
+
     protected List<Module> modules() throws Exception {
         String ARG_MODULE = "module";
         Arguments arguments = getArguments(this);
-        if (! arguments.hasValue(ARG_MODULE)) {
+        if (!arguments.hasValue(ARG_MODULE)) {
             System.err.println(arguments.getUsage());
-            throw new IllegalStateException(String.format("Missing required argument: %s", ARG_MODULE));
+            throw new IllegalStateException(String.format(
+                    "Missing required argument: %s", ARG_MODULE));
         }
         String moduleName = arguments.getValue(ARG_MODULE);
         Module mainModule = (Module) Class.forName(moduleName).newInstance();

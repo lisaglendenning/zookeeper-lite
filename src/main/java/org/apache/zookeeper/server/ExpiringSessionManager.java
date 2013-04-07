@@ -19,27 +19,24 @@ import com.google.inject.Inject;
 
 public class ExpiringSessionManager extends SessionManager {
 
-    public static ExpiringSessionManager create(
-            Eventful eventful,
+    public static ExpiringSessionManager create(Eventful eventful,
             SessionParametersPolicy policy) {
         return new ExpiringSessionManager(eventful, policy);
     }
-    
-    protected final Logger logger = LoggerFactory.getLogger(ExpiringSessionManager.class);
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(ExpiringSessionManager.class);
     protected final Map<Long, Long> touches;
-    
+
     @Inject
-    protected ExpiringSessionManager(
-            Eventful eventful,
+    protected ExpiringSessionManager(Eventful eventful,
             SessionParametersPolicy policy) {
-        this(eventful, policy,
-                Collections.synchronizedMap(Maps.<Long, Long>newHashMap()));
+        this(eventful, policy, Collections.synchronizedMap(Maps
+                .<Long, Long> newHashMap()));
     }
 
-    protected ExpiringSessionManager(
-            Eventful eventful,
-            SessionParametersPolicy policy,
-            Map<Long, Long> touches) {
+    protected ExpiringSessionManager(Eventful eventful,
+            SessionParametersPolicy policy, Map<Long, Long> touches) {
         super(eventful, policy);
         this.touches = touches;
         register(this);
@@ -56,7 +53,7 @@ public class ExpiringSessionManager extends SessionManager {
     protected boolean touch(Session session) {
         return touch(session, timestamp());
     }
-    
+
     protected boolean touch(Session session, long timestamp) {
         long sessionId = session.id();
         if (session.parameters().timeOut() != SessionParameters.NEVER_TIMEOUT) {
@@ -69,34 +66,35 @@ public class ExpiringSessionManager extends SessionManager {
         }
         return false;
     }
-    
+
     public void expire(long id) {
         // we won't remove the session ourselves
-        // we'll just let everyone know that it's expired and let them 
+        // we'll just let everyone know that it's expired and let them
         // decide to remove it
         Session session = get(id);
         if (session != null) {
             if (logger.isDebugEnabled()) {
                 logger.debug("Expiring session {}", session);
             }
-            post(SessionStateEvent.create(session, Session.State.SESSION_EXPIRED));
+            post(SessionStateEvent.create(session,
+                    Session.State.SESSION_EXPIRED));
         }
     }
-    
+
     public void triggerExpired() {
         long timestamp = timestamp();
         TimeUnit timestampUnit = timestampUnit();
         Set<Long> expired = Sets.newHashSet();
         synchronized (sessions) {
-            for (Map.Entry<Long, Session> entry: sessions.entrySet()) {
+            for (Map.Entry<Long, Session> entry : sessions.entrySet()) {
                 long id = entry.getKey();
-                if (! touches.containsKey(id)) {
+                if (!touches.containsKey(id)) {
                     continue;
                 }
                 Session session = entry.getValue();
                 long touch = touches.get(entry.getKey());
-                long timeOut = timestampUnit.convert(session.parameters().timeOut(), 
-                        session.parameters().timeOutUnit());
+                long timeOut = timestampUnit.convert(session.parameters()
+                        .timeOut(), session.parameters().timeOutUnit());
                 assert (timeOut != SessionParameters.NEVER_TIMEOUT);
                 long expires = touch + timeOut;
                 if (expires < timestamp) {
@@ -104,11 +102,11 @@ public class ExpiringSessionManager extends SessionManager {
                 }
             }
         }
-        for (long id: expired) {
+        for (long id : expired) {
             expire(id);
         }
     }
-    
+
     protected long timestamp() {
         return System.currentTimeMillis();
     }
@@ -116,11 +114,11 @@ public class ExpiringSessionManager extends SessionManager {
     protected TimeUnit timestampUnit() {
         return TimeUnit.MILLISECONDS;
     }
-    
+
     @Subscribe
     public void handleSessionStateEvent(SessionStateEvent event) {
         Session session = event.session();
-        switch(event.event()) {
+        switch (event.event()) {
         case SESSION_OPENED:
             touch(session.id());
             break;

@@ -7,11 +7,11 @@ import com.google.common.util.concurrent.Service;
 
 public class ForwardingService implements Service {
     protected final Service service;
-    
+
     protected ForwardingService(Service service) {
         this.service = service;
     }
-    
+
     protected Service delegate() {
         return service;
     }

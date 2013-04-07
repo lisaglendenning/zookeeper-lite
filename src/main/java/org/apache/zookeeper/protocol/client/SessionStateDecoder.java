@@ -21,50 +21,49 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.inject.Inject;
 
-public class SessionStateDecoder implements Processor<Operation.Request, Operation.Request>, Decoder<Operation.Response> {
+public class SessionStateDecoder implements
+        Processor<Operation.Request, Operation.Request>,
+        Decoder<Operation.Response> {
 
     public static SessionStateDecoder create(Eventful eventful) {
         return new SessionStateDecoder(eventful);
     }
 
-    public static SessionStateDecoder create(Eventful eventful,
-            Xid xid) {
+    public static SessionStateDecoder create(Eventful eventful, Xid xid) {
         return new SessionStateDecoder(eventful, xid);
     }
 
     public static class NextCallRequest implements Function<Integer, Operation> {
         protected Queue<Operation.Request> requests;
-        
+
         public NextCallRequest(Queue<Operation.Request> requests) {
             this.requests = requests;
         }
-         
+
         @Override
         @Nullable
         public Operation apply(@Nullable Integer xid) {
             Operation.Request nextRequest = requests.peek();
             if (nextRequest == null) {
-                throw new IllegalArgumentException(
-                        "No outstanding requests.");
+                throw new IllegalArgumentException("No outstanding requests.");
             }
-            
-            if (! (nextRequest instanceof Operation.CallRequest)) {
-                throw new IllegalArgumentException(
-                        "Unexpected call response.");
+
+            if (!(nextRequest instanceof Operation.CallRequest)) {
+                throw new IllegalArgumentException("Unexpected call response.");
             }
-            
-            int nextXid = ((Operation.CallRequest)nextRequest).xid();
+
+            int nextXid = ((Operation.CallRequest) nextRequest).xid();
             if (nextXid != xid) {
-                throw new IllegalArgumentException(
-                        String.format("Unexpected xid: %d != %d",
-                                nextXid, xid));
+                throw new IllegalArgumentException(String.format(
+                        "Unexpected xid: %d != %d", nextXid, xid));
             }
-            
+
             return nextRequest.operation();
         }
     }
 
-    protected final Logger logger = LoggerFactory.getLogger(SessionStateDecoder.class);
+    protected final Logger logger = LoggerFactory
+            .getLogger(SessionStateDecoder.class);
     protected final Queue<Operation.Request> requests;
     protected final SessionConnectionState state;
     protected final ProcessorChain<Operation.Request> processor;
@@ -74,19 +73,17 @@ public class SessionStateDecoder implements Processor<Operation.Request, Operati
     protected SessionStateDecoder(Eventful eventful) {
         this(eventful, Xid.create());
     }
-    
+
     @Inject
     protected SessionStateDecoder(Eventful eventful, Xid xid) {
         this(SessionConnectionState.create(eventful), xid);
     }
-    
+
     protected SessionStateDecoder(SessionConnectionState state, Xid xid) {
         this(state, xid, new LinkedList<Operation.Request>());
     }
 
-    protected SessionStateDecoder(
-            SessionConnectionState state,
-            Xid xid,
+    protected SessionStateDecoder(SessionConnectionState state, Xid xid,
             Queue<Operation.Request> requests) {
         super();
         this.requests = requests;
@@ -97,7 +94,7 @@ public class SessionStateDecoder implements Processor<Operation.Request, Operati
         processor.add(AssignXidProcessor.create(xid));
         processor.add(SessionStateRequestProcessor.create(state));
     }
-    
+
     public SessionConnectionState state() {
         return state;
     }
@@ -105,7 +102,7 @@ public class SessionStateDecoder implements Processor<Operation.Request, Operati
     public Queue<Operation.Request> requests() {
         return requests;
     }
-    
+
     @Override
     public Operation.Request apply(Operation.Request request) throws Exception {
         request = processor.apply(request);
@@ -133,26 +130,27 @@ public class SessionStateDecoder implements Processor<Operation.Request, Operati
         default:
             break;
         }
-        
+
         Queue<Operation.Request> requests = requests();
         Operation.Request request = requests.peek();
-        if (request == null || request.operation() != response.operation()) { 
+        if (request == null || request.operation() != response.operation()) {
             throw new IllegalArgumentException(response.toString());
         }
         request = requests.poll();
-        
+
         if (response instanceof Operation.CallResponse) {
             Operation.CallResponse callResponse = (Operation.CallResponse) response;
             Operation.CallRequest callRequest = null;
             if (request instanceof Operation.CallRequest) {
-                callRequest = (Operation.CallRequest)request;
-                
+                callRequest = (Operation.CallRequest) request;
+
                 // unwrap response
                 if (response instanceof Operation.CallResult) {
-                    callResponse = (Operation.CallResponse) ((Operation.CallResult) response).response();
+                    callResponse = (Operation.CallResponse) ((Operation.CallResult) response)
+                            .response();
                 }
             } else if (response instanceof Operation.CallRequest) {
-                callRequest = (Operation.CallRequest)response;
+                callRequest = (Operation.CallRequest) response;
             } else {
                 throw new IllegalArgumentException();
             }

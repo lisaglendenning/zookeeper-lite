@@ -24,12 +24,13 @@ import org.slf4j.LoggerFactory;
 public class HeaderEventDecoderTest extends TestEmbeddedChannels {
 
     @Rule
-    public Timeout globalTimeout = new Timeout(1000); 
+    public Timeout globalTimeout = new Timeout(1000);
 
-    protected static Randomizer RANDOM = new Randomizer();    
-    
-    protected static final Logger logger = LoggerFactory.getLogger(HeaderEventDecoderTest.class);
-    
+    protected static Randomizer RANDOM = new Randomizer();
+
+    protected static final Logger logger = LoggerFactory
+            .getLogger(HeaderEventDecoderTest.class);
+
     @Test
     public void testDecoder() {
         EmbeddedMessageChannel inputChannel = new EmbeddedMessageChannel(
@@ -39,18 +40,19 @@ public class HeaderEventDecoderTest extends TestEmbeddedChannels {
         testChunkedDecode(inputChannel);
         inputChannel.close();
     }
-    
-    protected void testCompleteDecode(EmbeddedMessageChannel inputChannel, int length) {
+
+    protected void testCompleteDecode(EmbeddedMessageChannel inputChannel,
+            int length) {
         // complete header
         length += Header.LENGTH;
         byte[] inputData = RANDOM.randomBytes(length);
         ByteBuf inputBuf = Unpooled.wrappedBuffer(inputData);
         inputBuf.retain();
         BufEventTracker inputMsg = new BufEventTracker(inputBuf);
-        
+
         HeaderEvent outputMsg = writeInboundAndRead(inputChannel, inputMsg);
         readAndValidate(inputData, outputMsg);
-        
+
         assertFalse(inputMsg.completed);
         outputMsg.getCallback().onSuccess(null);
         inputChannel.runPendingTasks();
@@ -58,22 +60,23 @@ public class HeaderEventDecoderTest extends TestEmbeddedChannels {
         assertTrue(inputMsg.completed);
         inputBuf.release();
     }
-    
+
     protected void testChunkedHeaderDecode(EmbeddedMessageChannel inputChannel) {
         // chunked header and payload
         int chunk = Header.LENGTH - 1;
         int chunks = 2;
-        int length = chunk*chunks;
+        int length = chunk * chunks;
         byte[] inputData = RANDOM.randomBytes(length);
         ByteBuf inputBuf = Unpooled.wrappedBuffer(inputData);
         inputBuf.retain();
         BufEventTracker inputMsg = null;
         HeaderEvent outputMsg = null;
-        for (int i=0; i<chunks; ++i) {
+        for (int i = 0; i < chunks; ++i) {
             if (inputMsg != null) {
                 assertTrue(inputMsg.completed);
             }
-            inputMsg = new BufEventTracker(inputBuf.slice(inputBuf.readerIndex() + chunk*i, chunk));
+            inputMsg = new BufEventTracker(inputBuf.slice(
+                    inputBuf.readerIndex() + chunk * i, chunk));
             if (i < chunks - 1) {
                 writeInbound(inputChannel, inputMsg);
             } else {
@@ -93,16 +96,17 @@ public class HeaderEventDecoderTest extends TestEmbeddedChannels {
         // chunked payload
         int chunk = Header.LENGTH + 1;
         int chunks = 2;
-        int length = chunk*chunks;
+        int length = chunk * chunks;
         byte[] inputData = RANDOM.randomBytes(length);
         ByteBuf inputBuf = Unpooled.buffer(length, length);
         inputBuf.retain();
         BufEventTracker inputMsg = new BufEventTracker(inputBuf);
         HeaderEvent outputMsg = null;
-        for (int i=0; i<chunks; ++i) {
-            inputBuf.writeBytes(inputData, i*chunk, chunk);
+        for (int i = 0; i < chunks; ++i) {
+            inputBuf.writeBytes(inputData, i * chunk, chunk);
             outputMsg = writeInboundAndRead(inputChannel, inputMsg);
-            assertEquals(chunk*(i+1) - Header.LENGTH, inputBuf.readableBytes());
+            assertEquals(chunk * (i + 1) - Header.LENGTH,
+                    inputBuf.readableBytes());
         }
         readAndValidate(inputData, outputMsg);
         assertFalse(inputMsg.completed);
@@ -121,13 +125,15 @@ public class HeaderEventDecoderTest extends TestEmbeddedChannels {
         assertNotNull(payload);
         readAndValidate(inputData, header, payload);
     }
-    
-    protected void readAndValidate(byte[] inputData, ByteBuf header, ByteBuf payload) {
+
+    protected void readAndValidate(byte[] inputData, ByteBuf header,
+            ByteBuf payload) {
         assertEquals(Header.LENGTH, header.readableBytes());
         assertEquals(inputData.length - Header.LENGTH, payload.readableBytes());
         byte[] outputData = new byte[inputData.length];
         header.readBytes(outputData, 0, Header.LENGTH);
-        payload.readBytes(outputData, Header.LENGTH, inputData.length-Header.LENGTH);
+        payload.readBytes(outputData, Header.LENGTH, inputData.length
+                - Header.LENGTH);
         assertArrayEquals(inputData, outputData);
     }
 }

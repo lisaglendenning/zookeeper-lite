@@ -20,23 +20,28 @@ public class ClientMain extends ServiceMain {
         return new ClientMain();
     }
 
-    protected ClientMain() {}
-    
-    @Override 
+    protected ClientMain() {
+    }
+
+    @Override
     protected void configure() {
         super.configure();
         bind(Xid.class).in(Singleton.class);
         bind(SingleClientConnectionFactory.class).asEagerSingleton();
-        bind(ClientSessionConnection.ConnectionFactory.class).in(Singleton.class);
+        bind(ClientSessionConnection.ConnectionFactory.class).in(
+                Singleton.class);
         bind(Connection.class).toProvider(SingleClientConnectionFactory.class);
-        bind(ClientSessionConnection.class).toProvider(ClientSessionConnection.ConnectionFactory.class);
+        bind(ClientSessionConnection.class).toProvider(
+                ClientSessionConnection.ConnectionFactory.class);
         bind(ClientSessionConnectionService.class).in(Singleton.class);
         bind(PingSessionsTask.class).asEagerSingleton();
     }
-    
-    @Provides @Singleton
-    public Service getService(ClientSessionConnectionService service, ServiceMonitor monitor) {
-    	monitor.add(service);
-    	return monitor;
+
+    @Provides
+    @Singleton
+    public Service getService(ClientSessionConnectionService service,
+            ServiceMonitor monitor) {
+        monitor.add(service);
+        return monitor;
     }
 }

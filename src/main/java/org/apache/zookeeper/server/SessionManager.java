@@ -18,27 +18,26 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 
-public class SessionManager extends ForwardingEventful implements Iterable<Session> {
+public class SessionManager extends ForwardingEventful implements
+        Iterable<Session> {
 
-    public static SessionManager create(
-            Eventful eventful, SessionParametersPolicy policy) {
+    public static SessionManager create(Eventful eventful,
+            SessionParametersPolicy policy) {
         return new SessionManager(eventful, policy);
     }
-    
-    protected final Logger logger = LoggerFactory.getLogger(SessionManager.class);
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(SessionManager.class);
     protected final SessionParametersPolicy policy;
     protected final Map<Long, Session> sessions;
-    
+
     @Inject
-    protected SessionManager(
-            Eventful eventful, SessionParametersPolicy policy) {
-        this(eventful, policy, 
-                Collections.synchronizedMap(Maps.<Long, Session>newHashMap()));
+    protected SessionManager(Eventful eventful, SessionParametersPolicy policy) {
+        this(eventful, policy, Collections.synchronizedMap(Maps
+                .<Long, Session> newHashMap()));
     }
-    
-    protected SessionManager(
-            Eventful eventful,
-            SessionParametersPolicy policy,
+
+    protected SessionManager(Eventful eventful, SessionParametersPolicy policy,
             Map<Long, Session> sessions) {
         super(eventful);
         this.policy = policy;
@@ -55,12 +54,13 @@ public class SessionManager extends ForwardingEventful implements Iterable<Sessi
         long timeOut = policy.maxTimeout();
         byte[] passwd = policy.newPassword(id);
         TimeUnit timeOutUnit = policy.timeoutUnit();
-        SessionParameters parameters = SessionParameters.create(timeOut, passwd, timeOutUnit);
+        SessionParameters parameters = SessionParameters.create(timeOut,
+                passwd, timeOutUnit);
         Session session = newSession(id, parameters);
         post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
         return session;
     }
-    
+
     public Session add(long id, SessionParameters parameters) {
         checkNotNull(parameters);
         Session session = get(id);
@@ -78,27 +78,27 @@ public class SessionManager extends ForwardingEventful implements Iterable<Sessi
         post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
         return session;
     }
-    
+
     public Session get(long id) {
         return sessions.get(id);
     }
-    
+
     public Session remove(long id) {
         Session session = sessions.remove(id);
         if (session != null) {
             if (logger.isDebugEnabled()) {
-                    logger.debug("Removed session: {}", session);
+                logger.debug("Removed session: {}", session);
             }
-            post(SessionStateEvent.create(session, Session.State.SESSION_CLOSED));
+            post(SessionStateEvent
+                    .create(session, Session.State.SESSION_CLOSED));
         }
         return session;
     }
-    
+
     protected Session newSession(SessionParameters parameters) {
         long id = policy.newSessionId();
         TimeUnit timeOutUnit = parameters.timeOutUnit();
-        long timeOut = policy.boundTimeout(parameters.timeOut(),
-                timeOutUnit);
+        long timeOut = policy.boundTimeout(parameters.timeOut(), timeOutUnit);
         byte[] passwd = policy.newPassword(id);
         parameters = SessionParameters.create(timeOut, passwd, timeOutUnit);
         return newSession(id, parameters);

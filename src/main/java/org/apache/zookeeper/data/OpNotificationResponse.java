@@ -14,10 +14,11 @@ import org.apache.zookeeper.WatchedEvent;
 
 import com.google.common.base.Objects;
 
-public class OpNotificationResponse implements Operation.CallRequest, Operation.Response, Encodable, Decodable {
+public class OpNotificationResponse implements Operation.CallRequest,
+        Operation.Response, Encodable, Decodable {
 
     protected WatchedEvent response;
-    
+
     public static OpNotificationResponse create() {
         return new OpNotificationResponse();
     }
@@ -25,19 +26,19 @@ public class OpNotificationResponse implements Operation.CallRequest, Operation.
     public static OpNotificationResponse create(WatchedEvent response) {
         return new OpNotificationResponse(response);
     }
-    
+
     public static Records.OperationXid opXid() {
         return Records.OperationXid.NOTIFICATION;
     }
-    
+
     public static WatcherEvent createRecord() {
-        return Records.Requests.<WatcherEvent>create(opXid().operation());
+        return Records.Requests.<WatcherEvent> create(opXid().operation());
     }
-    
+
     public OpNotificationResponse() {
         this(null);
     }
-    
+
     public OpNotificationResponse(WatchedEvent response) {
         this.response = response;
     }
@@ -46,7 +47,7 @@ public class OpNotificationResponse implements Operation.CallRequest, Operation.
     public Operation operation() {
         return opXid().operation();
     }
-    
+
     @Override
     public int xid() {
         return opXid().xid();
@@ -55,7 +56,7 @@ public class OpNotificationResponse implements Operation.CallRequest, Operation.
     public WatchedEvent event() {
         return response;
     }
-    
+
     public OpNotificationResponse setResponse(WatchedEvent response) {
         this.response = response;
         return this;
@@ -77,16 +78,14 @@ public class OpNotificationResponse implements Operation.CallRequest, Operation.
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
-                .add("response", event())
-                .toString();
+        return Objects.toStringHelper(this).add("response", event()).toString();
     }
-    
+
     @Override
     public int hashCode() {
         return Objects.hashCode(event());
     }
-    
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

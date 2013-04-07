@@ -10,22 +10,21 @@ import org.apache.zookeeper.netty.NioModule;
 
 import com.google.inject.Provides;
 
-
 public class NioBootstrapFactory extends NioModule {
 
     public static NioBootstrapFactory get() {
         return new NioBootstrapFactory();
     }
 
-    protected NioBootstrapFactory() {}
+    protected NioBootstrapFactory() {
+    }
 
     @Provides
-    public Bootstrap getBootstrap(
-            Class<? extends Channel> channelType,
+    public Bootstrap getBootstrap(Class<? extends Channel> channelType,
             EventLoopGroup group) {
         return newBootstrap(channelType, group);
     }
-    
+
     @Override
     @SuppressWarnings("rawtypes")
     protected Map<ChannelOption, Object> getChannelOptions() {

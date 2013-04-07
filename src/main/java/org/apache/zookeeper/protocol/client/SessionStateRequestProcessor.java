@@ -5,9 +5,11 @@ import org.apache.zookeeper.SessionConnectionState;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.Processor;
 
-public class SessionStateRequestProcessor implements Processor<Operation.Request, Operation.Request>  {
+public class SessionStateRequestProcessor implements
+        Processor<Operation.Request, Operation.Request> {
 
-    public static SessionStateRequestProcessor create(SessionConnectionState state) {
+    public static SessionStateRequestProcessor create(
+            SessionConnectionState state) {
         return new SessionStateRequestProcessor(state);
     }
 
@@ -16,7 +18,7 @@ public class SessionStateRequestProcessor implements Processor<Operation.Request
     protected SessionStateRequestProcessor(SessionConnectionState state) {
         this.state = state;
     }
-    
+
     public SessionConnectionState state() {
         return state;
     }
@@ -31,7 +33,7 @@ public class SessionStateRequestProcessor implements Processor<Operation.Request
         default:
             break;
         }
-        
+
         switch (request.operation()) {
         case CREATE_SESSION:
             state.set(SessionConnection.State.CONNECTING);
@@ -42,7 +44,7 @@ public class SessionStateRequestProcessor implements Processor<Operation.Request
         default:
             break;
         }
-        
+
         return request;
     }
 }

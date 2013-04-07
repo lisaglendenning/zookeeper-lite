@@ -21,28 +21,29 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 
-public class ChannelClientConnectionGroup extends ChannelConnectionGroup implements ClientConnectionGroup {
-    
-    public static ChannelClientConnectionGroup create(
-            Eventful eventful,
-            ClientConnection.Factory connectionFactory,
-            ChannelGroup channels,
+public class ChannelClientConnectionGroup extends ChannelConnectionGroup
+        implements ClientConnectionGroup {
+
+    public static ChannelClientConnectionGroup create(Eventful eventful,
+            ClientConnection.Factory connectionFactory, ChannelGroup channels,
             Bootstrap bootstrap) {
-        return new ChannelClientConnectionGroup(eventful, connectionFactory, channels, bootstrap);
+        return new ChannelClientConnectionGroup(eventful, connectionFactory,
+                channels, bootstrap);
     }
-    
+
     protected class ConnectListener implements ChannelFutureListener {
-    	protected SettableFuture<Connection> promise;
-    	
+        protected SettableFuture<Connection> promise;
+
         public ConnectListener(SettableFuture<Connection> promise) {
             this.promise = promise;
         }
-        
+
         // called when connect() completes
         @Override
         public void operationComplete(ChannelFuture future) throws Exception {
             if (future.isSuccess()) {
-                ChannelConnection connection = ChannelClientConnectionGroup.super.add(future.channel());
+                ChannelConnection connection = ChannelClientConnectionGroup.super
+                        .add(future.channel());
                 promise.set(connection);
             } else {
                 if (future.isCancelled()) {
@@ -53,15 +54,13 @@ public class ChannelClientConnectionGroup extends ChannelConnectionGroup impleme
             }
         }
     }
-    
+
     protected final Bootstrap bootstrap;
     protected final ConcurrentMap<SocketAddress, SettableFuture<Connection>> connectFutures;
 
     @Inject
-    public ChannelClientConnectionGroup(
-            Eventful eventful,
-            ClientConnection.Factory connectionFactory,
-            ChannelGroup channels,
+    public ChannelClientConnectionGroup(Eventful eventful,
+            ClientConnection.Factory connectionFactory, ChannelGroup channels,
             Bootstrap bootstrap) {
         super(eventful, connectionFactory, channels);
         this.bootstrap = checkNotNull(bootstrap);
@@ -71,12 +70,12 @@ public class ChannelClientConnectionGroup extends ChannelConnectionGroup impleme
     protected Bootstrap bootstrap() {
         return bootstrap;
     }
-    
+
     @Override
     public ListenableFuture<Connection> connect(SocketAddress remoteAddress) {
         SettableFuture<Connection> future = SettableFuture.create();
-    	ChannelFuture channelFuture = bootstrap().connect(remoteAddress);
-    	channelFuture.addListener(new ConnectListener(future));
+        ChannelFuture channelFuture = bootstrap().connect(remoteAddress);
+        channelFuture.addListener(new ConnectListener(future));
         return future;
     }
 

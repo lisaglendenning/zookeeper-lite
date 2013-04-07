@@ -10,25 +10,27 @@ import org.apache.zookeeper.proto.ConnectResponse;
 import com.google.common.base.Objects;
 
 public class SessionParameters {
-    
+
     public static final long NEVER_TIMEOUT = 0;
     public static final byte[] NO_PASSWORD = new byte[0];
     public static final int PASSWORD_LENGTH = 16;
     public static final TimeUnit TIMEOUT_UNIT = TimeUnit.MILLISECONDS;
-    
+
     protected final long timeOut;
     protected final TimeUnit timeOutUnit;
     protected final byte[] password;
-    
+
     public static SessionParameters create() {
         return new SessionParameters();
     }
-    
-    public static SessionParameters create(OpCreateSessionAction.Response message) {
+
+    public static SessionParameters create(
+            OpCreateSessionAction.Response message) {
         ConnectResponse response = message.record();
-        return new SessionParameters(response.getTimeOut(), response.getPasswd());
+        return new SessionParameters(response.getTimeOut(),
+                response.getPasswd());
     }
-    
+
     public static SessionParameters create(long timeOut) {
         return new SessionParameters(timeOut);
     }
@@ -37,10 +39,11 @@ public class SessionParameters {
         return new SessionParameters(timeOut, passwd);
     }
 
-    public static SessionParameters create(long timeOut, byte[] passwd, TimeUnit timeOutUnit) {
+    public static SessionParameters create(long timeOut, byte[] passwd,
+            TimeUnit timeOutUnit) {
         return new SessionParameters(timeOut, passwd, timeOutUnit);
     }
-    
+
     public SessionParameters() {
         this(NEVER_TIMEOUT);
     }
@@ -52,7 +55,7 @@ public class SessionParameters {
     public SessionParameters(long timeOut, byte[] passwd) {
         this(timeOut, passwd, TIMEOUT_UNIT);
     }
-    
+
     public SessionParameters(long timeOut, byte[] passwd, TimeUnit timeOutUnit) {
         super();
         this.timeOut = timeOut;
@@ -71,7 +74,7 @@ public class SessionParameters {
     public byte[] password() {
         return password;
     }
-    
+
     @Override
     public String toString() {
         byte[] password = password();
@@ -81,16 +84,15 @@ public class SessionParameters {
         } else if (password.length == 0) {
             passwordStr = "";
         } else {
-        	// just output a hash
-        	passwordStr = String.format("0x%08X", password.hashCode());
-            //BigInteger bi = new BigInteger(1, password);
-            //passwordStr = String.format("0x%0" + (password.length << 1) + "X", bi);
+            // just output a hash
+            passwordStr = String.format("0x%08X", password.hashCode());
+            // BigInteger bi = new BigInteger(1, password);
+            // passwordStr = String.format("0x%0" + (password.length << 1) +
+            // "X", bi);
         }
-        return Objects.toStringHelper(this)
-                .add("password", passwordStr)
+        return Objects.toStringHelper(this).add("password", passwordStr)
                 .add("timeOut", timeOut())
-                .add("timeOutUnit", timeOutUnit().name())
-                .toString();
+                .add("timeOutUnit", timeOutUnit().name()).toString();
     }
 
     @Override
@@ -102,11 +104,11 @@ public class SessionParameters {
         if (getClass() != obj.getClass())
             return false;
         SessionParameters other = (SessionParameters) obj;
-        return Arrays.equals(password(), other.password()) 
+        return Arrays.equals(password(), other.password())
                 && Objects.equal(timeOut(), other.timeOut())
                 && Objects.equal(timeOutUnit(), other.timeOutUnit());
     }
-    
+
     @Override
     public int hashCode() {
         return Objects.hashCode(password(), timeOut(), timeOutUnit());

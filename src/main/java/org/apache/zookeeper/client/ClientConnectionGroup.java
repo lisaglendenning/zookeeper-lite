@@ -7,7 +7,6 @@ import org.apache.zookeeper.ConnectionGroup;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-
 public interface ClientConnectionGroup extends ConnectionGroup {
     ListenableFuture<Connection> connect(SocketAddress remoteAddress);
 }

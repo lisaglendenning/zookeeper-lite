@@ -16,24 +16,26 @@ import io.netty.channel.ChannelOutboundMessageHandlerAdapter;
 import io.netty.handler.codec.CodecException;
 
 @ChannelHandler.Sharable
-public class EncodableEncoder
-        extends ChannelOutboundMessageHandlerAdapter<Encodable> {
+public class EncodableEncoder extends
+        ChannelOutboundMessageHandlerAdapter<Encodable> {
 
-    protected static final Logger logger = LoggerFactory.getLogger(EncodableEncoder.class);
+    protected static final Logger logger = LoggerFactory
+            .getLogger(EncodableEncoder.class);
 
     public static EncodableEncoder create() {
         return new EncodableEncoder();
     }
 
     @Override
-    public void flush(ChannelHandlerContext ctx, Encodable msg) throws Exception {
+    public void flush(ChannelHandlerContext ctx, Encodable msg)
+            throws Exception {
         Object encoded = encode(ctx, msg);
         ctx.nextOutboundMessageBuffer().unfoldAndAdd(encoded);
     }
 
     protected Object encode(ChannelHandlerContext ctx, Encodable msg)
             throws Exception {
-        ByteBuf out =  ctx.alloc().buffer();
+        ByteBuf out = ctx.alloc().buffer();
         try {
             encode(ctx, msg, out);
         } catch (CodecException e) {
@@ -41,11 +43,12 @@ public class EncodableEncoder
         } catch (Exception e) {
             throw new CodecException(e);
         }
-        
-        BufEvent event = new BufEvent().setBuf(out).setCallback(new BufCallback(out));
+
+        BufEvent event = new BufEvent().setBuf(out).setCallback(
+                new BufCallback(out));
         return event;
     }
-    
+
     protected void encode(ChannelHandlerContext ctx, Encodable msg, ByteBuf out)
             throws Exception {
         OutputStream stream = msg.encode(new ByteBufOutputStream(out));

@@ -39,16 +39,16 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
-public class ClientSessionConnection extends ForwardingEventful implements RequestExecutorService, SessionConnection {
+public class ClientSessionConnection extends ForwardingEventful implements
+        RequestExecutorService, SessionConnection {
 
     public static class Factory {
 
-    	public static Factory create(
-        		Configuration configuration,
+        public static Factory create(Configuration configuration,
                 Provider<Eventful> eventfulFactory) {
-    		return new Factory(configuration, eventfulFactory);
-    	}
-    	
+            return new Factory(configuration, eventfulFactory);
+        }
+
         public static final String PARAM_KEY_TIMEOUT = "Client.Timeout";
         public static final int PARAM_DEFAULT_TIMEOUT = 30;
         public static final String PARAM_KEY_TIMEOUT_UNIT = "Client.TimeoutUnit";
@@ -57,74 +57,72 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
         protected final ConfigurableTime timeOut;
         protected Configuration configuration;
         protected Provider<Eventful> eventfulFactory;
-        
+
         @Inject
-        protected Factory(
-        		Configuration configuration,
+        protected Factory(Configuration configuration,
                 Provider<Eventful> eventfulFactory) {
             this.configuration = configuration;
             this.eventfulFactory = eventfulFactory;
-            this.timeOut = ConfigurableTime.create(
-                    PARAM_KEY_TIMEOUT, PARAM_DEFAULT_TIMEOUT, PARAM_KEY_TIMEOUT_UNIT,
-                    PARAM_DEFAULT_TIMEOUT_UNIT);;
+            this.timeOut = ConfigurableTime.create(PARAM_KEY_TIMEOUT,
+                    PARAM_DEFAULT_TIMEOUT, PARAM_KEY_TIMEOUT_UNIT,
+                    PARAM_DEFAULT_TIMEOUT_UNIT);
+            ;
             this.timeOut.configure(configuration);
         }
-        
+
         public ClientSessionConnection get(Connection connection) {
-            return ClientSessionConnection.create(connection, eventfulFactory, timeOut);
+            return ClientSessionConnection.create(connection, eventfulFactory,
+                    timeOut);
         }
     }
-    
-    public static class ConnectionFactory extends Factory implements Provider<ClientSessionConnection> {
 
-    	public static ConnectionFactory create(
-        		Configuration configuration,
+    public static class ConnectionFactory extends Factory implements
+            Provider<ClientSessionConnection> {
+
+        public static ConnectionFactory create(Configuration configuration,
                 Provider<Eventful> eventfulFactory,
                 Provider<Connection> connectionFactory) {
-    		return new ConnectionFactory(configuration, eventfulFactory, connectionFactory);
-    	}
-    	
-    	protected final Provider<Connection> connectionFactory;
-    	
-    	@Inject
-		protected ConnectionFactory(Configuration configuration,
-                Provider<Eventful> eventfulFactory,
-                Provider<Connection> connectionFactory) {
-	        super(configuration, eventfulFactory);
-	        this.connectionFactory = connectionFactory;
+            return new ConnectionFactory(configuration, eventfulFactory,
+                    connectionFactory);
         }
 
-		@Override
+        protected final Provider<Connection> connectionFactory;
+
+        @Inject
+        protected ConnectionFactory(Configuration configuration,
+                Provider<Eventful> eventfulFactory,
+                Provider<Connection> connectionFactory) {
+            super(configuration, eventfulFactory);
+            this.connectionFactory = connectionFactory;
+        }
+
+        @Override
         public ClientSessionConnection get() {
-	        return get(connectionFactory.get());
+            return get(connectionFactory.get());
         }
     }
-    
-    public static ClientSessionConnection create(
-    		Connection connection,
-    		Provider<Eventful> eventfulFactory,
-    		ConfigurableTime timeOut) {
+
+    public static ClientSessionConnection create(Connection connection,
+            Provider<Eventful> eventfulFactory, ConfigurableTime timeOut) {
         return new ClientSessionConnection(connection, eventfulFactory, timeOut);
     }
-    
-    public static ClientSessionConnection create(
-    		Connection connection,
-    		Provider<Eventful> eventfulFactory, 
-    		ConfigurableTime timeOut, 
-    		Zxid zxid) {
-        return new ClientSessionConnection(connection, eventfulFactory, timeOut, zxid);
-    }
-    
-    public static ClientSessionConnection create(
-    		Connection connection,
-    		Provider<Eventful> eventfulFactory,
-    		ConfigurableTime timeOut,
-    		Zxid zxid,
-    		Session session) {
-        return new ClientSessionConnection(connection, eventfulFactory, timeOut, zxid, session);
+
+    public static ClientSessionConnection create(Connection connection,
+            Provider<Eventful> eventfulFactory, ConfigurableTime timeOut,
+            Zxid zxid) {
+        return new ClientSessionConnection(connection, eventfulFactory,
+                timeOut, zxid);
     }
 
-    protected final Logger logger = LoggerFactory.getLogger(ClientSessionConnection.class);
+    public static ClientSessionConnection create(Connection connection,
+            Provider<Eventful> eventfulFactory, ConfigurableTime timeOut,
+            Zxid zxid, Session session) {
+        return new ClientSessionConnection(connection, eventfulFactory,
+                timeOut, zxid, session);
+    }
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(ClientSessionConnection.class);
     protected Session session;
     protected final Connection connection;
     protected final SessionConnectionState state;
@@ -133,27 +131,20 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
     protected final BlockingQueue<SettableTask<Operation.Request, Operation.Result>> tasks;
 
     @Inject
-    protected ClientSessionConnection(
-    		Connection connection,
-    		Provider<Eventful> eventfulFactory,
-    		ConfigurableTime timeOut) {
+    protected ClientSessionConnection(Connection connection,
+            Provider<Eventful> eventfulFactory, ConfigurableTime timeOut) {
         this(connection, eventfulFactory, timeOut, Zxid.create());
     }
-    
-    protected ClientSessionConnection(
-    		Connection connection,
-    		Provider<Eventful> eventfulFactory,
-    		ConfigurableTime timeOut,
-    		Zxid zxid) {
+
+    protected ClientSessionConnection(Connection connection,
+            Provider<Eventful> eventfulFactory, ConfigurableTime timeOut,
+            Zxid zxid) {
         this(connection, eventfulFactory, timeOut, zxid, Session.create());
     }
-    
-    protected ClientSessionConnection(
-    		Connection connection,
-            Provider<Eventful> eventfulFactory, 
-            ConfigurableTime timeOut,
-            Zxid zxid, 
-            Session session) {
+
+    protected ClientSessionConnection(Connection connection,
+            Provider<Eventful> eventfulFactory, ConfigurableTime timeOut,
+            Zxid zxid, Session session) {
         super(eventfulFactory.get());
         this.session = checkNotNull(session);
         this.timeOut = checkNotNull(timeOut);
@@ -162,39 +153,40 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
         this.state = SessionConnectionState.create(eventfulFactory.get());
         this.tasks = new LinkedBlockingQueue<SettableTask<Operation.Request, Operation.Result>>();
     }
-    
+
     public Connection connection() {
         return connection;
     }
-    
+
     public Session session() {
         return session;
     }
-    
+
     @Override
     public SessionConnection.State state() {
         return state.get();
     }
-    
+
     public ListenableFuture<Operation.Result> connect() {
-    	boolean valid = state.compareAndSet(State.ANONYMOUS, State.CONNECTING);
-        if (! valid) {
-        	SettableFuture<Operation.Result> future = SettableFuture.create();
-        	switch (state()) {
-        	case CONNECTING:
-        	case CONNECTED:
-        		future.set(null);
-        		break;
-    		default:
-    			future.setException(new IllegalStateException());
-        	}
-        	return future;
+        boolean valid = state.compareAndSet(State.ANONYMOUS, State.CONNECTING);
+        if (!valid) {
+            SettableFuture<Operation.Result> future = SettableFuture.create();
+            switch (state()) {
+            case CONNECTING:
+            case CONNECTED:
+                future.set(null);
+                break;
+            default:
+                future.setException(new IllegalStateException());
+            }
+            return future;
         }
-        
+
         state.register(this);
         connection.register(this);
-        
-        OpCreateSessionAction.Request message = Operations.Requests.create(Operation.CREATE_SESSION);
+
+        OpCreateSessionAction.Request message = Operations.Requests
+                .create(Operation.CREATE_SESSION);
         ConnectRequest request = message.record();
         request.setProtocolVersion(Records.PROTOCOL_VERSION);
         request.setTimeOut((int) timeOut.convert(TimeUnit.MILLISECONDS));
@@ -206,190 +198,194 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
             request.setSessionId(Session.UNINITIALIZED_ID);
             request.setPasswd(SessionParameters.NO_PASSWORD);
         }
-        
+
         return send(message);
     }
-    
+
     public ListenableFuture<Operation.Result> disconnect() {
-    	boolean valid = state.compareAndSet(State.CONNECTED, State.DISCONNECTING);
-        if (! valid) {
-        	SettableFuture<Operation.Result> future = SettableFuture.create();
-        	switch (state()) {
-        	case DISCONNECTING:
-        	case DISCONNECTED:
-        		future.set(null);
-        		break;
-    		default:
-    			future.setException(new IllegalStateException());
-        	}
-        	return future;
+        boolean valid = state.compareAndSet(State.CONNECTED,
+                State.DISCONNECTING);
+        if (!valid) {
+            SettableFuture<Operation.Result> future = SettableFuture.create();
+            switch (state()) {
+            case DISCONNECTING:
+            case DISCONNECTED:
+                future.set(null);
+                break;
+            default:
+                future.setException(new IllegalStateException());
+            }
+            return future;
         }
-        
-	    Operation.Request message = Operations.Requests.create(Operation.CLOSE_SESSION);
-	    return send(message);
-	}
 
-	@Override
-	public ListenableFuture<Operation.Result> submit(Operation.Request request) {
-	    SessionConnection.State sessionState = state();
-	    switch (sessionState) {
-	    case CONNECTING:
-	    case CONNECTED:
-	    	break;
-	    default:
-			throw new IllegalStateException(sessionState.toString());
-	    }
-	    
-	    switch (request.operation()) {
-	    case CREATE_SESSION:
-	    case CLOSE_SESSION:
-	    	throw new IllegalArgumentException(request.operation().toString());
-    	default:
-	    	break;
-	    }
-	    
-	    return send(request);
-	}
-	
-	protected ListenableFuture<Operation.Result> send(Operation.Request request) {
-		Connection.State connectionState = connection().state();
-		switch (connectionState) {
-		case CONNECTION_OPENING:
-		case CONNECTION_OPENED:
-			break;
-		default:
-			throw new IllegalStateException();
-		}
-		
-	    SettableTask<Operation.Request, Operation.Result> task = SettableTask.create(request);
+        Operation.Request message = Operations.Requests
+                .create(Operation.CLOSE_SESSION);
+        return send(message);
+    }
+
+    @Override
+    public ListenableFuture<Operation.Result> submit(Operation.Request request) {
+        SessionConnection.State sessionState = state();
+        switch (sessionState) {
+        case CONNECTING:
+        case CONNECTED:
+            break;
+        default:
+            throw new IllegalStateException(sessionState.toString());
+        }
+
+        switch (request.operation()) {
+        case CREATE_SESSION:
+        case CLOSE_SESSION:
+            throw new IllegalArgumentException(request.operation().toString());
+        default:
+            break;
+        }
+
+        return send(request);
+    }
+
+    protected ListenableFuture<Operation.Result> send(Operation.Request request) {
+        Connection.State connectionState = connection().state();
+        switch (connectionState) {
+        case CONNECTION_OPENING:
+        case CONNECTION_OPENED:
+            break;
+        default:
+            throw new IllegalStateException();
+        }
+
+        SettableTask<Operation.Request, Operation.Result> task = SettableTask
+                .create(request);
         request = task.task();
-	    // ensure that tasks are sent in the same as the order of this queue...
-    	synchronized (this) {
-    	    logger.debug("Sending {}", request);
-    		tasks.add(task);
-    	    try {
-    	        connection.send(request); 
-    	    } catch (Exception e) {
-    	    	task.future().setException(e);
-    	    }
-    	}
-	    return task.future();
-	}
+        // ensure that tasks are sent in the same as the order of this queue...
+        synchronized (this) {
+            logger.debug("Sending {}", request);
+            tasks.add(task);
+            try {
+                connection.send(request);
+            } catch (Exception e) {
+                task.future().setException(e);
+            }
+        }
+        return task.future();
+    }
 
-	@Subscribe
-	public void handleEvent(SessionConnection.State event) {
-	    post(SessionConnectionStateEvent.create(session(), event));
-	}
+    @Subscribe
+    public void handleEvent(SessionConnection.State event) {
+        post(SessionConnectionStateEvent.create(session(), event));
+    }
 
-	@Subscribe
-	public void handleEvent(ConnectionMessageEvent<?> event) {
-	    Object value = event.event();
-	    // TODO: do we care about other events?
-	    if (value instanceof Operation.Response) {
-	        handleEvent((Operation.Response)value);
-	    }
-	}
+    @Subscribe
+    public void handleEvent(ConnectionMessageEvent<?> event) {
+        Object value = event.event();
+        // TODO: do we care about other events?
+        if (value instanceof Operation.Response) {
+            handleEvent((Operation.Response) value);
+        }
+    }
 
-	@Subscribe
-	public void handleEvent(Operation.Response event) {
-	    SessionConnection.State sessionState = state();
-	    switch (sessionState) {
-	    case CONNECTING:
-	    case CONNECTED:
-	    case DISCONNECTING:
-	    	break;
-	    default:
-	    	// don't care?
-	    	return;
-	    }
+    @Subscribe
+    public void handleEvent(Operation.Response event) {
+        SessionConnection.State sessionState = state();
+        switch (sessionState) {
+        case CONNECTING:
+        case CONNECTED:
+        case DISCONNECTING:
+            break;
+        default:
+            // don't care?
+            return;
+        }
 
-	    Operation.Response response = event;
-	    Operation.Result result = null;
-	    if (event instanceof Operation.Result) {
-	        result = (Operation.Result) event;
-	        response = result.response();
-	    }
+        Operation.Response response = event;
+        Operation.Result result = null;
+        if (event instanceof Operation.Result) {
+            result = (Operation.Result) event;
+            response = result.response();
+        }
 
-	    switch (event.operation()) {
-	    case CREATE_SESSION:
-	    {
-	        if (! (response instanceof Operation.Error)) {
-		        OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response)response;
-	            this.session = Session.create(opResponse);
-	            this.state.set(SessionConnection.State.CONNECTED);
-	        }
-	        break;
-	    }
-	    case CLOSE_SESSION:
-	    {
-	    	if (! (response instanceof Operation.Error)) {
-	    		this.state.set(SessionConnection.State.DISCONNECTED);
-	    	}
-	        break;
-	    }
-	    default:
-	        break;
-	    }
-	    
-	    if (event instanceof Operation.CallResponse) {
-	        synchronized (zxid) {
-	            long eventZxid = ((Operation.CallResponse)event).zxid();
-	            long lastZxid = zxid.get();
-	            if (eventZxid > lastZxid) {
-	                zxid.compareAndSet(lastZxid, eventZxid);
-	            }
-	        }
-	    }
-	    
-	    SettableTask<Operation.Request, Operation.Result> task = null;
-	    synchronized (this) {
-		    task = tasks.peek();
-		    if (task != null) {
-		        Operation.Request request = task.task();
-		        if (request.operation() == response.operation()) {
-		            if (result == null) {
-		                if (request instanceof Operation.CallRequest
-		                        && response instanceof Operation.CallResponse) {
-		                    result = OpCallResult.create((Operation.CallRequest) request,
-		                            (Operation.CallResponse) response);
-		                } else {
-		                    result = OpResult.create(request, response);
-		                }
-		            } else {
-		                // TODO: checkArgument()
-		            }
-		            task = tasks.poll();
-		            assert (task != null);
-		        }
-		    }
-	    }
-		
-	    if (task != null) {
-	        SettableFuture<Operation.Result> future = task.future();
+        switch (event.operation()) {
+        case CREATE_SESSION: {
+            if (!(response instanceof Operation.Error)) {
+                OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response) response;
+                this.session = Session.create(opResponse);
+                this.state.set(SessionConnection.State.CONNECTED);
+            }
+            break;
+        }
+        case CLOSE_SESSION: {
+            if (!(response instanceof Operation.Error)) {
+                this.state.set(SessionConnection.State.DISCONNECTED);
+            }
+            break;
+        }
+        default:
+            break;
+        }
+
+        if (event instanceof Operation.CallResponse) {
+            synchronized (zxid) {
+                long eventZxid = ((Operation.CallResponse) event).zxid();
+                long lastZxid = zxid.get();
+                if (eventZxid > lastZxid) {
+                    zxid.compareAndSet(lastZxid, eventZxid);
+                }
+            }
+        }
+
+        SettableTask<Operation.Request, Operation.Result> task = null;
+        synchronized (this) {
+            task = tasks.peek();
+            if (task != null) {
+                Operation.Request request = task.task();
+                if (request.operation() == response.operation()) {
+                    if (result == null) {
+                        if (request instanceof Operation.CallRequest
+                                && response instanceof Operation.CallResponse) {
+                            result = OpCallResult.create(
+                                    (Operation.CallRequest) request,
+                                    (Operation.CallResponse) response);
+                        } else {
+                            result = OpResult.create(request, response);
+                        }
+                    } else {
+                        // TODO: checkArgument()
+                    }
+                    task = tasks.poll();
+                    assert (task != null);
+                }
+            }
+        }
+
+        if (task != null) {
+            SettableFuture<Operation.Result> future = task.future();
             if (event.operation() == Operation.CREATE_SESSION) {
-                if (! (response instanceof Operation.Error)) {
+                if (!(response instanceof Operation.Error)) {
                     future.set(result);
                 } else {
-                    future.setException(KeeperException.create(((Operation.Error)response).error()));
+                    future.setException(KeeperException
+                            .create(((Operation.Error) response).error()));
                 }
             } else {
                 future.set(result);
             }
         }
 
-		post(SessionResponseEvent.create(session(), event));
-		
-	    if (event.operation() == Operation.CLOSE_SESSION) {
-	        disconnected();
-	    }
-	}
+        post(SessionResponseEvent.create(session(), event));
 
-	protected void disconnected() {
+        if (event.operation() == Operation.CLOSE_SESSION) {
+            disconnected();
+        }
+    }
+
+    protected void disconnected() {
         connection.unregister(this);
         connection.close();
 
         synchronized (tasks) {
-            Pair<Operation.Request, SettableFuture<Operation.Result>> task = tasks.poll();
+            Pair<Operation.Request, SettableFuture<Operation.Result>> task = tasks
+                    .poll();
             while (task != null) {
                 task.second().cancel(true);
             }

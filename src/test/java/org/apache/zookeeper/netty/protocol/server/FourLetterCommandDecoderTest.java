@@ -23,12 +23,13 @@ import org.slf4j.LoggerFactory;
 public class FourLetterCommandDecoderTest extends TestEmbeddedChannels {
 
     @Rule
-    public Timeout globalTimeout = new Timeout(1000); 
+    public Timeout globalTimeout = new Timeout(1000);
 
     protected static Randomizer RANDOM = new Randomizer();
-    
-    protected static final Logger logger = LoggerFactory.getLogger(FourLetterCommandDecoderTest.class);
-    
+
+    protected static final Logger logger = LoggerFactory
+            .getLogger(FourLetterCommandDecoderTest.class);
+
     @Test
     public void testDecoder() {
         EmbeddedMessageChannel inputChannel = new EmbeddedMessageChannel(
@@ -37,16 +38,17 @@ public class FourLetterCommandDecoderTest extends TestEmbeddedChannels {
         testNonWordDecode(inputChannel);
         inputChannel.close();
     }
-    
+
     protected void testAllWordsDecode(EmbeddedMessageChannel inputChannel) {
-        for (FourLetterCommand command: FourLetterCommand.values()) {
+        for (FourLetterCommand command : FourLetterCommand.values()) {
             ByteBuf inputBuf = Unpooled.wrappedBuffer(command.bytes());
             BufEventTracker inputMsg = new BufEventTracker(inputBuf);
-            FourLetterCommand outputMsg = writeInboundAndRead(inputChannel, inputMsg);
+            FourLetterCommand outputMsg = writeInboundAndRead(inputChannel,
+                    inputMsg);
             assertFalse(inputBuf.isReadable());
             assertTrue(inputMsg.completed);
             assertEquals(command, outputMsg);
-        }        
+        }
     }
 
     protected void testNonWordDecode(EmbeddedMessageChannel inputChannel) {
@@ -54,7 +56,7 @@ public class FourLetterCommandDecoderTest extends TestEmbeddedChannels {
         byte[] bytes;
         while (true) {
             bytes = RANDOM.randomBytes(length);
-            if (! FourLetterCommand.isWord(bytes)) {
+            if (!FourLetterCommand.isWord(bytes)) {
                 break;
             }
         }

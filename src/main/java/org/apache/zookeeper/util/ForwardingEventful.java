@@ -3,11 +3,11 @@ package org.apache.zookeeper.util;
 public class ForwardingEventful implements Eventful {
 
     protected final Eventful delegate;
-    
+
     public ForwardingEventful(Eventful eventful) {
         this.delegate = eventful;
     }
-    
+
     @Override
     public void post(Object event) {
         delegate().post(event);

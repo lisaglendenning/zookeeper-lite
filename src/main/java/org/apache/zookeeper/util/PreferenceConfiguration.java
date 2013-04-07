@@ -15,21 +15,25 @@ public class PreferenceConfiguration implements Configuration {
     public static PreferenceConfiguration create() {
         return new PreferenceConfiguration();
     }
-    
+
     public static class PreferenceConfigurationArguments {
         public static final String OPTION_PREFS_ROOT = "prefs-root";
         public static final String OPTION_PREFS_PATH = "prefs-path";
-        
+
         public static String OPTION_DEFAULT_PREFS_ROOT = "user";
         public static String OPTION_DEFAULT_PREFS_PATH = "org.apache.zookeeper";
 
         public static Arguments addArguments(Arguments arguments) {
-            arguments.add(arguments.newOption(OPTION_PREFS_ROOT, 
-                    Optional.of("[user,system]"), 
-                    Optional.of(PreferenceConfigurationArguments.OPTION_DEFAULT_PREFS_ROOT)));
-            arguments.add(arguments.newOption(OPTION_PREFS_PATH, 
-                    Optional.of("PATH"), 
-                    Optional.of(PreferenceConfigurationArguments.OPTION_DEFAULT_PREFS_PATH)));
+            arguments
+                    .add(arguments.newOption(
+                            OPTION_PREFS_ROOT,
+                            Optional.of("[user,system]"),
+                            Optional.of(PreferenceConfigurationArguments.OPTION_DEFAULT_PREFS_ROOT)));
+            arguments
+                    .add(arguments.newOption(
+                            OPTION_PREFS_PATH,
+                            Optional.of("PATH"),
+                            Optional.of(PreferenceConfigurationArguments.OPTION_DEFAULT_PREFS_PATH)));
             return arguments;
         }
 
@@ -106,7 +110,7 @@ public class PreferenceConfiguration implements Configuration {
 
     @Override
     public void flush() throws BackingStoreException {
-        for (Map.Entry<String, Object> opt: cache) {
+        for (Map.Entry<String, Object> opt : cache) {
             setPrefs(opt.getKey(), opt.getValue());
         }
         prefs.flush();

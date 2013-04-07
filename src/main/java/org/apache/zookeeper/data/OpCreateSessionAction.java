@@ -18,18 +18,22 @@ import org.apache.zookeeper.proto.ConnectResponse;
 import org.apache.zookeeper.protocol.Records;
 import com.google.common.base.Objects;
 
-public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>, T extends Record> extends OpRecordAction<T> {
+public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C, T>, T extends Record>
+        extends OpRecordAction<T> {
 
     public static Operation OPERATION = Operation.CREATE_SESSION;
-    
-    public static class Request extends OpCreateSessionAction<Request, ConnectRequest> implements Operation.Request {
-    
+
+    public static class Request extends
+            OpCreateSessionAction<Request, ConnectRequest> implements
+            Operation.Request {
+
         public static ConnectRequest createRecord() {
-        	ConnectRequest request = Records.Requests.<ConnectRequest>create(OPERATION);
-        	request.setProtocolVersion(Records.PROTOCOL_VERSION);
-        	return request;
+            ConnectRequest request = Records.Requests
+                    .<ConnectRequest> create(OPERATION);
+            request.setProtocolVersion(Records.PROTOCOL_VERSION);
+            return request;
         }
-        
+
         public static Request create() {
             return new Request();
         }
@@ -37,12 +41,12 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
         public static Request create(ConnectRequest record) {
             return new Request(record);
         }
-    
+
         public static Request create(ConnectRequest record, boolean readOnly,
                 boolean wraps) {
             return new Request(record, readOnly, wraps);
         }
-    
+
         public Request() {
             this(createRecord());
         }
@@ -50,19 +54,18 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
         public Request(ConnectRequest record) {
             super(record);
         }
-    
-        public Request(ConnectRequest record, boolean readOnly,
-                boolean wraps) {
+
+        public Request(ConnectRequest record, boolean readOnly, boolean wraps) {
             super(record, readOnly, wraps);
         }
-        
+
         public Request setRequest(ConnectRequest request) {
             setRecord(request);
             return this;
         }
 
         @Override
-        public Request decode(InputStream stream) throws IOException  {
+        public Request decode(InputStream stream) throws IOException {
             if (record() == null) {
                 setRecord(createRecord());
             }
@@ -70,14 +73,17 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
         }
     }
 
-    public static class Response extends OpCreateSessionAction<Response, ConnectResponse> implements Operation.Response {
+    public static class Response extends
+            OpCreateSessionAction<Response, ConnectResponse> implements
+            Operation.Response {
 
         public static ConnectResponse createRecord() {
-        	ConnectResponse response = Records.Responses.<ConnectResponse>create(OPERATION);
-        	response.setProtocolVersion(Records.PROTOCOL_VERSION);
-        	return response;
+            ConnectResponse response = Records.Responses
+                    .<ConnectResponse> create(OPERATION);
+            response.setProtocolVersion(Records.PROTOCOL_VERSION);
+            return response;
         }
-        
+
         public static Response create() {
             return new Response();
         }
@@ -90,49 +96,49 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
                 boolean wraps) {
             return new Response(record, readOnly, wraps);
         }
-    
+
         public Response() {
             this(createRecord());
         }
-        
+
         public Response(ConnectResponse record) {
-        	super(record);
+            super(record);
         }
 
-        public Response(ConnectResponse record, boolean readOnly,
-                boolean wraps) {
+        public Response(ConnectResponse record, boolean readOnly, boolean wraps) {
             super(record, readOnly, wraps);
         }
-        
+
         public Response setResponse(ConnectResponse response) {
             setRecord(response);
             return this;
         }
 
         @Override
-        public Response decode(InputStream stream) throws IOException  {
+        public Response decode(InputStream stream) throws IOException {
             if (record() == null) {
                 setRecord(createRecord());
             }
             super.decode(stream);
 
             if (record().getSessionId() == Session.UNINITIALIZED_ID) {
-            	return InvalidResponse.create();
+                return InvalidResponse.create();
             }
             return this;
         }
     }
-    
-    public static class InvalidResponse extends Response implements Operation.Error {
+
+    public static class InvalidResponse extends Response implements
+            Operation.Error {
 
         public static ConnectResponse createRecord() {
-        	ConnectResponse record = Response.createRecord();
-    		record.setSessionId(Session.UNINITIALIZED_ID);
-    		record.setTimeOut(0);
-    		record.setPasswd(SessionParameters.NO_PASSWORD);
-    		return record;
+            ConnectResponse record = Response.createRecord();
+            record.setSessionId(Session.UNINITIALIZED_ID);
+            record.setTimeOut(0);
+            record.setPasswd(SessionParameters.NO_PASSWORD);
+            return record;
         }
-        
+
         public static InvalidResponse create() {
             return new InvalidResponse();
         }
@@ -140,7 +146,7 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
         public static InvalidResponse create(boolean readOnly, boolean wraps) {
             return new InvalidResponse(readOnly, wraps);
         }
-    
+
         public InvalidResponse() {
             super(createRecord());
         }
@@ -148,21 +154,21 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
         public InvalidResponse(boolean readOnly, boolean wraps) {
             super(createRecord(), readOnly, wraps);
         }
-        
+
         public Response setResponse(ConnectResponse response) {
             throw new UnsupportedOperationException();
         }
 
-		@Override
+        @Override
         public Code error() {
-	        // TODO
-	        return KeeperException.Code.SESSIONEXPIRED;
+            // TODO
+            return KeeperException.Code.SESSIONEXPIRED;
         }
     }
 
     protected boolean readOnly;
     protected boolean wraps;
-    
+
     protected OpCreateSessionAction(T record) {
         this(record, false, false);
     }
@@ -172,7 +178,7 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
         this.readOnly = readOnly;
         this.wraps = wraps;
     }
-    
+
     @Override
     public Operation operation() {
         return OPERATION;
@@ -203,7 +209,7 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
         T record = record();
         checkState(record != null);
         stream = Records.serialize(record, stream, Records.CONNECT_TAG);
-        if (! wraps()) {
+        if (!wraps()) {
             BinaryOutputArchive boa = BinaryOutputArchive.getArchive(stream);
             boa.writeBool(readOnly(), "readOnly");
         }
@@ -212,7 +218,7 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
 
     @Override
     @SuppressWarnings("unchecked")
-    public C decode(InputStream stream) throws IOException  {
+    public C decode(InputStream stream) throws IOException {
         T record = record();
         checkState(record != null);
         setRecord(Records.deserialize(record, stream, Records.CONNECT_TAG));
@@ -231,19 +237,16 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
-              .add("operation", operation())
-              .add("record", Records.toString(record()))
-              .add("readOnly", readOnly())
-              .add("wraps", wraps())
-              .toString();
+        return Objects.toStringHelper(this).add("operation", operation())
+                .add("record", Records.toString(record()))
+                .add("readOnly", readOnly()).add("wraps", wraps()).toString();
     }
-    
+
     @Override
     public int hashCode() {
         return Objects.hashCode(record(), readOnly(), wraps());
     }
-    
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -256,8 +259,8 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C,T>
             return false;
         }
         @SuppressWarnings("unchecked")
-        OpCreateSessionAction<C,T> other = (OpCreateSessionAction<C,T>) obj;
-        return Objects.equal(record(), other.record()) 
+        OpCreateSessionAction<C, T> other = (OpCreateSessionAction<C, T>) obj;
+        return Objects.equal(record(), other.record())
                 && Objects.equal(readOnly(), other.readOnly())
                 && Objects.equal(wraps(), other.wraps());
     }

@@ -7,7 +7,7 @@ import org.apache.zookeeper.util.EventfulAtomicUpdater;
 import com.google.inject.Inject;
 
 public class SessionState extends EventfulAutomataState<Session.State> {
-    
+
     public static SessionState create(Eventful eventful) {
         return new SessionState(eventful);
     }

@@ -20,17 +20,17 @@ import org.junit.runners.JUnit4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 @RunWith(JUnit4.class)
 public class FrameEncoderTest extends TestEmbeddedChannels {
 
     @Rule
-    public Timeout globalTimeout = new Timeout(1000); 
+    public Timeout globalTimeout = new Timeout(1000);
 
     protected static Randomizer RANDOM = new Randomizer();
-    
-    protected static final Logger logger = LoggerFactory.getLogger(FrameEncoderTest.class);
-    
+
+    protected static final Logger logger = LoggerFactory
+            .getLogger(FrameEncoderTest.class);
+
     @Test
     public void testEncoder() {
         EmbeddedMessageChannel outputChannel = new EmbeddedMessageChannel(
@@ -39,8 +39,9 @@ public class FrameEncoderTest extends TestEmbeddedChannels {
         testCompleteEncode(outputChannel, 4);
         outputChannel.close();
     }
-    
-    protected void testCompleteEncode(EmbeddedMessageChannel outputChannel, int length) {
+
+    protected void testCompleteEncode(EmbeddedMessageChannel outputChannel,
+            int length) {
         // non-empty payload
         byte[] inputData = RANDOM.randomBytes(length);
         ByteBuf inputBuf = Unpooled.wrappedBuffer(inputData);
@@ -69,8 +70,9 @@ public class FrameEncoderTest extends TestEmbeddedChannels {
         assertNotNull(payload);
         readAndValidate(inputData, header, payload);
     }
-    
-    protected void readAndValidate(byte[] inputData, ByteBuf header, ByteBuf payload) {
+
+    protected void readAndValidate(byte[] inputData, ByteBuf header,
+            ByteBuf payload) {
         assertEquals(Header.LENGTH, header.readableBytes());
         int length = header.readInt();
         assertEquals(payload.readableBytes(), length);

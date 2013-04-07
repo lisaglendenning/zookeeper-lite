@@ -24,33 +24,36 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Service;
 import com.google.inject.Inject;
 
-public abstract class AbstractConnectionGroup extends AbstractIdleService implements ConnectionGroup, Service {
-    
-    protected final Logger logger = LoggerFactory.getLogger(AbstractConnectionGroup.class);
+public abstract class AbstractConnectionGroup extends AbstractIdleService
+        implements ConnectionGroup, Service {
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(AbstractConnectionGroup.class);
     protected final ConcurrentMap<Pair<SocketAddress, SocketAddress>, Connection> connections;
     protected final Eventful eventful;
 
     @Inject
-    public AbstractConnectionGroup(
-            Eventful eventful) {
-    	this(eventful, Maps.<Pair<SocketAddress, SocketAddress>, Connection>newConcurrentMap());
+    public AbstractConnectionGroup(Eventful eventful) {
+        this(
+                eventful,
+                Maps.<Pair<SocketAddress, SocketAddress>, Connection> newConcurrentMap());
     }
-    
+
     protected AbstractConnectionGroup(
             Eventful eventful,
             ConcurrentMap<Pair<SocketAddress, SocketAddress>, Connection> connections) {
         this.eventful = checkNotNull(eventful);
         this.connections = checkNotNull(connections);
     }
-    
+
     protected Eventful eventful() {
-    	return eventful;
+        return eventful;
     }
 
     protected ConcurrentMap<Pair<SocketAddress, SocketAddress>, Connection> connections() {
         return connections;
     }
-    
+
     public Connection get(Pair<SocketAddress, SocketAddress> endpoints) {
         return connections().get(endpoints);
     }
@@ -59,15 +62,14 @@ public abstract class AbstractConnectionGroup extends AbstractIdleService implem
     public Iterator<Connection> iterator() {
         return connections().values().iterator();
     }
-    
+
     protected Connection add(Connection connection) {
         logger.trace("Added Connection: {}", connection);
         Pair<SocketAddress, SocketAddress> endpoints = Pair.create(
-        		connection.localAddress(),
-        		connection.remoteAddress());
+                connection.localAddress(), connection.remoteAddress());
         Connection prev = connections().put(endpoints, connection);
         if (prev != null) {
-        	prev.close();
+            prev.close();
         }
         connection.register(this);
         try {
@@ -85,10 +87,11 @@ public abstract class AbstractConnectionGroup extends AbstractIdleService implem
     @Override
     protected void shutDown() throws Exception {
         List<ListenableFuture<Connection>> futures = Lists.newArrayList();
-        for (Connection connection: this) {
-        	futures.add(connection.close());
+        for (Connection connection : this) {
+            futures.add(connection.close());
         }
-        ListenableFuture<List<Connection>> allFutures = Futures.allAsList(futures);
+        ListenableFuture<List<Connection>> allFutures = Futures
+                .allAsList(futures);
         allFutures.get();
     }
 
@@ -97,7 +100,7 @@ public abstract class AbstractConnectionGroup extends AbstractIdleService implem
         Connection connection = event.connection();
         switch (event.event()) {
         case CONNECTION_CLOSED:
-        	connections().remove(connection.remoteAddress(), connection);
+            connections().remove(connection.remoteAddress(), connection);
             break;
         default:
             break;

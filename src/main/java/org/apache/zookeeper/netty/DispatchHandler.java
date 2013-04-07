@@ -13,19 +13,22 @@ import io.netty.channel.ChannelInboundMessageHandlerAdapter;
 import io.netty.util.AttributeKey;
 
 @ChannelHandler.Sharable
-public class DispatchHandler 
-        extends ChannelInboundMessageHandlerAdapter<Object> {
+public class DispatchHandler extends
+        ChannelInboundMessageHandlerAdapter<Object> {
 
-    public static final String EVENTFUL_ATTRIBUTE_NAME = Eventful.class.getName();
-    public static final AttributeKey<Eventful> EVENTFUL_ATTRIBUTE_KEY = new AttributeKey<Eventful>(EVENTFUL_ATTRIBUTE_NAME);
+    public static final String EVENTFUL_ATTRIBUTE_NAME = Eventful.class
+            .getName();
+    public static final AttributeKey<Eventful> EVENTFUL_ATTRIBUTE_KEY = new AttributeKey<Eventful>(
+            EVENTFUL_ATTRIBUTE_NAME);
 
     public static Eventful getEventful(Channel channel) {
         return checkNotNull(channel).attr(EVENTFUL_ATTRIBUTE_KEY).get();
     }
-    
-    protected final Logger logger = LoggerFactory.getLogger(DispatchHandler.class);
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(DispatchHandler.class);
     protected final Eventful eventful;
-    
+
     public static DispatchHandler create(Eventful eventful) {
         return new DispatchHandler(eventful);
     }
@@ -34,10 +37,11 @@ public class DispatchHandler
         super();
         this.eventful = checkNotNull(eventful);
     }
-       
+
     @Override
     public void afterAdd(ChannelHandlerContext ctx) throws Exception {
-        if (! ctx.channel().attr(EVENTFUL_ATTRIBUTE_KEY).compareAndSet(null, eventful)) {
+        if (!ctx.channel().attr(EVENTFUL_ATTRIBUTE_KEY)
+                .compareAndSet(null, eventful)) {
             throw new IllegalArgumentException();
         }
         super.afterAdd(ctx);
@@ -45,24 +49,25 @@ public class DispatchHandler
 
     @Override
     public void beforeRemove(ChannelHandlerContext ctx) throws Exception {
-        if (! ctx.channel().attr(EVENTFUL_ATTRIBUTE_KEY).compareAndSet(eventful, null)) {
+        if (!ctx.channel().attr(EVENTFUL_ATTRIBUTE_KEY)
+                .compareAndSet(eventful, null)) {
             throw new IllegalArgumentException();
         }
         super.beforeRemove(ctx);
     }
-    
+
     @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object event) 
+    public void userEventTriggered(ChannelHandlerContext ctx, Object event)
             throws Exception {
         dispatch(event);
-//        super.userEventTriggered(ctx, event);
+        // super.userEventTriggered(ctx, event);
     }
 
     @Override
-    public void messageReceived(ChannelHandlerContext ctx,
-            Object msg) throws Exception {
+    public void messageReceived(ChannelHandlerContext ctx, Object msg)
+            throws Exception {
         dispatch(msg);
-//        ctx.nextInboundMessageBuffer().add(msg);
+        // ctx.nextInboundMessageBuffer().add(msg);
     }
 
     public void dispatch(Object event) {

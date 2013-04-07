@@ -15,16 +15,16 @@ import org.apache.zookeeper.util.Eventful;
 
 import com.google.inject.Inject;
 
-public class ChannelServerConnectionGroup extends ChannelConnectionGroup implements ServerConnectionGroup {
-    
-    public static ChannelServerConnectionGroup create(
-            Eventful eventful,
-            ServerConnection.Factory connectionFactory,
-            ChannelGroup channels,
+public class ChannelServerConnectionGroup extends ChannelConnectionGroup
+        implements ServerConnectionGroup {
+
+    public static ChannelServerConnectionGroup create(Eventful eventful,
+            ServerConnection.Factory connectionFactory, ChannelGroup channels,
             ServerBootstrap bootstrap) {
-        return new ChannelServerConnectionGroup(eventful, connectionFactory, channels, bootstrap);
+        return new ChannelServerConnectionGroup(eventful, connectionFactory,
+                channels, bootstrap);
     }
-    
+
     protected class CloseListener implements ChannelFutureListener {
         // called when serverChannel closes
         @Override
@@ -37,10 +37,8 @@ public class ChannelServerConnectionGroup extends ChannelConnectionGroup impleme
     protected ServerChannel serverChannel;
 
     @Inject
-    public ChannelServerConnectionGroup(
-            Eventful eventful,
-            ServerConnection.Factory connectionFactory,
-            ChannelGroup channels,
+    public ChannelServerConnectionGroup(Eventful eventful,
+            ServerConnection.Factory connectionFactory, ChannelGroup channels,
             ServerBootstrap bootstrap) {
         super(eventful, connectionFactory, channels);
         this.bootstrap = checkNotNull(bootstrap);
@@ -54,7 +52,7 @@ public class ChannelServerConnectionGroup extends ChannelConnectionGroup impleme
     protected ServerBootstrap serverBootstrap() {
         return bootstrap;
     }
-    
+
     @Override
     public SocketAddress localAddress() {
         SocketAddress socketAddress = null;
@@ -67,8 +65,7 @@ public class ChannelServerConnectionGroup extends ChannelConnectionGroup impleme
     @Override
     protected void startUp() throws Exception {
         serverChannel = (ServerChannel) serverBootstrap()
-                .childHandler(new ChildInitializer())
-                .bind().sync().channel();
+                .childHandler(new ChildInitializer()).bind().sync().channel();
         logger.info("Listening on {}", serverChannel.localAddress());
         serverChannel().closeFuture().addListener(new CloseListener());
         super.startUp();

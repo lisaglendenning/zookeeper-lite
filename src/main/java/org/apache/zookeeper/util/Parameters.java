@@ -14,7 +14,7 @@ public class Parameters implements Configurable {
         protected final String key;
         protected final T defaultValue;
         protected Optional<T> value = Optional.absent();
-        
+
         public Parameter(String key, T defaultValue) {
             this.key = checkNotNull(key);
             this.defaultValue = defaultValue;
@@ -27,7 +27,7 @@ public class Parameters implements Configurable {
         public T getDefaultValue() {
             return defaultValue;
         }
-        
+
         public synchronized T getValue() {
             if (value.isPresent()) {
                 return value.get();
@@ -44,7 +44,7 @@ public class Parameters implements Configurable {
             setValue(configuration.get(key, defaultValue));
         }
     }
-    
+
     public static Parameters newInstance() {
         return new Parameters();
     }
@@ -58,9 +58,9 @@ public class Parameters implements Configurable {
 
     @SuppressWarnings("rawtypes")
     protected Parameters() {
-        this(Collections.synchronizedMap(Maps.<String, Parameter>newHashMap()));
+        this(Collections.synchronizedMap(Maps.<String, Parameter> newHashMap()));
     }
-    
+
     @SuppressWarnings("rawtypes")
     protected Parameters(Map<String, Parameter> parameters) {
         this.parameters = parameters;
@@ -76,11 +76,11 @@ public class Parameters implements Configurable {
         checkNotNull(parameter);
         String key = parameter.getKey();
         Map<String, Parameter> parameters = delegate();
-        checkArgument(! parameters.containsKey(key));
+        checkArgument(!parameters.containsKey(key));
         parameters.put(key, parameter);
         return this;
     }
-    
+
     public synchronized <T> T getValue(String key) {
         @SuppressWarnings("unchecked")
         Parameter<T> parameter = parameters.get(key);
@@ -91,8 +91,9 @@ public class Parameters implements Configurable {
     @SuppressWarnings("rawtypes")
     @Override
     public synchronized void configure(Configuration configuration) {
-        Collection<Parameter> parameters = Collections.unmodifiableCollection(delegate().values());
-        for (Parameter parameter: parameters) {
+        Collection<Parameter> parameters = Collections
+                .unmodifiableCollection(delegate().values());
+        for (Parameter parameter : parameters) {
             parameter.configure(configuration);
         }
     }

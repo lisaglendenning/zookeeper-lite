@@ -13,17 +13,19 @@ public class TestEmbeddedChannels {
         assertTrue(written);
         Object output = channel.readOutbound();
         assertNull(output);
-    }    
+    }
 
-    protected ByteBuf writeOutboundAndRead(EmbeddedByteChannel channel, Object msg) {
+    protected ByteBuf writeOutboundAndRead(EmbeddedByteChannel channel,
+            Object msg) {
         boolean written = channel.writeOutbound(msg);
         assertTrue(written);
         ByteBuf output = channel.readOutbound();
         assertNotNull(output);
         return output;
     }
-    
-    protected <T> T writeOutboundAndRead(EmbeddedMessageChannel channel, Object msg) {
+
+    protected <T> T writeOutboundAndRead(EmbeddedMessageChannel channel,
+            Object msg) {
         boolean written = channel.writeOutbound(msg);
         assertTrue(written);
         @SuppressWarnings("unchecked")
@@ -37,15 +39,16 @@ public class TestEmbeddedChannels {
         assertFalse(written);
         Object output = channel.readInbound();
         assertNull(output);
-    }  
-    
-    protected <T, O> T writeInboundAndRead(AbstractEmbeddedChannel<O> channel, O msg) {
+    }
+
+    protected <T, O> T writeInboundAndRead(AbstractEmbeddedChannel<O> channel,
+            O msg) {
         boolean written = channel.writeInbound(msg);
         assertTrue(written);
         @SuppressWarnings("unchecked")
         T output = (T) channel.readInbound();
         assertNotNull(output);
         return output;
-    }    
-    
+    }
+
 }

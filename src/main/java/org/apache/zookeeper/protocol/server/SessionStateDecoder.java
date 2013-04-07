@@ -14,14 +14,16 @@ import org.slf4j.LoggerFactory;
 
 import com.google.inject.Inject;
 
-public class SessionStateDecoder implements Processor<Operation.Response, Operation.Response>, Decoder<Operation.Request> {
+public class SessionStateDecoder implements
+        Processor<Operation.Response, Operation.Response>,
+        Decoder<Operation.Request> {
 
-    public static SessionStateDecoder create(
-            Zxid zxid, Eventful eventful) {
+    public static SessionStateDecoder create(Zxid zxid, Eventful eventful) {
         return new SessionStateDecoder(zxid, eventful);
     }
 
-    protected final Logger logger = LoggerFactory.getLogger(SessionStateDecoder.class);
+    protected final Logger logger = LoggerFactory
+            .getLogger(SessionStateDecoder.class);
     protected final SessionConnectionState state;
     protected final ProcessorChain<Operation.Response> processor;
     protected final SessionStateRequestDecoder decoder;
@@ -30,7 +32,7 @@ public class SessionStateDecoder implements Processor<Operation.Response, Operat
     protected SessionStateDecoder(Zxid zxid, Eventful eventful) {
         this(zxid, SessionConnectionState.create(eventful));
     }
-    
+
     protected SessionStateDecoder(Zxid zxid, SessionConnectionState state) {
         super();
         this.state = state;
@@ -39,13 +41,14 @@ public class SessionStateDecoder implements Processor<Operation.Response, Operat
         processor.add(GetZxidProcessor.create(zxid));
         processor.add(SessionStateResponseProcessor.create(state));
     }
-    
+
     public SessionConnectionState state() {
         return state;
     }
 
     @Override
-    public Operation.Response apply(Operation.Response response) throws Exception {
+    public Operation.Response apply(Operation.Response response)
+            throws Exception {
         return processor.apply(response);
     }
 

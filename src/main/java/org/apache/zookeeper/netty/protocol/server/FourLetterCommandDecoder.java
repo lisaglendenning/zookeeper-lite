@@ -19,15 +19,15 @@ import io.netty.handler.codec.MessageToMessageDecoder;
  * no longer anonymous
  */
 @ChannelHandler.Sharable
-public class FourLetterCommandDecoder 
-    extends MessageToMessageDecoder<BufEvent>
-    implements AnonymousHandler {
+public class FourLetterCommandDecoder extends MessageToMessageDecoder<BufEvent>
+        implements AnonymousHandler {
 
     public static FourLetterCommandDecoder create() {
         return new FourLetterCommandDecoder();
     }
 
-    protected final Logger logger = LoggerFactory.getLogger(FourLetterCommandDecoder.class);
+    protected final Logger logger = LoggerFactory
+            .getLogger(FourLetterCommandDecoder.class);
 
     @Override
     public Object decode(ChannelHandlerContext ctx, BufEvent msg)
@@ -58,8 +58,8 @@ public class FourLetterCommandDecoder
         if (FourLetterCommand.isWord(bytes)) {
             FourLetterCommand command = FourLetterCommand.fromWord(bytes);
             if (logger.isTraceEnabled()) {
-                logger.trace("Received FourLetterCommand {} from {}", 
-                        command, ctx.channel().remoteAddress());
+                logger.trace("Received FourLetterCommand {} from {}", command,
+                        ctx.channel().remoteAddress());
             }
             // consumed some bytes
             return command;

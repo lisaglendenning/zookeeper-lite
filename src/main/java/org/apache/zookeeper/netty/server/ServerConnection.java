@@ -28,13 +28,14 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 
 public class ServerConnection extends ChannelConnection {
-    
-    public static class Factory implements ChannelConnection.Factory<ServerConnection> {
-        
+
+    public static class Factory implements
+            ChannelConnection.Factory<ServerConnection> {
+
         public static Factory get(Provider<Eventful> eventfulFactory, Zxid zxid) {
             return new Factory(eventfulFactory, zxid);
         }
-        
+
         protected Zxid zxid;
         protected Provider<Eventful> eventfulFactory;
 
@@ -43,40 +44,33 @@ public class ServerConnection extends ChannelConnection {
             this.zxid = zxid;
             this.eventfulFactory = eventfulFactory;
         }
-        
+
         @Override
         public ServerConnection get(Channel channel) {
             return ServerConnection.create(channel, eventfulFactory, zxid);
         }
     }
-    
-    public static ServerConnection create(
-    		Channel channel,
-    		Provider<Eventful> eventfulFactory,
-            Zxid zxid) {
+
+    public static ServerConnection create(Channel channel,
+            Provider<Eventful> eventfulFactory, Zxid zxid) {
         return new ServerConnection(channel, eventfulFactory, zxid);
     }
+
     /*
-    public class UnthrottleCallable implements Callable<Void> {
-        protected final ChannelHandlerContext ctx;
-        
-        public UnthrottleCallable(ChannelHandlerContext ctx) {
-            this.ctx = checkNotNull(ctx);
-        }
-    
-        @Override
-        public Void call() throws Exception {
-            ctx.channel().read();
-            ctx.pipeline().fireInboundBufferUpdated();
-            return null;
-        }
-    }
-*/
+     * public class UnthrottleCallable implements Callable<Void> { protected
+     * final ChannelHandlerContext ctx;
+     * 
+     * public UnthrottleCallable(ChannelHandlerContext ctx) { this.ctx =
+     * checkNotNull(ctx); }
+     * 
+     * @Override public Void call() throws Exception { ctx.channel().read();
+     * ctx.pipeline().fireInboundBufferUpdated(); return null; } }
+     */
 
     protected static List<ChannelHandler> pipeline(Eventful eventful, Zxid zxid) {
-        return Lists.<ChannelHandler>newArrayList(
-                BufEventEncoder.create(), BufEventDecoder.create(),
-                FourLetterCommandDecoder.create(), FourLetterCommandResponseEncoder.create(),
+        return Lists.<ChannelHandler> newArrayList(BufEventEncoder.create(),
+                BufEventDecoder.create(), FourLetterCommandDecoder.create(),
+                FourLetterCommandResponseEncoder.create(),
                 HeaderEventEncoder.create(), HeaderEventDecoder.create(),
                 FrameEncoder.create(), FrameDecoder.create(),
                 EncodableEncoder.create(),
@@ -84,41 +78,42 @@ public class ServerConnection extends ChannelConnection {
                 RequestDecoder.create(zxid, eventful));
     }
 
-    protected final Logger logger = LoggerFactory.getLogger(ServerConnection.class);
-    
+    protected final Logger logger = LoggerFactory
+            .getLogger(ServerConnection.class);
+
     @Inject
-    protected ServerConnection(
-    		Channel channel,
-            Provider<Eventful> eventfulFactory,
-            Zxid zxid) {
-    	super(channel, eventfulFactory);
-
-        channel.config().setAutoRead(false);
-        String name = channel.pipeline().context(channel.pipeline().first()).name();
-        for (ChannelHandler handler: pipeline(eventfulBridge, zxid)) {
-            channel.pipeline().addBefore(name, handler.getClass().getName(), handler);
-        }
-        channel.read();
-    }
-
-    protected ServerConnection(
-    		Channel channel,
-            Provider<Eventful> eventfulFactory,
-            List<ChannelHandler> pipeline) {
+    protected ServerConnection(Channel channel,
+            Provider<Eventful> eventfulFactory, Zxid zxid) {
         super(channel, eventfulFactory);
 
         channel.config().setAutoRead(false);
-        String name = channel.pipeline().context(channel.pipeline().first()).name();
-        for (ChannelHandler handler: pipeline) {
-            channel.pipeline().addBefore(name, handler.getClass().getName(), handler);
+        String name = channel.pipeline().context(channel.pipeline().first())
+                .name();
+        for (ChannelHandler handler : pipeline(eventfulBridge, zxid)) {
+            channel.pipeline().addBefore(name, handler.getClass().getName(),
+                    handler);
         }
         channel.read();
     }
-    
+
+    protected ServerConnection(Channel channel,
+            Provider<Eventful> eventfulFactory, List<ChannelHandler> pipeline) {
+        super(channel, eventfulFactory);
+
+        channel.config().setAutoRead(false);
+        String name = channel.pipeline().context(channel.pipeline().first())
+                .name();
+        for (ChannelHandler handler : pipeline) {
+            channel.pipeline().addBefore(name, handler.getClass().getName(),
+                    handler);
+        }
+        channel.read();
+    }
+
     @Override
     public void post(Object event) {
         if (event instanceof SessionConnection.State) {
-            switch ((SessionConnection.State)event) {
+            switch ((SessionConnection.State) event) {
             case CONNECTING:
                 toConnecting();
                 break;
@@ -127,7 +122,7 @@ public class ServerConnection extends ChannelConnection {
                 break;
             default:
                 break;
-            
+
             }
         }
         super.post(event);
@@ -147,7 +142,7 @@ public class ServerConnection extends ChannelConnection {
         channel.config().setAutoRead(true);
         channel.read();
         channel.pipeline().fireInboundBufferUpdated();
-//        channel.eventLoop().submit(new UnthrottleCallable(ctx));
+        // channel.eventLoop().submit(new UnthrottleCallable(ctx));
     }
 
 }

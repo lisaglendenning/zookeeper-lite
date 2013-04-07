@@ -21,47 +21,50 @@ import io.netty.handler.codec.MessageToMessageCodec;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 
+public class RequestDecoder extends
+        MessageToMessageCodec<BufEvent, Operation.Response> {
 
-public class RequestDecoder
-        extends MessageToMessageCodec<BufEvent, Operation.Response> {
-
-    public static final String STATE_ATTRIBUTE_NAME = 
-            SessionStateDecoder.class.getName();
-    public static final AttributeKey<SessionConnectionState> STATE_ATTRIBUTE_KEY = 
-            new AttributeKey<SessionConnectionState>(STATE_ATTRIBUTE_NAME);
+    public static final String STATE_ATTRIBUTE_NAME = SessionStateDecoder.class
+            .getName();
+    public static final AttributeKey<SessionConnectionState> STATE_ATTRIBUTE_KEY = new AttributeKey<SessionConnectionState>(
+            STATE_ATTRIBUTE_NAME);
 
     public static RequestDecoder create(Zxid zxid, Eventful eventful) {
         return new RequestDecoder(zxid, eventful);
     }
 
-    protected final Logger logger = LoggerFactory.getLogger(RequestDecoder.class);
+    protected final Logger logger = LoggerFactory
+            .getLogger(RequestDecoder.class);
     protected final SessionStateDecoder decoder;
-    
+
     @Inject
     protected RequestDecoder(Zxid zxid, Eventful eventful) {
         this.decoder = SessionStateDecoder.create(zxid, eventful);
     }
-    
+
     public SessionConnectionState state() {
         return decoder.state();
     }
 
     @Override
     public void afterAdd(ChannelHandlerContext ctx) throws Exception {
-        Attribute<SessionConnectionState> attr = ctx.channel().attr(STATE_ATTRIBUTE_KEY);
+        Attribute<SessionConnectionState> attr = ctx.channel().attr(
+                STATE_ATTRIBUTE_KEY);
         attr.compareAndSet(null, state());
         super.afterAdd(ctx);
     }
-    
+
     @Override
     public void beforeRemove(ChannelHandlerContext ctx) throws Exception {
-        Attribute<SessionConnectionState> attr = ctx.channel().attr(STATE_ATTRIBUTE_KEY);
+        Attribute<SessionConnectionState> attr = ctx.channel().attr(
+                STATE_ATTRIBUTE_KEY);
         attr.compareAndSet(state(), null);
         super.beforeRemove(ctx);
     }
 
     @Override
-    public void channelReadSuspended(ChannelHandlerContext ctx) throws Exception {
+    public void channelReadSuspended(ChannelHandlerContext ctx)
+            throws Exception {
         if (ctx.channel().config().isAutoRead()) {
             super.channelReadSuspended(ctx);
         }
@@ -72,13 +75,14 @@ public class RequestDecoder
             throws Exception {
         Operation.Request request = decode(ctx, msg.getBuf());
         if (msg.getBuf().isReadable()) {
-            throw new DecoderException(String.format("%d unexpected bytes after %s",
-                    msg.getBuf().readableBytes(), request.toString()));
+            throw new DecoderException(String.format(
+                    "%d unexpected bytes after %s", msg.getBuf()
+                            .readableBytes(), request.toString()));
         }
         msg.getCallback().onSuccess(null);
         return request;
     }
-    
+
     protected Operation.Request decode(ChannelHandlerContext ctx, ByteBuf msg)
             throws Exception {
         InputStream stream = new ByteBufInputStream(msg);
@@ -90,9 +94,8 @@ public class RequestDecoder
         }
         stream.close();
         if (logger.isTraceEnabled()) {
-            logger.trace("Received {} from {}", 
-                    request,
-                    ctx.channel().remoteAddress());
+            logger.trace("Received {} from {}", request, ctx.channel()
+                    .remoteAddress());
         }
         return request;
     }
@@ -103,5 +106,5 @@ public class RequestDecoder
         msg = decoder.apply(msg);
         return msg;
     }
-    
+
 }

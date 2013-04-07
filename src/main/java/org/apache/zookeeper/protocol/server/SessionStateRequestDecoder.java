@@ -18,38 +18,47 @@ public class SessionStateRequestDecoder {
 
         ANONYMOUS {
 
-            public SessionConnection.State state() { return SessionConnection.State.ANONYMOUS; }
-            
-            public Operation.Request decode(InputStream stream) throws IOException {
+            public SessionConnection.State state() {
+                return SessionConnection.State.ANONYMOUS;
+            }
+
+            public Operation.Request decode(InputStream stream)
+                    throws IOException {
                 Operation op = Operation.CREATE_SESSION;
-                Operation.Request request = Operations.Requests.decode(op, stream);
+                Operation.Request request = Operations.Requests.decode(op,
+                        stream);
                 return request;
             }
         },
-        
+
         CONNECTED {
 
-            public SessionConnection.State state() { return SessionConnection.State.CONNECTED; }
-            
-            public Operation.Request decode(InputStream stream) throws IOException {
+            public SessionConnection.State state() {
+                return SessionConnection.State.CONNECTED;
+            }
+
+            public Operation.Request decode(InputStream stream)
+                    throws IOException {
                 Operation.Request request = Operations.Requests.decode(stream);
                 return request;
             }
         };
 
         public abstract SessionConnection.State state();
-        
-        public abstract Operation.Request decode(InputStream stream) throws IOException;
+
+        public abstract Operation.Request decode(InputStream stream)
+                throws IOException;
     }
-    
-    protected final Logger logger = LoggerFactory.getLogger(SessionStateRequestDecoder.class);
+
+    protected final Logger logger = LoggerFactory
+            .getLogger(SessionStateRequestDecoder.class);
 
     protected SessionConnectionState state;
 
     public static SessionStateRequestDecoder create(SessionConnectionState state) {
         return new SessionStateRequestDecoder(state);
     }
-    
+
     @Inject
     protected SessionStateRequestDecoder(SessionConnectionState state) {
         super();
@@ -78,7 +87,7 @@ public class SessionStateRequestDecoder {
         if (logger.isTraceEnabled()) {
             logger.trace("Decoded: {}", request);
         }
-        
+
         switch (request.operation()) {
         case CREATE_SESSION:
             state.set(SessionConnection.State.CONNECTING);
@@ -89,7 +98,7 @@ public class SessionStateRequestDecoder {
         default:
             break;
         }
-        
+
         return request;
     }
 }

@@ -5,13 +5,15 @@ import org.apache.zookeeper.util.EventfulAutomataState;
 
 import com.google.inject.Inject;
 
-public class SessionConnectionState extends EventfulAutomataState<SessionConnection.State> {
-    
+public class SessionConnectionState extends
+        EventfulAutomataState<SessionConnection.State> {
+
     public static SessionConnectionState create(Eventful eventful) {
         return new SessionConnectionState(eventful);
     }
 
-    public static SessionConnectionState create(Eventful eventful, SessionConnection.State state) {
+    public static SessionConnectionState create(Eventful eventful,
+            SessionConnection.State state) {
         return new SessionConnectionState(eventful, state);
     }
 
@@ -20,7 +22,8 @@ public class SessionConnectionState extends EventfulAutomataState<SessionConnect
         this(eventful, SessionConnection.State.ANONYMOUS);
     }
 
-    protected SessionConnectionState(Eventful eventful, SessionConnection.State state) {
+    protected SessionConnectionState(Eventful eventful,
+            SessionConnection.State state) {
         super(eventful, state);
         eventful.post(state);
     }

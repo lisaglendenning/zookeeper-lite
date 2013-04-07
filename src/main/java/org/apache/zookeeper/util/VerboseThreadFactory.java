@@ -13,20 +13,19 @@ public class VerboseThreadFactory implements ThreadFactory {
 
         public final Logger logger = LoggerFactory
                 .getLogger(VerboseThreadUncaughtExceptionHandler.class);
-        
+
         @Override
         public void uncaughtException(Thread t, Throwable e) {
             if (e instanceof ThreadDeath) {
                 t.getThreadGroup().uncaughtException(t, e);
             } else {
-                logger.error("Uncaught exception in Thread {}", t,
-                        e);
+                logger.error("Uncaught exception in Thread {}", t, e);
             }
         }
     }
 
     protected static final AtomicInteger counter = new AtomicInteger(0);
-    
+
     protected final Logger logger = LoggerFactory
             .getLogger(VerboseThreadFactory.class);
     protected final ThreadGroup threadGroup;

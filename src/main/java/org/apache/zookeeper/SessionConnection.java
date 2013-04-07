@@ -2,7 +2,6 @@ package org.apache.zookeeper;
 
 import org.apache.zookeeper.util.AutomataState;
 
-
 // TODO
 public interface SessionConnection {
 
@@ -11,34 +10,38 @@ public interface SessionConnection {
             @Override
             public boolean validTransition(State nextState) {
                 return super.validTransition(nextState)
-                        || (nextState == CONNECTING)
-                        || (nextState == ERROR);
+                        || (nextState == CONNECTING) || (nextState == ERROR);
             }
-        }, CONNECTING {
+        },
+        CONNECTING {
             @Override
             public boolean validTransition(State nextState) {
                 return super.validTransition(nextState)
                         || CONNECTED.validTransition(nextState);
             }
-        }, CONNECTED {
+        },
+        CONNECTED {
             @Override
             public boolean validTransition(State nextState) {
                 return super.validTransition(nextState)
                         || DISCONNECTING.validTransition(nextState);
             }
-        }, DISCONNECTING {
+        },
+        DISCONNECTING {
             @Override
             public boolean validTransition(State nextState) {
                 return super.validTransition(nextState)
                         || DISCONNECTED.validTransition(nextState)
                         || ERROR.validTransition(nextState);
             }
-        }, DISCONNECTED {
+        },
+        DISCONNECTED {
             @Override
             public boolean isTerminal() {
                 return true;
             }
-        }, ERROR {
+        },
+        ERROR {
             @Override
             public boolean isTerminal() {
                 return true;
@@ -49,12 +52,12 @@ public interface SessionConnection {
         public boolean isTerminal() {
             return false;
         }
-        
+
         @Override
         public boolean validTransition(State nextState) {
             return (this == nextState);
         }
     }
-    
+
     State state();
 }

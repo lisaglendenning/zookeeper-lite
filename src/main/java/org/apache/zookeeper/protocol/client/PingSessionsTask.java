@@ -29,14 +29,15 @@ public class PingSessionsTask implements Configurable {
     public static final long PARAM_DEFAULT_PING_TICK = 2000;
     public static final String PARAM_KEY_PING_TICK_UNIT = "Sessions.PingTickUnit";
     public static final String PARAM_DEFAULT_PING_TICK_UNIT = "MILLISECONDS";
-    
+
     public class PingConnectionTask implements Runnable {
-        
-        protected final Logger logger = LoggerFactory.getLogger(PingConnectionTask.class);
+
+        protected final Logger logger = LoggerFactory
+                .getLogger(PingConnectionTask.class);
         protected final Connection connection;
         protected OpPingAction.Request lastPing = null;
         protected ScheduledFuture<?> future = null;
-        
+
         @Inject
         public PingConnectionTask(Connection connection) {
             this.connection = checkNotNull(connection);
@@ -47,10 +48,11 @@ public class PingSessionsTask implements Configurable {
             if (future == null) {
                 long tick = tickTime.time();
                 TimeUnit tickUnit = tickTime.timeUnit();
-                future = executor.scheduleAtFixedRate(this, tick, tick, tickUnit);
+                future = executor.scheduleAtFixedRate(this, tick, tick,
+                        tickUnit);
             }
         }
-        
+
         @Override
         public void run() {
             lastPing = OpPingAction.Request.create();
@@ -80,7 +82,7 @@ public class PingSessionsTask implements Configurable {
 
         @Subscribe
         public void handleConnectionStateEvent(ConnectionStateEvent event) {
-            switch(event.event()) {
+            switch (event.event()) {
             case CONNECTION_CLOSING:
             case CONNECTION_CLOSED:
                 stop();
@@ -89,13 +91,14 @@ public class PingSessionsTask implements Configurable {
                 break;
             }
         }
-        
+
         @Subscribe
         public void handleConnectionEvent(ConnectionEventValue<?> event) {
             if (event.event() instanceof Operation.Response) {
                 handleOperationResponseEvent((Operation.Response) event.event());
             } else if (event.event() instanceof SessionConnection.State) {
-                handleSessionConnectionStateEvent((SessionConnection.State) event.event());
+                handleSessionConnectionStateEvent((SessionConnection.State) event
+                        .event());
             }
         }
 
@@ -104,38 +107,37 @@ public class PingSessionsTask implements Configurable {
             if (event.operation() == Operation.PING) {
                 while (true) {
                     if (event instanceof OpPingAction.Response) {
-                        handlePingResponse((OpPingAction.Response)event);
+                        handlePingResponse((OpPingAction.Response) event);
                         break;
                     } else if (event instanceof Operation.ResponseValue
-                            && ((Operation.ResponseValue)event).response() instanceof Operation.Response) {
-                        event = ((Operation.ResponseValue)event).response();
+                            && ((Operation.ResponseValue) event).response() instanceof Operation.Response) {
+                        event = ((Operation.ResponseValue) event).response();
                     } else {
                         break;
                     }
                 }
-            }            
+            }
         }
-        
+
         @Subscribe
         public void handlePingResponse(OpPingAction.Response response) {
             if (logger.isTraceEnabled()) {
-                logger.trace(String.format(
-                        "PONG %d %s: %s",
+                logger.trace(String.format("PONG %d %s: %s",
                         (lastPing == null) ? 0 : response.difference(lastPing),
-                        response.timeUnit().name(),
-                        response));
-            }            
+                        response.timeUnit().name(), response));
+            }
         }
-        
+
         @Subscribe
-        public void handleSessionConnectionStateEvent(SessionConnection.State event) {
+        public void handleSessionConnectionStateEvent(
+                SessionConnection.State event) {
             switch (event) {
             case CONNECTED:
                 start();
                 break;
             case DISCONNECTING:
             case DISCONNECTED:
-            case ERROR:    
+            case ERROR:
                 stop();
                 break;
             default:
@@ -144,21 +146,18 @@ public class PingSessionsTask implements Configurable {
         }
     }
 
-    protected final Logger logger = LoggerFactory.getLogger(PingSessionsTask.class);
+    protected final Logger logger = LoggerFactory
+            .getLogger(PingSessionsTask.class);
     protected final ScheduledExecutorService executor;
     protected final ConfigurableTime tickTime;
-    
+
     @Inject
-    public PingSessionsTask(
-            Configuration configuration,
-            ClientConnectionGroup connections,
-            ScheduledExecutorService executor) {
+    public PingSessionsTask(Configuration configuration,
+            ClientConnectionGroup connections, ScheduledExecutorService executor) {
         super();
         this.executor = executor;
-        this.tickTime = ConfigurableTime.create(
-                PARAM_KEY_PING_TICK, 
-                PARAM_DEFAULT_PING_TICK, 
-                PARAM_KEY_PING_TICK_UNIT, 
+        this.tickTime = ConfigurableTime.create(PARAM_KEY_PING_TICK,
+                PARAM_DEFAULT_PING_TICK, PARAM_KEY_PING_TICK_UNIT,
                 PARAM_DEFAULT_PING_TICK_UNIT);
         configure(configuration);
         connections.register(this);
@@ -168,7 +167,7 @@ public class PingSessionsTask implements Configurable {
     public void configure(Configuration configuration) {
         tickTime.configure(configuration);
     }
-    
+
     @Subscribe
     public void handleConnection(Connection connection) {
         newTask(connection);
@@ -176,7 +175,7 @@ public class PingSessionsTask implements Configurable {
 
     protected PingConnectionTask newTask(Connection connection) {
         PingConnectionTask task = new PingConnectionTask(connection);
-        //task.start();
+        // task.start();
         return task;
     }
 }

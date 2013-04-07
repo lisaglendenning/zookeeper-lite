@@ -21,17 +21,17 @@ import org.junit.runners.JUnit4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 @RunWith(JUnit4.class)
 public class FrameDecoderTest extends TestEmbeddedChannels {
 
     @Rule
-    public Timeout globalTimeout = new Timeout(1000); 
+    public Timeout globalTimeout = new Timeout(1000);
 
     protected static Randomizer RANDOM = new Randomizer();
-    
-    protected static final Logger logger = LoggerFactory.getLogger(FrameDecoderTest.class);
-    
+
+    protected static final Logger logger = LoggerFactory
+            .getLogger(FrameDecoderTest.class);
+
     @Test
     public void testDecoder() {
         EmbeddedMessageChannel inputChannel = new EmbeddedMessageChannel(
@@ -42,8 +42,9 @@ public class FrameDecoderTest extends TestEmbeddedChannels {
         testMultipleDecodes(inputChannel);
         inputChannel.close();
     }
-    
-    protected void testCompleteDecode(EmbeddedMessageChannel inputChannel, int length) {
+
+    protected void testCompleteDecode(EmbeddedMessageChannel inputChannel,
+            int length) {
         // complete header
         byte[] inputData = RANDOM.randomBytes(length);
         ByteBuf inputBuf = Unpooled.wrappedBuffer(inputData);
@@ -51,11 +52,12 @@ public class FrameDecoderTest extends TestEmbeddedChannels {
         ByteBuf inputHeader = Unpooled.buffer(Header.LENGTH, Header.LENGTH);
         inputHeader.retain();
         inputHeader.writeInt(length);
-        HeaderEventTracker inputMsg = new HeaderEventTracker(inputHeader, inputBuf);
-        
+        HeaderEventTracker inputMsg = new HeaderEventTracker(inputHeader,
+                inputBuf);
+
         BufEvent outputMsg = writeInboundAndRead(inputChannel, inputMsg);
         readAndValidate(inputData, outputMsg);
-        
+
         assertFalse(inputMsg.completed);
         outputMsg.getCallback().onSuccess(null);
         inputChannel.runPendingTasks();
@@ -64,22 +66,24 @@ public class FrameDecoderTest extends TestEmbeddedChannels {
         inputHeader.release();
         inputBuf.release();
     }
-    
-    protected void testChunkedDecode(EmbeddedMessageChannel inputChannel, int chunk) {
+
+    protected void testChunkedDecode(EmbeddedMessageChannel inputChannel,
+            int chunk) {
         // chunked payload
         int chunks = 2;
-        int length = chunk*chunks;
+        int length = chunk * chunks;
         byte[] inputData = RANDOM.randomBytes(length);
         ByteBuf inputBuf = Unpooled.buffer(length, length);
         inputBuf.retain();
         ByteBuf inputHeader = Unpooled.buffer(Header.LENGTH, Header.LENGTH);
         inputHeader.retain();
         inputHeader.writeInt(length);
-        HeaderEventTracker inputMsg = new HeaderEventTracker(inputHeader, inputBuf);
-        
+        HeaderEventTracker inputMsg = new HeaderEventTracker(inputHeader,
+                inputBuf);
+
         BufEvent outputMsg = null;
-        for (int i=0; i<chunks; ++i) {
-            inputBuf.writeBytes(inputData, i*chunk, chunk);
+        for (int i = 0; i < chunks; ++i) {
+            inputBuf.writeBytes(inputData, i * chunk, chunk);
             if (i < chunks - 1) {
                 writeInbound(inputChannel, inputMsg);
             } else {
@@ -87,7 +91,7 @@ public class FrameDecoderTest extends TestEmbeddedChannels {
             }
         }
         readAndValidate(inputData, outputMsg);
-        
+
         assertEquals(length, inputBuf.readableBytes());
         assertFalse(inputMsg.completed);
         outputMsg.getCallback().onSuccess(null);
@@ -102,7 +106,7 @@ public class FrameDecoderTest extends TestEmbeddedChannels {
     protected void testMultipleDecodes(EmbeddedMessageChannel inputChannel) {
         int chunk = 4;
         int chunks = 2;
-        int length = chunk*chunks;
+        int length = chunk * chunks;
         byte[] inputData = RANDOM.randomBytes(length);
         ByteBuf inputBuf = Unpooled.buffer(length, length);
         inputBuf.retain();
@@ -111,15 +115,15 @@ public class FrameDecoderTest extends TestEmbeddedChannels {
         inputHeader.writeInt(chunk);
         inputHeader.markReaderIndex();
         inputBuf.writeBytes(inputData, 0, chunk);
-        HeaderEventTracker[] inputMsgs = {new HeaderEventTracker(inputHeader, inputBuf),
-                new HeaderEventTracker(inputHeader, inputBuf)
-        };
-        BufEvent[] outputMsgs = {null, null};
+        HeaderEventTracker[] inputMsgs = {
+                new HeaderEventTracker(inputHeader, inputBuf),
+                new HeaderEventTracker(inputHeader, inputBuf) };
+        BufEvent[] outputMsgs = { null, null };
         outputMsgs[0] = writeInboundAndRead(inputChannel, inputMsgs[0]);
         readAndValidate(Arrays.copyOfRange(inputData, 0, chunk), outputMsgs[0]);
         assertFalse(inputMsgs[0].completed);
         assertEquals(inputBuf.readableBytes(), chunk);
-        
+
         inputHeader.resetReaderIndex();
         inputBuf.writeBytes(inputData, chunk, chunk);
         writeInbound(inputChannel, inputMsgs[1]);
@@ -133,19 +137,20 @@ public class FrameDecoderTest extends TestEmbeddedChannels {
         assertEquals(inputBuf.readableBytes(), chunk);
 
         outputMsgs[1] = writeInboundAndRead(inputChannel, inputMsgs[1]);
-        readAndValidate(Arrays.copyOfRange(inputData, chunk, chunk*2), outputMsgs[1]);
-        
+        readAndValidate(Arrays.copyOfRange(inputData, chunk, chunk * 2),
+                outputMsgs[1]);
+
         assertFalse(inputMsgs[1].completed);
         outputMsgs[1].getCallback().onSuccess(null);
         inputChannel.runPendingTasks();
         inputChannel.checkException();
         assertTrue(inputMsgs[1].completed);
         assertEquals(inputBuf.readableBytes(), 0);
-        
+
         inputHeader.release();
         inputBuf.release();
     }
-    
+
     protected void readAndValidate(byte[] inputData, BufEvent msg) {
         assertNotNull(msg);
         ByteBuf payload = msg.getBuf();

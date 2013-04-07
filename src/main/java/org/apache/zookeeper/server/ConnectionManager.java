@@ -29,8 +29,9 @@ import com.google.inject.Inject;
 
 public class ConnectionManager {
 
-    protected class ConnectionHandler implements FutureCallback<Operation.Result> {
-        
+    protected class ConnectionHandler implements
+            FutureCallback<Operation.Result> {
+
         protected class CloseListener implements FutureCallback<Connection> {
             @Override
             public void onSuccess(Connection result) {
@@ -42,11 +43,11 @@ public class ConnectionManager {
                 close();
             }
         }
-        
+
         protected final Connection connection;
         protected Session session;
         protected RequestExecutorService executor;
-        
+
         public ConnectionHandler(Connection connection) {
             this.connection = checkNotNull(connection);
             this.session = null;
@@ -54,7 +55,7 @@ public class ConnectionManager {
             anonymousHandlers.add(this);
             connection.register(this);
         }
-        
+
         public Session session() {
             return session;
         }
@@ -62,7 +63,7 @@ public class ConnectionManager {
         public Connection connection() {
             return connection;
         }
-        
+
         public void close() {
             if (session() != null) {
                 synchronized (sessionHandlers) {
@@ -79,7 +80,7 @@ public class ConnectionManager {
             }
             connection().close();
         }
-        
+
         @Subscribe
         public void handleEvent(ConnectionStateEvent event) {
             switch (event.event()) {
@@ -92,17 +93,19 @@ public class ConnectionManager {
         }
 
         @Subscribe
-        public void handleEvent(ConnectionMessageEvent<?> event) throws InterruptedException {
+        public void handleEvent(ConnectionMessageEvent<?> event)
+                throws InterruptedException {
             Object message = event.event();
-            logger.debug("Received {} from {}", message,
-                    event.connection().remoteAddress());
+            logger.debug("Received {} from {}", message, event.connection()
+                    .remoteAddress());
             if (message instanceof Operation.Request) {
                 handleEvent((Operation.Request) message);
             }
         }
-        
+
         @Subscribe
-        public void handleEvent(Operation.Request event) throws InterruptedException {
+        public void handleEvent(Operation.Request event)
+                throws InterruptedException {
             Session session = session();
             ListenableFuture<Operation.Result> future;
             if (session != null) {
@@ -125,7 +128,8 @@ public class ConnectionManager {
             switch (connection.state()) {
             case CONNECTION_OPENING:
             case CONNECTION_OPENED:
-                logger.debug("Sending {} to {}", event, connection().remoteAddress());
+                logger.debug("Sending {} to {}", event, connection()
+                        .remoteAddress());
                 connection.send(event);
                 if (event.operation() == Operation.CLOSE_SESSION) {
                     Futures.addCallback(connection.flush(), new CloseListener());
@@ -136,22 +140,23 @@ public class ConnectionManager {
                 break;
             }
         }
-        
+
         @Override
         public void onSuccess(Operation.Result result) {
             if (result.operation() == Operation.CREATE_SESSION) {
-            	if (! (result.response() instanceof Operation.Error)) {
-            		onConnected((OpCreateSessionAction.Response)result.response());
-            	}
+                if (!(result.response() instanceof Operation.Error)) {
+                    onConnected((OpCreateSessionAction.Response) result
+                            .response());
+                }
             }
-            handleEvent((Operation.Response)result);
+            handleEvent((Operation.Response) result);
         }
 
         @Override
         public void onFailure(Throwable t) {
             close();
         }
-        
+
         protected void onConnected(OpCreateSessionAction.Response response) {
             anonymousHandlers.remove(this);
             long sessionId = response.record().getSessionId();
@@ -166,32 +171,29 @@ public class ConnectionManager {
                 }
                 sessionHandlers.put(sessionId, this);
             }
-            logger.debug("Established session 0x{} with client {}", 
-                    sessionId, connection().remoteAddress());
+            logger.debug("Established session 0x{} with client {}", sessionId,
+                    connection().remoteAddress());
         }
     }
 
-    protected final Logger logger = LoggerFactory.getLogger(ConnectionManager.class);
+    protected final Logger logger = LoggerFactory
+            .getLogger(ConnectionManager.class);
     protected final ExpiringSessionManager sessions;
     protected final ServerConnectionGroup connections;
     protected final RequestExecutorService.Factory executor;
     protected final Set<ConnectionHandler> anonymousHandlers;
     protected final Map<Long, ConnectionHandler> sessionHandlers;
-    
+
     @Inject
-    public ConnectionManager(
-            RequestExecutorService.Factory executor,
-            ExpiringSessionManager sessions,
-            ServerConnectionGroup connections) {
-        this(executor, sessions, connections,
-                Collections.synchronizedSet(Sets.<ConnectionHandler>newHashSet()),
-                Collections.synchronizedMap(Maps.<Long, ConnectionHandler>newHashMap()));
+    public ConnectionManager(RequestExecutorService.Factory executor,
+            ExpiringSessionManager sessions, ServerConnectionGroup connections) {
+        this(executor, sessions, connections, Collections.synchronizedSet(Sets
+                .<ConnectionHandler> newHashSet()), Collections
+                .synchronizedMap(Maps.<Long, ConnectionHandler> newHashMap()));
     }
-    
-    protected ConnectionManager(
-            RequestExecutorService.Factory executor,
-            ExpiringSessionManager sessions,
-            ServerConnectionGroup connections,
+
+    protected ConnectionManager(RequestExecutorService.Factory executor,
+            ExpiringSessionManager sessions, ServerConnectionGroup connections,
             Set<ConnectionHandler> anonymousHandlers,
             Map<Long, ConnectionHandler> sessionHandlers) {
         this.executor = executor;
@@ -202,7 +204,7 @@ public class ConnectionManager {
         connections.register(this);
         sessions.register(this);
     }
-    
+
     public ExpiringSessionManager sessions() {
         return sessions;
     }
@@ -210,26 +212,27 @@ public class ConnectionManager {
     public RequestExecutorService.Factory executor() {
         return executor;
     }
-    
+
     @Subscribe
     public void handleConnection(Connection connection) {
         newConnectionHandler(connection);
     }
-    
+
     @Subscribe
     public void handleSessionStateEvent(SessionStateEvent event) {
-    	// we initiate closing expired connections
-    	switch (event.event()) {
-    	case SESSION_EXPIRED: {
-    		ConnectionHandler handler = sessionHandlers.get(event.session().id());
-    		if (handler != null) {
-    			handler.close();
-    		}
-    		break;
-    	}
-		default:
-			break;
-    	}
+        // we initiate closing expired connections
+        switch (event.event()) {
+        case SESSION_EXPIRED: {
+            ConnectionHandler handler = sessionHandlers.get(event.session()
+                    .id());
+            if (handler != null) {
+                handler.close();
+            }
+            break;
+        }
+        default:
+            break;
+        }
     }
 
     protected ConnectionHandler newConnectionHandler(Connection connection) {

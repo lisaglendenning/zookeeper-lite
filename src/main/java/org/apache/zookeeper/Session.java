@@ -8,23 +8,27 @@ import org.apache.zookeeper.util.AutomataState;
 import com.google.common.base.Objects;
 
 public class Session {
-    
+
     public static final long UNINITIALIZED_ID = 0;
     public static final Session UNINITIALIZED = new Session();
 
     public static enum State implements AutomataState<State> {
-    	SESSION_UNINITIALIZED {},
-        SESSION_OPENED {}, 
-        SESSION_EXPIRED {},
-        SESSION_CLOSED {};
-        
+        SESSION_UNINITIALIZED {
+        },
+        SESSION_OPENED {
+        },
+        SESSION_EXPIRED {
+        },
+        SESSION_CLOSED {
+        };
+
         @Override
         public boolean isTerminal() {
             switch (this) {
             case SESSION_CLOSED:
-            	return true;
-        	default:
-        		return false;
+                return true;
+            default:
+                return false;
             }
         }
 
@@ -55,10 +59,10 @@ public class Session {
             return valid;
         }
     }
-    
+
     protected final long id;
     protected final SessionParameters parameters;
-    
+
     public static Session create() {
         return UNINITIALIZED;
     }
@@ -67,11 +71,11 @@ public class Session {
         return new Session(message.record().getSessionId(),
                 SessionParameters.create(message));
     }
-    
+
     public static Session create(long id, SessionParameters parameters) {
         return new Session(id, parameters);
     }
-    
+
     public Session() {
         this(UNINITIALIZED_ID, new SessionParameters());
     }
@@ -80,13 +84,13 @@ public class Session {
         this.id = id;
         this.parameters = parameters;
     }
-    
+
     public long id() {
         return id;
     }
-    
+
     public boolean initialized() {
-    	return id() != UNINITIALIZED_ID;
+        return id() != UNINITIALIZED_ID;
     }
 
     public SessionParameters parameters() {
@@ -95,10 +99,8 @@ public class Session {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
-                .add("id", id())
-                .add("parameters", parameters())
-                .toString();
+        return Objects.toStringHelper(this).add("id", id())
+                .add("parameters", parameters()).toString();
     }
 
     @Override
@@ -110,10 +112,10 @@ public class Session {
         if (getClass() != obj.getClass())
             return false;
         Session other = (Session) obj;
-        return Objects.equal(id(), other.id()) 
+        return Objects.equal(id(), other.id())
                 && Objects.equal(parameters(), other.parameters());
     }
-    
+
     @Override
     public int hashCode() {
         return Objects.hashCode(id(), parameters());

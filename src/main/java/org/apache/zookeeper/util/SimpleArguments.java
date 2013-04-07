@@ -34,10 +34,10 @@ public class SimpleArguments implements Arguments {
             Splitter splitter = Splitter.on(SimpleOption.VALUE_SEP).limit(2)
                     .trimResults();
             if (arg.startsWith(SimpleOption.LONG_PREFIX)) {
-                String theRest = arg
-                        .substring(SimpleOption.LONG_PREFIX.length());
+                String theRest = arg.substring(SimpleOption.LONG_PREFIX
+                        .length());
                 checkArgument(theRest.length() > 0);
-                String[] kv = Iterables.toArray(splitter.split(theRest), 
+                String[] kv = Iterables.toArray(splitter.split(theRest),
                         String.class);
                 return kv;
             }
@@ -206,8 +206,8 @@ public class SimpleArguments implements Arguments {
                 continue;
             }
             assert (opt != null) : opt;
-            String value = (kv.length > 1 && kv[1].length() > 0)
-                    ? kv[1] : SimpleOption.TRUE_VALUE;
+            String value = (kv.length > 1 && kv[1].length() > 0) ? kv[1]
+                    : SimpleOption.TRUE_VALUE;
             opt.setValue(value);
         }
         return unknown.toArray(new String[0]);
@@ -220,10 +220,11 @@ public class SimpleArguments implements Arguments {
             setArgs(parse(args));
         }
     }
-    
+
     @Override
     public void illegalValue(String name, String value) {
-        throw new IllegalArgumentException(name + SimpleOption.VALUE_SEP + value);
+        throw new IllegalArgumentException(name + SimpleOption.VALUE_SEP
+                + value);
     }
 
     @Override

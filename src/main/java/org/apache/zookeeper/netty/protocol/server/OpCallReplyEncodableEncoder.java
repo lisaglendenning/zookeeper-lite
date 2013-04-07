@@ -12,16 +12,17 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageEncoder;
 
 @ChannelHandler.Sharable
-public class OpCallReplyEncodableEncoder extends MessageToMessageEncoder<Operation.Response> {
+public class OpCallReplyEncodableEncoder extends
+        MessageToMessageEncoder<Operation.Response> {
 
     public static OpCallReplyEncodableEncoder create() {
         return new OpCallReplyEncodableEncoder();
     }
-    
+
     public class EncoderEncodable implements Encodable {
 
         protected final Operation.CallReply msg;
-        
+
         public EncoderEncodable(Operation.CallReply msg) {
             super();
             this.msg = msg;
@@ -31,25 +32,25 @@ public class OpCallReplyEncodableEncoder extends MessageToMessageEncoder<Operati
         public OutputStream encode(OutputStream stream) throws IOException {
             return encoder.encode(msg, stream);
         }
-        
+
     }
-    
+
     protected final OpCallReplyEncoder encoder;
-    
+
     public OpCallReplyEncodableEncoder() {
         this.encoder = OpCallReplyEncoder.create();
     }
-    
+
     @Override
     protected Object encode(ChannelHandlerContext ctx, Operation.Response msg)
             throws Exception {
         if (msg instanceof Operation.CallReply) {
-            return new EncoderEncodable((Operation.CallReply)msg);
+            return new EncoderEncodable((Operation.CallReply) msg);
         } else {
             // unwrap
             Operation.Response response = msg;
             if (msg instanceof Operation.Result) {
-                response = ((Operation.Result)msg).response();
+                response = ((Operation.Result) msg).response();
             }
             return response;
         }

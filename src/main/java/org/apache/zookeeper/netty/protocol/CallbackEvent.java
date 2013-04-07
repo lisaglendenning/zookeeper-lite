@@ -10,7 +10,7 @@ public class CallbackEvent {
         this.callback = callback;
         return this;
     }
-    
+
     public FutureCallback<Void> getCallback() {
         return callback;
     }

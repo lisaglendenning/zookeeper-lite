@@ -53,23 +53,23 @@ import com.google.inject.Provides;
 public class ServerConnectionITest extends TestEmbeddedChannels {
 
     @Rule
-    public Timeout globalTimeout = new Timeout(10000); 
+    public Timeout globalTimeout = new Timeout(10000);
 
-    protected static final Logger logger = LoggerFactory.getLogger(ServerConnectionITest.class);
+    protected static final Logger logger = LoggerFactory
+            .getLogger(ServerConnectionITest.class);
 
     public static class Module extends AbstractModule {
 
         public static Injector injector;
-        
+
         public static void createInjector() {
-            injector = Guice.createInjector(
-                    Module.get());
+            injector = Guice.createInjector(Module.get());
         }
 
         public static Module get() {
             return new Module();
         }
-        
+
         @Override
         protected void configure() {
             bind(Eventful.class).to(EventfulEventBus.class);
@@ -79,7 +79,7 @@ public class ServerConnectionITest extends TestEmbeddedChannels {
         public Xid xid() {
             return Xid.create();
         }
-        
+
         @Provides
         public Zxid zxid() {
             return Zxid.create();
@@ -88,7 +88,7 @@ public class ServerConnectionITest extends TestEmbeddedChannels {
 
     public static class ChannelSink extends ChannelStateHandlerAdapter {
         protected BlockingQueue<Object> events;
-        
+
         public ChannelSink() {
             events = new LinkedBlockingQueue<Object>();
         }
@@ -98,7 +98,7 @@ public class ServerConnectionITest extends TestEmbeddedChannels {
                 throws Exception {
             ctx.fireInboundBufferUpdated();
         }
-        
+
         @Override
         public void userEventTriggered(ChannelHandlerContext ctx, Object event) {
             events.add(event);
@@ -106,10 +106,10 @@ public class ServerConnectionITest extends TestEmbeddedChannels {
     }
 
     public static class EventfulSink extends EventSink {
-        
+
         @Subscribe
         public void handleEvent(Object event) throws InterruptedException {
-        	logger.debug("{}", event);
+            logger.debug("{}", event);
             put(event);
         }
     }
@@ -119,14 +119,17 @@ public class ServerConnectionITest extends TestEmbeddedChannels {
     }
 
     public static OpCreateSessionAction.Request defaultRequest() {
-        return OpCreateSessionAction.Request.create(OpCreateSessionActionTest.defaultRequest(), false, false);
+        return OpCreateSessionAction.Request.create(
+                OpCreateSessionActionTest.defaultRequest(), false, false);
     }
 
-    public static OpCreateSessionAction.Response defaultResponse(OpCreateSessionAction.Request request) {
-        return OpCreateSessionAction.Response.create(OpCreateSessionActionTest.defaultResponse(request.record()), 
+    public static OpCreateSessionAction.Response defaultResponse(
+            OpCreateSessionAction.Request request) {
+        return OpCreateSessionAction.Response.create(
+                OpCreateSessionActionTest.defaultResponse(request.record()),
                 request.readOnly(), request.wraps());
     }
-    
+
     @BeforeClass
     public static void createInjector() {
         Module.createInjector();
@@ -135,16 +138,21 @@ public class ServerConnectionITest extends TestEmbeddedChannels {
     @Test
     public void testEchoAllFourLetterCommands() throws InterruptedException {
         Injector injector = Module.injector;
-        EmbeddedByteChannel serverChannel = new EmbeddedByteChannel(new LoggingDecoder());
-        ServerConnection serverHandler = injector.getInstance(ServerConnection.Factory.class).get(serverChannel);
-        EmbeddedMessageChannel clientChannel = new EmbeddedMessageChannel(new LoggingDecoder());
-        AnonymousClientConnection clientHandler = injector.getInstance(AnonymousClientConnection.Factory.class).get(clientChannel);
-        
-        for (FourLetterCommand command: FourLetterCommand.values()) {
+        EmbeddedByteChannel serverChannel = new EmbeddedByteChannel(
+                new LoggingDecoder());
+        ServerConnection serverHandler = injector.getInstance(
+                ServerConnection.Factory.class).get(serverChannel);
+        EmbeddedMessageChannel clientChannel = new EmbeddedMessageChannel(
+                new LoggingDecoder());
+        AnonymousClientConnection clientHandler = injector.getInstance(
+                AnonymousClientConnection.Factory.class).get(clientChannel);
+
+        for (FourLetterCommand command : FourLetterCommand.values()) {
             ByteBuf clientMsg = writeOutboundAndRead(clientChannel, command);
-            FourLetterCommand event = writeInboundAndRead(serverChannel, clientMsg);
+            FourLetterCommand event = writeInboundAndRead(serverChannel,
+                    clientMsg);
             assertEquals(command, event);
-            
+
             String response = echoCommand(event);
             ByteBuf serverMsg = writeOutboundAndRead(serverChannel, response);
             String output = writeInboundAndRead(clientChannel, serverMsg);
@@ -160,34 +168,42 @@ public class ServerConnectionITest extends TestEmbeddedChannels {
     public void testCreateSession() throws Exception {
         Injector injector = Module.injector;
         ChannelSink serverSink = new ChannelSink();
-        EmbeddedByteChannel serverChannel = new EmbeddedByteChannel(new LoggingDecoder(), serverSink);
-        ServerConnection serverHandler = injector.getInstance(ServerConnection.Factory.class).get(serverChannel);
+        EmbeddedByteChannel serverChannel = new EmbeddedByteChannel(
+                new LoggingDecoder(), serverSink);
+        ServerConnection serverHandler = injector.getInstance(
+                ServerConnection.Factory.class).get(serverChannel);
 
         ChannelSink clientSink = new ChannelSink();
-        EmbeddedByteChannel clientChannel = new EmbeddedByteChannel(new LoggingDecoder(), clientSink);
-        ClientConnection clientHandler = injector.getInstance(ClientConnection.Factory.class).get(clientChannel);
-        
-        EmbeddedByteChannel anonymousChannel = new EmbeddedByteChannel(new LoggingDecoder());
-        AnonymousClientConnection anonymousHandler = injector.getInstance(AnonymousClientConnection.Factory.class).get(anonymousChannel);
+        EmbeddedByteChannel clientChannel = new EmbeddedByteChannel(
+                new LoggingDecoder(), clientSink);
+        ClientConnection clientHandler = injector.getInstance(
+                ClientConnection.Factory.class).get(clientChannel);
+
+        EmbeddedByteChannel anonymousChannel = new EmbeddedByteChannel(
+                new LoggingDecoder());
+        AnonymousClientConnection anonymousHandler = injector.getInstance(
+                AnonymousClientConnection.Factory.class).get(anonymousChannel);
 
         OpCreateSessionAction.Request createRequest = defaultRequest();
         ByteBuf clientMsg = writeOutboundAndRead(clientChannel, createRequest);
-        
-        OpCreateSessionAction.Request createInput = writeInboundAndRead(serverChannel, clientMsg);
+
+        OpCreateSessionAction.Request createInput = writeInboundAndRead(
+                serverChannel, clientMsg);
         assertEquals(createRequest, createInput);
-        
+
         // this request shouldn't get through
         FourLetterCommand command = FourLetterCommand.values()[0];
         clientMsg = writeOutboundAndRead(anonymousChannel, command);
         writeInbound(serverChannel, clientMsg);
-        
+
         OpCreateSessionAction.Response createResponse = defaultResponse(createInput);
         ByteBuf serverMsg = writeOutboundAndRead(serverChannel, createResponse);
 
-        Operation.Result createOutput = writeInboundAndRead(clientChannel, serverMsg);
+        Operation.Result createOutput = writeInboundAndRead(clientChannel,
+                serverMsg);
         assertEquals(createRequest, createOutput.request());
         assertEquals(createResponse, createOutput.response());
-        
+
         boolean finished = serverChannel.finish();
         assertFalse(finished);
         finished = clientChannel.finish();
@@ -195,59 +211,75 @@ public class ServerConnectionITest extends TestEmbeddedChannels {
         finished = anonymousChannel.finish();
         assertFalse(finished);
     }
-    
+
     @Test
     public void testCreatePingCloseSession() throws Exception {
         Injector injector = Module.injector;
-        
+
         EventfulSink eventSink = new EventfulSink();
-        EmbeddedByteChannel serverChannel = new EmbeddedByteChannel(new LoggingDecoder());
-        ServerConnection server = injector.getInstance(ServerConnection.Factory.class).get(serverChannel);
+        EmbeddedByteChannel serverChannel = new EmbeddedByteChannel(
+                new LoggingDecoder());
+        ServerConnection server = injector.getInstance(
+                ServerConnection.Factory.class).get(serverChannel);
         server.register(eventSink);
-        
-        EmbeddedByteChannel clientChannel = new EmbeddedByteChannel(new LoggingDecoder());
-        ClientConnection clientHandler = injector.getInstance(ClientConnection.Factory.class).get(clientChannel);
-        
+
+        EmbeddedByteChannel clientChannel = new EmbeddedByteChannel(
+                new LoggingDecoder());
+        ClientConnection clientHandler = injector.getInstance(
+                ClientConnection.Factory.class).get(clientChannel);
+
         OpCreateSessionAction.Request createRequest = defaultRequest();
         ByteBuf clientMsg = writeOutboundAndRead(clientChannel, createRequest);
 
-        OpCreateSessionAction.Request createInput = writeInboundAndRead(serverChannel, clientMsg);
+        OpCreateSessionAction.Request createInput = writeInboundAndRead(
+                serverChannel, clientMsg);
         assertEquals(createRequest, createInput);
 
-        SessionConnection.State sessionConnectionState = eventSink.take(ConnectionSessionStateEvent.class).event();
+        SessionConnection.State sessionConnectionState = eventSink.take(
+                ConnectionSessionStateEvent.class).event();
         assertEquals(SessionConnection.State.CONNECTING, sessionConnectionState);
 
         OpCreateSessionAction.Response createResponse = defaultResponse(createInput);
         ByteBuf serverMsg = writeOutboundAndRead(serverChannel, createResponse);
 
-        Operation.Result createOutput = writeInboundAndRead(clientChannel, serverMsg);
+        Operation.Result createOutput = writeInboundAndRead(clientChannel,
+                serverMsg);
         assertEquals(createRequest, createOutput.request());
         assertEquals(createResponse, createOutput.response());
-        
+
         // ping
         OpPingAction.Request pingRequest = OpPingAction.Request.create();
         clientMsg = writeOutboundAndRead(clientChannel, pingRequest);
-        Operation.CallRequest pingRequestInput = writeInboundAndRead(serverChannel, clientMsg);
+        Operation.CallRequest pingRequestInput = writeInboundAndRead(
+                serverChannel, clientMsg);
         assertEquals(pingRequestInput.operation(), pingRequest.operation());
         assertEquals(pingRequestInput.xid(), pingRequest.xid());
         OpPingAction.Response pingResponse = OpPingAction.Response.create();
         serverMsg = writeOutboundAndRead(serverChannel, pingResponse);
-        Operation.CallReply pingResponseOutput = writeInboundAndRead(clientChannel, serverMsg);
+        Operation.CallReply pingResponseOutput = writeInboundAndRead(
+                clientChannel, serverMsg);
         assertEquals(pingResponseOutput.operation(), pingResponse.operation());
         assertEquals(pingResponseOutput.xid(), pingRequestInput.xid());
-        
+
         // close
-        Operation.Request closeRequest = Operations.Requests.create(Operation.CLOSE_SESSION);
+        Operation.Request closeRequest = Operations.Requests
+                .create(Operation.CLOSE_SESSION);
         clientMsg = writeOutboundAndRead(clientChannel, closeRequest);
-        Operation.CallRequest closeRequestInput = writeInboundAndRead(serverChannel, clientMsg);
+        Operation.CallRequest closeRequestInput = writeInboundAndRead(
+                serverChannel, clientMsg);
         assertEquals(Operation.CLOSE_SESSION, closeRequestInput.operation());
-        Operation.Response closeResponse = Operations.Responses.create(Operation.CLOSE_SESSION);
-        Operation.Result closeResponseInput = OpResult.create(closeRequestInput, closeResponse);
+        Operation.Response closeResponse = Operations.Responses
+                .create(Operation.CLOSE_SESSION);
+        Operation.Result closeResponseInput = OpResult.create(
+                closeRequestInput, closeResponse);
         serverMsg = writeOutboundAndRead(serverChannel, closeResponseInput);
-        Operation.CallResult closeResponseOutput = writeInboundAndRead(clientChannel, serverMsg);
+        Operation.CallResult closeResponseOutput = writeInboundAndRead(
+                clientChannel, serverMsg);
         assertEquals(closeRequest.operation(), closeResponseOutput.operation());
         assertEquals(closeRequestInput, closeResponseOutput.request());
         assertTrue(closeResponseOutput.response() instanceof Operation.ResponseValue);
-        assertEquals(closeResponse, ((Operation.ResponseValue)closeResponseOutput.response()).response());
+        assertEquals(closeResponse,
+                ((Operation.ResponseValue) closeResponseOutput.response())
+                        .response());
     }
 }

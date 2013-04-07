@@ -25,37 +25,35 @@ import io.netty.channel.ChannelHandler;
 
 public class ClientConnection extends ChannelConnection {
 
-    public static class Factory implements ChannelConnection.Factory<ClientConnection> {
-        
+    public static class Factory implements
+            ChannelConnection.Factory<ClientConnection> {
+
         public static Factory get(Provider<Eventful> eventfulFactory, Xid xid) {
             return new Factory(eventfulFactory, xid);
         }
-        
+
         protected Xid xid;
         protected Provider<Eventful> eventfulFactory;
-    
+
         @Inject
         protected Factory(Provider<Eventful> eventfulFactory, Xid xid) {
             this.xid = xid;
             this.eventfulFactory = eventfulFactory;
         }
-        
+
         @Override
         public ClientConnection get(Channel channel) {
             return ClientConnection.create(channel, eventfulFactory, xid);
         }
     }
 
-    public static ClientConnection create(
-    		Channel channel, 
-    		Provider<Eventful> eventfulFactory, 
-    		Xid xid) {
+    public static ClientConnection create(Channel channel,
+            Provider<Eventful> eventfulFactory, Xid xid) {
         return new ClientConnection(channel, eventfulFactory, xid);
     }
-    
+
     protected static List<ChannelHandler> pipeline(Eventful eventful, Xid xid) {
-        List<ChannelHandler> pipeline = 
-                Lists.<ChannelHandler>newArrayList(
+        List<ChannelHandler> pipeline = Lists.<ChannelHandler> newArrayList(
                 BufEventEncoder.create(), BufEventDecoder.create(),
                 HeaderEventEncoder.create(), HeaderEventDecoder.create(),
                 FrameEncoder.create(), FrameDecoder.create(),
@@ -65,30 +63,31 @@ public class ClientConnection extends ChannelConnection {
         return pipeline;
     }
 
-    protected final Logger logger = LoggerFactory.getLogger(ClientConnection.class);
-    
+    protected final Logger logger = LoggerFactory
+            .getLogger(ClientConnection.class);
+
     @Inject
-    protected ClientConnection(
-    		Channel channel,
-            Provider<Eventful> eventfulFactory,
-            Xid xid) {
+    protected ClientConnection(Channel channel,
+            Provider<Eventful> eventfulFactory, Xid xid) {
         super(channel, eventfulFactory);
-        
-        String name = channel.pipeline().context(channel.pipeline().first()).name();
-        for (ChannelHandler handler: pipeline(eventfulBridge, xid)) {
-            channel.pipeline().addBefore(name, handler.getClass().getName(), handler);
-        }        
+
+        String name = channel.pipeline().context(channel.pipeline().first())
+                .name();
+        for (ChannelHandler handler : pipeline(eventfulBridge, xid)) {
+            channel.pipeline().addBefore(name, handler.getClass().getName(),
+                    handler);
+        }
     }
 
-    protected ClientConnection(
-    		Channel channel,
-            Provider<Eventful> eventfulFactory,
-            List<ChannelHandler> pipeline) {
+    protected ClientConnection(Channel channel,
+            Provider<Eventful> eventfulFactory, List<ChannelHandler> pipeline) {
         super(channel, eventfulFactory);
-        
-        String name = channel.pipeline().context(channel.pipeline().first()).name();
-        for (ChannelHandler handler: pipeline) {
-            channel.pipeline().addBefore(name, handler.getClass().getName(), handler);
+
+        String name = channel.pipeline().context(channel.pipeline().first())
+                .name();
+        for (ChannelHandler handler : pipeline) {
+            channel.pipeline().addBefore(name, handler.getClass().getName(),
+                    handler);
         }
     }
 }

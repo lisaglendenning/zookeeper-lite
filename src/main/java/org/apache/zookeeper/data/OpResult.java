@@ -1,6 +1,5 @@
 package org.apache.zookeeper.data;
 
-
 import static com.google.common.base.Preconditions.checkArgument;
 
 import org.apache.zookeeper.KeeperException.Code;
@@ -9,36 +8,40 @@ import com.google.common.base.Objects;
 
 public class OpResult implements Operation.Result {
 
-    public static Operation.Result create(Operation.Request request, Operation.Response response) {
+    public static Operation.Result create(Operation.Request request,
+            Operation.Response response) {
         Operation.Result result;
-        if (request instanceof Operation.CallRequest && response instanceof Operation.CallResponse) {
-        	result = OpCallResult.create((Operation.CallRequest) request,
-        			(Operation.CallResponse) response);
+        if (request instanceof Operation.CallRequest
+                && response instanceof Operation.CallResponse) {
+            result = OpCallResult.create((Operation.CallRequest) request,
+                    (Operation.CallResponse) response);
         } else if (response instanceof Operation.Error) {
-        	result = new OpResultError(request, response);
+            result = new OpResultError(request, response);
         } else {
-        	result = new OpResult(request, response);
+            result = new OpResult(request, response);
         }
         return result;
     }
 
-    public static class OpResultError extends OpResult implements Operation.Error {
+    public static class OpResultError extends OpResult implements
+            Operation.Error {
 
-        protected OpResultError(Operation.Request request, Operation.Response response) {
+        protected OpResultError(Operation.Request request,
+                Operation.Response response) {
             super(request, response);
             checkArgument(response instanceof Operation.Error);
         }
 
-		@Override
+        @Override
         public Code error() {
-	        return ((Operation.Error) response).error();
+            return ((Operation.Error) response).error();
         }
-    	
+
     }
 
     protected final Operation.Request request;
     protected final Operation.Response response;
-    
+
     public OpResult(Operation.Request request, Operation.Response response) {
         super();
         this.request = request;
@@ -62,17 +65,15 @@ public class OpResult implements Operation.Result {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
-                .add("request", request())
-                .add("response", response())
-                .toString();
+        return Objects.toStringHelper(this).add("request", request())
+                .add("response", response()).toString();
     }
-    
+
     @Override
     public int hashCode() {
         return Objects.hashCode(request(), response());
     }
-    
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -85,7 +86,7 @@ public class OpResult implements Operation.Result {
             return false;
         }
         OpResult other = (OpResult) obj;
-        return Objects.equal(request(), other.request()) 
+        return Objects.equal(request(), other.request())
                 && Objects.equal(response(), other.response());
     }
 }

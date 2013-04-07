@@ -39,8 +39,9 @@ public class ServiceMain extends Main {
         return new ServiceMain();
     }
 
-    protected ServiceMain() {}
-    
+    protected ServiceMain() {
+    }
+
     @Override
     protected void apply(String[] args) throws Exception {
         Arguments arguments = getArguments(this);
@@ -57,42 +58,48 @@ public class ServiceMain extends Main {
 
     @Override
     protected List<Module> modules() {
-        return Lists.<Module>newArrayList();
+        return Lists.<Module> newArrayList();
     }
 
-    @Override 
+    @Override
     protected void configure() {
         super.configure();
-        bind(ThreadFactory.class).to(VerboseThreadFactory.class).in(Singleton.class);
+        bind(ThreadFactory.class).to(VerboseThreadFactory.class).in(
+                Singleton.class);
         bind(Executor.class).to(ExecutorService.class).in(Singleton.class);
         bind(Eventful.class).to(EventfulEventBus.class);
         bind(ServiceMonitor.class).in(Singleton.class);
-        bind(Application.class).to(ApplicationService.class).in(Singleton.class);
+        bind(Application.class).to(ApplicationService.class)
+                .in(Singleton.class);
     }
-    
-    @Provides @Singleton
+
+    @Provides
+    @Singleton
     public ExecutorService executorService(ThreadFactory threads) {
         int corePoolSize = 4;
         int maxPoolSize = 20;
         long keepAlive = 1000;
         TimeUnit keepAliveUnit = TimeUnit.MILLISECONDS;
         BlockingQueue<Runnable> queue = new SynchronousQueue<Runnable>();
-        ExecutorService executor = new ThreadPoolExecutor(
-                corePoolSize, maxPoolSize, 
-                keepAlive, keepAliveUnit, 
-                queue, threads);
-        return executor;
-    }
-    
-    @Provides @Singleton
-    public ScheduledExecutorService scheduledExecutorService(ThreadFactory threads) {
-        int corePoolSize = 4;
-        ScheduledExecutorService executor = Executors.newScheduledThreadPool(corePoolSize, threads);
+        ExecutorService executor = new ThreadPoolExecutor(corePoolSize,
+                maxPoolSize, keepAlive, keepAliveUnit, queue, threads);
         return executor;
     }
 
-    @Provides @Singleton
-    public ListeningExecutorService listeningExecutorService(ExecutorService executor) {
+    @Provides
+    @Singleton
+    public ScheduledExecutorService scheduledExecutorService(
+            ThreadFactory threads) {
+        int corePoolSize = 4;
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(
+                corePoolSize, threads);
+        return executor;
+    }
+
+    @Provides
+    @Singleton
+    public ListeningExecutorService listeningExecutorService(
+            ExecutorService executor) {
         return MoreExecutors.listeningDecorator(executor);
     }
 }

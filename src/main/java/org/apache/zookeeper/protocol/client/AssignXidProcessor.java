@@ -5,7 +5,8 @@ import org.apache.zookeeper.data.OpCallRequest;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.util.Processor;
 
-public class AssignXidProcessor implements Processor<Operation.Request, Operation.Request> {
+public class AssignXidProcessor implements
+        Processor<Operation.Request, Operation.Request> {
 
     public static AssignXidProcessor create() {
         return new AssignXidProcessor(Xid.create());
@@ -20,7 +21,7 @@ public class AssignXidProcessor implements Processor<Operation.Request, Operatio
     protected AssignXidProcessor(Xid xid) {
         this.xid = xid;
     }
-    
+
     public Xid xid() {
         return xid;
     }
