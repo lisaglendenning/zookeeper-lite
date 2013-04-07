@@ -31,9 +31,9 @@ public class ClientConnectionFactory implements Configurable, Provider<Connectio
     public static final String ARG_ADDRESS = "address";
     public static final String ARG_PORT = "port";
 
-    public static final String PARAM_KEY_ADDRESS = "Client.Address";
+    public static final String PARAM_KEY_ADDRESS = "Server.Address";
     public static final String PARAM_DEFAULT_ADDRESS = "localhost";
-    public static final String PARAM_KEY_PORT = "Client.Port";
+    public static final String PARAM_KEY_PORT = "Server.Port";
     public static final int PARAM_DEFAULT_PORT = 2181;
     
     protected final Logger logger = LoggerFactory.getLogger(ClientConnectionFactory.class);

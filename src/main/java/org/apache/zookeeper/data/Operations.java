@@ -15,6 +15,14 @@ import com.google.common.base.Function;
 public class Operations {
     
     public static class Requests {
+
+        public static Operation.Request unwrap(Operation.Request request) {
+            while (request instanceof Operation.RequestValue) {
+                request = ((Operation.RequestValue)request).request();
+            }
+            return request;
+        }
+
         @SuppressWarnings("unchecked")
         public static <T extends Operation.Request> T create(Operation op) {
             Operation.Request request;
@@ -58,6 +66,14 @@ public class Operations {
     }
     
     public static class Responses {
+
+        public static Operation.Response unwrap(Operation.Response response) {
+            while (response instanceof Operation.ResponseValue) {
+                response = ((Operation.ResponseValue)response).response();
+            }
+            return response;
+        }
+        
         @SuppressWarnings("unchecked")
         public static <T extends Operation.Response> T create(Operation op) {
             Operation.Response response;

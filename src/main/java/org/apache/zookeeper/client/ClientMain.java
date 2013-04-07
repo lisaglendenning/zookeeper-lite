@@ -26,7 +26,7 @@ public class ClientMain extends ServiceMain {
     protected void configure() {
         super.configure();
         bind(Xid.class).in(Singleton.class);
-        bind(SingleClientConnectionFactory.class).in(Singleton.class);
+        bind(SingleClientConnectionFactory.class).asEagerSingleton();
         bind(ClientSessionConnection.ConnectionFactory.class).in(Singleton.class);
         bind(Connection.class).toProvider(SingleClientConnectionFactory.class);
         bind(ClientSessionConnection.class).toProvider(ClientSessionConnection.ConnectionFactory.class);

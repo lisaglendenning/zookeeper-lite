@@ -13,6 +13,7 @@ import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.data.OpCreateSessionAction;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.event.ConnectionEventValue;
+import org.apache.zookeeper.event.ConnectionMessageEvent;
 import org.apache.zookeeper.event.ConnectionStateEvent;
 import org.apache.zookeeper.event.SessionStateEvent;
 import org.slf4j.Logger;
@@ -29,6 +30,19 @@ import com.google.inject.Inject;
 public class ConnectionManager {
 
     protected class ConnectionHandler implements FutureCallback<Operation.Result> {
+        
+        protected class CloseListener implements FutureCallback<Connection> {
+            @Override
+            public void onSuccess(Connection result) {
+                close();
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                close();
+            }
+        }
+        
         protected final Connection connection;
         protected Session session;
         protected RequestExecutorService executor;
@@ -76,34 +90,19 @@ public class ConnectionManager {
                 break;
             }
         }
-        
-        @Subscribe
-        public void handleEvent(ConnectionEventValue<?> event) throws InterruptedException {
-            assert (event.connection() == connection);
-            Object value = event.event();
-            if (value instanceof Operation.Request) {
-                handleEvent((Operation.Request) value);
-            } else if (value instanceof SessionConnection.State) {
-                handleEvent((SessionConnection.State) value);
-            }
-        }
 
         @Subscribe
-        public void handleEvent(SessionConnection.State event) {
-            // TODO: right now, we don't close the connection
-            // if the session expires and the connection doesn't close!
-            switch (event) {
-            case DISCONNECTED:
-                close();
-                break;
-            default:
-                break;
+        public void handleEvent(ConnectionMessageEvent<?> event) throws InterruptedException {
+            Object message = event.event();
+            logger.debug("Received {} from {}", message,
+                    event.connection().remoteAddress());
+            if (message instanceof Operation.Request) {
+                handleEvent((Operation.Request) message);
             }
         }
         
         @Subscribe
         public void handleEvent(Operation.Request event) throws InterruptedException {
-            logger.debug("Received {} from {}", event, connection().remoteAddress());
             Session session = session();
             ListenableFuture<Operation.Result> future;
             if (session != null) {
@@ -128,6 +127,9 @@ public class ConnectionManager {
             case CONNECTION_OPENED:
                 logger.debug("Sending {} to {}", event, connection().remoteAddress());
                 connection.send(event);
+                if (event.operation() == Operation.CLOSE_SESSION) {
+                    Futures.addCallback(connection.flush(), new CloseListener());
+                }
                 break;
             default:
                 logger.debug("Dropping: {}", event);

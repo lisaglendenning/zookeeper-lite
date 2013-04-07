@@ -26,7 +26,7 @@ import com.google.inject.Inject;
 public class PingSessionsTask implements Configurable {
 
     public static final String PARAM_KEY_PING_TICK = "Sessions.PingTick";
-    public static final long PARAM_DEFAULT_PING_TICK = 1000;
+    public static final long PARAM_DEFAULT_PING_TICK = 2000;
     public static final String PARAM_KEY_PING_TICK_UNIT = "Sessions.PingTickUnit";
     public static final String PARAM_DEFAULT_PING_TICK_UNIT = "MILLISECONDS";
     
@@ -121,7 +121,7 @@ public class PingSessionsTask implements Configurable {
             if (logger.isTraceEnabled()) {
                 logger.trace(String.format(
                         "PONG %d %s: %s",
-                        response.difference(lastPing),
+                        (lastPing == null) ? 0 : response.difference(lastPing),
                         response.timeUnit().name(),
                         response));
             }            

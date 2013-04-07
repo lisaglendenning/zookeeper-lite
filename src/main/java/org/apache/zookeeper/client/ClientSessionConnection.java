@@ -30,6 +30,8 @@ import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.ForwardingEventful;
 import org.apache.zookeeper.util.Pair;
 import org.apache.zookeeper.util.SettableTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -48,7 +50,7 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
     	}
     	
         public static final String PARAM_KEY_TIMEOUT = "Client.Timeout";
-        public static final int PARAM_DEFAULT_TIMEOUT = 60;
+        public static final int PARAM_DEFAULT_TIMEOUT = 30;
         public static final String PARAM_KEY_TIMEOUT_UNIT = "Client.TimeoutUnit";
         public static final String PARAM_DEFAULT_TIMEOUT_UNIT = "SECONDS";
 
@@ -122,6 +124,7 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
         return new ClientSessionConnection(connection, eventfulFactory, timeOut, zxid, session);
     }
 
+    protected final Logger logger = LoggerFactory.getLogger(ClientSessionConnection.class);
     protected Session session;
     protected final Connection connection;
     protected final SessionConnectionState state;
@@ -259,11 +262,13 @@ public class ClientSessionConnection extends ForwardingEventful implements Reque
 		}
 		
 	    SettableTask<Operation.Request, Operation.Result> task = SettableTask.create(request);
+        request = task.task();
 	    // ensure that tasks are sent in the same as the order of this queue...
     	synchronized (this) {
+    	    logger.debug("Sending {}", request);
     		tasks.add(task);
     	    try {
-    		connection.send(task.task()); 
+    	        connection.send(request); 
     	    } catch (Exception e) {
     	    	task.future().setException(e);
     	    }

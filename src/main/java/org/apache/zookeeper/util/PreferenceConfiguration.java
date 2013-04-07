@@ -1,5 +1,8 @@
 package org.apache.zookeeper.util;
 
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
@@ -9,6 +12,10 @@ import static com.google.common.base.Preconditions.*;
 
 public class PreferenceConfiguration implements Configuration {
 
+    public static PreferenceConfiguration create() {
+        return new PreferenceConfiguration();
+    }
+    
     public static class PreferenceConfigurationArguments {
         public static final String OPTION_PREFS_ROOT = "prefs-root";
         public static final String OPTION_PREFS_PATH = "prefs-path";
@@ -27,6 +34,7 @@ public class PreferenceConfiguration implements Configuration {
         }
 
         public static Preferences getPreferences(Arguments arguments) {
+            checkNotNull(arguments);
             Preferences prefs = null;
             String key = OPTION_PREFS_ROOT;
             String value = arguments.getValue(key);
@@ -44,38 +52,69 @@ public class PreferenceConfiguration implements Configuration {
         }
     }
 
+    protected final SettableConfiguration cache;
     protected Preferences prefs;
 
     public PreferenceConfiguration() {
+        this.cache = SettableConfiguration.create();
         initialize(getClass());
     }
 
     public PreferenceConfiguration(Preferences prefs) {
-        this.prefs = checkNotNull(prefs, "prefs");
+        this.prefs = checkNotNull(prefs);
+        this.cache = SettableConfiguration.create();
     }
 
     protected PreferenceConfiguration initialize(Class<?> cls) {
-        checkNotNull(cls, "cls");
-        this.prefs = Preferences.userNodeForPackage(cls);
+        this.prefs = Preferences.userNodeForPackage(checkNotNull(cls));
         return this;
     }
 
     @Override
     public PreferenceConfiguration initialize(Arguments arguments) {
-        checkNotNull(arguments, "arguments");
         PreferenceConfigurationArguments.addArguments(arguments).parse();
         this.prefs = PreferenceConfigurationArguments.getPreferences(arguments);
         return this;
     }
 
-    public Preferences getPreferences() {
+    @Override
+    public Iterator<Entry<String, Object>> iterator() {
+        // TODO: possible to iterate over prefs?
+        return cache.iterator();
+    }
+
+    public Preferences preferences() {
         return prefs;
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public <T> T get(String name, T defaultValue) {
-        checkNotNull(name, "name");
+        T value = cache.get(name, null);
+        if (value == null) {
+            value = getPrefs(name, defaultValue);
+            if (value != null) {
+                cache.set(name, value);
+            }
+        }
+        return value;
+    }
+
+    @Override
+    public void set(String name, Object value) {
+        cache.set(name, value);
+    }
+
+    @Override
+    public void flush() throws BackingStoreException {
+        for (Map.Entry<String, Object> opt: cache) {
+            setPrefs(opt.getKey(), opt.getValue());
+        }
+        prefs.flush();
+    }
+
+    @SuppressWarnings("unchecked")
+    protected <T> T getPrefs(String name, T defaultValue) {
+        checkNotNull(name);
         T value = checkNotNull(defaultValue);
         Class<T> cls = (Class<T>) value.getClass();
         TypeToken<T> typeToken = TypeToken.of(cls);
@@ -102,31 +141,26 @@ public class PreferenceConfiguration implements Configuration {
         return value;
     }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public <T> void set(String name, T value) throws BackingStoreException {
-        checkNotNull(name, "name");
-        checkNotNull(value, "value");
-        Class<T> cls = (Class<T>) value.getClass();
-        TypeToken<T> typeToken = TypeToken.of(cls);
-        if (TypeToken.of(String.class).isAssignableFrom(typeToken)) {
+    protected void setPrefs(String name, Object value) {
+        checkNotNull(name);
+        checkNotNull(value);
+        if (value instanceof String) {
             prefs.put(name, (String) value);
-        } else if (TypeToken.of(Boolean.class).isAssignableFrom(typeToken)) {
+        } else if (value instanceof Boolean) {
             prefs.putBoolean(name, (Boolean) value);
         }/*
           * else if (TypeToken.of(Byte.class).isAssignableFrom(typeToken)) {
           * prefs.putByteArray(name, (byte[]) value); }
-          */else if (TypeToken.of(Double.class).isAssignableFrom(typeToken)) {
+          */else if (value instanceof Double) {
             prefs.putDouble(name, (Double) value);
-        } else if (TypeToken.of(Float.class).isAssignableFrom(typeToken)) {
+        } else if (value instanceof Float) {
             prefs.putFloat(name, (Float) value);
-        } else if (TypeToken.of(Integer.class).isAssignableFrom(typeToken)) {
+        } else if (value instanceof Integer) {
             prefs.putInt(name, (Integer) value);
-        } else if (TypeToken.of(Long.class).isAssignableFrom(typeToken)) {
+        } else if (value instanceof Long) {
             prefs.putLong(name, (Long) value);
         } else {
             throw new IllegalArgumentException();
         }
-        prefs.flush();
     }
 }

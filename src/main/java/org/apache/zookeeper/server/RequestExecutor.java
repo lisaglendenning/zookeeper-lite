@@ -8,6 +8,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Session;
@@ -29,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
@@ -132,7 +134,10 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
 	            // the message (no xid!)
 	            if (executor != null) {
 	                Operation.Request request = Operations.Requests.create(Operation.CLOSE_SESSION);
-	                executor.submit(request);
+	                try {
+	                    executor.submit(request);
+	                } catch (IllegalStateException e) {
+	                }
 	            }
 	            break;
 	        }
@@ -188,7 +193,6 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
                     OpResultProcessor.create(requestProcessor);
             return processor;        
         }
-        
     }
 
     public static RequestExecutorService create(
@@ -199,6 +203,7 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
     }
     
     protected final Logger logger = LoggerFactory.getLogger(RequestExecutor.class);
+    protected final AtomicBoolean scheduled;
     protected final ExecutorService executor;
     protected final Processor<Operation.Request, Operation.Result> processor;
     protected final BlockingQueue<SettableTask<Operation.Request, Operation.Result>> requests;
@@ -221,6 +226,7 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
         this.executor = executor;
         this.processor = processor;
     	this.requests = requests;
+        this.scheduled = new AtomicBoolean(false);
     }
     
     protected ExecutorService executor() {
@@ -246,24 +252,42 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
     }
     
     public ListenableFuture<Operation.Result> call() throws Exception {
-        SettableTask<Operation.Request, Operation.Result> task = requests().poll();
-        if (task != null) {
-            return apply(task);
-        } else {
-            return null;
+        scheduled.compareAndSet(true, false);
+        
+        SettableTask<Operation.Request, Operation.Result> task = null;
+        ListenableFuture<Operation.Result> future = null;
+        synchronized (this) {
+            task = requests().peek();
+            if (task != null) {
+                future = apply(task);
+                if (future.isDone()) {
+                    requests().take();
+                }
+            }
         }
+
+        if (! requests().isEmpty()) {
+            schedule();
+        }
+        
+        return future;
     }
     
     protected ListenableFuture<Operation.Result> apply(SettableTask<Operation.Request, Operation.Result> task) {
+        logger.debug("Applying task {}", task);
+        
         Operation.Result result = null;
+        Operation.Request request = task.task();
+        SettableFuture<Operation.Result> future = task.future();
         try {
-            result = processor().apply(task.task());
+            result = processor().apply(request);
         } catch (Throwable t) {
-            task.future().setException(t);
-            return task.future();
+            future.setException(t);
         }
-        task.future().set(result);
-        return task.future();
+        if (result != null) {
+            future.set(result);
+        }
+        return future;
     }
     
     protected SettableTask<Operation.Request, Operation.Result> newTask(Operation.Request request) {
@@ -271,6 +295,8 @@ public class RequestExecutor extends ForwardingEventful implements RequestExecut
     }
     
     protected void schedule() {
-        executor().submit(this);
+        if (scheduled.compareAndSet(false, true)) {
+            executor().submit(this);
+        }
     }
 }

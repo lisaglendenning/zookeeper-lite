@@ -101,7 +101,7 @@ public enum Operation {
         int xid();
     }
     
-    public static interface CallResponse extends Response {
+    public static interface CallResponse extends ResponseValue {
         long zxid();
     }
 

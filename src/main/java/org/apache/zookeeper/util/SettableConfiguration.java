@@ -1,19 +1,25 @@
 package org.apache.zookeeper.util;
 
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
-import com.google.inject.AbstractModule;
 
 import static com.google.common.base.Preconditions.*;
 
 public class SettableConfiguration implements Configuration {
 
-    protected final Map<String, String> options;
+    public static SettableConfiguration create() {
+        return new SettableConfiguration();
+    }
+    
+    protected final Map<String, Object> options;
 
     public SettableConfiguration() {
-        options = Maps.newHashMap();
+        this.options = Collections.synchronizedMap(Maps.<String, Object>newHashMap());
     }
 
     public SettableConfiguration(Arguments arguments) {
@@ -23,8 +29,7 @@ public class SettableConfiguration implements Configuration {
 
     @Override
     public SettableConfiguration initialize(Arguments arguments) {
-        checkNotNull(arguments);
-        for (Arguments.Option option: arguments) {
+        for (Arguments.Option option: checkNotNull(arguments)) {
             if (option.hasValue()) {
                 options.put(option.getName(), option.getValue());
             }
@@ -33,14 +38,28 @@ public class SettableConfiguration implements Configuration {
     }
 
     @Override
+    public Iterator<Entry<String, Object>> iterator() {
+        return options.entrySet().iterator();
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public <T> T get(String name, T defaultValue) {
-        checkNotNull(name, "name");
-        T value = checkNotNull(defaultValue);
-        if (! options.containsKey(name)) {
-            return value;
+        Object storedValue = options.get(name);
+        if (storedValue == null) {
+            return defaultValue;
         }
-        String valueStr = options.get(name);
+        
+        T value = null;
+        try {
+            value = (T) storedValue;
+            return value;
+        } catch (ClassCastException e) {
+        }
+        
+        checkArgument(storedValue instanceof String);
+        String valueStr = (String) storedValue;
+        
         Class<T> cls = (Class<T>) value.getClass();
         TypeToken<T> typeToken = TypeToken.of(cls);
         if (TypeToken.of(String.class).isAssignableFrom(typeToken)) {
@@ -66,11 +85,11 @@ public class SettableConfiguration implements Configuration {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public <T> void set(String name, T value) {
-        checkNotNull(name, "name");
-        checkNotNull(value, "value");
-        String valueStr = value.toString();
-        options.put(name, valueStr);
+    public void set(String name, Object value) {
+        options.put(checkNotNull(name), checkNotNull(value));
+    }
+    
+    @Override
+    public void flush() {
     }
 }

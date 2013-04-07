@@ -1,10 +1,14 @@
 package org.apache.zookeeper.util;
 
-public interface Configuration {
+import java.util.Map;
 
-    <T> void set(String name, T value) throws Exception;
+public interface Configuration extends Iterable<Map.Entry<String, Object>> {
+
+    Configuration initialize(Arguments arguments);
 
     <T> T get(String name, T defaultValue);
 
-    Configuration initialize(Arguments arguments);
+    void set(String name, Object value);
+
+    void flush() throws Exception;
 }
