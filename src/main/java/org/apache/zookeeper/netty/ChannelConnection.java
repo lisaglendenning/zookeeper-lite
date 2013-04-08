@@ -6,15 +6,13 @@ import io.netty.channel.ChannelFuture;
 import java.net.SocketAddress;
 
 import org.apache.zookeeper.Connection;
-import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.event.ConnectionEvent;
 import org.apache.zookeeper.event.ConnectionEventValue;
-import org.apache.zookeeper.event.ConnectionMessageEvent;
-import org.apache.zookeeper.event.ConnectionSessionStateEvent;
-import org.apache.zookeeper.event.ConnectionStateEvent;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.EventfulBridge;
 import org.apache.zookeeper.util.ForwardingEventful;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -28,6 +26,8 @@ public abstract class ChannelConnection extends ForwardingEventful implements
         public T get(Channel channel);
     }
 
+    protected final Logger logger = LoggerFactory
+            .getLogger(ChannelConnection.class);
     protected final EventfulBridge eventfulBridge;
     protected final Channel channel;
 
@@ -93,6 +93,7 @@ public abstract class ChannelConnection extends ForwardingEventful implements
 
     @Override
     public ListenableFuture<Connection> close() {
+        logger.debug("Closing {}", this);
         ChannelFuture future = channel.close();
         ListenableChannelFuture<Connection> wrapper = ListenableChannelFuture
                 .create(future, (Connection) this);

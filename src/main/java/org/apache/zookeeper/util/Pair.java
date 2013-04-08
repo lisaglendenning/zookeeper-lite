@@ -2,10 +2,10 @@ package org.apache.zookeeper.util;
 
 import com.google.common.base.Objects;
 
-public class Pair<U, V> {
+public class Pair<U,V> {
 
-    public static <U, V> Pair<U, V> create(U first, V second) {
-        return new Pair<U, V>(first, second);
+    public static <U,V> Pair<U,V> create(U first, V second) {
+        return new Pair<U,V>(first, second);
     }
 
     protected final U first;
@@ -26,8 +26,10 @@ public class Pair<U, V> {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("first", first())
-                .add("second", second()).toString();
+        return Objects.toStringHelper(this)
+                .add("first", first())
+                .add("second", second())
+                .toString();
     }
 
     @Override
@@ -36,15 +38,17 @@ public class Pair<U, V> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
-        Pair<U, V> other = (Pair<U, V>) obj;
+        }
+        Pair<?,?> other = (Pair<?,?>) obj;
         return Objects.equal(first(), other.first())
                 && Objects.equal(second(), other.second());
     }
