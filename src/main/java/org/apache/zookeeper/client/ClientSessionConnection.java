@@ -354,6 +354,8 @@ public class ClientSessionConnection extends ForwardingEventful implements
                     }
                     task = tasks.poll();
                     assert (task != null);
+                } else {
+                    task = null;
                 }
             }
         }
