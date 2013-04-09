@@ -32,7 +32,7 @@ public class OpNotificationResponse implements Operation.CallRequest,
     }
 
     public static WatcherEvent createRecord() {
-        return Records.Requests.<WatcherEvent> create(opXid().operation());
+        return Records.Responses.<WatcherEvent> create(opXid().operation());
     }
 
     public OpNotificationResponse() {
