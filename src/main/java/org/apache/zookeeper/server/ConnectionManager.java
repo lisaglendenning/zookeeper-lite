@@ -9,12 +9,11 @@ import java.util.Set;
 import org.apache.zookeeper.Connection;
 import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Session;
-import org.apache.zookeeper.SessionConnection;
 import org.apache.zookeeper.data.OpCreateSessionAction;
 import org.apache.zookeeper.data.Operation;
-import org.apache.zookeeper.event.ConnectionEventValue;
 import org.apache.zookeeper.event.ConnectionMessageEvent;
 import org.apache.zookeeper.event.ConnectionStateEvent;
+import org.apache.zookeeper.event.SessionResponseEvent;
 import org.apache.zookeeper.event.SessionStateEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -122,8 +121,20 @@ public class ConnectionManager {
         }
 
         @Subscribe
-        public void handleEvent(Operation.Response event) {
+        public void handleEvent(SessionResponseEvent event) {
             // notifications are supposed to end up here
+            Operation.Response response = event.event();
+            switch (response.operation()) {
+            case NOTIFICATION:
+                handleEvent(response);
+                break;
+            default:
+                break;
+            }
+        }
+        
+        @Subscribe
+        public void handleEvent(Operation.Response event) {
             Connection connection = connection();
             switch (connection.state()) {
             case CONNECTION_OPENING:

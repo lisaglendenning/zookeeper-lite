@@ -255,6 +255,8 @@ public class RequestExecutor extends ForwardingEventful implements
                 future = apply(task);
                 if (future.isDone()) {
                     requests().take();
+                } else {
+                    future = null;
                 }
             }
         }
