@@ -6,13 +6,6 @@
   </formats>
   <fileSets>
     <fileSet>
-      <directory>${project.basedir}/src/test/resources</directory>
-      <outputDirectory>/</outputDirectory>
-      <includes>
-        <include>log4j2.xml</include>
-      </includes>
-    </fileSet>
-    <fileSet>
       <directory>${project.build.directory}</directory>
       <outputDirectory>/</outputDirectory>
       <includes>
