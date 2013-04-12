@@ -41,6 +41,7 @@ public class Operations {
                 break;
             default:
                 request = OpRecordAction.Request.create(op);
+                break;
             }
             return (T) request;
         }
@@ -91,11 +92,14 @@ public class Operations {
                 response = OpPingAction.Response.create();
                 break;
             case AUTH:
+            case SET_WATCHES:
+            case DELETE:
             case CLOSE_SESSION:
                 response = OpAction.Response.create(op);
                 break;
             default:
                 response = OpRecordAction.Response.create(op);
+                break;
             }
             return (T) response;
         }
