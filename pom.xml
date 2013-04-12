@@ -27,44 +27,78 @@
 				<configuration>
 				</configuration>
 			</plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>2.2.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
 	        <plugin>
 	            <groupId>org.apache.maven.plugins</groupId>
 	            <artifactId>maven-dependency-plugin</artifactId>
+	            <version>2.7</version>
 	            <executions>
+                    <execution>
+                        <id>copy-dependencies-scope</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                            <overWriteReleases>false</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                            <overWriteIfNewer>true</overWriteIfNewer>
+                            <useSubDirectoryPerScope>true</useSubDirectoryPerScope>
+                        </configuration>
+                    </execution>
 	                <execution>
-	                    <id>copy-dependencies</id>
+	                    <id>copy-dependencies-sources</id>
 	                    <phase>prepare-package</phase>
 	                    <goals>
 	                        <goal>copy-dependencies</goal>
 	                    </goals>
 	                    <configuration>
-	                        <outputDirectory>${project.build.directory}/lib</outputDirectory>
+	                        <outputDirectory>${project.build.directory}/lib/sources</outputDirectory>
 	                        <overWriteReleases>false</overWriteReleases>
-	                        <overWriteSnapshots>false</overWriteSnapshots>
+	                        <overWriteSnapshots>true</overWriteSnapshots>
 	                        <overWriteIfNewer>true</overWriteIfNewer>
+	                        <classifier>sources</classifier>
+                            <useSubDirectoryPerScope>true</useSubDirectoryPerScope>
 	                    </configuration>
 	                </execution>
 	            </executions>
             </plugin>
+            <plugin>
+		        <groupId>org.apache.maven.plugins</groupId>
+		        <artifactId>maven-assembly-plugin</artifactId>
+		        <version>2.4</version>
+		        <configuration>
+		          <descriptors>
+                    <descriptor>src/main/assembly/testing-source.xml</descriptor>
+		            <descriptor>src/main/assembly/deps-testing-source.xml</descriptor>
+		          </descriptors>
+		        </configuration>
+		        <executions>
+				  <execution>
+				    <id>make-assembly</id>
+				    <phase>package</phase>
+				    <goals>
+				      <goal>single</goal>
+				    </goals>
+				  </execution>
+				</executions>
+	        </plugin>
 		</plugins>
 	</build>
 	<dependencies>
-<!--  <dependency>
-			<groupId>org.apache.zookeeper</groupId>
-			<artifactId>zookeeper</artifactId>
-			<version>3.4.5</version>
-			<scope>compile</scope>
-			<exclusions>
-				<exclusion>
-					<groupId>org.slf4j</groupId>
-					<artifactId>slf4j-log4j12</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>log4j</groupId>
-					<artifactId>log4j</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency> -->
         <dependency>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper-lite-deps</artifactId>

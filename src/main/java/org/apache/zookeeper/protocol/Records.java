@@ -220,7 +220,8 @@ public class Records {
         public static <T extends Record> T create(Operation op, Object... args) {
             Class<? extends Record> recordType = getType(op);
             if (recordType == null) {
-                throw new UnsupportedOperationException();
+                throw new UnsupportedOperationException(
+                        String.format("No Record request type for %s", op));
             }
             T record;
             try {
@@ -320,7 +321,8 @@ public class Records {
         public static <T extends Record> T create(Operation op, Object... args) {
             Class<? extends Record> recordType = getType(op);
             if (recordType == null) {
-                throw new UnsupportedOperationException();
+                throw new UnsupportedOperationException(
+                        String.format("No Record response type for %s", op));
             }
             T record;
             try {
