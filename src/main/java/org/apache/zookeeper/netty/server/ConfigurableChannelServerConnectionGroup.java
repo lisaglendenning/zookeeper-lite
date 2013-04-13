@@ -14,6 +14,7 @@ import org.apache.zookeeper.util.Eventful;
 
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigValueFactory;
 
@@ -63,7 +64,13 @@ public class ConfigurableChannelServerConnectionGroup extends
             args.put(ConfigurableSocketAddress.Factory.KEY_PORT,
                     Integer.valueOf(arguments.getValue(ARG_PORT)));
         }
-        address.get(ConfigValueFactory.fromMap(args).toConfig());
+        Config config = ConfigValueFactory.fromMap(args).toConfig();
+        if (! config.isEmpty()) {
+            try {
+                config = configuration.get().getConfig(CONFIG_PATH).withFallback(config);
+            } catch (ConfigException.Missing e) {}
+            address.get(config);
+        }
     }
 
     protected ConfigurableChannelServerConnectionGroup(

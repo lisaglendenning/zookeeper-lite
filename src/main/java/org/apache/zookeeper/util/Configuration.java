@@ -1,6 +1,7 @@
 package org.apache.zookeeper.util;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
 
 public class Configuration extends ConfigurableReference<Config> {
@@ -28,16 +29,20 @@ public class Configuration extends ConfigurableReference<Config> {
 
     public static class Factory extends AbstractConfigurableFactory<Config> {
 
+        public static String CONFIG_PATH = "org.apache.zookeeper";
+        
         public static Factory create() {
-            return new Factory();
+            Config config = ConfigFactory.load();
+            try {
+                config = config.getConfig(CONFIG_PATH);
+            } catch (ConfigException.Missing e) {
+                config = ConfigFactory.empty();
+            }
+            return create(config);
         }
 
         public static Factory create(Config defaults) {
             return new Factory(defaults);
-        }
-
-        protected Factory() {
-            this(ConfigFactory.load());
         }
 
         protected Factory(Config defaults) {
