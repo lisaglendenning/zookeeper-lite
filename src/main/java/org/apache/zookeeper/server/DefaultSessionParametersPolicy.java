@@ -12,10 +12,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionParameters;
 import org.apache.zookeeper.util.Configurable;
+import org.apache.zookeeper.util.ConfigurableTime;
 import org.apache.zookeeper.util.Configuration;
-import org.apache.zookeeper.util.Parameters;
+import org.apache.zookeeper.util.TimeValue;
 
 import com.google.inject.Inject;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
+import com.typesafe.config.ConfigUtil;
 
 public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
         Configurable {
@@ -31,25 +35,19 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
     protected static final long SECRET = RANDOM.nextLong();
     protected static final AtomicInteger COUNTER = new AtomicInteger(0);
 
-    public final String PARAM_KEY_MIN_TIMEOUT = "Sessions.MinTimeout";
-    public final long PARAM_DEFAULT_MIN_TIMEOUT = 0;
-    public final Parameters.Parameter<Long> PARAM_MIN_TIMEOUT = Parameters
-            .newParameter(PARAM_KEY_MIN_TIMEOUT, PARAM_DEFAULT_MIN_TIMEOUT);
+    public static final String CONFIG_PATH = "Sessions.Policy";
+    
+    public final String KEY_MIN_TIMEOUT = "MinTimeout";
+    public final long DEFAULT_MIN_TIMEOUT = 0;
 
-    public final String PARAM_KEY_MAX_TIMEOUT = "Sessions.MaxTimeout";
-    public final long PARAM_DEFAULT_MAX_TIMEOUT = SessionParameters.NEVER_TIMEOUT;
-    public final Parameters.Parameter<Long> PARAM_MAX_TIMEOUT = Parameters
-            .newParameter(PARAM_KEY_MAX_TIMEOUT, PARAM_DEFAULT_MAX_TIMEOUT);
+    public final String KEY_MAX_TIMEOUT = "MaxTimeout";
+    public final long DEFAULT_MAX_TIMEOUT = SessionParameters.NEVER_TIMEOUT;
 
-    public final String PARAM_KEY_TIMEOUT_UNIT = "Sessions.TimeoutUnit";
-    public final String PARAM_DEFAULT_TIMEOUT_UNIT = "MILLISECONDS";
-    public final Parameters.Parameter<String> PARAM_TIMEOUT_UNIT = Parameters
-            .newParameter(PARAM_KEY_TIMEOUT_UNIT, PARAM_DEFAULT_TIMEOUT_UNIT);
+    public final String DEFAULT_TIMEOUT_UNIT = "MILLISECONDS";
 
-    public final Parameters parameters = Parameters.newInstance()
-            .add(PARAM_MIN_TIMEOUT).add(PARAM_MAX_TIMEOUT)
-            .add(PARAM_TIMEOUT_UNIT);
-
+    protected final ConfigurableTime minTimeout;
+    protected final ConfigurableTime maxTimeout;
+    
     @Inject
     protected DefaultSessionParametersPolicy(Configuration configuration) {
         this();
@@ -57,16 +55,31 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
     }
 
     protected DefaultSessionParametersPolicy() {
+        this.minTimeout = ConfigurableTime.create(
+                DEFAULT_MIN_TIMEOUT,
+                DEFAULT_TIMEOUT_UNIT);
+        this.maxTimeout = ConfigurableTime.create(
+                DEFAULT_MAX_TIMEOUT,
+                DEFAULT_TIMEOUT_UNIT);
     }
 
     @Override
     public void configure(Configuration configuration) {
-        parameters.configure(configuration);
-        if (PARAM_MAX_TIMEOUT.getValue() != SessionParameters.NEVER_TIMEOUT) {
-            checkArgument(PARAM_MIN_TIMEOUT.getValue() <= PARAM_MAX_TIMEOUT
-                    .getValue());
+        try {
+            Config config = configuration.get().getConfig(
+                    ConfigUtil.joinPath(CONFIG_PATH, KEY_MIN_TIMEOUT));
+            minTimeout.get(config);
+        } catch (ConfigException.Missing e) {}
+        
+        try {
+            Config config = configuration.get().getConfig(
+                    ConfigUtil.joinPath(CONFIG_PATH, KEY_MAX_TIMEOUT)); 
+            maxTimeout.get(config);
+        } catch (ConfigException.Missing e) {}
+        
+        if (maxTimeout().value() != SessionParameters.NEVER_TIMEOUT) {
+            checkArgument(minTimeout().value() <= maxTimeout().value());
         }
-        checkArgument(TimeUnit.valueOf(PARAM_TIMEOUT_UNIT.getValue()) != null);
     }
 
     @Override
@@ -103,15 +116,14 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
     }
 
     @Override
-    public long boundTimeout(long timeOut, TimeUnit unit) {
-        TimeUnit timeoutUnit = timeoutUnit();
-        long maxTimeout = unit.convert(maxTimeout(), timeoutUnit);
-        if (maxTimeout != SessionParameters.NEVER_TIMEOUT
-                && timeOut > maxTimeout) {
+    public TimeValue boundTimeout(TimeValue timeOut) {
+        TimeValue maxTimeout = maxTimeout();
+        if (maxTimeout.value() != SessionParameters.NEVER_TIMEOUT
+                && maxTimeout.value() < timeOut.value(maxTimeout.unit())) {
             timeOut = maxTimeout;
         } else {
-            long minTimeout = unit.convert(minTimeout(), timeoutUnit);
-            if (timeOut < minTimeout) {
+            TimeValue minTimeout = minTimeout();
+            if (minTimeout.value() > timeOut.value(minTimeout.unit())) {
                 timeOut = minTimeout;
             }
         }
@@ -119,17 +131,12 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
     }
 
     @Override
-    public long maxTimeout() {
-        return PARAM_MAX_TIMEOUT.getValue();
+    public TimeValue maxTimeout() {
+        return maxTimeout.get();
     }
 
     @Override
-    public long minTimeout() {
-        return PARAM_MIN_TIMEOUT.getValue();
-    }
-
-    @Override
-    public TimeUnit timeoutUnit() {
-        return TimeUnit.valueOf(PARAM_TIMEOUT_UNIT.getValue());
+    public TimeValue minTimeout() {
+        return minTimeout.get();
     }
 }

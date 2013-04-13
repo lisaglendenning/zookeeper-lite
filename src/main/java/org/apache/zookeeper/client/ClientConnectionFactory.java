@@ -1,6 +1,7 @@
 package org.apache.zookeeper.client;
 
 import java.net.SocketAddress;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.zookeeper.Connection;
@@ -11,8 +12,11 @@ import org.apache.zookeeper.util.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import com.typesafe.config.ConfigException;
+import com.typesafe.config.ConfigValueFactory;
 
 public class ClientConnectionFactory implements Configurable,
         Provider<Connection> {
@@ -32,10 +36,9 @@ public class ClientConnectionFactory implements Configurable,
     public static final String ARG_ADDRESS = "address";
     public static final String ARG_PORT = "port";
 
-    public static final String PARAM_KEY_ADDRESS = "Server.Address";
-    public static final String PARAM_DEFAULT_ADDRESS = "localhost";
-    public static final String PARAM_KEY_PORT = "Server.Port";
-    public static final int PARAM_DEFAULT_PORT = 2181;
+    public static final String CONFIG_PATH = "Server.Address";
+    public static final String DEFAULT_ADDRESS = "localhost";
+    public static final int DEFAULT_PORT = 2181;
 
     protected final Logger logger = LoggerFactory
             .getLogger(ClientConnectionFactory.class);
@@ -45,38 +48,49 @@ public class ClientConnectionFactory implements Configurable,
     @Inject
     protected ClientConnectionFactory(ClientConnectionGroup connections,
             Arguments arguments, Configuration configuration) throws Exception {
-        this(connections);
+        this(connections, configuration);
 
         arguments.add(arguments.newOption(ARG_ADDRESS, "ServerAddress")).add(
                 arguments.newOption(ARG_PORT, "ServerPort"));
         arguments.parse();
+        Map<String, Object> args = Maps.newHashMap();
         if (arguments.hasValue(ARG_ADDRESS)) {
-            configuration.set(ClientConnectionFactory.PARAM_KEY_ADDRESS,
+            args.put(ConfigurableSocketAddress.Factory.KEY_ADDRESS,
                     arguments.getValue(ARG_ADDRESS));
         }
         if (arguments.hasValue(ARG_PORT)) {
-            configuration.set(ClientConnectionFactory.PARAM_KEY_PORT,
+            args.put(ConfigurableSocketAddress.Factory.KEY_PORT,
                     Integer.valueOf(arguments.getValue(ARG_PORT)));
         }
+        address.get(ConfigValueFactory.fromMap(args).toConfig());
+    }
+
+    protected ClientConnectionFactory(
+            ClientConnectionGroup connections,
+            Configuration configuration)
+            throws Exception {
+        this(connections);
         configure(configuration);
     }
 
     protected ClientConnectionFactory(ClientConnectionGroup connections)
             throws Exception {
         this.connections = connections;
-        this.address = ConfigurableSocketAddress.create(PARAM_KEY_ADDRESS,
-                PARAM_DEFAULT_ADDRESS, PARAM_KEY_PORT, PARAM_DEFAULT_PORT);
+        this.address = ConfigurableSocketAddress.create(
+                DEFAULT_PORT, DEFAULT_ADDRESS);
     }
 
     @Override
     public void configure(Configuration configuration) {
-        address.configure(configuration);
+        try {
+            address.get(configuration.get().getConfig(CONFIG_PATH));
+        } catch (ConfigException.Missing e) {}
     }
 
     @Override
     public Connection get() {
         Connection connection = null;
-        SocketAddress server = address.socketAddress();
+        SocketAddress server = address.get();
         logger.debug("Connecting to {}", server);
         try {
             connection = connections.connect(server).get();

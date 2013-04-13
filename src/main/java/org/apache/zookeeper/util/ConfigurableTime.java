@@ -2,41 +2,53 @@ package org.apache.zookeeper.util;
 
 import java.util.concurrent.TimeUnit;
 
-public class ConfigurableTime implements Configurable {
+import com.google.common.collect.ImmutableMap;
+import com.typesafe.config.Config;
 
-    public static ConfigurableTime create(String valueKey, long defaultValue,
-            String unitKey, String defaultUnit) {
-        return new ConfigurableTime(valueKey, defaultValue, unitKey,
-                defaultUnit);
+public class ConfigurableTime extends ConfigurableReference<TimeValue> {
+    
+    public static ConfigurableTime create(long value, String unit) {
+        Factory factory = Factory.create(value, unit);
+        return new ConfigurableTime(factory);
     }
 
-    public final Parameters.Parameter<Long> PARAM_VALUE;
-    public final Parameters.Parameter<String> PARAM_UNIT;
-    public final Parameters parameters;
-
-    public ConfigurableTime(String valueKey, long defaultValue, String unitKey,
-            String defaultUnit) {
-        this.PARAM_VALUE = Parameters.newParameter(valueKey, defaultValue);
-        this.PARAM_UNIT = Parameters.newParameter(unitKey, defaultUnit);
-        this.parameters = Parameters.newInstance().add(PARAM_VALUE)
-                .add(PARAM_UNIT);
+    public static ConfigurableTime create(long value) {
+        Factory factory = Factory.create(value);
+        return new ConfigurableTime(factory);
     }
 
-    @Override
-    public void configure(Configuration configuration) {
-        parameters.configure(configuration);
-        TimeUnit.valueOf(PARAM_UNIT.getValue());
+    protected ConfigurableTime(ConfigurableFactory<TimeValue> configurable) {
+        super(configurable);
     }
+    
+    public static class Factory extends AbstractConfigurableFactory<TimeValue> {
+        public static final String DEFAULT_UNIT = TimeUnit.MILLISECONDS.toString();
+        
+        public static final String KEY_VALUE = "value";
+        public static final String KEY_UNIT = "unit";
 
-    public long time() {
-        return PARAM_VALUE.getValue();
-    }
+        public static Factory create(long value) {
+            return create(value, DEFAULT_UNIT);
+        }
 
-    public TimeUnit timeUnit() {
-        return TimeUnit.valueOf(PARAM_UNIT.getValue());
-    }
+        public static Factory create(long value, String unit) {
+            return new Factory(value, unit);
+        }
 
-    public long convert(TimeUnit unit) {
-        return unit.convert(time(), timeUnit());
+        protected Factory(long value, String unit) {
+            super(ImmutableMap.<String, Object>builder()
+                    .put(KEY_VALUE, value)
+                    .put(KEY_UNIT, unit)
+                    .build());
+        }
+        
+        @Override
+        public TimeValue get(Config config) {
+            if (config != defaults) {
+                config = config.withFallback(defaults);
+            }
+            return new TimeValue(config.getLong(KEY_VALUE),
+                    config.getString(KEY_UNIT));
+        }
     }
 }

@@ -16,19 +16,18 @@ import org.apache.zookeeper.event.ConnectionStateEvent;
 import org.apache.zookeeper.util.Configurable;
 import org.apache.zookeeper.util.ConfigurableTime;
 import org.apache.zookeeper.util.Configuration;
-import org.apache.zookeeper.util.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.inject.Inject;
+import com.typesafe.config.ConfigException;
 
 public class PingSessionsTask implements Configurable {
 
-    public static final String PARAM_KEY_PING_TICK = "Sessions.PingTick";
-    public static final long PARAM_DEFAULT_PING_TICK = 2000;
-    public static final String PARAM_KEY_PING_TICK_UNIT = "Sessions.PingTickUnit";
-    public static final String PARAM_DEFAULT_PING_TICK_UNIT = "MILLISECONDS";
+    public static final String CONFIG_PATH = "Sessions.Ping";
+    public static final long DEFAULT_PING_TICK = 2000;
+    public static final String DEFAULT_PING_TICK_UNIT = "MILLISECONDS";
 
     public class PingConnectionTask implements Runnable {
 
@@ -46,8 +45,8 @@ public class PingSessionsTask implements Configurable {
 
         public void start() {
             if (future == null) {
-                long tick = tickTime.time();
-                TimeUnit tickUnit = tickTime.timeUnit();
+                long tick = tickTime.get().value();
+                TimeUnit tickUnit = tickTime.get().unit();
                 future = executor.scheduleAtFixedRate(this, tick, tick,
                         tickUnit);
             }
@@ -156,16 +155,17 @@ public class PingSessionsTask implements Configurable {
             ClientConnectionGroup connections, ScheduledExecutorService executor) {
         super();
         this.executor = executor;
-        this.tickTime = ConfigurableTime.create(PARAM_KEY_PING_TICK,
-                PARAM_DEFAULT_PING_TICK, PARAM_KEY_PING_TICK_UNIT,
-                PARAM_DEFAULT_PING_TICK_UNIT);
+        this.tickTime = ConfigurableTime.create(
+                DEFAULT_PING_TICK, DEFAULT_PING_TICK_UNIT);
         configure(configuration);
         connections.register(this);
     }
 
     @Override
     public void configure(Configuration configuration) {
-        tickTime.configure(configuration);
+        try {
+            tickTime.get(configuration.get().getConfig(CONFIG_PATH));
+        } catch (ConfigException.Missing e) {}
     }
 
     @Subscribe

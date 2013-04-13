@@ -1,6 +1,6 @@
 package org.apache.zookeeper.server;
 
-import java.util.concurrent.TimeUnit;
+import org.apache.zookeeper.util.TimeValue;
 
 public interface SessionParametersPolicy {
 
@@ -8,13 +8,11 @@ public interface SessionParametersPolicy {
 
     boolean validatePassword(long seed, byte[] password);
 
-    long boundTimeout(long timeOut, TimeUnit unit);
+    TimeValue boundTimeout(TimeValue timeOut);
 
     long newSessionId();
 
-    long maxTimeout();
+    TimeValue maxTimeout();
 
-    long minTimeout();
-
-    TimeUnit timeoutUnit();
+    TimeValue minTimeout();
 }

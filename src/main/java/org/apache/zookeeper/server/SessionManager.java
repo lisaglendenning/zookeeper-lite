@@ -5,13 +5,13 @@ import static com.google.common.base.Preconditions.*;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionParameters;
 import org.apache.zookeeper.event.SessionStateEvent;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.ForwardingEventful;
+import org.apache.zookeeper.util.TimeValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,11 +51,10 @@ public class SessionManager extends ForwardingEventful implements
 
     public Session add() {
         long id = policy.newSessionId();
-        long timeOut = policy.maxTimeout();
+        TimeValue timeOut = policy.maxTimeout();
         byte[] passwd = policy.newPassword(id);
-        TimeUnit timeOutUnit = policy.timeoutUnit();
         SessionParameters parameters = SessionParameters.create(timeOut,
-                passwd, timeOutUnit);
+                passwd);
         Session session = newSession(id, parameters);
         post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
         return session;
@@ -97,10 +96,9 @@ public class SessionManager extends ForwardingEventful implements
 
     protected Session newSession(SessionParameters parameters) {
         long id = policy.newSessionId();
-        TimeUnit timeOutUnit = parameters.timeOutUnit();
-        long timeOut = policy.boundTimeout(parameters.timeOut(), timeOutUnit);
+        TimeValue timeOut = policy.boundTimeout(parameters.timeOut());
         byte[] passwd = policy.newPassword(id);
-        parameters = SessionParameters.create(timeOut, passwd, timeOutUnit);
+        parameters = SessionParameters.create(timeOut, passwd);
         return newSession(id, parameters);
     }
 

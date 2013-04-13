@@ -24,6 +24,7 @@ import org.apache.zookeeper.event.SessionConnectionStateEvent;
 import org.apache.zookeeper.event.SessionResponseEvent;
 import org.apache.zookeeper.proto.ConnectRequest;
 import org.apache.zookeeper.protocol.Records;
+import org.apache.zookeeper.util.Configurable;
 import org.apache.zookeeper.util.ConfigurableTime;
 import org.apache.zookeeper.util.Configuration;
 import org.apache.zookeeper.util.Eventful;
@@ -38,41 +39,50 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import com.typesafe.config.ConfigException;
 
 public class ClientSessionConnection extends ForwardingEventful implements
         RequestExecutorService, SessionConnection {
 
-    public static class Factory {
+    public static class Factory implements Configurable {
 
         public static Factory create(Configuration configuration,
                 Provider<Eventful> eventfulFactory) {
             return new Factory(configuration, eventfulFactory);
         }
 
-        public static final String PARAM_KEY_TIMEOUT = "Client.Timeout";
-        public static final int PARAM_DEFAULT_TIMEOUT = 30;
-        public static final String PARAM_KEY_TIMEOUT_UNIT = "Client.TimeoutUnit";
-        public static final String PARAM_DEFAULT_TIMEOUT_UNIT = "SECONDS";
+        public static final String CONFIG_PATH = "Client.Timeout";
+        public static final long DEFAULT_TIMEOUT_VALUE = 30;
+        public static final String DEFAULT_TIMEOUT_UNIT = "SECONDS";
 
         protected final ConfigurableTime timeOut;
-        protected Configuration configuration;
         protected Provider<Eventful> eventfulFactory;
 
         @Inject
         protected Factory(Configuration configuration,
                 Provider<Eventful> eventfulFactory) {
-            this.configuration = configuration;
+            this(eventfulFactory);
+            configure(configuration);
+        }
+
+        protected Factory(
+                Provider<Eventful> eventfulFactory) {
             this.eventfulFactory = eventfulFactory;
-            this.timeOut = ConfigurableTime.create(PARAM_KEY_TIMEOUT,
-                    PARAM_DEFAULT_TIMEOUT, PARAM_KEY_TIMEOUT_UNIT,
-                    PARAM_DEFAULT_TIMEOUT_UNIT);
-            ;
-            this.timeOut.configure(configuration);
+            this.timeOut = ConfigurableTime.create(
+                    DEFAULT_TIMEOUT_VALUE,
+                    DEFAULT_TIMEOUT_UNIT);
         }
 
         public ClientSessionConnection get(Connection connection) {
             return ClientSessionConnection.create(connection, eventfulFactory,
                     timeOut);
+        }
+
+        @Override
+        public void configure(Configuration configuration) {
+            try {
+                this.timeOut.get(configuration.get().getConfig(CONFIG_PATH));
+            } catch (ConfigException.Missing e) {}
         }
     }
 
@@ -189,7 +199,7 @@ public class ClientSessionConnection extends ForwardingEventful implements
                 .create(Operation.CREATE_SESSION);
         ConnectRequest request = message.record();
         request.setProtocolVersion(Records.PROTOCOL_VERSION);
-        request.setTimeOut((int) timeOut.convert(TimeUnit.MILLISECONDS));
+        request.setTimeOut(timeOut.get().value(TimeUnit.MILLISECONDS).intValue());
         request.setLastZxidSeen(zxid.get());
         if (session().initialized()) {
             request.setSessionId(session().id());

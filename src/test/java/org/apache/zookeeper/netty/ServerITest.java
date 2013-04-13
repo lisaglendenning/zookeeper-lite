@@ -43,7 +43,6 @@ import org.apache.zookeeper.util.Configuration;
 import org.apache.zookeeper.util.Eventful;
 import org.apache.zookeeper.util.EventfulEventBus;
 import org.apache.zookeeper.util.ServiceMonitor;
-import org.apache.zookeeper.util.SettableConfiguration;
 import org.apache.zookeeper.util.SimpleArguments;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -62,6 +61,7 @@ import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.typesafe.config.ConfigFactory;
 
 public class ServerITest {
 
@@ -90,8 +90,6 @@ public class ServerITest {
             // utilities
             bind(Executor.class).to(ExecutorService.class).in(Singleton.class);
             bind(Arguments.class).to(SimpleArguments.class).in(Singleton.class);
-            bind(Configuration.class).to(SettableConfiguration.class).in(
-                    Singleton.class);
             bind(Eventful.class).to(EventfulEventBus.class);
             bind(ServiceMonitor.class).in(Singleton.class);
 
@@ -113,6 +111,11 @@ public class ServerITest {
             bind(ChannelClientConnectionGroup.class).in(Singleton.class);
             bind(ClientConnection.Factory.class).in(Singleton.class);
             bind(ClientSessionConnection.Factory.class).in(Singleton.class);
+        }
+        
+        @Provides @Singleton
+        public Configuration getConfiguration() {
+            return Configuration.create(ConfigFactory.empty());
         }
 
         @Provides

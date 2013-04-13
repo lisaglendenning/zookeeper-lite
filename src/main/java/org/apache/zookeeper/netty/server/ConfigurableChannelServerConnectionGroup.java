@@ -1,6 +1,7 @@
 package org.apache.zookeeper.netty.server;
 
 import java.net.SocketAddress;
+import java.util.Map;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.group.ChannelGroup;
@@ -11,7 +12,10 @@ import org.apache.zookeeper.util.ConfigurableSocketAddress;
 import org.apache.zookeeper.util.Configuration;
 import org.apache.zookeeper.util.Eventful;
 
+import com.google.common.collect.Maps;
 import com.google.inject.Inject;
+import com.typesafe.config.ConfigException;
+import com.typesafe.config.ConfigValueFactory;
 
 public class ConfigurableChannelServerConnectionGroup extends
         ChannelServerConnectionGroup implements Configurable {
@@ -34,10 +38,8 @@ public class ConfigurableChannelServerConnectionGroup extends
     public static final String ARG_ADDRESS = "clientAddress";
     public static final String ARG_PORT = "clientPort";
 
-    public static final String PARAM_KEY_ADDRESS = "Client.Address";
+    public static final String CONFIG_PATH = "Client.Address";
     public static final String PARAM_DEFAULT_ADDRESS = "";
-
-    public static final String PARAM_KEY_PORT = "Client.Port";
     public static final int PARAM_DEFAULT_PORT = 2181;
 
     protected final ConfigurableSocketAddress address;
@@ -47,19 +49,29 @@ public class ConfigurableChannelServerConnectionGroup extends
             Configuration configuration, Eventful eventful,
             ServerConnection.Factory connectionFactory, ChannelGroup channels,
             ServerBootstrap bootstrap) throws Exception {
-        this(eventful, connectionFactory, channels, bootstrap);
+        this(configuration, eventful, connectionFactory, channels, bootstrap);
 
         arguments.add(arguments.newOption(ARG_ADDRESS, "ClientAddress")).add(
                 arguments.newOption(ARG_PORT, "ClientPort"));
         arguments.parse();
+        Map<String, Object> args = Maps.newHashMap();
         if (arguments.hasValue(ARG_ADDRESS)) {
-            configuration.set(PARAM_KEY_ADDRESS,
+            args.put(ConfigurableSocketAddress.Factory.KEY_ADDRESS,
                     arguments.getValue(ARG_ADDRESS));
         }
         if (arguments.hasValue(ARG_PORT)) {
-            configuration.set(PARAM_KEY_PORT,
+            args.put(ConfigurableSocketAddress.Factory.KEY_PORT,
                     Integer.valueOf(arguments.getValue(ARG_PORT)));
         }
+        address.get(ConfigValueFactory.fromMap(args).toConfig());
+    }
+
+    protected ConfigurableChannelServerConnectionGroup(
+            Configuration configuration,
+            Eventful eventful,
+            ServerConnection.Factory connectionFactory, ChannelGroup channels,
+            ServerBootstrap bootstrap) {
+        this(eventful, connectionFactory, channels, bootstrap);
         configure(configuration);
     }
 
@@ -67,21 +79,24 @@ public class ConfigurableChannelServerConnectionGroup extends
             ServerConnection.Factory connectionFactory, ChannelGroup channels,
             ServerBootstrap bootstrap) {
         super(eventful, connectionFactory, channels, bootstrap);
-        this.address = ConfigurableSocketAddress.create(PARAM_KEY_ADDRESS,
-                PARAM_DEFAULT_ADDRESS, PARAM_KEY_PORT, PARAM_DEFAULT_PORT);
+        this.address = ConfigurableSocketAddress.create(
+                PARAM_DEFAULT_PORT, PARAM_DEFAULT_ADDRESS);
+        serverBootstrap().localAddress(address.get());
     }
 
     @Override
     public void configure(Configuration configuration) {
-        address.configure(configuration);
-        serverBootstrap().localAddress(address.socketAddress());
+        try {
+            address.get(configuration.get().getConfig(CONFIG_PATH));
+            serverBootstrap().localAddress(address.get());
+        } catch (ConfigException.Missing e) {}
     }
 
     @Override
     public SocketAddress localAddress() {
         SocketAddress socketAddress = super.localAddress();
         if (socketAddress == null) {
-            socketAddress = address.socketAddress();
+            socketAddress = address.get();
         }
         return socketAddress;
     }

@@ -66,8 +66,8 @@ public class OpCreateSessionProcessor extends OpRequestProcessor {
         Session session = sessions().add(sessionId, parameters);
         sessionId = session.id();
         timeOut = Long.valueOf(
-                TimeUnit.MILLISECONDS.convert(session.parameters().timeOut(),
-                        session.parameters().timeOutUnit())).intValue();
+                TimeUnit.MILLISECONDS.convert(session.parameters().timeOut().value(),
+                        session.parameters().timeOut().unit())).intValue();
         passwd = session.parameters().password();
         response.setProtocolVersion(request.getProtocolVersion());
         response.setSessionId(sessionId);

@@ -2,48 +2,58 @@ package org.apache.zookeeper.util;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import com.google.common.collect.ImmutableMap;
+import com.typesafe.config.Config;
 
-public class ConfigurableSocketAddress implements Configurable {
+public class ConfigurableSocketAddress extends ConfigurableReference<SocketAddress> {
 
-    public static ConfigurableSocketAddress create(String addressKey,
-            String defaultAddress, String portKey, int defaultPort) {
-        return new ConfigurableSocketAddress(addressKey, defaultAddress,
-                portKey, defaultPort);
+    public static ConfigurableSocketAddress create(int port, String address) {
+        Factory factory = Factory.create(port, address);
+        return new ConfigurableSocketAddress(factory);
     }
 
-    public static final String PARAM_DEFAULT_ADDRESS = "";
-
-    public final Parameters.Parameter<String> PARAM_ADDRESS;
-    public final Parameters.Parameter<Integer> PARAM_PORT;
-    public final Parameters parameters;
-
-    public ConfigurableSocketAddress(String addressKey, String defaultAddress,
-            String portKey, int defaultPort) {
-        this.PARAM_ADDRESS = Parameters
-                .newParameter(addressKey, defaultAddress);
-        this.PARAM_PORT = Parameters.newParameter(portKey, defaultPort);
-        this.parameters = Parameters.newInstance().add(PARAM_ADDRESS)
-                .add(PARAM_PORT);
+    public static ConfigurableSocketAddress create(int port) {
+        Factory factory = Factory.create(port);
+        return new ConfigurableSocketAddress(factory);
     }
 
-    @Override
-    public void configure(Configuration configuration) {
-        parameters.configure(configuration);
+    protected ConfigurableSocketAddress(ConfigurableFactory<SocketAddress> configurable) {
+        super(configurable);
     }
+    
+    public static class Factory extends AbstractConfigurableFactory<SocketAddress> {
 
-    public SocketAddress socketAddress() {
-        int port = PARAM_PORT.getValue();
-        String address = PARAM_ADDRESS.getValue();
-        SocketAddress socketAddress = (address == PARAM_DEFAULT_ADDRESS) ? new InetSocketAddress(
-                port) : new InetSocketAddress(address, port);
-        return socketAddress;
-    }
+        public static final String DEFAULT_ADDRESS = "";
 
-    public void setPort(int port) {
-        PARAM_PORT.setValue(port);
-    }
+        public static final String KEY_ADDRESS = "address";
+        public static final String KEY_PORT = "port";
 
-    public int port() {
-        return PARAM_PORT.getValue();
+        public static Factory create(int port) {
+            return new Factory(port, DEFAULT_ADDRESS);
+        }
+
+        public static Factory create(int port, String address) {
+            return new Factory(port, address);
+        }
+
+        protected Factory(int port, String address) {
+            super(ImmutableMap.<String, Object>builder()
+                    .put(KEY_PORT, port)
+                    .put(KEY_ADDRESS, address)
+                    .build());
+        }
+        
+        @Override
+        public SocketAddress get(Config config) {
+            if (config != defaults) {
+                config = config.withFallback(defaults);
+            }
+            String address = config.getString(KEY_ADDRESS);
+            int port = config.getInt(KEY_PORT);
+            SocketAddress socketAddress = (address == DEFAULT_ADDRESS) 
+                    ? new InetSocketAddress(port)
+                    : new InetSocketAddress(address, port);
+            return socketAddress;
+        }
     }
 }

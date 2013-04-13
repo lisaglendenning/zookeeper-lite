@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.apache.zookeeper.util.Arguments;
 import org.apache.zookeeper.util.Configuration;
-import org.apache.zookeeper.util.PreferenceConfiguration;
 
 import com.google.common.collect.Lists;
 import com.google.inject.AbstractModule;
@@ -57,11 +56,9 @@ public class Main extends AbstractModule {
 
     @Provides
     @Singleton
-    protected Configuration getConfiguration(Arguments arguments) {
+    protected Configuration getConfiguration() {
         if (theConfiguration == null) {
-            PreferenceConfiguration configuration = new PreferenceConfiguration();
-            configuration.initialize(arguments);
-            theConfiguration = configuration;
+            theConfiguration = Configuration.create();
         }
         return theConfiguration;
     }

@@ -7,17 +7,18 @@ import java.util.concurrent.TimeUnit;
 import org.apache.zookeeper.util.Configurable;
 import org.apache.zookeeper.util.ConfigurableTime;
 import org.apache.zookeeper.util.Configuration;
+import org.apache.zookeeper.util.TimeValue;
 
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.inject.Inject;
+import com.typesafe.config.ConfigException;
 
 public class ExpireSessionsTask extends AbstractIdleService implements
         Runnable, Configurable {
 
-    public static final String PARAM_KEY_EXPIRE_TICK = "Sessions.ExpireTick";
-    public static final long PARAM_DEFAULT_EXPIRE_TICK = 1000;
-    public static final String PARAM_KEY_EXPIRE_TICK_UNIT = "Sessions.ExpireTickUnit";
-    public static final String PARAM_DEFAULT_EXPIRE_TICK_UNIT = "MILLISECONDS";
+    public static final String CONFIG_PATH = "Sessions.Expire";
+    public static final long DEFAULT_EXPIRE_TICK = 1000;
+    public static final String DEFAULT_EXPIRE_TICK_UNIT = "MILLISECONDS";
 
     protected final ExpiringSessionManager manager;
     protected final ScheduledExecutorService executor;
@@ -27,18 +28,25 @@ public class ExpireSessionsTask extends AbstractIdleService implements
     @Inject
     protected ExpireSessionsTask(Configuration configuration,
             ExpiringSessionManager manager, ScheduledExecutorService executor) {
-        super();
-        this.manager = manager;
-        this.executor = executor;
-        this.tickTime = ConfigurableTime.create(PARAM_KEY_EXPIRE_TICK,
-                PARAM_DEFAULT_EXPIRE_TICK, PARAM_KEY_EXPIRE_TICK_UNIT,
-                PARAM_DEFAULT_EXPIRE_TICK_UNIT);
+        this(manager, executor);
         configure(configuration);
     }
 
+    protected ExpireSessionsTask(
+            ExpiringSessionManager manager, ScheduledExecutorService executor) {
+        super();
+        this.manager = manager;
+        this.executor = executor;
+        this.tickTime = ConfigurableTime.create(
+                DEFAULT_EXPIRE_TICK,
+                DEFAULT_EXPIRE_TICK_UNIT);
+    }
+    
     @Override
     public void configure(Configuration configuration) {
-        tickTime.configure(configuration);
+        try {
+            tickTime.get(configuration.get().getConfig(CONFIG_PATH));
+        } catch (ConfigException.Missing e) {}
     }
 
     @Override
@@ -48,8 +56,9 @@ public class ExpireSessionsTask extends AbstractIdleService implements
 
     @Override
     protected void startUp() throws Exception {
-        long tick = tickTime.time();
-        TimeUnit tickUnit = tickTime.timeUnit();
+        TimeValue value = tickTime.get();
+        long tick = value.value();
+        TimeUnit tickUnit = value.unit();
         future = executor.scheduleAtFixedRate(this, tick, tick, tickUnit);
     }
 

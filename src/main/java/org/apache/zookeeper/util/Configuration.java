@@ -1,14 +1,55 @@
 package org.apache.zookeeper.util;
 
-import java.util.Map;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 
-public interface Configuration extends Iterable<Map.Entry<String, Object>> {
+public class Configuration extends ConfigurableReference<Config> {
 
-    Configuration initialize(Arguments arguments);
+    public static Configuration create() {
+        return new Configuration();
+    }
 
-    <T> T get(String name, T defaultValue);
+    public static Configuration create(Config config) {
+        Factory factory = Factory.create(config);
+        return new Configuration(factory);
+    }
 
-    void set(String name, Object value);
+    protected Configuration() {
+        super(Factory.create());
+    }
+    
+    protected Configuration(ConfigurableFactory<Config> configurable) {
+        super(configurable);
+    }
+    
+    protected Configuration(ConfigurableFactory<Config> configurable, Config value) {
+        super(configurable, value);
+    }
 
-    void flush() throws Exception;
+    public static class Factory extends AbstractConfigurableFactory<Config> {
+
+        public static Factory create() {
+            return new Factory();
+        }
+
+        public static Factory create(Config defaults) {
+            return new Factory(defaults);
+        }
+
+        protected Factory() {
+            this(ConfigFactory.load());
+        }
+
+        protected Factory(Config defaults) {
+            super(defaults);
+        }
+        
+        @Override
+        public Config get(Config config) {
+            if (config != defaults) {
+                config = config.withFallback(defaults);
+            }
+            return config;
+        }
+    }
 }

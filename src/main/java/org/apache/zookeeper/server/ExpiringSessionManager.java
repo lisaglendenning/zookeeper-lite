@@ -56,7 +56,7 @@ public class ExpiringSessionManager extends SessionManager {
 
     protected boolean touch(Session session, long timestamp) {
         long sessionId = session.id();
-        if (session.parameters().timeOut() != SessionParameters.NEVER_TIMEOUT) {
+        if (session.parameters().timeOut().value() != SessionParameters.NEVER_TIMEOUT) {
             synchronized (sessions) {
                 if (sessions.containsKey(sessionId)) {
                     touches.put(sessionId, timestamp);
@@ -94,7 +94,7 @@ public class ExpiringSessionManager extends SessionManager {
                 Session session = entry.getValue();
                 long touch = touches.get(entry.getKey());
                 long timeOut = timestampUnit.convert(session.parameters()
-                        .timeOut(), session.parameters().timeOutUnit());
+                        .timeOut().value(), session.parameters().timeOut().unit());
                 assert (timeOut != SessionParameters.NEVER_TIMEOUT);
                 long expires = touch + timeOut;
                 if (expires < timestamp) {
