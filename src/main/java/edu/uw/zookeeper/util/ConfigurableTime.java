@@ -44,8 +44,8 @@ public class ConfigurableTime extends ConfigurableReference<TimeValue> {
         
         @Override
         public TimeValue get(Config config) {
-            if (config != defaults) {
-                config = config.withFallback(defaults);
+            if (config != defaults()) {
+                config = config.withFallback(defaults());
             }
             return new TimeValue(config.getLong(KEY_VALUE),
                     config.getString(KEY_UNIT));

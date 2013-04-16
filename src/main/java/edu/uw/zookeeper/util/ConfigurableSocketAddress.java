@@ -45,8 +45,8 @@ public class ConfigurableSocketAddress extends ConfigurableReference<SocketAddre
         
         @Override
         public SocketAddress get(Config config) {
-            if (config != defaults) {
-                config = config.withFallback(defaults);
+            if (config != defaults()) {
+                config = config.withFallback(defaults());
             }
             String address = config.getString(KEY_ADDRESS);
             int port = config.getInt(KEY_PORT);

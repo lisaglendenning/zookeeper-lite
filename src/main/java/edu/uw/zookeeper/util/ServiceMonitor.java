@@ -3,6 +3,7 @@ package edu.uw.zookeeper.util;
 import static com.google.common.base.Preconditions.*;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -19,26 +20,31 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.inject.Inject;
 
-public class ServiceMonitor extends AbstractIdleService {
+/**
+ * Service that starts and monitors other Services.
+ */
+public class ServiceMonitor extends AbstractIdleService implements Iterable<Service> {
 
     public static ServiceMonitor create(Executor executor) {
         return new ServiceMonitor(executor);
     }
 
-    protected static class ServiceMonitorListener implements Service.Listener {
+    /**
+     * Logs Service state changes and notifies ServiceMonitor of significant changes.
+     */
+    private class ServiceMonitorListener implements Service.Listener {
 
-        protected final Logger logger = LoggerFactory
+        private final Logger logger = LoggerFactory
                 .getLogger(ServiceMonitorListener.class);
-        protected final ServiceMonitor monitor;
-        protected final Service service;
+        private final Service service;
 
-        public ServiceMonitorListener(ServiceMonitor monitor, Service service) {
-            this.monitor = monitor;
+        public ServiceMonitorListener(Service service) {
             this.service = service;
         }
 
-        protected void log(Service.State nextState,
-                Optional<Service.State> prevState, Optional<Throwable> throwable) {
+        private void log(Service.State nextState,
+                Optional<Service.State> prevState,
+                Optional<Throwable> throwable) {
             checkArgument(nextState != null);
             String str = nextState.toString()
                     + (prevState.isPresent() ? String.format(" (%s)",
@@ -52,12 +58,12 @@ public class ServiceMonitor extends AbstractIdleService {
             }
         }
 
-        protected void log(Service.State nextState) {
+        private void log(Service.State nextState) {
             this.log(nextState, Optional.<Service.State> absent(),
                     Optional.<Throwable> absent());
         }
 
-        protected void log(Service.State nextState, Service.State prevState) {
+        private void log(Service.State nextState, Service.State prevState) {
             this.log(nextState, Optional.of(prevState),
                     Optional.<Throwable> absent());
         }
@@ -65,16 +71,16 @@ public class ServiceMonitor extends AbstractIdleService {
         @Override
         public void failed(State arg0, Throwable arg1) {
             log(Service.State.FAILED, Optional.of(arg0), Optional.of(arg1));
-            if (service != monitor) {
-                monitor.notifyChange();
+            if (service != ServiceMonitor.this) {
+                notifyChange();
             }
         }
 
         @Override
         public void running() {
             log(Service.State.RUNNING);
-            if (service == monitor) {
-                monitor.notifyChange();
+            if (service == ServiceMonitor.this) {
+                notifyChange();
             }
         }
 
@@ -92,18 +98,18 @@ public class ServiceMonitor extends AbstractIdleService {
         @Override
         public void terminated(State arg0) {
             log(Service.State.TERMINATED, arg0);
-            if (service != monitor) {
-                monitor.notifyChange();
+            if (service != ServiceMonitor.this) {
+                notifyChange();
             }
         }
 
     }
 
-    protected final Logger logger = LoggerFactory
+    private final Logger logger = LoggerFactory
             .getLogger(ServiceMonitor.class);
-    protected Executor listenerExecutor;
-    protected Executor executor;
-    protected List<Service> services;
+    private final Executor listenerExecutor;
+    private final Executor executor;
+    private final List<Service> services;
 
     @Inject
     protected ServiceMonitor(Executor executor) {
@@ -123,8 +129,9 @@ public class ServiceMonitor extends AbstractIdleService {
         return executor;
     }
 
-    protected List<Service> services() {
-        return services;
+    @Override
+    public Iterator<Service> iterator() {
+        return services.iterator();
     }
 
     public boolean isAddable() {
@@ -135,13 +142,13 @@ public class ServiceMonitor extends AbstractIdleService {
     public void add(Service service) {
         checkNotNull(service);
         checkState(isAddable(), state());
-        services().add(service);
+        services.add(service);
         listen(service);
         notifyChange();
     }
 
     public boolean remove(Service service) {
-        if (services().remove(service)) {
+        if (services.remove(service)) {
             notifyChange();
             return true;
         }
@@ -164,13 +171,12 @@ public class ServiceMonitor extends AbstractIdleService {
         stopTasks();
     }
 
-    protected void listen(Service service) {
-        ServiceMonitorListener listener = new ServiceMonitorListener(this,
-                service);
+    private void listen(Service service) {
+        ServiceMonitorListener listener = new ServiceMonitorListener(service);
         service.addListener(listener, listenerExecutor);
     }
 
-    protected void notifyChange() {
+    private void notifyChange() {
         if (isRunning()) {
             if (!monitorTasks()) {
                 stop();
@@ -178,12 +184,12 @@ public class ServiceMonitor extends AbstractIdleService {
         }
     }
 
-    protected void startTasks() throws Exception {
+    private void startTasks() throws Exception {
         // start all currently monitored services
         // after this, services will be started by monitor()
         List<Service> services;
-        synchronized (services()) {
-            services = ImmutableList.copyOf(services());
+        synchronized (this.services) {
+            services = ImmutableList.copyOf(this.services);
         }
         // List<ListenableFuture<State>> futures = Lists.newArrayList();
         for (Service e : services) {
@@ -192,7 +198,7 @@ public class ServiceMonitor extends AbstractIdleService {
             case NEW:
                 // futures.add(e.start());
                 // there may be dependencies between services
-                // so don't start concurrently
+                // so don't start them concurrently
                 e.startAndWait();
                 break;
             // it's possible that a service failed before we
@@ -203,17 +209,13 @@ public class ServiceMonitor extends AbstractIdleService {
                 break;
             }
         }
-        // wait for all to start
-        // ListenableFuture<List<State>> allFutures =
-        // Futures.allAsList(futures);
-        // allFutures.get();
     }
 
-    protected void stopTasks() throws Exception {
+    private void stopTasks() throws Exception {
         // first, notify all services to stop
         List<Service> services;
-        synchronized (services()) {
-            services = ImmutableList.copyOf(services());
+        synchronized (this.services) {
+            services = ImmutableList.copyOf(this.services);
         }
         List<ListenableFuture<State>> futures = Lists.newArrayList();
         for (Service e : services) {
@@ -241,30 +243,28 @@ public class ServiceMonitor extends AbstractIdleService {
         }
     }
 
-    protected boolean monitorTasks() {
-        boolean stop = true;
+    private boolean monitorTasks() {
         List<Service> services;
-        synchronized (services()) {
-            services = ImmutableList.copyOf(services());
+        synchronized (this.services) {
+            services = ImmutableList.copyOf(this.services);
         }
+        boolean stop = true;
         for (Service e : services) {
             if (e == this) {
                 continue;
             }
             State state = e.state();
-            switch (state) {
-            case NEW:
-                e.start();
-            case STARTING:
-            case RUNNING:
-                stop = stop && false;
-                break;
-            // stop everyone if someone failed
-            case FAILED:
+            if (state == State.FAILED) {
+                // stop all services if one service failed
                 stop = true;
                 break;
-            default:
-                break;
+            } else if (state == State.NEW) {
+                // start monitor services
+                e.start();
+                stop = false;
+            } else if (state == State.STARTING || state == State.RUNNING) {
+                // keep running as long as one service is running
+                stop = false;
             }
         }
         return !stop;

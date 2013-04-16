@@ -3,7 +3,7 @@ package edu.uw.zookeeper.util;
 import com.google.common.base.Objects;
 import com.google.common.util.concurrent.SettableFuture;
 
-public class SettableTask<T, V> extends Pair<T, SettableFuture<V>> {
+public class SettableTask<T, V> extends AbstractPair<T, SettableFuture<V>> {
 
     public static <T, V> SettableTask<T, V> create(T task) {
         return new SettableTask<T, V>(task);
@@ -13,16 +13,16 @@ public class SettableTask<T, V> extends Pair<T, SettableFuture<V>> {
         super(task, SettableFuture.<V> create());
     }
 
-    public void cancel() {
-        future().cancel(true);
+    public boolean cancel() {
+        return future().cancel(true);
     }
 
     public T task() {
-        return first();
+        return first;
     }
 
     public SettableFuture<V> future() {
-        return second();
+        return second;
     }
 
     @Override

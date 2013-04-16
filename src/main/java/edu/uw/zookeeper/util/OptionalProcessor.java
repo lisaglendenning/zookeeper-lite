@@ -9,7 +9,7 @@ public class OptionalProcessor<T> implements FilteringProcessor<T, T> {
         return new OptionalProcessor<T>(processor);
     }
 
-    protected final FilteringProcessor<T, T> processor;
+    private final FilteringProcessor<T, T> processor;
 
     public OptionalProcessor(FilteringProcessor<T, T> processor) {
         this.processor = processor;

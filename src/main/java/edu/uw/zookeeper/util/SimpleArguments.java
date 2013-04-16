@@ -15,8 +15,11 @@ import com.google.common.collect.Lists;
 
 import static com.google.common.base.Preconditions.*;
 
-// Simple command line argument parser
-// Only supports one option format
+/**
+ *  Simple command line argument parser.
+ *  
+ *  Only recognizes the format --NAME=VALUE or --NAME
+ */
 public class SimpleArguments implements Arguments {
 
     public static class SimpleOption implements Option {
@@ -25,10 +28,10 @@ public class SimpleArguments implements Arguments {
         public static final String VALUE_SEP = "=";
         public static final String TRUE_VALUE = "";
 
-        protected final String name;
-        protected final Optional<String> help;
-        protected final Optional<String> defaultValue;
-        protected Optional<String> value = Optional.<String> absent();
+        private final String name;
+        private final Optional<String> help;
+        private final Optional<String> defaultValue;
+        private Optional<String> value = Optional.<String> absent();
 
         public static String[] parse(String arg) {
             Splitter splitter = Splitter.on(SimpleOption.VALUE_SEP).limit(2)
@@ -46,9 +49,9 @@ public class SimpleArguments implements Arguments {
 
         public SimpleOption(String name, Optional<String> help,
                 Optional<String> defaultValue) {
-            this.name = checkNotNull(name, "name");
-            this.help = checkNotNull(help, "help");
-            this.defaultValue = checkNotNull(defaultValue, "defaultValue");
+            this.name = checkNotNull(name);
+            this.help = checkNotNull(help);
+            this.defaultValue = checkNotNull(defaultValue);
         }
 
         public SimpleOption(String name, String help) {
@@ -111,9 +114,13 @@ public class SimpleArguments implements Arguments {
 
     public static final String OPT_HELP = "help";
 
-    protected final SortedMap<String, Option> options;
-    protected Class<?> mainClass;
-    protected String[] args;
+    private final SortedMap<String, Option> options;
+    private Class<?> mainClass;
+    private String[] args;
+
+    public SimpleArguments() {
+        this(Optional.<Iterable<Option>> absent());
+    }
 
     public SimpleArguments(Optional<Iterable<Option>> options) {
         // Maybe could try to auto-detect programName with
@@ -126,10 +133,6 @@ public class SimpleArguments implements Arguments {
             }
         }
         add(new SimpleOption(OPT_HELP));
-    }
-
-    public SimpleArguments() {
-        this(Optional.<Iterable<Option>> absent());
     }
 
     @Override
@@ -190,7 +193,7 @@ public class SimpleArguments implements Arguments {
         return str.toString();
     }
 
-    protected String[] parse(String... args) {
+    private String[] parse(String... args) {
         List<String> unknown = Lists.newArrayList();
         for (String arg : args) {
             String[] kv = SimpleOption.parse(arg);

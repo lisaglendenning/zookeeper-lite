@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Objects;
 
-public class TimeValue extends Pair<Long, TimeUnit> {
+public class TimeValue extends AbstractPair<Long, TimeUnit> {
 
     public static TimeValue create(Long value, String unit) {
         return new TimeValue(value, unit);
@@ -23,11 +23,11 @@ public class TimeValue extends Pair<Long, TimeUnit> {
     }
 
     public Long value() {
-        return first();
+        return first;
     }
 
     public TimeUnit unit() {
-        return second();
+        return second;
     }
 
     public Long value(TimeUnit unit) {

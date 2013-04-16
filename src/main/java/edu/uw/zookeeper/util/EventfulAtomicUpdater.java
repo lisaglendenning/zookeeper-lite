@@ -2,46 +2,52 @@ package edu.uw.zookeeper.util;
 
 import static com.google.common.base.Preconditions.*;
 
-public class EventfulAtomicUpdater<T> extends ForwardingEventful implements
-        Eventful, AtomicUpdater<T> {
+import com.google.common.base.Optional;
 
-    public static <T> EventfulAtomicUpdater<T> create(Eventful eventful,
-            AtomicUpdater<T> state) {
-        return new EventfulAtomicUpdater<T>(eventful, state);
+/**
+ * Broadcasts value changes as events.
+ * 
+ * @param <V>
+ */
+public class EventfulAtomicUpdater<V> extends ForwardingEventful implements
+        Eventful, AtomicUpdater<V> {
+
+    public static <V> EventfulAtomicUpdater<V> create(Eventful eventful,
+            AtomicUpdater<V> value) {
+        return new EventfulAtomicUpdater<V>(eventful, value);
     }
 
-    protected final AtomicUpdater<T> state;
+    private final AtomicUpdater<V> value;
 
-    protected EventfulAtomicUpdater(Eventful eventful, AtomicUpdater<T> state) {
+    protected EventfulAtomicUpdater(Eventful eventful, AtomicUpdater<V> value) {
         super(eventful);
-        this.state = checkNotNull(state);
+        this.value = checkNotNull(value);
     }
 
-    public T get() {
-        return state.get();
+    @Override
+    public V get() {
+        return value.get();
     }
 
-    protected AtomicUpdater<T> state() {
-        return state;
+    @Override
+    public boolean set(V value) {
+        return (getAndSet(value).isPresent());
     }
 
-    public boolean set(T nextState) {
-        return (getAndSet(nextState) != null);
-    }
-
-    public T getAndSet(T nextState) {
-        T prevState = state.getAndSet(checkNotNull(nextState));
-        if ((prevState != null) && (prevState != nextState)) {
-            post(nextState);
+    @Override
+    public Optional<V> getAndSet(V value) {
+        Optional<V> prevValue = this.value.getAndSet(value);
+        if (prevValue.isPresent() && (prevValue.get() != value)) {
+            post(value);
         }
-        return prevState;
+        return prevValue;
     }
 
-    public boolean compareAndSet(T prevState, T nextState) {
-        boolean updated = state.compareAndSet(checkNotNull(prevState),
-                checkNotNull(nextState));
-        if (updated && (prevState != nextState)) {
-            post(nextState);
+    @Override
+    public boolean compareAndSet(V condition, V value) {
+        boolean updated = this.value.compareAndSet(condition, value);
+        if (updated && (condition != value)) {
+            post(value);
         }
         return updated;
     }

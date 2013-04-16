@@ -397,10 +397,10 @@ public class ClientSessionConnection extends ForwardingEventful implements
         connection.close();
 
         synchronized (tasks) {
-            Pair<Operation.Request, SettableFuture<Operation.Result>> task = tasks
+            SettableTask<Operation.Request, Operation.Result> task = tasks
                     .poll();
             while (task != null) {
-                task.second().cancel(true);
+                task.cancel();
             }
         }
     }

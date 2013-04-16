@@ -10,20 +10,17 @@ import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.Service.State;
 import com.google.inject.Inject;
 
+/**
+ * Application that starts a Service and waits for it to terminate.
+ */
 public class ApplicationService extends ExecutorServiceApplication {
 
-    protected static class ApplicationServiceListener implements
+    private class ApplicationServiceListener implements
             Service.Listener {
-
-        protected ApplicationService service;
-
-        public ApplicationServiceListener(ApplicationService service) {
-            this.service = service;
-        }
 
         @Override
         public void failed(State arg0, Throwable arg1) {
-            service.complete();
+            complete();
         }
 
         @Override
@@ -40,19 +37,19 @@ public class ApplicationService extends ExecutorServiceApplication {
 
         @Override
         public void terminated(State arg0) {
-            service.complete();
+            complete();
         }
     }
 
-    protected final Service service;
-    protected boolean completed;
-    protected final Monitor monitor;
-    protected final Monitor.Guard completedGuard;
+    private final Service service;
+    private boolean completed;
+    private final Monitor monitor;
+    private final Monitor.Guard completedGuard;
 
     @Inject
     public ApplicationService(ExecutorService executor, Service service) {
         super(executor);
-        this.service = checkNotNull(service, "service");
+        this.service = checkNotNull(service);
         this.completed = (service.state() == Service.State.FAILED || service
                 .state() == Service.State.TERMINATED);
         this.monitor = new Monitor();
@@ -61,7 +58,7 @@ public class ApplicationService extends ExecutorServiceApplication {
                 return completed;
             }
         };
-        service.addListener(new ApplicationServiceListener(this),
+        service.addListener(new ApplicationServiceListener(),
                 MoreExecutors.sameThreadExecutor());
     }
 
@@ -78,7 +75,7 @@ public class ApplicationService extends ExecutorServiceApplication {
         }
     }
 
-    public void complete() {
+    private void complete() {
         monitor.enter();
         try {
             completed = true;

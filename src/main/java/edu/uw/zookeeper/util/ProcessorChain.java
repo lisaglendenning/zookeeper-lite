@@ -12,24 +12,24 @@ public class ProcessorChain<T> extends ForwardingList<Processor<T, T>>
         return new ProcessorChain<T>();
     }
 
-    protected final List<Processor<T, T>> processors;
+    private final List<Processor<T, T>> delegate;
 
     protected ProcessorChain() {
         this(Lists.<Processor<T, T>> newArrayList());
     }
 
-    protected ProcessorChain(List<Processor<T, T>> processors) {
-        this.processors = processors;
+    protected ProcessorChain(List<Processor<T, T>> delegate) {
+        this.delegate = delegate;
     }
 
     @Override
     protected List<Processor<T, T>> delegate() {
-        return processors;
+        return delegate;
     }
 
     @Override
     public T apply(T input) throws Exception {
-        for (Processor<T, T> processor : processors) {
+        for (Processor<T, T> processor : this) {
             input = processor.apply(input);
         }
         return input;

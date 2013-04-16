@@ -2,6 +2,10 @@ package edu.uw.zookeeper.util;
 
 import com.google.common.base.Optional;
 
+/**
+ * Command-line argument parser.
+ * 
+ */
 public interface Arguments extends Iterable<Arguments.Option> {
 
     public static interface Option {

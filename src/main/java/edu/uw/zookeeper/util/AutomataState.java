@@ -4,50 +4,58 @@ import static com.google.common.base.Preconditions.*;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-public interface AutomataState<T extends AutomataState<T>> {
+import com.google.common.base.Optional;
 
-    public static class Reference<T extends AutomataState<T>> implements
-            AtomicUpdater<T> {
+public interface AutomataState<V extends AutomataState<V>> {
 
-        public static <T extends AutomataState<T>> Reference<T> create(T state) {
-            return new Reference<T>(state);
+    /**
+     * Atomically updates an AutomataState while disallowing
+     * invalid transitions.
+     * 
+     * @param <V>
+     */
+    public static class Reference<V extends AutomataState<V>> implements
+            AtomicUpdater<V> {
+
+        public static <V extends AutomataState<V>> Reference<V> create(V state) {
+            return new Reference<V>(state);
         }
 
-        protected final AtomicReference<T> state;
+        private final AtomicReference<V> value;
 
-        protected Reference(T state) {
-            this.state = new AtomicReference<T>(checkNotNull(state));
+        protected Reference(V value) {
+            this.value = new AtomicReference<V>(checkNotNull(value));
         }
 
         @Override
-        public T get() {
-            return state.get();
+        public V get() {
+            return value.get();
         }
 
         @Override
-        public boolean set(T nextState) {
-            return (getAndSet(nextState) != null);
+        public boolean set(V value) {
+            return (getAndSet(value).isPresent());
         }
 
         @Override
-        public T getAndSet(T nextState) {
-            T prevState = get();
-            if (!compareAndSet(prevState, nextState)) {
-                return null;
+        public Optional<V> getAndSet(V value) {
+            V prevValue = get();
+            if (!compareAndSet(prevValue, checkNotNull(value))) {
+                return Optional.absent();
             }
-            return prevState;
+            return Optional.of(prevValue);
         }
 
         @Override
-        public boolean compareAndSet(T prevState, T nextState) {
-            if (!prevState.validTransition(nextState)) {
+        public boolean compareAndSet(V condition, V value) {
+            if (!checkNotNull(condition).validTransition(checkNotNull(value))) {
                 return false;
             }
-            return state.compareAndSet(prevState, nextState);
+            return this.value.compareAndSet(condition, value);
         }
     }
 
     boolean isTerminal();
 
-    boolean validTransition(T nextState);
+    boolean validTransition(V nextState);
 }

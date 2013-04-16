@@ -6,13 +6,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Creates threads with sensible names, groups them in a ThreadGroup, and logs uncaught exceptions. 
+ */
 public class VerboseThreadFactory implements ThreadFactory {
 
-    public static class VerboseThreadUncaughtExceptionHandler implements
+    public static class UncaughtExceptionHandler implements
             Thread.UncaughtExceptionHandler {
 
-        public final Logger logger = LoggerFactory
-                .getLogger(VerboseThreadUncaughtExceptionHandler.class);
+        private final Logger logger;
+        
+        public UncaughtExceptionHandler(Logger logger) {
+            this.logger = logger;
+        }
 
         @Override
         public void uncaughtException(Thread t, Throwable e) {
@@ -24,14 +30,15 @@ public class VerboseThreadFactory implements ThreadFactory {
         }
     }
 
-    protected static final AtomicInteger counter = new AtomicInteger(0);
+    private static final AtomicInteger counter = new AtomicInteger(0);
 
-    protected final Logger logger = LoggerFactory
+    private final Logger logger = LoggerFactory
             .getLogger(VerboseThreadFactory.class);
-    protected final ThreadGroup threadGroup;
+    private final ThreadGroup threadGroup;
+    private final UncaughtExceptionHandler exceptionHandler;
 
     public VerboseThreadFactory() {
-        this(null, null);
+        this(null);
     }
 
     public VerboseThreadFactory(String name) {
@@ -46,10 +53,7 @@ public class VerboseThreadFactory implements ThreadFactory {
             parent = Thread.currentThread().getThreadGroup();
         }
         threadGroup = new ThreadGroup(parent, name);
-
-        if (Thread.getDefaultUncaughtExceptionHandler() == null) {
-            Thread.setDefaultUncaughtExceptionHandler(new VerboseThreadUncaughtExceptionHandler());
-        }
+        exceptionHandler = new UncaughtExceptionHandler(logger);
     }
 
     @Override
@@ -58,7 +62,7 @@ public class VerboseThreadFactory implements ThreadFactory {
         String name = String.format("%s-%d", runnable.getClass()
                 .getSimpleName(), count);
         Thread thread = new Thread(threadGroup, runnable, name);
+        thread.setUncaughtExceptionHandler(exceptionHandler);
         return thread;
     }
-
 }

@@ -1,14 +1,16 @@
 package edu.uw.zookeeper.util;
 
+import static com.google.common.base.Preconditions.*;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class ExecutorServiceApplication implements Application {
 
-    protected final ExecutorService executor;
+    private final ExecutorService executor;
 
     public ExecutorServiceApplication(ExecutorService executor) {
-        this.executor = executor;
+        this.executor = checkNotNull(executor);
     }
 
     public ExecutorService executor() {

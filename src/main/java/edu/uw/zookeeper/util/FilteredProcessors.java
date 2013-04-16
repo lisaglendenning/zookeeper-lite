@@ -14,7 +14,7 @@ public class FilteredProcessors<T, V> implements FilteringProcessor<T, V> {
         return new FilteredProcessors<T, V>(processors);
     }
 
-    protected class Filter implements Predicate<T> {
+    private class Filter implements Predicate<T> {
         @Override
         public boolean apply(@Nullable T input) {
             for (FilteringProcessor<T, V> processor : processors) {
@@ -24,11 +24,10 @@ public class FilteredProcessors<T, V> implements FilteringProcessor<T, V> {
             }
             return false;
         }
-
     }
 
-    protected final List<FilteringProcessor<T, V>> processors;
-    protected final Filter filter;
+    private final List<FilteringProcessor<T, V>> processors;
+    private final Filter filter;
 
     public FilteredProcessors(FilteringProcessor<T, V>... processors) {
         this.processors = Lists.newArrayList(processors);
@@ -49,5 +48,4 @@ public class FilteredProcessors<T, V> implements FilteringProcessor<T, V> {
     public Predicate<? super T> filter() {
         return filter;
     }
-
 }

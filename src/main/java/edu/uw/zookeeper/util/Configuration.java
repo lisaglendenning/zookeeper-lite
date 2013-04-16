@@ -51,8 +51,8 @@ public class Configuration extends ConfigurableReference<Config> {
         
         @Override
         public Config get(Config config) {
-            if (config != defaults) {
-                config = config.withFallback(defaults);
+            if (config != defaults()) {
+                config = config.withFallback(defaults());
             }
             return config;
         }
