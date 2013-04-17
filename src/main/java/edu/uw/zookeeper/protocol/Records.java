@@ -24,8 +24,15 @@ import com.google.common.collect.Maps;
 
 import edu.uw.zookeeper.data.Operation;
 
+/**
+ * Utility functions for ZooKeeper <code>Record</code> objects and types.
+ * 
+ * @see org.apache.zookeeper.proto
+ */
 public class Records {
 
+    private Records() {}
+    
     // Used by ConnectRequest/Response
     public static final int PROTOCOL_VERSION = 0;
 
@@ -124,6 +131,8 @@ public class Records {
 
     public static class Headers {
 
+        private Headers() {}
+        
         // Used for RequestHeader/ReplyHeader
         public static final String TAG = "header";
 
@@ -154,7 +163,8 @@ public class Records {
     }
 
     public static class Requests {
-
+        private Requests() {}
+        
         // Used for Requests
         public static final String TAG = "request";
 
@@ -251,7 +261,8 @@ public class Records {
     }
 
     public static class Responses {
-
+        private Responses() {}
+        
         // Used for Responses
         public static final String TAG = "response";
 
