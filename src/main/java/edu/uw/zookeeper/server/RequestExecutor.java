@@ -22,7 +22,7 @@ import com.google.inject.Provider;
 
 import edu.uw.zookeeper.RequestExecutorService;
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.ZxidCounter;
 import edu.uw.zookeeper.data.Operation;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.event.SessionStateEvent;
@@ -41,27 +41,27 @@ public class RequestExecutor extends ForwardingEventful implements
     public static class Factory implements RequestExecutorService.Factory {
 
         public static Factory create(Provider<Eventful> eventfulFactory,
-                ExecutorService executor, SessionManager sessions, Zxid zxid) {
+                ExecutorService executor, SessionManager sessions, ZxidCounter zxid) {
             return new Factory(eventfulFactory, executor, sessions, zxid);
         }
 
         protected final Map<Long, RequestExecutorService> executors;
         protected final Provider<Eventful> eventfulFactory;
         protected final ExecutorService executor;
-        protected final Zxid zxid;
+        protected final ZxidCounter zxid;
         protected final SessionManager sessions;
         protected final RequestExecutorService anonymousExecutor;
 
         @Inject
         protected Factory(Provider<Eventful> eventfulFactory,
-                ExecutorService executor, SessionManager sessions, Zxid zxid) {
+                ExecutorService executor, SessionManager sessions, ZxidCounter zxid) {
             this(eventfulFactory, executor, sessions, zxid, Collections
                     .synchronizedMap(Maps
                             .<Long, RequestExecutorService> newHashMap()));
         }
 
         protected Factory(Provider<Eventful> eventfulFactory,
-                ExecutorService executor, SessionManager sessions, Zxid zxid,
+                ExecutorService executor, SessionManager sessions, ZxidCounter zxid,
                 Map<Long, RequestExecutorService> executors) {
             this.executors = executors;
             this.eventfulFactory = eventfulFactory;
@@ -76,7 +76,7 @@ public class RequestExecutor extends ForwardingEventful implements
             return executors;
         }
 
-        public Zxid zxid() {
+        public ZxidCounter zxid() {
             return zxid;
         }
 

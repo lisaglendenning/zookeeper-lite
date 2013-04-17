@@ -28,16 +28,15 @@ import edu.uw.zookeeper.util.Pair;
 public abstract class AbstractConnectionGroup extends AbstractIdleService
         implements ConnectionGroup, Service {
 
-    protected final Logger logger = LoggerFactory
+    private final Logger logger = LoggerFactory
             .getLogger(AbstractConnectionGroup.class);
-    protected final ConcurrentMap<Pair<SocketAddress, SocketAddress>, Connection> connections;
-    protected final Eventful eventful;
+    private final ConcurrentMap<Pair<SocketAddress, SocketAddress>, Connection> connections;
+    private final Eventful eventful;
 
     @Inject
     public AbstractConnectionGroup(Eventful eventful) {
-        this(
-                eventful,
-                Maps.<Pair<SocketAddress, SocketAddress>, Connection> newConcurrentMap());
+        this(eventful,
+             Maps.<Pair<SocketAddress, SocketAddress>, Connection> newConcurrentMap());
     }
 
     protected AbstractConnectionGroup(
@@ -54,6 +53,10 @@ public abstract class AbstractConnectionGroup extends AbstractIdleService
     protected ConcurrentMap<Pair<SocketAddress, SocketAddress>, Connection> connections() {
         return connections;
     }
+    
+    protected Logger logger() {
+        return logger;
+    }
 
     public Connection get(Pair<SocketAddress, SocketAddress> endpoints) {
         return connections().get(endpoints);
@@ -65,7 +68,7 @@ public abstract class AbstractConnectionGroup extends AbstractIdleService
     }
 
     protected Connection add(Connection connection) {
-        logger.trace("Added Connection: {}", connection);
+        logger().trace("Added Connection: {}", connection);
         Pair<SocketAddress, SocketAddress> endpoints = Pair.create(
                 connection.localAddress(), connection.remoteAddress());
         Connection prev = connections().put(endpoints, connection);
@@ -101,7 +104,11 @@ public abstract class AbstractConnectionGroup extends AbstractIdleService
         Connection connection = event.connection();
         switch (event.event()) {
         case CONNECTION_CLOSED:
-            connections().remove(connection.remoteAddress(), connection);
+            // TODO: check that when a connection closes that its addresses
+            // are still valid
+            Pair<SocketAddress, SocketAddress> endpoints = Pair.create(
+                    connection.localAddress(), connection.remoteAddress());
+            connections().remove(endpoints, connection);
             break;
         default:
             break;

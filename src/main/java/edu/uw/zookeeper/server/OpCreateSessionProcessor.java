@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import com.google.inject.Inject;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.SessionParameters;
 import edu.uw.zookeeper.data.OpCreateSessionAction;
 import edu.uw.zookeeper.data.Operation;
 import edu.uw.zookeeper.util.FilteredProcessor;
@@ -62,7 +61,7 @@ public class OpCreateSessionProcessor extends OpRequestProcessor {
         long sessionId = request.getSessionId();
         byte[] passwd = request.getPasswd();
         int timeOut = request.getTimeOut();
-        SessionParameters parameters = SessionParameters
+        Session.Parameters parameters = Session.Parameters
                 .create(timeOut, passwd);
         Session session = sessions().add(sessionId, parameters);
         sessionId = session.id();

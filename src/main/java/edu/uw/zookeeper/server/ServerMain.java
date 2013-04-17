@@ -6,7 +6,7 @@ import com.google.inject.Singleton;
 
 import edu.uw.zookeeper.RequestExecutorService;
 import edu.uw.zookeeper.ServiceMain;
-import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.ZxidCounter;
 import edu.uw.zookeeper.util.ServiceMonitor;
 
 public class ServerMain extends ServiceMain {
@@ -27,7 +27,7 @@ public class ServerMain extends ServiceMain {
     protected void configure() {
         super.configure();
         bind(Service.class).to(ServiceMonitor.class);
-        bind(Zxid.class).in(Singleton.class);
+        bind(ZxidCounter.class).in(Singleton.class);
         bind(ExpiringSessionManager.class).in(Singleton.class);
         bind(ExpireSessionsTask.class).in(Singleton.class);
         bind(SessionParametersPolicy.class).to(

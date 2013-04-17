@@ -16,7 +16,6 @@ import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigUtil;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.SessionParameters;
 import edu.uw.zookeeper.util.Configurable;
 import edu.uw.zookeeper.util.ConfigurableTime;
 import edu.uw.zookeeper.util.Configuration;
@@ -42,7 +41,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
     public final long DEFAULT_MIN_TIMEOUT = 0;
 
     public final String KEY_MAX_TIMEOUT = "MaxTimeout";
-    public final long DEFAULT_MAX_TIMEOUT = SessionParameters.NEVER_TIMEOUT;
+    public final long DEFAULT_MAX_TIMEOUT = Session.Parameters.NEVER_TIMEOUT;
 
     public final String DEFAULT_TIMEOUT_UNIT = "MILLISECONDS";
 
@@ -78,7 +77,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
             maxTimeout.get(config);
         } catch (ConfigException.Missing e) {}
         
-        if (maxTimeout().value() != SessionParameters.NEVER_TIMEOUT) {
+        if (maxTimeout().value() != Session.Parameters.NEVER_TIMEOUT) {
             checkArgument(minTimeout().value() <= maxTimeout().value());
         }
     }
@@ -86,7 +85,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
     @Override
     public byte[] newPassword(long seed) {
         Random r = new Random(seed ^ SECRET);
-        byte p[] = new byte[SessionParameters.PASSWORD_LENGTH];
+        byte p[] = new byte[Session.Parameters.PASSWORD_LENGTH];
         r.nextBytes(p);
         return p;
     }
@@ -119,7 +118,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
     @Override
     public TimeValue boundTimeout(TimeValue timeOut) {
         TimeValue maxTimeout = maxTimeout();
-        if (maxTimeout.value() != SessionParameters.NEVER_TIMEOUT
+        if (maxTimeout.value() != Session.Parameters.NEVER_TIMEOUT
                 && maxTimeout.value() < timeOut.value(maxTimeout.unit())) {
             timeOut = maxTimeout;
         } else {

@@ -13,7 +13,7 @@ import com.google.common.base.Function;
 import com.google.inject.Inject;
 
 import edu.uw.zookeeper.SessionConnectionState;
-import edu.uw.zookeeper.Xid;
+import edu.uw.zookeeper.XidCounter;
 import edu.uw.zookeeper.data.OpCallResult;
 import edu.uw.zookeeper.data.OpResult;
 import edu.uw.zookeeper.data.Operation;
@@ -30,7 +30,7 @@ public class SessionStateDecoder implements
         return new SessionStateDecoder(eventful);
     }
 
-    public static SessionStateDecoder create(Eventful eventful, Xid xid) {
+    public static SessionStateDecoder create(Eventful eventful, XidCounter xid) {
         return new SessionStateDecoder(eventful, xid);
     }
 
@@ -72,19 +72,19 @@ public class SessionStateDecoder implements
     protected final Function<Integer, Operation> xidToOp;
 
     protected SessionStateDecoder(Eventful eventful) {
-        this(eventful, Xid.create());
+        this(eventful, XidCounter.create());
     }
 
     @Inject
-    protected SessionStateDecoder(Eventful eventful, Xid xid) {
+    protected SessionStateDecoder(Eventful eventful, XidCounter xid) {
         this(SessionConnectionState.create(eventful), xid);
     }
 
-    protected SessionStateDecoder(SessionConnectionState state, Xid xid) {
+    protected SessionStateDecoder(SessionConnectionState state, XidCounter xid) {
         this(state, xid, new LinkedList<Operation.Request>());
     }
 
-    protected SessionStateDecoder(SessionConnectionState state, Xid xid,
+    protected SessionStateDecoder(SessionConnectionState state, XidCounter xid,
             Queue<Operation.Request> requests) {
         super();
         this.requests = requests;

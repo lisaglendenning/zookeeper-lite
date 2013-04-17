@@ -1,6 +1,6 @@
 package edu.uw.zookeeper.protocol.server;
 
-import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.ZxidCounter;
 import edu.uw.zookeeper.data.OpCallResponse;
 import edu.uw.zookeeper.data.OpCallResult;
 import edu.uw.zookeeper.data.Operation;
@@ -10,20 +10,20 @@ public class GetZxidProcessor implements
         Processor<Operation.Response, Operation.Response> {
 
     public static GetZxidProcessor create() {
-        return new GetZxidProcessor(Zxid.create());
+        return new GetZxidProcessor(ZxidCounter.create());
     }
 
-    public static GetZxidProcessor create(Zxid zxid) {
+    public static GetZxidProcessor create(ZxidCounter zxid) {
         return new GetZxidProcessor(zxid);
     }
 
-    protected final Zxid zxid;
+    protected final ZxidCounter zxid;
 
-    protected GetZxidProcessor(Zxid zxid) {
+    protected GetZxidProcessor(ZxidCounter zxid) {
         this.zxid = zxid;
     }
 
-    public Zxid zxid() {
+    public ZxidCounter zxid() {
         return zxid;
     }
 

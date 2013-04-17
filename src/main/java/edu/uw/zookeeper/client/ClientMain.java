@@ -6,7 +6,7 @@ import com.google.inject.Singleton;
 
 import edu.uw.zookeeper.Connection;
 import edu.uw.zookeeper.ServiceMain;
-import edu.uw.zookeeper.Xid;
+import edu.uw.zookeeper.XidCounter;
 import edu.uw.zookeeper.protocol.client.PingSessionsTask;
 import edu.uw.zookeeper.util.ServiceMonitor;
 
@@ -27,7 +27,7 @@ public class ClientMain extends ServiceMain {
     @Override
     protected void configure() {
         super.configure();
-        bind(Xid.class).in(Singleton.class);
+        bind(XidCounter.class).in(Singleton.class);
         bind(SingleClientConnectionFactory.class).asEagerSingleton();
         bind(ClientSessionConnection.ConnectionFactory.class).in(
                 Singleton.class);

@@ -16,7 +16,7 @@ import org.apache.zookeeper.proto.ConnectResponse;
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.SessionParameters;
+import edu.uw.zookeeper.Session.Parameters;
 import edu.uw.zookeeper.protocol.Records;
 
 public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C, T>, T extends Record>
@@ -127,6 +127,17 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C, T
             }
             return this;
         }
+        
+        public Session.Parameters toParameters() {
+            ConnectResponse response = record();
+            return Session.Parameters.create(response.getTimeOut(),
+                    response.getPasswd());
+        }
+        
+        public Session toSession() {
+            return Session.create(record().getSessionId(),
+                    toParameters());
+        }
     }
 
     public static class InvalidResponse extends Response implements
@@ -136,7 +147,7 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C, T
             ConnectResponse record = Response.createRecord();
             record.setSessionId(Session.UNINITIALIZED_ID);
             record.setTimeOut(0);
-            record.setPasswd(SessionParameters.NO_PASSWORD);
+            record.setPasswd(Parameters.NO_PASSWORD);
             return record;
         }
 
@@ -235,7 +246,7 @@ public abstract class OpCreateSessionAction<C extends OpCreateSessionAction<C, T
         setReadOnly(readOnly);
         return (C) this;
     }
-
+    
     @Override
     public String toString() {
         return Objects.toStringHelper(this).add("operation", operation())

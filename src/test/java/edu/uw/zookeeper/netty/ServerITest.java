@@ -32,8 +32,8 @@ import edu.uw.zookeeper.EventSink;
 import edu.uw.zookeeper.RequestExecutorService;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionConnection;
-import edu.uw.zookeeper.Xid;
-import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.XidCounter;
+import edu.uw.zookeeper.ZxidCounter;
 import edu.uw.zookeeper.client.ClientConnectionGroup;
 import edu.uw.zookeeper.client.ClientSessionConnection;
 import edu.uw.zookeeper.data.Operation;
@@ -95,7 +95,7 @@ public class ServerITest {
             bind(ServiceMonitor.class).in(Singleton.class);
 
             // server
-            bind(Zxid.class).in(Singleton.class);
+            bind(ZxidCounter.class).in(Singleton.class);
             bind(SessionParametersPolicy.class).to(
                     DefaultSessionParametersPolicy.class).in(Singleton.class);
             bind(ExpiringSessionManager.class).in(Singleton.class);
@@ -108,7 +108,7 @@ public class ServerITest {
             bind(ConnectionManager.class).asEagerSingleton();
 
             // client
-            bind(Xid.class).in(Singleton.class);
+            bind(XidCounter.class).in(Singleton.class);
             bind(ChannelClientConnectionGroup.class).in(Singleton.class);
             bind(ClientConnection.Factory.class).in(Singleton.class);
             bind(ClientSessionConnection.Factory.class).in(Singleton.class);

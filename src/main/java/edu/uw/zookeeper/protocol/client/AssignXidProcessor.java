@@ -1,6 +1,6 @@
 package edu.uw.zookeeper.protocol.client;
 
-import edu.uw.zookeeper.Xid;
+import edu.uw.zookeeper.XidCounter;
 import edu.uw.zookeeper.data.OpCallRequest;
 import edu.uw.zookeeper.data.Operation;
 import edu.uw.zookeeper.util.Processor;
@@ -9,20 +9,20 @@ public class AssignXidProcessor implements
         Processor<Operation.Request, Operation.Request> {
 
     public static AssignXidProcessor create() {
-        return new AssignXidProcessor(Xid.create());
+        return new AssignXidProcessor(XidCounter.create());
     }
 
-    public static AssignXidProcessor create(Xid xid) {
+    public static AssignXidProcessor create(XidCounter xid) {
         return new AssignXidProcessor(xid);
     }
 
-    protected final Xid xid;
+    protected final XidCounter xid;
 
-    protected AssignXidProcessor(Xid xid) {
+    protected AssignXidProcessor(XidCounter xid) {
         this.xid = xid;
     }
 
-    public Xid xid() {
+    public XidCounter xid() {
         return xid;
     }
 

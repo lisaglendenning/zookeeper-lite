@@ -18,8 +18,8 @@ import com.google.inject.Singleton;
 import edu.uw.zookeeper.Connection;
 import edu.uw.zookeeper.EventSink;
 import edu.uw.zookeeper.SessionConnection;
-import edu.uw.zookeeper.Xid;
-import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.XidCounter;
+import edu.uw.zookeeper.ZxidCounter;
 import edu.uw.zookeeper.client.ClientConnectionGroup;
 import edu.uw.zookeeper.data.OpCreateSessionAction;
 import edu.uw.zookeeper.data.Operation;
@@ -58,8 +58,8 @@ public class ChannelServerConnectionGroupITest {
         protected void configure() {
             super.configure();
             bind(Eventful.class).to(EventfulEventBus.class);
-            bind(Xid.class).in(Singleton.class);
-            bind(Zxid.class).in(Singleton.class);
+            bind(XidCounter.class).in(Singleton.class);
+            bind(ZxidCounter.class).in(Singleton.class);
             bind(ServerConnectionGroup.class).to(
                     ChannelServerConnectionGroup.class);
             bind(ClientConnectionGroup.class).to(

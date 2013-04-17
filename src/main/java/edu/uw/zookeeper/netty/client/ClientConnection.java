@@ -9,7 +9,7 @@ import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
-import edu.uw.zookeeper.Xid;
+import edu.uw.zookeeper.XidCounter;
 import edu.uw.zookeeper.netty.ChannelConnection;
 import edu.uw.zookeeper.netty.protocol.BufEventDecoder;
 import edu.uw.zookeeper.netty.protocol.BufEventEncoder;
@@ -29,15 +29,15 @@ public class ClientConnection extends ChannelConnection {
     public static class Factory implements
             ChannelConnection.Factory<ClientConnection> {
 
-        public static Factory get(Provider<Eventful> eventfulFactory, Xid xid) {
+        public static Factory get(Provider<Eventful> eventfulFactory, XidCounter xid) {
             return new Factory(eventfulFactory, xid);
         }
 
-        protected Xid xid;
+        protected XidCounter xid;
         protected Provider<Eventful> eventfulFactory;
 
         @Inject
-        protected Factory(Provider<Eventful> eventfulFactory, Xid xid) {
+        protected Factory(Provider<Eventful> eventfulFactory, XidCounter xid) {
             this.xid = xid;
             this.eventfulFactory = eventfulFactory;
         }
@@ -49,11 +49,11 @@ public class ClientConnection extends ChannelConnection {
     }
 
     public static ClientConnection create(Channel channel,
-            Provider<Eventful> eventfulFactory, Xid xid) {
+            Provider<Eventful> eventfulFactory, XidCounter xid) {
         return new ClientConnection(channel, eventfulFactory, xid);
     }
 
-    protected static List<ChannelHandler> pipeline(Eventful eventful, Xid xid) {
+    protected static List<ChannelHandler> pipeline(Eventful eventful, XidCounter xid) {
         List<ChannelHandler> pipeline = Lists.<ChannelHandler> newArrayList(
                 BufEventEncoder.create(), BufEventDecoder.create(),
                 HeaderEventEncoder.create(), HeaderEventDecoder.create(),
@@ -69,7 +69,7 @@ public class ClientConnection extends ChannelConnection {
 
     @Inject
     protected ClientConnection(Channel channel,
-            Provider<Eventful> eventfulFactory, Xid xid) {
+            Provider<Eventful> eventfulFactory, XidCounter xid) {
         super(channel, eventfulFactory);
 
         String name = channel.pipeline().context(channel.pipeline().first())

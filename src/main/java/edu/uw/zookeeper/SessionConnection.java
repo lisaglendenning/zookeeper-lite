@@ -2,7 +2,7 @@ package edu.uw.zookeeper;
 
 import edu.uw.zookeeper.util.AutomataState;
 
-// TODO
+// TODO: better name
 public interface SessionConnection {
 
     public static enum State implements AutomataState<State> {

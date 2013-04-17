@@ -13,7 +13,6 @@ import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.SessionParameters;
 import edu.uw.zookeeper.event.SessionStateEvent;
 import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.ForwardingEventful;
@@ -54,14 +53,14 @@ public class SessionManager extends ForwardingEventful implements
         long id = policy.newSessionId();
         TimeValue timeOut = policy.maxTimeout();
         byte[] passwd = policy.newPassword(id);
-        SessionParameters parameters = SessionParameters.create(timeOut,
+        Session.Parameters parameters = Session.Parameters.create(timeOut,
                 passwd);
         Session session = newSession(id, parameters);
         post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
         return session;
     }
 
-    public Session add(long id, SessionParameters parameters) {
+    public Session add(long id, Session.Parameters parameters) {
         checkNotNull(parameters);
         Session session = get(id);
         if (session == null) {
@@ -73,7 +72,7 @@ public class SessionManager extends ForwardingEventful implements
         return session;
     }
 
-    public Session add(SessionParameters parameters) {
+    public Session add(Session.Parameters parameters) {
         Session session = newSession(checkNotNull(parameters));
         post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
         return session;
@@ -95,15 +94,15 @@ public class SessionManager extends ForwardingEventful implements
         return session;
     }
 
-    protected Session newSession(SessionParameters parameters) {
+    protected Session newSession(Session.Parameters parameters) {
         long id = policy.newSessionId();
         TimeValue timeOut = policy.boundTimeout(parameters.timeOut());
         byte[] passwd = policy.newPassword(id);
-        parameters = SessionParameters.create(timeOut, passwd);
+        parameters = Session.Parameters.create(timeOut, passwd);
         return newSession(id, parameters);
     }
 
-    protected Session newSession(long id, SessionParameters parameters) {
+    protected Session newSession(long id, Session.Parameters parameters) {
         Session session = Session.create(id, parameters);
         Session prev = sessions.put(id, session);
         assert (prev == null);

@@ -13,7 +13,7 @@ import edu.uw.zookeeper.RequestExecutorService;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionConnection;
 import edu.uw.zookeeper.SessionConnectionState;
-import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.ZxidCounter;
 import edu.uw.zookeeper.data.Operation;
 import edu.uw.zookeeper.event.SessionConnectionStateEvent;
 import edu.uw.zookeeper.util.Eventful;
@@ -30,13 +30,13 @@ public class SessionRequestExecutor extends RequestExecutor implements
     public static class Factory extends RequestExecutor.Factory {
 
         public static Factory create(Provider<Eventful> eventfulFactory,
-                ExecutorService executor, SessionManager sessions, Zxid zxid) {
+                ExecutorService executor, SessionManager sessions, ZxidCounter zxid) {
             return new Factory(eventfulFactory, executor, sessions, zxid);
         }
 
         @Inject
         protected Factory(Provider<Eventful> eventfulFactory,
-                ExecutorService executor, SessionManager sessions, Zxid zxid) {
+                ExecutorService executor, SessionManager sessions, ZxidCounter zxid) {
             super(eventfulFactory, executor, sessions, zxid);
         }
 

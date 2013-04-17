@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 import com.google.inject.Inject;
 
 import edu.uw.zookeeper.SessionConnectionState;
-import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.ZxidCounter;
 import edu.uw.zookeeper.data.Operation;
 import edu.uw.zookeeper.protocol.Decoder;
 import edu.uw.zookeeper.util.Eventful;
@@ -19,7 +19,7 @@ public class SessionStateDecoder implements
         Processor<Operation.Response, Operation.Response>,
         Decoder<Operation.Request> {
 
-    public static SessionStateDecoder create(Zxid zxid, Eventful eventful) {
+    public static SessionStateDecoder create(ZxidCounter zxid, Eventful eventful) {
         return new SessionStateDecoder(zxid, eventful);
     }
 
@@ -30,11 +30,11 @@ public class SessionStateDecoder implements
     protected final SessionStateRequestDecoder decoder;
 
     @Inject
-    protected SessionStateDecoder(Zxid zxid, Eventful eventful) {
+    protected SessionStateDecoder(ZxidCounter zxid, Eventful eventful) {
         this(zxid, SessionConnectionState.create(eventful));
     }
 
-    protected SessionStateDecoder(Zxid zxid, SessionConnectionState state) {
+    protected SessionStateDecoder(ZxidCounter zxid, SessionConnectionState state) {
         super();
         this.state = state;
         this.decoder = SessionStateRequestDecoder.create(state);

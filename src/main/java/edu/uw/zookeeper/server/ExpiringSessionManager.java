@@ -14,7 +14,6 @@ import com.google.common.eventbus.Subscribe;
 import com.google.inject.Inject;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.SessionParameters;
 import edu.uw.zookeeper.event.SessionStateEvent;
 import edu.uw.zookeeper.util.Eventful;
 
@@ -57,7 +56,7 @@ public class ExpiringSessionManager extends SessionManager {
 
     protected boolean touch(Session session, long timestamp) {
         long sessionId = session.id();
-        if (session.parameters().timeOut().value() != SessionParameters.NEVER_TIMEOUT) {
+        if (session.parameters().timeOut().value() != Session.Parameters.NEVER_TIMEOUT) {
             synchronized (sessions) {
                 if (sessions.containsKey(sessionId)) {
                     touches.put(sessionId, timestamp);
@@ -96,7 +95,7 @@ public class ExpiringSessionManager extends SessionManager {
                 long touch = touches.get(entry.getKey());
                 long timeOut = timestampUnit.convert(session.parameters()
                         .timeOut().value(), session.parameters().timeOut().unit());
-                assert (timeOut != SessionParameters.NEVER_TIMEOUT);
+                assert (timeOut != Session.Parameters.NEVER_TIMEOUT);
                 long expires = touch + timeOut;
                 if (expires < timestamp) {
                     expired.add(id);

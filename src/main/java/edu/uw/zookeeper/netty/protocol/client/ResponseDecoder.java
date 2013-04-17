@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 import com.google.inject.Inject;
 
 import edu.uw.zookeeper.SessionConnectionState;
-import edu.uw.zookeeper.Xid;
+import edu.uw.zookeeper.XidCounter;
 import edu.uw.zookeeper.data.Operation;
 import edu.uw.zookeeper.netty.protocol.BufEvent;
 import edu.uw.zookeeper.protocol.client.SessionStateDecoder;
@@ -31,7 +31,7 @@ public class ResponseDecoder extends
     public static final AttributeKey<SessionConnectionState> STATE_ATTRIBUTE_KEY = new AttributeKey<SessionConnectionState>(
             STATE_ATTRIBUTE_NAME);
 
-    public static ResponseDecoder create(Xid xid, Eventful eventful) {
+    public static ResponseDecoder create(XidCounter xid, Eventful eventful) {
         return new ResponseDecoder(xid, eventful);
     }
 
@@ -40,7 +40,7 @@ public class ResponseDecoder extends
     protected final SessionStateDecoder decoder;
 
     @Inject
-    protected ResponseDecoder(Xid xid, Eventful eventful) {
+    protected ResponseDecoder(XidCounter xid, Eventful eventful) {
         this.decoder = SessionStateDecoder.create(eventful, xid);
     }
 

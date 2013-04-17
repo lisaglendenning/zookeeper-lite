@@ -10,7 +10,7 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 
 import edu.uw.zookeeper.SessionConnection;
-import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.ZxidCounter;
 import edu.uw.zookeeper.netty.ChannelConnection;
 import edu.uw.zookeeper.netty.protocol.AnonymousHandler;
 import edu.uw.zookeeper.netty.protocol.BufEventDecoder;
@@ -33,15 +33,15 @@ public class ServerConnection extends ChannelConnection {
     public static class Factory implements
             ChannelConnection.Factory<ServerConnection> {
 
-        public static Factory get(Provider<Eventful> eventfulFactory, Zxid zxid) {
+        public static Factory get(Provider<Eventful> eventfulFactory, ZxidCounter zxid) {
             return new Factory(eventfulFactory, zxid);
         }
 
-        protected Zxid zxid;
+        protected ZxidCounter zxid;
         protected Provider<Eventful> eventfulFactory;
 
         @Inject
-        protected Factory(Provider<Eventful> eventfulFactory, Zxid zxid) {
+        protected Factory(Provider<Eventful> eventfulFactory, ZxidCounter zxid) {
             this.zxid = zxid;
             this.eventfulFactory = eventfulFactory;
         }
@@ -53,7 +53,7 @@ public class ServerConnection extends ChannelConnection {
     }
 
     public static ServerConnection create(Channel channel,
-            Provider<Eventful> eventfulFactory, Zxid zxid) {
+            Provider<Eventful> eventfulFactory, ZxidCounter zxid) {
         return new ServerConnection(channel, eventfulFactory, zxid);
     }
 
@@ -68,7 +68,7 @@ public class ServerConnection extends ChannelConnection {
      * ctx.pipeline().fireInboundBufferUpdated(); return null; } }
      */
 
-    protected static List<ChannelHandler> pipeline(Eventful eventful, Zxid zxid) {
+    protected static List<ChannelHandler> pipeline(Eventful eventful, ZxidCounter zxid) {
         return Lists.<ChannelHandler> newArrayList(BufEventEncoder.create(),
                 BufEventDecoder.create(), FourLetterCommandDecoder.create(),
                 FourLetterCommandResponseEncoder.create(),
@@ -84,7 +84,7 @@ public class ServerConnection extends ChannelConnection {
 
     @Inject
     protected ServerConnection(Channel channel,
-            Provider<Eventful> eventfulFactory, Zxid zxid) {
+            Provider<Eventful> eventfulFactory, ZxidCounter zxid) {
         super(channel, eventfulFactory);
 
         channel.config().setAutoRead(false);

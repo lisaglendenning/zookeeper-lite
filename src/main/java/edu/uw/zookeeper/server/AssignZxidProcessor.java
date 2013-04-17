@@ -3,7 +3,7 @@ package edu.uw.zookeeper.server;
 
 import com.google.inject.Inject;
 
-import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.ZxidCounter;
 import edu.uw.zookeeper.data.OpCallResponse;
 import edu.uw.zookeeper.data.Operation;
 import edu.uw.zookeeper.util.FilteredProcessor;
@@ -14,20 +14,20 @@ public class AssignZxidProcessor implements
         Processor<Operation.Response, Operation.Response> {
 
     public static FilteringProcessor<Operation.Response, Operation.Response> create(
-            Zxid zxid) {
+            ZxidCounter zxid) {
         return FilteredProcessor.create(OpRequestProcessor.NotEqualsFilter
                 .create(Operation.CREATE_SESSION),
                 new AssignZxidProcessor(zxid));
     }
 
-    protected final Zxid zxid;
+    protected final ZxidCounter zxid;
 
     @Inject
-    protected AssignZxidProcessor(Zxid zxid) {
+    protected AssignZxidProcessor(ZxidCounter zxid) {
         this.zxid = zxid;
     }
 
-    public Zxid zxid() {
+    public ZxidCounter zxid() {
         return zxid;
     }
 

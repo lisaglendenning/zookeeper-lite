@@ -23,8 +23,7 @@ import edu.uw.zookeeper.RequestExecutorService;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionConnection;
 import edu.uw.zookeeper.SessionConnectionState;
-import edu.uw.zookeeper.SessionParameters;
-import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.ZxidCounter;
 import edu.uw.zookeeper.data.OpCallResult;
 import edu.uw.zookeeper.data.OpCreateSessionAction;
 import edu.uw.zookeeper.data.OpResult;
@@ -120,14 +119,14 @@ public class ClientSessionConnection extends ForwardingEventful implements
 
     public static ClientSessionConnection create(Connection connection,
             Provider<Eventful> eventfulFactory, ConfigurableTime timeOut,
-            Zxid zxid) {
+            ZxidCounter zxid) {
         return new ClientSessionConnection(connection, eventfulFactory,
                 timeOut, zxid);
     }
 
     public static ClientSessionConnection create(Connection connection,
             Provider<Eventful> eventfulFactory, ConfigurableTime timeOut,
-            Zxid zxid, Session session) {
+            ZxidCounter zxid, Session session) {
         return new ClientSessionConnection(connection, eventfulFactory,
                 timeOut, zxid, session);
     }
@@ -138,24 +137,24 @@ public class ClientSessionConnection extends ForwardingEventful implements
     protected final Connection connection;
     protected final SessionConnectionState state;
     protected final ConfigurableTime timeOut;
-    protected final Zxid zxid;
+    protected final ZxidCounter zxid;
     protected final BlockingQueue<SettableTask<Operation.Request, Operation.Result>> tasks;
 
     @Inject
     protected ClientSessionConnection(Connection connection,
             Provider<Eventful> eventfulFactory, ConfigurableTime timeOut) {
-        this(connection, eventfulFactory, timeOut, Zxid.create());
+        this(connection, eventfulFactory, timeOut, ZxidCounter.create());
     }
 
     protected ClientSessionConnection(Connection connection,
             Provider<Eventful> eventfulFactory, ConfigurableTime timeOut,
-            Zxid zxid) {
+            ZxidCounter zxid) {
         this(connection, eventfulFactory, timeOut, zxid, Session.create());
     }
 
     protected ClientSessionConnection(Connection connection,
             Provider<Eventful> eventfulFactory, ConfigurableTime timeOut,
-            Zxid zxid, Session session) {
+            ZxidCounter zxid, Session session) {
         super(eventfulFactory.get());
         this.session = checkNotNull(session);
         this.timeOut = checkNotNull(timeOut);
@@ -207,7 +206,7 @@ public class ClientSessionConnection extends ForwardingEventful implements
             request.setPasswd(session().parameters().password());
         } else {
             request.setSessionId(Session.UNINITIALIZED_ID);
-            request.setPasswd(SessionParameters.NO_PASSWORD);
+            request.setPasswd(Session.Parameters.NO_PASSWORD);
         }
 
         return send(message);
@@ -320,7 +319,7 @@ public class ClientSessionConnection extends ForwardingEventful implements
         case CREATE_SESSION: {
             if (!(response instanceof Operation.Error)) {
                 OpCreateSessionAction.Response opResponse = (OpCreateSessionAction.Response) response;
-                this.session = Session.create(opResponse);
+                this.session = opResponse.toSession();
                 this.state.set(SessionConnection.State.CONNECTED);
             }
             break;

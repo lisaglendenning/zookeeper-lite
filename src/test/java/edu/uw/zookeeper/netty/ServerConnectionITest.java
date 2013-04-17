@@ -30,8 +30,8 @@ import com.google.inject.Provides;
 import edu.uw.zookeeper.Connection;
 import edu.uw.zookeeper.EventSink;
 import edu.uw.zookeeper.SessionConnection;
-import edu.uw.zookeeper.Xid;
-import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.XidCounter;
+import edu.uw.zookeeper.ZxidCounter;
 import edu.uw.zookeeper.data.OpCreateSessionAction;
 import edu.uw.zookeeper.data.OpPingAction;
 import edu.uw.zookeeper.data.OpResult;
@@ -77,13 +77,13 @@ public class ServerConnectionITest extends TestEmbeddedChannels {
         }
 
         @Provides
-        public Xid xid() {
-            return Xid.create();
+        public XidCounter xid() {
+            return XidCounter.create();
         }
 
         @Provides
-        public Zxid zxid() {
-            return Zxid.create();
+        public ZxidCounter zxid() {
+            return ZxidCounter.create();
         }
     }
 
