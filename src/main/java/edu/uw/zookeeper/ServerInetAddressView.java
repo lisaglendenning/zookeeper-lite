@@ -7,16 +7,18 @@ import java.net.InetSocketAddress;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
-public class ServerInetView extends ServerNetView<InetSocketAddress> {
+import edu.uw.zookeeper.util.Factories;
+
+public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAddress> implements ServerView.Address<InetSocketAddress> {
 
     public static final char TOKEN_SEP = ':';
 
-    public static String toString(ServerInetView input) {
+    public static String toString(ServerInetAddressView input) {
         InetSocketAddress address = checkNotNull(input).get();
         return String.format("%s%c%d", address.getHostName(), TOKEN_SEP, address.getPort());
     }
 
-    public static ServerInetView fromString(String input)
+    public static ServerInetAddressView fromString(String input)
             throws IllegalArgumentException {
         checkNotNull(input);
         Splitter splitter = Splitter.on(TOKEN_SEP).trimResults().limit(2);
@@ -35,21 +37,21 @@ public class ServerInetView extends ServerNetView<InetSocketAddress> {
     /**
      * Wild-card address and ephemeral port.
      */
-    public static ServerInetView newInstance() {
+    public static ServerInetAddressView newInstance() {
         return newInstance(0);
     }
 
     /**
      * Wild-card address.
      */
-    public static ServerInetView newInstance(int port) {
+    public static ServerInetAddressView newInstance(int port) {
         return newInstance(new InetSocketAddress(port));
     }
 
     /**
      * Zero-length hostname is interpreted as the wild-card address.
      */
-    public static ServerInetView newInstance(String host, int port) {
+    public static ServerInetAddressView newInstance(String host, int port) {
         if (checkNotNull(host).length() == 0) {
             return newInstance(port);
         } else {
@@ -57,15 +59,15 @@ public class ServerInetView extends ServerNetView<InetSocketAddress> {
         }
     }
 
-    public static ServerInetView newInstance(InetAddress addr, int port) {
+    public static ServerInetAddressView newInstance(InetAddress addr, int port) {
         return newInstance(new InetSocketAddress(addr, port));
     }
 
-    public static ServerInetView newInstance(InetSocketAddress address) {
-        return new ServerInetView(address);
+    public static ServerInetAddressView newInstance(InetSocketAddress address) {
+        return new ServerInetAddressView(address);
     }
     
-    public ServerInetView(InetSocketAddress address) {
+    private ServerInetAddressView(InetSocketAddress address) {
         super(address);
     }
 }

@@ -2,6 +2,7 @@ package edu.uw.zookeeper;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -306,7 +307,8 @@ public abstract class AbstractMain implements Runnable {
         
         @Override
         public EnsembleView get() {
-            ServerInetView localhost = ServerInetView.newInstance(DEFAULT_ADDRESS, DEFAULT_PORT);
+            ServerView.Address<InetSocketAddress> localhost = ServerInetAddressView.newInstance(
+                    DEFAULT_ADDRESS, DEFAULT_PORT);
             return EnsembleView.of(ServerQuorumView.newInstance(localhost));
         }
 

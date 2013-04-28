@@ -4,6 +4,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Map;
 
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 
 public abstract class Factories {
@@ -70,6 +72,11 @@ public abstract class Factories {
         public T get() {
             return value;
         }
+
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).addValue(get()).toString();
+        }
     }
 
     public static class LazyHolder<T> implements Singleton<T> {
@@ -79,11 +86,11 @@ public abstract class Factories {
         }
         
         protected final Factory<? extends T> factory;
-        protected T instance;
+        protected Optional<T> instance;
         
         protected LazyHolder(Factory<? extends T> factory) {
             this.factory = factory;
-            this.instance = null;
+            this.instance = Optional.<T>absent();
         }
         
         /**
@@ -91,10 +98,15 @@ public abstract class Factories {
          */
         @Override
         public T get() {
-            if (instance == null) {
-                instance = factory.get();
+            if (! instance.isPresent()) {
+                instance = Optional.<T>of(factory.get());
             }
-            return instance;
+            return instance.get();
+        }
+
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).addValue(instance).toString();
         }
     }
 

@@ -43,7 +43,7 @@ public class ServerViewFactory extends NewClientProtocolExecutorFactory {
             ParameterizedFactory<Connection, ? extends ClientCodecConnection> codecFactory,
             ServerQuorumView view,
             TimeValue timeOut) {
-        SocketAddress address = view.asNetView().get();
+        SocketAddress address = view.asAddress().get();
         Factory<Connection> connectionFactory = FixedClientConnectionFactory.newInstance(
                 address, connections);
         ZxidTracker tracker = ZxidTracker.create();
