@@ -67,7 +67,7 @@ public class ChannelServerConnectionFactory extends ChannelConnectionFactory
     
     public static class ParameterizedServerFactoryBuilder extends FactoryBuilder implements ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory> {
 
-        public static ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory> create(
+        public static ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory> newInstance(
                 Factory<Publisher> publisherFactory,
                 ParameterizedFactory<Channel, ChannelConnection> connectionFactory,
                 ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory) {

@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.netty.server;
 
+import java.net.SocketAddress;
 import java.util.concurrent.ThreadFactory;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -9,6 +10,7 @@ import edu.uw.zookeeper.netty.MonitoredEventLoopGroupFactory;
 import edu.uw.zookeeper.netty.SimpleServerBootstrapFactory;
 import edu.uw.zookeeper.netty.nio.NioServerChannelTypeFactory;
 import edu.uw.zookeeper.netty.nio.NioEventLoopGroupFactory;
+import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.ServiceMonitor;
@@ -16,6 +18,28 @@ import edu.uw.zookeeper.util.Singleton;
 
 public class NioServerBootstrapFactory implements Factory<ServerBootstrap> {
 
+    public static class ParameterizedDecorator implements DefaultsFactory<SocketAddress, ServerBootstrap> {
+        public static ParameterizedDecorator newInstance(Factory<ServerBootstrap> delegate) {
+            return new ParameterizedDecorator(delegate);
+        }
+        
+        private final Factory<ServerBootstrap> delegate;
+        
+        private ParameterizedDecorator(Factory<ServerBootstrap> delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public ServerBootstrap get() {
+            return delegate.get();
+        }
+
+        @Override
+        public ServerBootstrap get(SocketAddress value) {
+            return get().localAddress(value);
+        }
+    }
+    
     public static NioServerBootstrapFactory newInstance(
             Factory<ThreadFactory> threadFactory,
             ServiceMonitor serviceMonitor) {

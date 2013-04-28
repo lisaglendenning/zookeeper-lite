@@ -4,7 +4,6 @@ package edu.uw.zookeeper.client;
 import com.google.common.util.concurrent.Service;
 import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
-import edu.uw.zookeeper.ConfigurableEnsembleViewFactory;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
@@ -16,8 +15,8 @@ import edu.uw.zookeeper.util.BackgroundServiceApplication;
 import edu.uw.zookeeper.util.ConfigurableTime;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.DefaultsFactory;
+import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.LazyHolder;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.ServiceApplication;
 import edu.uw.zookeeper.util.Singleton;
@@ -68,10 +67,12 @@ public abstract class ClientMain extends AbstractMain {
     
     protected ClientMain(Configuration configuration) {
         super(configuration);
-        this.application = LazyHolder.newInstance(new Factory<Application>() {
+        this.application = Factories.lazyFrom(new Factory<Application>() {
             @Override
             public Application get() {
-                ClientConnectionFactory connections = connections();
+                ParameterizedFactory<Service, Service> monitorsFactory = monitors(serviceMonitor());
+
+                ClientConnectionFactory connections = (ClientConnectionFactory) Factories.apply(connections(), monitorsFactory);
 
                 TimeValue timeOut = TimeoutFactory.newInstance().get(configuration());
                 EnsembleView ensemble = ConfigurableEnsembleViewFactory.newInstance().get(configuration());
@@ -95,5 +96,5 @@ public abstract class ClientMain extends AbstractMain {
         return application.get();
     }
     
-    protected abstract ClientConnectionFactory connections();
+    protected abstract Factory<? extends ClientConnectionFactory> connections();
 }

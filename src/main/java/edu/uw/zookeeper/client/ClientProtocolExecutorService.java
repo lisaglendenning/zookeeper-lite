@@ -10,8 +10,8 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.Operation.SessionReply;
 import edu.uw.zookeeper.protocol.Operation.SessionRequest;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
+import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.LazyHolder;
 import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Singleton;
 
@@ -27,13 +27,13 @@ public class ClientProtocolExecutorService extends AbstractIdleService implement
     }
     
     protected final Processor<Operation.Request, Operation.SessionRequest> processor;
-    protected final LazyHolder<ClientProtocolExecutor> client;
+    protected final Singleton<ClientProtocolExecutor> client;
     
     protected ClientProtocolExecutorService(
             Processor<Operation.Request, Operation.SessionRequest> processor,
             Factory<ClientProtocolExecutor> clientFactory) {
         this.processor = processor;
-        this.client = LazyHolder.newInstance(clientFactory);
+        this.client = Factories.lazyFrom(clientFactory);
     }
     
     @Override
