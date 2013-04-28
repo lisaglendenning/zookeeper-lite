@@ -1,28 +1,28 @@
 package edu.uw.zookeeper.event;
 
 
+import io.netty.buffer.ByteBuf;
+
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.Connection;
-import edu.uw.zookeeper.SessionConnection;
-import edu.uw.zookeeper.Connection.State;
-import edu.uw.zookeeper.util.Pair;
+import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.util.AbstractPair;
+import edu.uw.zookeeper.util.AutomatonTransition;
 
-public class ConnectionEventValue<T> extends Pair<Connection, T> implements
+public abstract class ConnectionEventValue<T> extends AbstractPair<Connection, T> implements
         ConnectionEvent {
 
     @SuppressWarnings("unchecked")
-    public static <T> ConnectionEventValue<T> create(Connection connection,
-            T event) {
-        ConnectionEventValue<T> connectionEvent = null;
-        if (event instanceof Connection.State) {
-            connectionEvent = (ConnectionEventValue<T>) ConnectionStateEvent
-                    .create(connection, (Connection.State) event);
-        } else if (event instanceof SessionConnection.State) {
-            connectionEvent = (ConnectionEventValue<T>) ConnectionSessionStateEvent
-                    .create(connection, (SessionConnection.State) event);
+    public static ConnectionEventValue<?> create(Connection connection,
+            Object event) {
+        ConnectionEventValue<?> connectionEvent = null;
+        if (event instanceof AutomatonTransition) {
+            connectionEvent = ConnectionStateEvent
+                    .create(connection, (AutomatonTransition<Connection.State>) event);
+        } else if (event instanceof ByteBuf) {
+            connectionEvent = ConnectionBufferEvent.create(connection, (ByteBuf) event);
         } else {
-            connectionEvent = ConnectionMessageEvent.create(connection, event);
+            throw new IllegalArgumentException();
         }
         return connectionEvent;
     }
@@ -33,11 +33,11 @@ public class ConnectionEventValue<T> extends Pair<Connection, T> implements
 
     @Override
     public Connection connection() {
-        return first();
+        return first;
     }
 
     public T event() {
-        return second();
+        return second;
     }
 
     @Override

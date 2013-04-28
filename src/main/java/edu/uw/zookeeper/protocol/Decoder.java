@@ -1,8 +1,9 @@
 package edu.uw.zookeeper.protocol;
 
-import java.io.IOException;
-import java.io.InputStream;
+import io.netty.buffer.ByteBuf;
 
-public interface Decoder<T> {
-    T decode(InputStream stream) throws IOException;
+import java.io.IOException;
+
+public interface Decoder<O> {
+    O decode(ByteBuf input) throws IOException;
 }

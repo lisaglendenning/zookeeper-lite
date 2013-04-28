@@ -2,9 +2,8 @@ package edu.uw.zookeeper.server;
 
 import static com.google.common.base.Preconditions.*;
 
-import java.util.Collections;
 import java.util.Iterator;
-import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,32 +13,30 @@ import com.google.inject.Inject;
 
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.event.SessionStateEvent;
-import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.ForwardingEventful;
+import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.TimeValue;
 
-public class SessionManager extends ForwardingEventful implements
-        Iterable<Session> {
+public class SessionManager extends ForwardingEventful implements SessionTable {
 
-    public static SessionManager create(Eventful eventful,
+    public static SessionManager create(Publisher publisher,
             SessionParametersPolicy policy) {
-        return new SessionManager(eventful, policy);
+        return new SessionManager(publisher, policy);
     }
 
     protected final Logger logger = LoggerFactory
             .getLogger(SessionManager.class);
     protected final SessionParametersPolicy policy;
-    protected final Map<Long, Session> sessions;
+    protected final ConcurrentMap<Long, Session> sessions;
 
     @Inject
-    protected SessionManager(Eventful eventful, SessionParametersPolicy policy) {
-        this(eventful, policy, Collections.synchronizedMap(Maps
-                .<Long, Session> newHashMap()));
+    protected SessionManager(Publisher publisher, SessionParametersPolicy policy) {
+        this(publisher, policy, Maps.<Long, Session>newConcurrentMap());
     }
 
-    protected SessionManager(Eventful eventful, SessionParametersPolicy policy,
-            Map<Long, Session> sessions) {
-        super(eventful);
+    protected SessionManager(Publisher publisher, SessionParametersPolicy policy,
+            ConcurrentMap<Long, Session> sessions) {
+        super(publisher);
         this.policy = policy;
         this.sessions = sessions;
     }
@@ -49,39 +46,49 @@ public class SessionManager extends ForwardingEventful implements
         return sessions.values().iterator();
     }
 
-    public Session add() {
+    @Override
+    public Session newSession() {
         long id = policy.newSessionId();
         TimeValue timeOut = policy.maxTimeout();
         byte[] passwd = policy.newPassword(id);
         Session.Parameters parameters = Session.Parameters.create(timeOut,
                 passwd);
-        Session session = newSession(id, parameters);
-        post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
-        return session;
+        return newSession(id, parameters);
     }
 
-    public Session add(long id, Session.Parameters parameters) {
-        checkNotNull(parameters);
-        Session session = get(id);
-        if (session == null) {
-            checkArgument(id == Session.UNINITIALIZED_ID);
-            session = add(parameters);
+    @Override
+    public Session validate(Session session) {
+        checkNotNull(session);
+        if (session.initialized()) {
+            // TODO: maybe disallow session renewal if it is expired or not in the table?
+            checkArgument(policy.validatePassword(session.id(), session.parameters().password()));
+            Session prev = sessions.put(session.id(), session);
+            if (prev != null) {
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Updating Session {} to {}", session, prev);
+                }
+            }
+            return session;
         } else {
-            checkArgument(policy.validatePassword(id, parameters.password()));
+            return validate(session.parameters());
         }
-        return session;
     }
 
-    public Session add(Session.Parameters parameters) {
-        Session session = newSession(checkNotNull(parameters));
-        post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
-        return session;
+    @Override
+    public Session validate(Session.Parameters parameters) {
+        long id = policy.newSessionId();
+        TimeValue timeOut = policy.boundTimeout(parameters.timeOut());
+        byte[] passwd = policy.newPassword(id);
+        parameters = Session.Parameters.create(timeOut, passwd);
+        return newSession(id, parameters);
     }
 
+    @Override
     public Session get(long id) {
         return sessions.get(id);
     }
 
+    @Override
     public Session remove(long id) {
         Session session = sessions.remove(id);
         if (session != null) {
@@ -94,21 +101,14 @@ public class SessionManager extends ForwardingEventful implements
         return session;
     }
 
-    protected Session newSession(Session.Parameters parameters) {
-        long id = policy.newSessionId();
-        TimeValue timeOut = policy.boundTimeout(parameters.timeOut());
-        byte[] passwd = policy.newPassword(id);
-        parameters = Session.Parameters.create(timeOut, passwd);
-        return newSession(id, parameters);
-    }
-
     protected Session newSession(long id, Session.Parameters parameters) {
         Session session = Session.create(id, parameters);
         Session prev = sessions.put(id, session);
         assert (prev == null);
         if (logger.isDebugEnabled()) {
-            logger.debug("Added session: {}", session);
+            logger.debug("Created session: {}", session);
         }
+        post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
         return session;
     }
 }

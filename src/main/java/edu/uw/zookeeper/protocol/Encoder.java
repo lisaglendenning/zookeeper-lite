@@ -1,8 +1,11 @@
 package edu.uw.zookeeper.protocol;
 
-import java.io.IOException;
-import java.io.OutputStream;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
 
-public interface Encoder<T> {
-    OutputStream encode(T input, OutputStream stream) throws IOException;
+import java.io.IOException;
+
+
+public interface Encoder<I> {
+    ByteBuf encode(I input, ByteBufAllocator output) throws IOException;
 }

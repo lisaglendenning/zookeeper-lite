@@ -3,25 +3,16 @@ package edu.uw.zookeeper.netty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.inject.Inject;
-
-import edu.uw.zookeeper.Connection;
-import edu.uw.zookeeper.ConnectionState;
-import edu.uw.zookeeper.util.Eventful;
+import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.util.Automaton;
+import edu.uw.zookeeper.util.Stateful;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
-import io.netty.util.Attribute;
-import io.netty.util.AttributeKey;
 
-public class ConnectionStateHandler extends ChannelDuplexHandler {
-
-    public static final String STATE_ATTRIBUTE_NAME = ConnectionState.class
-            .getName();
-    public static final AttributeKey<ConnectionState> STATE_ATTRIBUTE_KEY = new AttributeKey<ConnectionState>(
-            STATE_ATTRIBUTE_NAME);
+public class ConnectionStateHandler extends ChannelDuplexHandler implements Stateful<Connection.State> {
 
     public static Connection.State getChannelState(Channel channel) {
         Connection.State state = channel.isActive() ? Connection.State.CONNECTION_OPENED
@@ -30,60 +21,40 @@ public class ConnectionStateHandler extends ChannelDuplexHandler {
         return state;
     }
 
-    public static ConnectionStateHandler create(Eventful eventful) {
-        return new ConnectionStateHandler(eventful);
-    }
-
-    public static ConnectionStateHandler create(ConnectionState state) {
+    public static ConnectionStateHandler create(Automaton<Connection.State, Connection.State> state) {
         return new ConnectionStateHandler(state);
     }
 
-    protected final Logger logger = LoggerFactory
+    private final Logger logger = LoggerFactory
             .getLogger(ConnectionStateHandler.class);
-    protected final ConnectionState state;
+    private final Automaton<Connection.State, Connection.State> automaton;
 
-    @Inject
-    public ConnectionStateHandler(Eventful eventful) {
-        this(ConnectionState.create(eventful));
+    private ConnectionStateHandler(Automaton<Connection.State, Connection.State> automaton) {
+        this.automaton = automaton;
     }
 
-    public ConnectionStateHandler(ConnectionState state) {
-        this.state = state;
-    }
-
-    public ConnectionState state() {
-        return state;
+    @Override
+    public Connection.State state() {
+        return automaton.state();
     }
 
     @Override
     public void afterAdd(ChannelHandlerContext ctx) throws Exception {
-        Attribute<ConnectionState> attr = ctx.channel().attr(
-                STATE_ATTRIBUTE_KEY);
-        attr.compareAndSet(null, state);
-        state.set(getChannelState(ctx.channel()));
+        automaton.apply(getChannelState(ctx.channel()));
         super.afterAdd(ctx);
-    }
-
-    @Override
-    public void beforeRemove(ChannelHandlerContext ctx) throws Exception {
-        Attribute<ConnectionState> attr = ctx.channel().attr(
-                STATE_ATTRIBUTE_KEY);
-        attr.compareAndSet(state, null);
-        super.beforeRemove(ctx);
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         logger.debug("Channel Active {}", ctx.channel().remoteAddress());
-        state.compareAndSet(Connection.State.CONNECTION_OPENING,
-                Connection.State.CONNECTION_OPENED);
+        automaton.apply(Connection.State.CONNECTION_OPENED);
         super.channelActive(ctx);
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         logger.debug("Channel Inactive {}", ctx.channel().remoteAddress());
-        state.set(Connection.State.CONNECTION_CLOSED);
+        automaton.apply(Connection.State.CONNECTION_CLOSED);
         super.channelInactive(ctx);
     }
 
@@ -98,15 +69,14 @@ public class ConnectionStateHandler extends ChannelDuplexHandler {
     @Override
     public void inboundBufferUpdated(ChannelHandlerContext ctx)
             throws Exception {
-        state.compareAndSet(Connection.State.CONNECTION_OPENING,
-                Connection.State.CONNECTION_OPENED);
+        automaton.apply(Connection.State.CONNECTION_OPENED);
         ctx.fireInboundBufferUpdated();
     }
 
     @Override
     public void close(ChannelHandlerContext ctx, ChannelPromise future)
             throws Exception {
-        state.set(Connection.State.CONNECTION_CLOSING);
+        automaton.apply(Connection.State.CONNECTION_CLOSING);
         super.close(ctx, future);
     }
 

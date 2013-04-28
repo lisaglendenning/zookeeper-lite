@@ -5,8 +5,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 
 import org.apache.jute.BinaryInputArchive;
@@ -17,12 +15,14 @@ import org.apache.zookeeper.MultiResponse;
 import org.apache.zookeeper.MultiTransactionRecord;
 import org.apache.zookeeper.proto.*;
 
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.EnumHashBiMap;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 
-import edu.uw.zookeeper.data.Operation;
 
 /**
  * Utility functions for ZooKeeper <code>Record</code> objects and types.
@@ -46,88 +46,83 @@ public class Records {
     public static final String LEN_TAG = "len";
 
     // These are hardcoded in various places in zookeeper code...
-    public static enum OperationXid {
-        // response only?
-        NOTIFICATION(-1, Operation.NOTIFICATION), // zxid is -1?
+    public static enum OpCodeXid {
+        // response only
+        NOTIFICATION(-1, OpCode.NOTIFICATION), // zxid is -1?
         // request and response
-        PING(-2, Operation.PING), // zxid is lastZxid
+        PING(-2, OpCode.PING), // zxid is lastZxid
         // request and response
-        AUTH(-4, Operation.AUTH), // zxid is 0
+        AUTH(-4, OpCode.AUTH), // zxid is 0
         // request and response
-        SET_WATCHES(-8, Operation.SET_WATCHES); // zxid is lastZxid
+        SET_WATCHES(-8, OpCode.SET_WATCHES); // zxid is lastZxid
 
-        protected static Map<Integer, OperationXid> xidToType = Maps
-                .newHashMap();
-        static {
-            for (OperationXid item : OperationXid.values()) {
-                Integer xid = item.xid();
-                assert (!(xidToType.containsKey(xid)));
-                xidToType.put(xid, item);
-            }
-        }
+        private static ImmutableMap<Integer, OpCodeXid> byXid = Maps
+                .uniqueIndex(Iterators.forArray(OpCodeXid.values()), 
+                        new Function<OpCodeXid, Integer>() {
+                            @Override public Integer apply(OpCodeXid input) {
+                                return input.xid();
+                            }});
 
-        protected final int xid;
-        protected final Operation operation;
+        private final int xid;
+        private final OpCode opcode;
 
-        OperationXid(int xid, Operation operation) {
+        OpCodeXid(int xid, OpCode opcode) {
             this.xid = xid;
-            this.operation = operation;
+            this.opcode = opcode;
         }
 
         public int xid() {
             return xid;
         }
 
-        public Operation operation() {
-            return operation;
+        public OpCode opcode() {
+            return opcode;
         }
 
         public static boolean has(int xid) {
-            return xidToType.containsKey(xid);
+            return byXid.containsKey(xid);
         }
 
-        public static OperationXid get(int xid) {
-            checkArgument(xidToType.containsKey(xid));
-            return xidToType.get(xid);
+        public static OpCodeXid of(int xid) {
+            checkArgument(byXid.containsKey(xid));
+            return byXid.get(xid);
         }
     }
+    
+    private static final BiMap<OpCode, Class<? extends Record>> requestTypes = 
+            Maps.unmodifiableBiMap(EnumHashBiMap.create(new ImmutableMap.Builder<OpCode, Class<? extends Record>>()
+            .put(OpCode.CREATE, CreateRequest.class)
+            .put(OpCode.DELETE, DeleteRequest.class)
+            .put(OpCode.EXISTS, ExistsRequest.class)
+            .put(OpCode.GET_DATA, GetDataRequest.class)
+            .put(OpCode.SET_DATA, SetDataRequest.class)
+            .put(OpCode.GET_ACL, GetACLRequest.class)
+            .put(OpCode.SET_ACL, SetACLRequest.class)
+            .put(OpCode.GET_CHILDREN, GetChildrenRequest.class)
+            .put(OpCode.SYNC, SyncRequest.class)
+            .put(OpCode.GET_CHILDREN2, GetChildren2Request.class)
+            .put(OpCode.CHECK, CheckVersionRequest.class)
+            .put(OpCode.MULTI, MultiTransactionRecord.class)
+            .put(OpCode.AUTH, AuthPacket.class)
+            .put(OpCode.SET_WATCHES, SetWatches.class)
+            .put(OpCode.CREATE_SESSION, ConnectRequest.class)
+            .build()));
 
-    protected static BiMap<Operation, Class<? extends Record>> requestTypes = EnumHashBiMap
-            .create(Operation.class);
-    static {
-        requestTypes.put(Operation.CREATE, CreateRequest.class);
-        requestTypes.put(Operation.DELETE, DeleteRequest.class);
-        requestTypes.put(Operation.EXISTS, ExistsRequest.class);
-        requestTypes.put(Operation.GET_DATA, GetDataRequest.class);
-        requestTypes.put(Operation.SET_DATA, SetDataRequest.class);
-        requestTypes.put(Operation.GET_ACL, GetACLRequest.class);
-        requestTypes.put(Operation.SET_ACL, SetACLRequest.class);
-        requestTypes.put(Operation.GET_CHILDREN, GetChildrenRequest.class);
-        requestTypes.put(Operation.SYNC, SyncRequest.class);
-        requestTypes.put(Operation.GET_CHILDREN2, GetChildren2Request.class);
-        requestTypes.put(Operation.CHECK, CheckVersionRequest.class);
-        requestTypes.put(Operation.MULTI, MultiTransactionRecord.class);
-        requestTypes.put(Operation.AUTH, AuthPacket.class);
-        requestTypes.put(Operation.SET_WATCHES, SetWatches.class);
-        requestTypes.put(Operation.CREATE_SESSION, ConnectRequest.class);
-    }
-
-    protected static BiMap<Operation, Class<? extends Record>> responseTypes = EnumHashBiMap
-            .create(Operation.class);
-    static {
-        responseTypes.put(Operation.CREATE, CreateResponse.class);
-        responseTypes.put(Operation.EXISTS, ExistsResponse.class);
-        responseTypes.put(Operation.GET_DATA, GetDataResponse.class);
-        responseTypes.put(Operation.SET_DATA, SetDataResponse.class);
-        responseTypes.put(Operation.GET_ACL, GetACLResponse.class);
-        responseTypes.put(Operation.SET_ACL, SetACLResponse.class);
-        responseTypes.put(Operation.GET_CHILDREN, GetChildrenResponse.class);
-        responseTypes.put(Operation.SYNC, SyncResponse.class);
-        responseTypes.put(Operation.GET_CHILDREN2, GetChildren2Response.class);
-        responseTypes.put(Operation.MULTI, MultiResponse.class);
-        responseTypes.put(Operation.CREATE_SESSION, ConnectResponse.class);
-        responseTypes.put(Operation.NOTIFICATION, WatcherEvent.class);
-    }
+    private static final BiMap<OpCode, Class<? extends Record>> responseTypes = 
+            Maps.unmodifiableBiMap(EnumHashBiMap.create(new ImmutableMap.Builder<OpCode, Class<? extends Record>>()
+            .put(OpCode.CREATE, CreateResponse.class)
+            .put(OpCode.EXISTS, ExistsResponse.class)
+            .put(OpCode.GET_DATA, GetDataResponse.class)
+            .put(OpCode.SET_DATA, SetDataResponse.class)
+            .put(OpCode.GET_ACL, GetACLResponse.class)
+            .put(OpCode.SET_ACL, SetACLResponse.class)
+            .put(OpCode.GET_CHILDREN, GetChildrenResponse.class)
+            .put(OpCode.SYNC, SyncResponse.class)
+            .put(OpCode.GET_CHILDREN2, GetChildren2Response.class)
+            .put(OpCode.MULTI, MultiResponse.class)
+            .put(OpCode.CREATE_SESSION, ConnectResponse.class)
+            .put(OpCode.NOTIFICATION, WatcherEvent.class)
+            .build()));
 
     public static class Headers {
 
@@ -141,31 +136,30 @@ public class Records {
                     || Responses.Headers.contains(recordType);
         }
 
-        public static RequestHeader deserialize(RequestHeader header,
+        public static RequestHeader decode(RequestHeader header,
                 InputStream stream) throws IOException {
-            return Records.deserialize(header, stream, TAG);
+            return Records.decode(header, stream, TAG);
         }
 
-        public static ReplyHeader deserialize(ReplyHeader header,
+        public static ReplyHeader decode(ReplyHeader header,
                 InputStream stream) throws IOException {
-            return Records.deserialize(header, stream, TAG);
+            return Records.decode(header, stream, TAG);
         }
 
-        public static OutputStream serialize(RequestHeader header,
+        public static OutputStream encode(RequestHeader header,
                 OutputStream stream) throws IOException {
-            return Records.serialize(header, stream, TAG);
+            return Records.encode(header, stream, TAG);
         }
 
-        public static OutputStream serialize(ReplyHeader header,
+        public static OutputStream encode(ReplyHeader header,
                 OutputStream stream) throws IOException {
-            return Records.serialize(header, stream, TAG);
+            return Records.encode(header, stream, TAG);
         }
     }
 
     public static class Requests {
         private Requests() {}
         
-        // Used for Requests
         public static final String TAG = "request";
 
         public static class Headers {
@@ -185,85 +179,84 @@ public class Records {
                 return new RequestHeader(xid, type);
             }
 
-            public static RequestHeader create(int xid, Operation op) {
-                return create(xid, op.code());
+            public static RequestHeader create(int xid, OpCode op) {
+                return create(xid, op.intValue());
             }
 
-            public static RequestHeader deserialize(InputStream stream)
+            public static RequestHeader decode(InputStream stream)
                     throws IOException {
-                return Records.deserialize(create(), stream, TAG);
+                return Records.decode(create(), stream, TAG);
             }
 
-            public static OutputStream serialize(int xid, int type,
+            public static OutputStream encode(int xid, int type,
                     OutputStream stream) throws IOException {
-                return Records.Headers.serialize(create(xid, type), stream);
+                return Records.Headers.encode(create(xid, type), stream);
             }
 
-            public static OutputStream serialize(int xid, Operation op,
+            public static OutputStream encode(int xid, OpCode op,
                     OutputStream stream) throws IOException {
-                return Records.Headers.serialize(create(xid, op), stream);
+                return Records.Headers.encode(create(xid, op), stream);
             }
         }
 
-        public static Class<? extends Record> getType(Operation op) {
+        public static Class<? extends Record> getType(OpCode op) {
             return requestTypes.get(op);
         }
 
-        public static Operation recordToOperation(Record record) {
-            return recordToOperation(record.getClass());
+        public static OpCode getOpCode(Record record) {
+            return getOpCode(record.getClass());
         }
 
-        public static Operation recordToOperation(
+        public static OpCode getOpCode(
                 Class<? extends Record> recordType) {
-            Map<Class<? extends Record>, Operation> typeMap = requestTypes
+            Map<Class<? extends Record>, OpCode> typeMap = requestTypes
                     .inverse();
-            Operation operation = typeMap.get(recordType);
-            return operation;
+            OpCode opcode = typeMap.get(recordType);
+            return opcode;
         }
 
         public static boolean contains(Class<? extends Record> recordType) {
-            Map<Class<? extends Record>, Operation> typeMap = requestTypes
+            Map<Class<? extends Record>, OpCode> typeMap = requestTypes
                     .inverse();
             return typeMap.containsKey(recordType);
         }
 
         @SuppressWarnings("unchecked")
-        public static <T extends Record> T create(Operation op, Object... args) {
+        public static <T extends Record> T create(OpCode op) {
             Class<? extends Record> recordType = getType(op);
             if (recordType == null) {
-                throw new UnsupportedOperationException(
-                        String.format("No Record request type for %s", op));
+                throw new IllegalArgumentException(
+                        String.format("No Records.Requests type for %s", op));
             }
             T record;
             try {
-                record = (T) Records.newInstance(recordType, args);
+                record = (T) recordType.getConstructor().newInstance();
             } catch (Exception e) {
-                throw new IllegalArgumentException(e);
+                throw new IllegalArgumentException();
             }
             return record;
         }
 
-        public static <T extends Record> T deserialize(T request,
+        public static <T extends Record> T decode(T request,
                 InputStream stream) throws IOException {
-            return Records.deserialize(request, stream, TAG);
+            return Records.decode(request, stream, TAG);
         }
 
         @SuppressWarnings("unchecked")
-        public static <T extends Record> T deserialize(Operation op,
+        public static <T extends Record> T decode(OpCode op,
                 InputStream stream) throws IOException {
-            return deserialize((T) create(op), stream);
+            return decode((T) create(op), stream);
         }
 
-        public static OutputStream serialize(Record request, OutputStream stream)
+        public static OutputStream encode(Record request, OutputStream stream)
                 throws IOException {
-            return Records.serialize(request, stream, TAG);
+            return Records.encode(request, stream, TAG);
         }
     }
 
     public static class Responses {
         private Responses() {}
         
-        // Used for Responses
         public static final String TAG = "response";
 
         public static class Headers {
@@ -288,97 +281,97 @@ public class Records {
                 return create(xid, zxid, code.intValue());
             }
 
-            public static ReplyHeader deserialize(InputStream stream)
+            public static ReplyHeader decode(InputStream stream)
                     throws IOException {
-                return Records.Headers.deserialize(create(), stream);
+                return Records.Headers.decode(create(), stream);
             }
 
-            public static OutputStream serialize(int xid, long zxid, int err,
+            public static OutputStream encode(int xid, long zxid, int err,
                     OutputStream stream) throws IOException {
                 return Records.Headers
-                        .serialize(create(xid, zxid, err), stream);
+                        .encode(create(xid, zxid, err), stream);
             }
 
-            public static OutputStream serialize(int xid, long zxid,
+            public static OutputStream encode(int xid, long zxid,
                     KeeperException.Code code, OutputStream stream)
                     throws IOException {
-                return Records.Headers.serialize(create(xid, zxid, code),
+                return Records.Headers.encode(create(xid, zxid, code),
                         stream);
             }
         }
 
-        public static Class<? extends Record> getType(Operation op) {
+        public static Class<? extends Record> getType(OpCode op) {
             return responseTypes.get(op);
         }
 
-        public static Operation recordToOperation(Record record) {
-            return recordToOperation(record.getClass());
+        public static OpCode getOpCode(Record record) {
+            return getOpCode(record.getClass());
         }
 
-        public static Operation recordToOperation(
+        public static OpCode getOpCode(
                 Class<? extends Record> recordType) {
-            Map<Class<? extends Record>, Operation> typeMap = responseTypes
+            Map<Class<? extends Record>, OpCode> typeMap = responseTypes
                     .inverse();
-            Operation operation = typeMap.get(recordType);
-            return operation;
+            OpCode opcode = typeMap.get(recordType);
+            return opcode;
         }
 
         public static boolean contains(Class<? extends Record> recordType) {
-            Map<Class<? extends Record>, Operation> typeMap = responseTypes
+            Map<Class<? extends Record>, OpCode> typeMap = responseTypes
                     .inverse();
             return typeMap.containsKey(recordType);
         }
 
         @SuppressWarnings("unchecked")
-        public static <T extends Record> T create(Operation op, Object... args) {
+        public static <T extends Record> T create(OpCode op) {
             Class<? extends Record> recordType = getType(op);
             if (recordType == null) {
-                throw new UnsupportedOperationException(
-                        String.format("No Record response type for %s", op));
+                throw new IllegalArgumentException(
+                        String.format("No Records.Responses type for %s", op));
             }
             T record;
             try {
-                record = (T) Records.newInstance(recordType, args);
+                record = (T) recordType.getConstructor().newInstance();
             } catch (Exception e) {
-                throw new IllegalArgumentException(e);
+                throw new IllegalArgumentException();
             }
             return record;
         }
 
-        public static <T extends Record> T deserialize(T response,
+        public static <T extends Record> T decode(T response,
                 InputStream stream) throws IOException {
-            return Records.deserialize(response, stream, TAG);
+            return Records.decode(response, stream, TAG);
         }
 
         @SuppressWarnings("unchecked")
-        public static <T extends Record> T deserialize(Operation op,
+        public static <T extends Record> T decode(OpCode op,
                 InputStream stream) throws IOException {
-            return deserialize((T) create(op), stream);
+            return decode((T) create(op), stream);
         }
 
-        public static OutputStream serialize(Record response,
+        public static OutputStream encode(Record response,
                 OutputStream stream) throws IOException {
-            return Records.serialize(response, stream, TAG);
+            return Records.encode(response, stream, TAG);
         }
     }
 
-    public static Operation recordToOperation(Record record) {
-        return recordToOperation(record.getClass());
+    public static OpCode getOpCode(Record record) {
+        return getOpCode(record.getClass());
     }
 
-    public static Operation recordToOperation(Class<? extends Record> recordType) {
-        Operation operation = Requests.recordToOperation(recordType);
-        if (operation == null) {
-            operation = Responses.recordToOperation(recordType);
+    public static OpCode getOpCode(Class<? extends Record> recordType) {
+        OpCode opcode = Requests.getOpCode(recordType);
+        if (opcode == null) {
+            opcode = Responses.getOpCode(recordType);
         }
-        return operation;
+        return opcode;
     }
 
-    public static String recordToTag(Record record) {
-        return recordToTag(record.getClass());
+    public static String getTag(Record record) {
+        return getTag(record.getClass());
     }
 
-    public static String recordToTag(Class<? extends Record> recordType) {
+    public static String getTag(Class<? extends Record> recordType) {
         String tag = null;
         if (Headers.contains(recordType)) {
             tag = Headers.TAG;
@@ -393,52 +386,35 @@ public class Records {
         return tag;
     }
 
-    public static <T extends Record> T deserialize(T record, InputStream stream)
+    public static <T extends Record> T decode(T record, InputStream stream)
             throws IOException {
-        return deserialize(record, stream, recordToTag(record));
+        return decode(record, stream, getTag(record));
     }
 
-    public static <T extends Record> T deserialize(T record,
+    public static <T extends Record> T decode(T record,
             InputStream stream, String tag) throws IOException {
         BinaryInputArchive bia = BinaryInputArchive.getArchive(stream);
         record.deserialize(bia, tag);
         return record;
     }
 
-    public static <T extends Record> OutputStream serialize(T record,
+    public static <T extends Record> OutputStream encode(T record,
             OutputStream stream) throws IOException {
-        return serialize(record, stream, recordToTag(record));
+        return encode(record, stream, getTag(record));
     }
 
-    public static <T extends Record> OutputStream serialize(T record,
+    public static <T extends Record> OutputStream encode(T record,
             OutputStream stream, String tag) throws IOException {
         BinaryOutputArchive bos = BinaryOutputArchive.getArchive(stream);
         record.serialize(bos, tag);
         return stream;
     }
 
-    /*
-     * More readable String
+    /**
+     * More readable String.
      */
     public static String toString(Record record) {
         return Objects.toStringHelper(record)
                 .addValue(record.toString().replaceAll("\\s", "")).toString();
     }
-
-    @SuppressWarnings("unchecked")
-    public static <T> T newInstance(Class<T> cls, Object... args)
-            throws IllegalArgumentException, InstantiationException,
-            IllegalAccessException, InvocationTargetException {
-        Constructor<T> ctor = null;
-        for (Constructor<?> candidate : cls.getConstructors()) {
-            if (candidate.getParameterTypes().length == args.length) {
-                ctor = (Constructor<T>) candidate;
-                break;
-            }
-        }
-        assert ctor != null;
-        T instance = ctor.newInstance(args);
-        return instance;
-    }
-
 }

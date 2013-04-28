@@ -1,6 +1,8 @@
 package edu.uw.zookeeper.netty;
 
 import static com.google.common.base.Preconditions.*;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import java.net.SocketAddress;
@@ -10,84 +12,111 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.inject.Inject;
-import com.google.inject.Provider;
-
-import edu.uw.zookeeper.Connection;
 import edu.uw.zookeeper.event.ConnectionEvent;
 import edu.uw.zookeeper.event.ConnectionEventValue;
-import edu.uw.zookeeper.util.Eventful;
-import edu.uw.zookeeper.util.EventfulBridge;
+import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.util.EventfulAutomaton;
+import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ForwardingEventful;
+import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.Publisher;
 
-public abstract class ChannelConnection extends ForwardingEventful implements
-        Connection {
+public class ChannelConnection extends ForwardingEventful implements
+        Connection, Publisher {
 
-    public static interface Factory<T extends ChannelConnection> {
-        public T get(Channel channel);
+    public static class ConnectionBuilder implements ParameterizedFactory<Channel, ChannelConnection> {
+
+        public static ConnectionBuilder newInstance(
+                Factory<Publisher> publisherFactory) {
+            return new ConnectionBuilder(publisherFactory);
+        }
+        
+        protected final Factory<Publisher> publisherFactory;
+        
+        protected ConnectionBuilder(
+                Factory<Publisher> publisherFactory) {
+            super();
+            this.publisherFactory = publisherFactory;
+        }
+
+        @Override
+        public ChannelConnection get(Channel channel) {
+            Publisher publisher = publisherFactory.get();
+            return ChannelConnection.create(publisher, channel);
+        }
     }
-
-    protected final Logger logger = LoggerFactory
+    
+    public static ChannelConnection create(
+            Publisher publisher, Channel channel) {
+        return new ChannelConnection(publisher, channel);
+    }
+    
+    private final Logger logger = LoggerFactory
             .getLogger(ChannelConnection.class);
-    protected final EventfulBridge eventfulBridge;
-    protected final Channel channel;
+    private final Channel channel;
+    private final ByteBufAllocator allocator;
 
-    @Inject
-    protected ChannelConnection(Channel channel,
-            Provider<Eventful> eventfulFactory) {
-        super(eventfulFactory.get());
-        this.eventfulBridge = new EventfulBridge(eventfulFactory.get(), this);
+    private ChannelConnection(
+            Publisher publisher, Channel channel) {
+        super(publisher);
         this.channel = checkNotNull(channel);
-        initChannel();
+        this.allocator = channel.alloc();
+
+        InboundHandler inbound = InboundHandler.newInstance(this);
+        OutboundHandler outbound = OutboundHandler.newInstance();
+        channel.pipeline().addFirst(InboundHandler.class.getName(), inbound);
+        channel.pipeline().addLast(OutboundHandler.class.getName(), outbound);
+        ConnectionStateHandler stateHandler = ConnectionStateHandler
+                .create(EventfulAutomaton.createSynchronized(this, Connection.State.class));
+        channel.pipeline().addLast(
+                ConnectionStateHandler.class.getName(), stateHandler);
     }
 
     public Channel channel() {
         return channel;
     }
 
-    protected void initChannel() {
-        DispatchHandler dispatcher = DispatchHandler.create(eventfulBridge);
-        channel.pipeline().addLast(DispatchHandler.class.getName(), dispatcher);
-        ConnectionStateHandler stateHandler = ConnectionStateHandler
-                .create(eventfulBridge);
-        channel.pipeline().addBefore(DispatchHandler.class.getName(),
-                ConnectionStateHandler.class.getName(), stateHandler);
-    }
-
     @Override
     public State state() {
-        ConnectionStateHandler stateHandler = (ConnectionStateHandler) channel
-                .pipeline().get(ConnectionStateHandler.class.getName());
-        return stateHandler.state().get();
+        ConnectionStateHandler stateHandler = channel().pipeline().get(ConnectionStateHandler.class);
+        return stateHandler.state();
     }
 
     @Override
     public SocketAddress localAddress() {
-        return channel.localAddress();
+        return channel().localAddress();
     }
 
     @Override
     public SocketAddress remoteAddress() {
-        return channel.remoteAddress();
+        return channel().remoteAddress();
     }
 
+    @Override
+    public ByteBufAllocator allocator() {
+        return allocator;
+    }
+    
     @Override
     public void read() {
-        channel.read();
+        channel().read();
+        // Note that this may result in multiple events for the same buffer
+        channel().pipeline().fireInboundBufferUpdated();
     }
 
     @Override
-    public <T> ListenableFuture<T> send(T message) {
-        ChannelFuture future = channel.write(message);
-        ListenableChannelFuture<T> wrapper = ListenableChannelFuture.create(
-                future, message);
+    public ListenableFuture<ByteBuf> write(ByteBuf buf) {
+        checkState(state() != State.CONNECTION_CLOSING && state() != State.CONNECTION_CLOSED);
+        ChannelFuture future = channel().write(buf);
+        ChannelFutureWrapper<ByteBuf> wrapper = ChannelFutureWrapper.create(
+                future, buf);
         return wrapper.promise();
     }
 
     @Override
     public ListenableFuture<Connection> flush() {
-        ChannelFuture future = channel.flush();
-        ListenableChannelFuture<Connection> wrapper = ListenableChannelFuture
+        ChannelFuture future = channel().flush();
+        ChannelFutureWrapper<Connection> wrapper = ChannelFutureWrapper
                 .create(future, (Connection) this);
         return wrapper.promise();
     }
@@ -95,8 +124,8 @@ public abstract class ChannelConnection extends ForwardingEventful implements
     @Override
     public ListenableFuture<Connection> close() {
         logger.debug("Closing {}", this);
-        ChannelFuture future = channel.close();
-        ListenableChannelFuture<Connection> wrapper = ListenableChannelFuture
+        ChannelFuture future = channel().close();
+        ChannelFutureWrapper<Connection> wrapper = ChannelFutureWrapper
                 .create(future, (Connection) this);
         return wrapper.promise();
     }

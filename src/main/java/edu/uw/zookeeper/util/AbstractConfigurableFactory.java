@@ -5,7 +5,7 @@ import java.util.Map;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValueFactory;
 
-public abstract class AbstractConfigurableFactory<T> implements ConfigurableFactory<T> {
+public abstract class AbstractConfigurableFactory<T> implements DefaultsFactory<Config, T> {
 
     private final Config defaults;
 
@@ -23,6 +23,13 @@ public abstract class AbstractConfigurableFactory<T> implements ConfigurableFact
         
     @Override
     public T get() {
-        return get(defaults());
+        return fromConfig(defaults());
     }
+    
+    @Override
+    public T get(Config config) {
+        return fromConfig(config.withFallback(defaults()));
+    }
+    
+    protected abstract T fromConfig(Config config);
 }

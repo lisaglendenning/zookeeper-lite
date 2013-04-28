@@ -2,24 +2,27 @@ package edu.uw.zookeeper.util;
 
 public abstract class ForwardingEventful implements Eventful {
 
-    private final Eventful delegate;
+    private final Publisher publisher;
 
-    protected ForwardingEventful(Eventful eventful) {
-        this.delegate = eventful;
+    protected ForwardingEventful(Publisher publisher) {
+        this.publisher = publisher;
+    }
+    
+    protected Publisher publisher() {
+        return publisher;
     }
 
-    @Override
-    public void post(Object event) {
-        delegate.post(event);
+    protected void post(Object event) {
+        publisher().post(event);
     }
 
     @Override
     public void register(Object handler) {
-        delegate.register(handler);
+        publisher().register(handler);
     }
 
     @Override
     public void unregister(Object handler) {
-        delegate.unregister(handler);
+        publisher().unregister(handler);
     }
 }

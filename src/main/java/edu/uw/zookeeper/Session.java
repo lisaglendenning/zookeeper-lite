@@ -1,67 +1,69 @@
 package edu.uw.zookeeper;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 
-import edu.uw.zookeeper.util.AutomataState;
 import edu.uw.zookeeper.util.TimeValue;
 
 public class Session {
 
-    public static final long UNINITIALIZED_ID = 0;
-    public static final Session UNINITIALIZED = new Session();
-
-    public static enum State implements AutomataState<State> {
+    public static enum State implements Function<State, Optional<State>> {
         SESSION_UNINITIALIZED {
-        },
-        SESSION_OPENED {
-        },
-        SESSION_EXPIRED {
-        },
-        SESSION_CLOSED {
-        };
-
-        @Override
-        public boolean isTerminal() {
-            switch (this) {
-            case SESSION_CLOSED:
-                return true;
-            default:
-                return false;
-            }
-        }
-
-        @Override
-        public boolean validTransition(State nextState) {
-            checkNotNull(nextState);
-            boolean valid = false;
-            if (this == nextState) {
-                valid = true;
-            } else {
-                switch (this) {
+            @Override
+            public Optional<State> apply(State nextState) {
+                switch (nextState) {
                 case SESSION_UNINITIALIZED:
-                    valid = (nextState == SESSION_OPENED);
-                    break;
+                    return Optional.absent();
                 case SESSION_OPENED:
-                    valid = (nextState != SESSION_UNINITIALIZED);
-                    break;
-                case SESSION_EXPIRED:
-                    valid = (nextState == SESSION_CLOSED);
-                    break;
-                case SESSION_CLOSED:
-                    valid = false;
-                    break;
+                    return Optional.of(nextState);
                 default:
-                    break;
+                    throw new IllegalArgumentException();
                 }
             }
-            return valid;
-        }
+        },
+        SESSION_OPENED {
+            @Override
+            public Optional<State> apply(State nextState) {
+                switch (nextState) {
+                case SESSION_OPENED:
+                    return Optional.absent();
+                case SESSION_EXPIRED:
+                case SESSION_CLOSED:
+                    return Optional.of(nextState);
+                default:
+                    throw new IllegalArgumentException();
+                }
+            }
+        },
+        SESSION_EXPIRED {
+            @Override
+            public Optional<State> apply(State nextState) {
+                switch (nextState) {
+                case SESSION_EXPIRED:
+                    return Optional.absent();
+                case SESSION_CLOSED:
+                    return Optional.of(nextState);
+                default:
+                    throw new IllegalArgumentException();
+                }
+            }
+        },
+        SESSION_CLOSED {
+            @Override
+            public Optional<State> apply(State nextState) {
+                switch (nextState) {
+                case SESSION_CLOSED:
+                    return Optional.absent();
+                default:
+                    throw new IllegalArgumentException();
+                }
+            }
+        };
     }
     
 
@@ -71,16 +73,14 @@ public class Session {
         public static final byte[] NO_PASSWORD = new byte[0];
         public static final int PASSWORD_LENGTH = 16;
         public static final TimeUnit TIMEOUT_UNIT = TimeUnit.MILLISECONDS;
-    
-        private final TimeValue timeOut;
-        private final byte[] password;
-    
-        public static Parameters create() {
-            return new Parameters();
+        public static final Parameters UNINITIALIZED_PARAMETERS = new Parameters(NEVER_TIMEOUT, NO_PASSWORD);
+        
+        public static Parameters uninitialized() {
+            return UNINITIALIZED_PARAMETERS;
         }
     
         public static Parameters create(long timeOut) {
-            return new Parameters(timeOut);
+            return create(timeOut, NO_PASSWORD);
         }
     
         public static Parameters create(long timeOut, byte[] password) {
@@ -90,20 +90,19 @@ public class Session {
         public static Parameters create(TimeValue timeOut, byte[] password) {
             return new Parameters(timeOut, password);
         }
+
+        private final TimeValue timeOut;
+        private final byte[] password;
     
-        protected Parameters() {
-            this(NEVER_TIMEOUT);
-        }
-    
-        protected Parameters(long timeOut) {
+        private Parameters(long timeOut) {
             this(timeOut, NO_PASSWORD);
         }
     
-        protected Parameters(long timeOut, byte[] password) {
+        private Parameters(long timeOut, byte[] password) {
             this(TimeValue.create(timeOut, TIMEOUT_UNIT), password);
         }
     
-        protected Parameters(TimeValue timeOut, byte[] password) {
+        private Parameters(TimeValue timeOut, byte[] password) {
             this.timeOut = timeOut;
             this.password = password;
         }
@@ -157,23 +156,21 @@ public class Session {
         }
     }
 
+    public static final long UNINITIALIZED_ID = 0;
+    public static final Session UNINITIALIZED = new Session(UNINITIALIZED_ID, Parameters.uninitialized());
 
-    protected final long id;
-    protected final Parameters parameters;
-
-    public static Session create() {
+    public static Session uninitialized() {
         return UNINITIALIZED;
     }
 
     public static Session create(long id, Parameters parameters) {
         return new Session(id, parameters);
     }
+    
+    private final long id;
+    private final Parameters parameters;
 
-    protected Session() {
-        this(UNINITIALIZED_ID, Parameters.create());
-    }
-
-    protected Session(long id, Parameters parameters) {
+    private Session(long id, Parameters parameters) {
         this.id = id;
         this.parameters = parameters;
     }
@@ -192,7 +189,8 @@ public class Session {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("id", id())
+        String idStr = String.format("0x%s", Long.toHexString(id()));
+        return Objects.toStringHelper(this).add("id", idStr)
                 .add("parameters", parameters()).toString();
     }
 

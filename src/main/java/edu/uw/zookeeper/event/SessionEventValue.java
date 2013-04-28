@@ -4,26 +4,26 @@ package edu.uw.zookeeper.event;
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.util.Pair;
+import edu.uw.zookeeper.util.AbstractPair;
 
-public class SessionEventValue<T> extends Pair<Session, T> implements
+public class SessionEventValue<T> extends AbstractPair<Session, T> implements
         SessionEvent {
 
     public static <T> SessionEventValue<T> create(Session session, T event) {
         return new SessionEventValue<T>(session, event);
     }
 
-    public SessionEventValue(Session session, T event) {
+    protected SessionEventValue(Session session, T event) {
         super(session, event);
     }
 
     @Override
     public Session session() {
-        return first();
+        return first;
     }
 
     public T event() {
-        return second();
+        return second;
     }
 
     @Override

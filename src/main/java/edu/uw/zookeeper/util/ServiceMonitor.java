@@ -2,9 +2,9 @@ package edu.uw.zookeeper.util;
 
 import static com.google.common.base.Preconditions.*;
 
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
 import org.slf4j.Logger;
@@ -14,20 +14,61 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
-import com.google.inject.Inject;
 
 /**
  * Service that starts and monitors other Services.
  */
 public class ServiceMonitor extends AbstractIdleService implements Iterable<Service> {
 
-    public static ServiceMonitor create(Executor executor) {
+    public static class ServiceException extends ExecutionException {
+        private static final long serialVersionUID = -6599290449702356815L;
+        
+        /**
+         * The Service that failed.
+         */
+        private final Service service;
+        
+        public ServiceException(Service service) {
+            this(service, String.format("Service failed: %s", service));
+        }
+
+        public ServiceException(Service service, String message) {
+            super(message);
+            this.service = service;
+        }
+
+        public ServiceException(Service service, Throwable cause) {
+            this(service,  String.format("Service failed: %s", service), cause);
+        }
+
+        public ServiceException(Service service, String message, Throwable cause) {
+            super(message, cause);
+            this.service = service;
+        }
+        
+        public Service service() {
+            return service;
+        }
+    }
+    
+    public static ServiceMonitor newInstance() {
+        return new ServiceMonitor();
+    }
+    
+    public static ServiceMonitor newInstance(Executor executor) {
         return new ServiceMonitor(executor);
     }
+    
+    public static ServiceMonitor newInstance(
+            Optional<Executor> thisExecutor, 
+            Executor listenerExecutor,
+            boolean stopOnTerminate,
+            List<Service> services) {
+        return new ServiceMonitor(thisExecutor, listenerExecutor, stopOnTerminate, services);
+    }
+
 
     /**
      * Logs Service state changes and notifies ServiceMonitor of significant changes.
@@ -105,28 +146,54 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     }
 
-    private final Logger logger = LoggerFactory
+    protected final Logger logger = LoggerFactory
             .getLogger(ServiceMonitor.class);
     private final Executor listenerExecutor;
-    private final Executor executor;
+    private final Optional<Executor> thisExecutor;
     private final List<Service> services;
+    private volatile boolean stopOnTerminate;
 
-    @Inject
-    protected ServiceMonitor(Executor executor) {
-        this(executor, MoreExecutors.sameThreadExecutor(), Collections
-                .synchronizedList(Lists.<Service> newArrayList()));
+    protected ServiceMonitor() {
+        this(Optional.<Executor>absent());
     }
 
-    protected ServiceMonitor(Executor executor, Executor listenerExecutor,
+    protected ServiceMonitor(Executor thisExecutor) {
+        this(Optional.of(thisExecutor));
+    }
+
+    protected ServiceMonitor(Optional<Executor> thisExecutor) {
+        this(thisExecutor,
+                MoreExecutors.sameThreadExecutor(), true, ImmutableList.<Service>of());
+    }
+    
+    protected ServiceMonitor(
+            Optional<Executor> thisExecutor, 
+            Executor listenerExecutor,
+            boolean stopOnTerminate,
             List<Service> services) {
-        this.executor = executor;
-        this.services = services;
+        this.stopOnTerminate = stopOnTerminate;
+        this.thisExecutor = thisExecutor;
+        this.services = Lists.newCopyOnWriteArrayList(services);
         this.listenerExecutor = listenerExecutor;
     }
 
     @Override
     protected Executor executor() {
-        return executor;
+        if (thisExecutor.isPresent()) {
+            return thisExecutor.get();
+        } else {
+            return super.executor();
+        }
+    }
+
+    public boolean stopOnTerminate() {
+        return this.stopOnTerminate;
+    }
+
+    public boolean stopOnTerminate(boolean value) {
+        boolean prev = this.stopOnTerminate;
+        this.stopOnTerminate = value;
+        return prev;
     }
 
     @Override
@@ -158,7 +225,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     @Override
     protected void startUp() throws Exception {
         try {
-            startTasks();
+            startServices();
             listen(this);
         } catch (Exception e) {
             shutDown();
@@ -168,15 +235,15 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     @Override
     protected void shutDown() throws Exception {
-        stopTasks();
+        stopServices();
     }
 
-    private void listen(Service service) {
+    protected void listen(Service service) {
         ServiceMonitorListener listener = new ServiceMonitorListener(service);
         service.addListener(listener, listenerExecutor);
     }
 
-    private void notifyChange() {
+    protected void notifyChange() {
         if (isRunning()) {
             if (!monitorTasks()) {
                 stop();
@@ -184,86 +251,86 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         }
     }
 
-    private void startTasks() throws Exception {
+    protected void startServices() throws ServiceException {
         // start all currently monitored services
         // after this, services will be started by monitor()
-        List<Service> services;
-        synchronized (this.services) {
-            services = ImmutableList.copyOf(this.services);
-        }
-        // List<ListenableFuture<State>> futures = Lists.newArrayList();
-        for (Service e : services) {
-            State state = e.state();
-            switch (state) {
+        for (Service service : services) {
+            switch (service.state()) {
             case NEW:
-                // futures.add(e.start());
                 // there may be dependencies between services
                 // so don't start them concurrently
-                e.startAndWait();
+                service.startAndWait();
                 break;
             // it's possible that a service failed before we
             // started monitoring it
             case FAILED:
-                throw new RuntimeException(e.failureCause());
+                throw new ServiceException(service, service.failureCause());
             default:
                 break;
             }
         }
     }
 
-    private void stopTasks() throws Exception {
-        // first, notify all services to stop
-        List<Service> services;
-        synchronized (this.services) {
-            services = ImmutableList.copyOf(this.services);
-        }
-        List<ListenableFuture<State>> futures = Lists.newArrayList();
-        for (Service e : services) {
-            State state = e.state();
-            switch (state) {
+    protected void stopServices() throws ServiceException {
+        // stop all services in reverse order
+        ServiceException cause = null;
+        for (Service service : Lists.reverse(services)) {
+            switch (service.state()) {
             case NEW:
             case STARTING:
             case RUNNING:
-                futures.add(e.stop());
+            case STOPPING:
+                try {
+                    service.stopAndWait();
+                } catch (Throwable t) {
+                    logger.error("Error stopping Service {}", service, t);
+                    // only keep the first error?
+                    if (cause == null) {
+                        cause = new ServiceException(service, t);
+                    }
+                }
                 break;
             default:
                 break;
             }
         }
 
-        // then, wait
-        ListenableFuture<List<State>> allFutures = Futures.allAsList(futures);
-        allFutures.get();
-
-        // propagate error?
-        for (Service e : services) {
-            if (e.state() == State.FAILED) {
-                throw new RuntimeException(e.failureCause());
+        // if a service failed, set my state to an error state by propagating an error
+        if (state() != State.FAILED) {
+            if (cause != null) {
+                throw cause;
+            } else {
+                for (Service service : Lists.reverse(services)) {
+                    if (service.state() == State.FAILED) {
+                        throw new ServiceException(service, service.failureCause());
+                    }
+                }
             }
         }
     }
 
-    private boolean monitorTasks() {
-        List<Service> services;
-        synchronized (this.services) {
-            services = ImmutableList.copyOf(this.services);
-        }
-        boolean stop = true;
-        for (Service e : services) {
-            if (e == this) {
+    protected boolean monitorTasks() {
+        boolean stop = true; // stop if there are no services to monitor!
+        for (Service service : services) {
+            if (service == this) {
                 continue;
             }
-            State state = e.state();
+            State state = service.state();
             if (state == State.FAILED) {
                 // stop all services if one service failed
                 stop = true;
                 break;
+            } else if (stopOnTerminate && (state == State.STOPPING || state == State.TERMINATED)) {
+                // if stopOnTerminate policy is true, then stop the world
+                // if one service stops
+                stop = true;
+                break;
             } else if (state == State.NEW) {
                 // start monitor services
-                e.start();
+                service.start();
                 stop = false;
             } else if (state == State.STARTING || state == State.RUNNING) {
-                // keep running as long as one service is running
+                // by default, keep running as long as one service is running
                 stop = false;
             }
         }

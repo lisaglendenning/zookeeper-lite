@@ -11,6 +11,10 @@ public abstract class ForwardingService implements Service {
     protected ForwardingService(Service delegate) {
         this.delegate = delegate;
     }
+    
+    protected Service delegate() {
+        return delegate;
+    }
 
     @Override
     public void addListener(Listener arg0, Executor arg1) {

@@ -32,6 +32,8 @@ public interface Arguments extends Iterable<Arguments.Option> {
 
     Option newOption(String name);
 
+    boolean has(String name);
+    
     Arguments add(Option option);
 
     boolean hasValue(String name);
@@ -50,7 +52,7 @@ public interface Arguments extends Iterable<Arguments.Option> {
 
     void illegalValue(String name, String value);
 
-    Class<?> getMainClass();
+    String getProgramName();
 
-    void setMainClass(Class<?> cls);
+    void setProgramName(String name);
 }

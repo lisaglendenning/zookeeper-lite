@@ -1,16 +1,17 @@
 package edu.uw.zookeeper.event;
 
-import edu.uw.zookeeper.Connection;
+import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.util.AutomatonTransition;
 
 public class ConnectionStateEvent extends
-        ConnectionEventValue<Connection.State> {
+        ConnectionEventValue<AutomatonTransition<Connection.State>> {
 
     public static ConnectionStateEvent create(Connection connection,
-            Connection.State event) {
+            AutomatonTransition<Connection.State> event) {
         return new ConnectionStateEvent(connection, event);
     }
 
-    protected ConnectionStateEvent(Connection connection, Connection.State event) {
+    private ConnectionStateEvent(Connection connection, AutomatonTransition<Connection.State> event) {
         super(connection, event);
     }
 }

@@ -21,6 +21,14 @@ import static com.google.common.base.Preconditions.*;
  *  Only recognizes the format --NAME=VALUE or --NAME
  */
 public class SimpleArguments implements Arguments {
+        
+    public static SimpleArguments create() {
+        return new SimpleArguments();
+    }
+
+    public static SimpleArguments create(Iterable<Option> options) {
+        return new SimpleArguments(Optional.of(options));
+    }
 
     public static class SimpleOption implements Option {
 
@@ -115,14 +123,14 @@ public class SimpleArguments implements Arguments {
     public static final String OPT_HELP = "help";
 
     private final SortedMap<String, Option> options;
-    private Class<?> mainClass;
+    private String programName;
     private String[] args;
 
-    public SimpleArguments() {
+    private SimpleArguments() {
         this(Optional.<Iterable<Option>> absent());
     }
 
-    public SimpleArguments(Optional<Iterable<Option>> options) {
+    private SimpleArguments(Optional<Iterable<Option>> options) {
         // Maybe could try to auto-detect programName with
         // System.property(sun.java.command)?
         this.options = Maps.newTreeMap();
@@ -133,6 +141,8 @@ public class SimpleArguments implements Arguments {
             }
         }
         add(new SimpleOption(OPT_HELP));
+        this.programName = "";
+        this.args = new String[0];
     }
 
     @Override
@@ -151,6 +161,12 @@ public class SimpleArguments implements Arguments {
         return new SimpleOption(name);
     }
 
+    @Override
+    public boolean has(String name) {
+        checkArgument(name != null);
+        return options.containsKey(name);
+    }
+    
     @Override
     public SimpleArguments add(Option option) {
         checkArgument(option != null);
@@ -179,8 +195,7 @@ public class SimpleArguments implements Arguments {
     @Override
     public String getUsage() {
         StringBuilder str = new StringBuilder();
-        String programName = getMainClass().getName();
-        str.append(String.format("Usage: %s ", programName));
+        str.append(String.format("Usage: %s ", getProgramName()));
         Joiner joiner = Joiner.on(' ').skipNulls();
         joiner.appendTo(str, Iterables.transform(options.values(),
                 new Function<Option, String>() {
@@ -219,9 +234,7 @@ public class SimpleArguments implements Arguments {
     @Override
     public void parse() {
         String[] args = getArgs();
-        if (args != null) {
-            setArgs(parse(args));
-        }
+        setArgs(parse(args));
     }
 
     @Override
@@ -237,7 +250,7 @@ public class SimpleArguments implements Arguments {
 
     @Override
     public void setArgs(String[] args) {
-        this.args = checkNotNull(args, "args");
+        this.args = checkNotNull(args);
     }
 
     @Override
@@ -246,13 +259,13 @@ public class SimpleArguments implements Arguments {
     }
 
     @Override
-    public Class<?> getMainClass() {
-        return mainClass;
+    public String getProgramName() {
+        return programName;
     }
 
     @Override
-    public void setMainClass(Class<?> cls) {
-        this.mainClass = checkNotNull(cls, "cls");
+    public void setProgramName(String name) {
+        this.programName = checkNotNull(name);
     }
 
     @Override

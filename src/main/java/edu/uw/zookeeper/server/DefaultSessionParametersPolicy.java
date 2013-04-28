@@ -16,16 +16,18 @@ import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigUtil;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.util.Configurable;
 import edu.uw.zookeeper.util.ConfigurableTime;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.TimeValue;
 
-public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
-        Configurable {
+public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
 
     public static DefaultSessionParametersPolicy create() {
         return new DefaultSessionParametersPolicy();
+    }
+
+    public static DefaultSessionParametersPolicy create(Configuration configuration) {
+        return new DefaultSessionParametersPolicy(configuration);
     }
 
     public static final ByteOrder BYTE_ORDER = ByteOrder.BIG_ENDIAN;
@@ -45,40 +47,42 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
 
     public final String DEFAULT_TIMEOUT_UNIT = "MILLISECONDS";
 
-    protected final ConfigurableTime minTimeout;
-    protected final ConfigurableTime maxTimeout;
+    protected final TimeValue minTimeout;
+    protected final TimeValue maxTimeout;
     
+    protected DefaultSessionParametersPolicy() {
+        this(null);
+    }
+
     @Inject
     protected DefaultSessionParametersPolicy(Configuration configuration) {
-        this();
-        configure(configuration);
-    }
-
-    protected DefaultSessionParametersPolicy() {
-        this.minTimeout = ConfigurableTime.create(
+        ConfigurableTime timeoutFactory = ConfigurableTime.create(
                 DEFAULT_MIN_TIMEOUT,
                 DEFAULT_TIMEOUT_UNIT);
-        this.maxTimeout = ConfigurableTime.create(
+        TimeValue value = timeoutFactory.get();
+        if (configuration != null) {
+            String path = ConfigUtil.joinPath(CONFIG_PATH, KEY_MIN_TIMEOUT);
+            if (configuration.asConfig().hasPath(path)) {
+                value = timeoutFactory.get(configuration.asConfig().getConfig(path));
+            }
+        }
+        this.minTimeout = value;
+        
+        timeoutFactory = ConfigurableTime.create(
                 DEFAULT_MAX_TIMEOUT,
                 DEFAULT_TIMEOUT_UNIT);
-    }
+        value = timeoutFactory.get();
+        if (configuration != null) {
+            String path = ConfigUtil.joinPath(CONFIG_PATH, KEY_MAX_TIMEOUT);
+            if (configuration.asConfig().hasPath(path)) {
+                value = timeoutFactory.get(configuration.asConfig().getConfig(path));
+            }
+        }
+        this.maxTimeout = value;
+        
 
-    @Override
-    public void configure(Configuration configuration) {
-        try {
-            Config config = configuration.get().getConfig(
-                    ConfigUtil.joinPath(CONFIG_PATH, KEY_MIN_TIMEOUT));
-            minTimeout.get(config);
-        } catch (ConfigException.Missing e) {}
-        
-        try {
-            Config config = configuration.get().getConfig(
-                    ConfigUtil.joinPath(CONFIG_PATH, KEY_MAX_TIMEOUT)); 
-            maxTimeout.get(config);
-        } catch (ConfigException.Missing e) {}
-        
-        if (maxTimeout().value() != Session.Parameters.NEVER_TIMEOUT) {
-            checkArgument(minTimeout().value() <= maxTimeout().value());
+        if (maxTimeout.value() != Session.Parameters.NEVER_TIMEOUT) {
+            checkArgument(minTimeout.value() <= maxTimeout.value());
         }
     }
 
@@ -132,11 +136,11 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy,
 
     @Override
     public TimeValue maxTimeout() {
-        return maxTimeout.get();
+        return maxTimeout;
     }
 
     @Override
     public TimeValue minTimeout() {
-        return minTimeout.get();
+        return minTimeout;
     }
 }

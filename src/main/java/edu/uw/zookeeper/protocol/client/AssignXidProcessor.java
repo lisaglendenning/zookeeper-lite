@@ -1,38 +1,53 @@
 package edu.uw.zookeeper.protocol.client;
 
-import edu.uw.zookeeper.XidCounter;
-import edu.uw.zookeeper.data.OpCallRequest;
-import edu.uw.zookeeper.data.Operation;
+import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.SessionRequestWrapper;
+import edu.uw.zookeeper.util.Generator;
 import edu.uw.zookeeper.util.Processor;
 
 public class AssignXidProcessor implements
-        Processor<Operation.Request, Operation.Request> {
+        Processor<Operation.Request, Operation.SessionRequest>,
+        Generator<Integer> {
 
-    public static AssignXidProcessor create() {
-        return new AssignXidProcessor(XidCounter.create());
+    public static AssignXidProcessor newInstance() {
+        return new AssignXidProcessor(XidIncrementer.newInstance());
     }
 
-    public static AssignXidProcessor create(XidCounter xid) {
+    public static AssignXidProcessor newInstance(Generator<Integer> xid) {
         return new AssignXidProcessor(xid);
     }
 
-    protected final XidCounter xid;
+    private final Generator<Integer> xids;
 
-    protected AssignXidProcessor(XidCounter xid) {
-        this.xid = xid;
-    }
-
-    public XidCounter xid() {
-        return xid;
+    private AssignXidProcessor(Generator<Integer> xids) {
+        this.xids = xids;
     }
 
     @Override
-    public Operation.Request apply(Operation.Request request) {
-        if ((request.operation() != Operation.CREATE_SESSION)
-                && !(request instanceof Operation.CallRequest)) {
-            int xid = xid().incrementAndGet();
-            request = OpCallRequest.create(xid, request);
+    public Operation.SessionRequest apply(Operation.Request request) {
+        switch (request.opcode()) {
+        case CREATE_SESSION:
+            return null;
+        default:
+            break;
         }
-        return request;
+        
+        int xid;
+        if (request instanceof Operation.XidHeader) {
+            xid = ((Operation.XidHeader)request).xid();
+        } else {
+            xid = next();
+        }
+        return SessionRequestWrapper.create(xid, request);
+    }
+
+    @Override
+    public Integer get() {
+        return xids.get();
+    }
+
+    @Override
+    public Integer next() {
+        return xids.next();
     }
 }
