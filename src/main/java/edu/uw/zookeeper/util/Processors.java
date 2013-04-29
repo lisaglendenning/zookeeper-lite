@@ -14,7 +14,7 @@ public abstract class Processors {
     public static class ProcessorBridge<T, U, V> extends
         Pair<Processor<T, U>, Processor<U, V>> implements Processor<T, V> {
     
-        public static <T, U, V> ProcessorBridge<T, U, V> create(
+        public static <T, U, V> ProcessorBridge<T, U, V> newInstance(
                 Processor<T, U> first, Processor<U, V> second) {
             return new ProcessorBridge<T, U, V>(first, second);
         }
@@ -32,7 +32,7 @@ public abstract class Processors {
     public static class ProcessorChain<T> extends
             ForwardingList<Processor<T, T>> implements Processor<T, T> {
 
-        public static <T> ProcessorChain<T> create() {
+        public static <T> ProcessorChain<T> newInstance() {
             return new ProcessorChain<T>();
         }
 
@@ -69,7 +69,7 @@ public abstract class Processors {
             Pair<Predicate<? super T>, Processor<T, V>> implements
             FilteringProcessor<T, V> {
 
-        public static <T, V> FilteredProcessor<T, V> create(
+        public static <T, V> FilteredProcessor<T, V> newInstance(
                 Predicate<? super T> first, Processor<T, V> second) {
             return new FilteredProcessor<T, V>(first, second);
         }
@@ -97,7 +97,7 @@ public abstract class Processors {
     public static class FilteredProcessors<T, V> implements
             FilteringProcessor<T, V> {
 
-        public static <T, V> FilteredProcessors<T, V> create(
+        public static <T, V> FilteredProcessors<T, V> newInstance(
                 FilteringProcessor<T, V>... processors) {
             return new FilteredProcessors<T, V>(processors);
         }
@@ -141,7 +141,7 @@ public abstract class Processors {
     public static class OptionalProcessor<T> implements
             FilteringProcessor<T, T> {
 
-        public static <T> OptionalProcessor<T> create(
+        public static <T> OptionalProcessor<T> newInstance(
                 FilteringProcessor<T, T> processor) {
             return new OptionalProcessor<T>(processor);
         }

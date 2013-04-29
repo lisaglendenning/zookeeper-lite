@@ -14,10 +14,10 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.util.Processor;
 
 public class OpRequestProcessor implements
-        Processor<Operation.Request, Operation.Reply> {
+        Processor<Operation.Request, Operation.Response> {
 
     public static class SetFilter implements Predicate<Operation.Action> {
-        public static SetFilter create(Set<OpCode> opcodes) {
+        public static SetFilter newInstance(Set<OpCode> opcodes) {
             return new SetFilter(opcodes);
         }
 
@@ -38,7 +38,7 @@ public class OpRequestProcessor implements
     }
 
     public static class NotEqualsFilter implements Predicate<Operation.Action> {
-        public static NotEqualsFilter create(OpCode opcode) {
+        public static NotEqualsFilter newInstance(OpCode opcode) {
             return new NotEqualsFilter(opcode);
         }
 
@@ -59,7 +59,7 @@ public class OpRequestProcessor implements
     }
 
     public static class EqualsFilter implements Predicate<Operation.Action> {
-        public static EqualsFilter create(OpCode opcode) {
+        public static EqualsFilter newInstance(OpCode opcode) {
             return new EqualsFilter(opcode);
         }
 
@@ -79,7 +79,7 @@ public class OpRequestProcessor implements
         }
     }
 
-    public static OpRequestProcessor create() {
+    public static OpRequestProcessor newInstance() {
         return new OpRequestProcessor();
     }
 
@@ -87,9 +87,9 @@ public class OpRequestProcessor implements
     }
 
     @Override
-    public Operation.Reply apply(Operation.Request request) throws Exception {
+    public Operation.Response apply(Operation.Request request) throws Exception {
         OpCode opcode = request.opcode();
-        Operation.Reply reply;
+        Operation.Response reply;
         switch (opcode) {
         case CREATE_SESSION:
             reply = OpCreateSession.Response.Invalid.create();
