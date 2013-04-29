@@ -15,8 +15,10 @@ import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message.ClientMessage;
 import edu.uw.zookeeper.protocol.Message.ServerMessage;
+import edu.uw.zookeeper.protocol.OpCreateSession;
 import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
 import edu.uw.zookeeper.protocol.server.ServerProtocolConnection;
+import edu.uw.zookeeper.protocol.server.ZxidIncrementer;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.Factories;
@@ -41,15 +43,25 @@ public abstract class ServerMain extends AbstractMain {
                 ServerConnectionFactory connections = monitorsFactory.apply(connectionFactory().get(address.get()));
                 
                 SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(configuration());
-                ExpiringSessionManager manager = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
-                ExpireSessionsTask expire = monitorsFactory.apply(ExpireSessionsTask.newInstance(manager, executors().asScheduledExecutorServiceFactory().get(), configuration()));
+                ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
+                ExpireSessionsTask expire = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, executors().asScheduledExecutorServiceFactory().get(), configuration()));
                 
+                ZxidIncrementer zxids = ZxidIncrementer.newInstance();
+                final OpCreateSessionProcessor processor = OpCreateSessionProcessor.newInstance(sessions, zxids);
                 final Singleton<? extends ServerExecutor> executor = Factories.holderOf(new ServerExecutor() {
                     @Override
                     public ListenableFuture<ServerMessage> submit(
-                            ClientMessage request) {
-                        System.out.println(request.toString());
-                        return SettableFuture.create();
+                            ClientMessage message) {
+                        System.out.println(message.toString());
+                        SettableFuture<ServerMessage> future = SettableFuture.create();
+                        if (message instanceof OpCreateSession.Request) {
+                            try {
+                                future.set(processor.apply((OpCreateSession.Request)message));
+                            } catch (Exception e) {
+                                future.setException(e);
+                            }
+                        }
+                        return future;
                     }});
                 
                 ParameterizedFactory<Connection, ServerCodecConnection> codecFactory = ServerCodecConnection.factory(publisherFactory());

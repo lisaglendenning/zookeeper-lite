@@ -12,18 +12,18 @@ public class OpCreateSessionProcessor  implements
 Processor<OpCreateSession.Request, OpCreateSession.Response> {
 
     public static OpCreateSessionProcessor newInstance(
-            SessionManager sessions,
+            SessionTable sessions,
             Reference<Long> lastZxid) {
         return new OpCreateSessionProcessor(sessions, lastZxid);
     }
     
     protected final Logger logger = LoggerFactory
             .getLogger(OpCreateSessionProcessor.class);
-    protected final SessionManager sessions;
+    protected final SessionTable sessions;
     protected final Reference<Long> lastZxid;
 
     protected OpCreateSessionProcessor(
-            SessionManager sessions,
+            SessionTable sessions,
             Reference<Long> lastZxid) {
         this.sessions = sessions;
         this.lastZxid = lastZxid;
@@ -33,7 +33,7 @@ Processor<OpCreateSession.Request, OpCreateSession.Response> {
         return lastZxid;
     }
     
-    public SessionManager sessions() {
+    public SessionTable sessions() {
         return sessions;
     }
 
@@ -53,7 +53,7 @@ Processor<OpCreateSession.Request, OpCreateSession.Response> {
         // TODO: readOnly?
         Session session = null;
         if (request instanceof OpCreateSession.Request.NewRequest) {
-            session = sessions().newSession();
+            session = sessions().validate(request.toParameters());
         } else if (request instanceof OpCreateSession.Request.RenewRequest) {
             try {
                 session = sessions().validate(request.toSession());

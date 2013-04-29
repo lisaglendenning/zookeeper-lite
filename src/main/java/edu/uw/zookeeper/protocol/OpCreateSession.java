@@ -62,6 +62,17 @@ public abstract class OpCreateSession<T extends Record>
             super(record, readOnly, wraps);
         }
         
+        public Session toSession() {
+            return Session.create(asRecord().getSessionId(),
+                    toParameters());
+        }
+        
+        public Session.Parameters toParameters() {
+            ConnectRequest record = asRecord();
+            return Session.Parameters.create(record.getTimeOut(),
+                    record.getPasswd());
+        }
+        
         public static class NewRequest extends Request {
 
             public static ConnectRequest createRecord() {
@@ -104,10 +115,6 @@ public abstract class OpCreateSession<T extends Record>
             private NewRequest(ConnectRequest record, boolean readOnly, boolean wraps) {
                 super(record, readOnly, wraps);
             }
-            
-            public Session toSession() {
-                return Session.uninitialized();
-            }
         }
         
         public static class RenewRequest extends Request {
@@ -143,17 +150,6 @@ public abstract class OpCreateSession<T extends Record>
 
             private RenewRequest(ConnectRequest record, boolean readOnly, boolean wraps) {
                 super(record, readOnly, wraps);
-            }
-
-            public Session.Parameters toParameters() {
-                ConnectRequest record = asRecord();
-                return Session.Parameters.create(record.getTimeOut(),
-                        record.getPasswd());
-            }
-            
-            public Session toSession() {
-                return Session.create(asRecord().getSessionId(),
-                        toParameters());
             }
         }
     }
@@ -267,6 +263,10 @@ public abstract class OpCreateSession<T extends Record>
             public Session toSession() {
                 return Session.uninitialized();
             }
+            
+            public Session.Parameters toParameters(){
+                return Session.Parameters.uninitialized();
+            }
         }
     }
 
@@ -300,6 +300,8 @@ public abstract class OpCreateSession<T extends Record>
     }
     
     public abstract Session toSession();
+
+    public abstract Session.Parameters toParameters();
 
     @Override
     public ByteBuf encode(ByteBufAllocator output) throws IOException {

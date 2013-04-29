@@ -22,7 +22,7 @@ public class ExpireSessionsTask extends AbstractIdleService implements
         }
 
         public static final String CONFIG_PATH = "Sessions.Expire";
-        public static final long DEFAULT_EXPIRE_TICK = 1000;
+        public static final long DEFAULT_EXPIRE_TICK = 2000;
         public static final String DEFAULT_EXPIRE_TICK_UNIT = "MILLISECONDS";
         
         private final ConfigurableTime timeFactory = ConfigurableTime.create(
