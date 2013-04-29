@@ -15,13 +15,13 @@ import edu.uw.zookeeper.ServerQuorumView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.client.ClientCodecConnection;
-import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
+import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.TimeValue;
 
-public class EnsembleFactory implements DefaultsFactory<ServerQuorumView, Factory<ClientProtocolExecutor>> {
+public class EnsembleFactory implements DefaultsFactory<ServerQuorumView, Factory<ClientProtocolConnection>> {
 
     public static EnsembleFactory newInstance(
             ClientConnectionFactory connections,
@@ -68,12 +68,12 @@ public class EnsembleFactory implements DefaultsFactory<ServerQuorumView, Factor
     }
     
     @Override
-    public Factory<ClientProtocolExecutor> get() {
+    public Factory<ClientProtocolConnection> get() {
         return get(selector.apply(view));
     }
     
     @Override
-    public Factory<ClientProtocolExecutor> get(ServerQuorumView server) {
+    public Factory<ClientProtocolConnection> get(ServerQuorumView server) {
         ServerViewFactory factory;
         synchronized (factories) {
             factory = factories.get(server);

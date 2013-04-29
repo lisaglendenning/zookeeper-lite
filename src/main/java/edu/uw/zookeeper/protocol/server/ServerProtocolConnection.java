@@ -1,5 +1,12 @@
 package edu.uw.zookeeper.protocol.server;
 
+import java.util.Queue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -7,92 +14,199 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 
 import edu.uw.zookeeper.ServerExecutor;
 import edu.uw.zookeeper.event.ConnectionStateEvent;
+import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.util.ForwardingEventful;
-import edu.uw.zookeeper.util.Publisher;
+import edu.uw.zookeeper.protocol.Message.ClientMessage;
+import edu.uw.zookeeper.protocol.Message.ServerMessage;
+import edu.uw.zookeeper.util.AbstractPair;
+import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.Stateful;
 
-public class ServerProtocolConnection extends ForwardingEventful implements FutureCallback<Message.ServerMessage>, Stateful<ProtocolState> {
+public class ServerProtocolConnection implements Stateful<ProtocolState>, FutureCallback<Message.ServerMessage>, Eventful, Callable<Void> {
 
-    public static ServerProtocolConnection create(
-            Publisher publisher,
-            ServerExecutor executor,
-            ServerCodecConnection codecConnection) {
-        return new ServerProtocolConnection(publisher, executor, codecConnection);
+    public static ServerProtocolConnection newInstance(
+            ServerCodecConnection codecConnection,
+            ServerExecutor callback,
+            ListeningExecutorService executor) {
+        return new ServerProtocolConnection(codecConnection, callback, executor);
+    }
+    
+    public static class RequestTask extends AbstractPair<Message.ClientMessage, ListenableFuture<Message.ServerMessage>> {
+
+        public static RequestTask newInstance(ClientMessage first,
+                ListenableFuture<ServerMessage> second) {
+            return new RequestTask(first, second);
+        }
+        
+        protected RequestTask(ClientMessage first,
+                ListenableFuture<ServerMessage> second) {
+            super(first, second);
+        }
+        
+        public Message.ClientMessage request() {
+            return first;
+        }
+        
+        public ListenableFuture<Message.ServerMessage> future() {
+            return second;
+        }
+    }
+    
+    public static enum State {
+        WAITING, SCHEDULED, TERMINATED;
     }
 
     protected final Logger logger = LoggerFactory
             .getLogger(ServerProtocolConnection.class);
-    private final ServerExecutor executor;
+    // must be thread-safe
+    private final Queue<RequestTask> pending;
+    private final ServerExecutor callback;
+    private final ListeningExecutorService executor;
     private final ServerCodecConnection codecConnection;
+    private final AtomicReference<State> state;
     
     private ServerProtocolConnection(
-            Publisher publisher,
-            ServerExecutor executor,
-            ServerCodecConnection codecConnection) {
-        super(publisher);
-        this.executor = executor;
+            ServerCodecConnection codecConnection,
+            ServerExecutor callback,
+            ListeningExecutorService executor) {
         this.codecConnection = codecConnection;
+        this.callback = callback;
+        this.executor = executor;
+        this.pending = new LinkedBlockingQueue<RequestTask>();
+        this.state = new AtomicReference<State>(State.WAITING);
         register(this);
+    }
+    
+    public ServerCodecConnection asCodecConnection() {
+        return codecConnection;
     }
 
     @Override
     public ProtocolState state() {
-        return codecConnection.asCodec().state();
+        return asCodecConnection().asCodec().state();
     }
-
+    
     @Subscribe
     public void handleConnectionState(ConnectionStateEvent event) {
         switch (event.event().to()) {
         case CONNECTION_CLOSED:
-            unregister(this);
+            onFailure(new KeeperException.ConnectionLossException());
             break;
         default:
             break;
         }
     }
-    
+
+    /**
+     * Don't call concurrently!
+     */
     @Subscribe
-    public void handleMessage(Message.ClientMessage message) {
-        ListenableFuture<Message.ServerMessage> future = executor.submit(message);
+    public void handleRequest(Message.ClientMessage message) {
+        ListenableFuture<Message.ServerMessage> future = callback.submit(message);
+        RequestTask task = RequestTask.newInstance(message, future);
+        pending.add(task);
         Futures.addCallback(future, this);
     }
 
     /**
-     * Notifications end up here somehow
+     * Don't call concurrently!
      */
-    @Subscribe
-    @Override
-    public void onSuccess(Message.ServerMessage result) {
-        try {
-            codecConnection.write(result);
-        } catch (Exception e) {
-            logger.warn("Dropping {}", result, e);
-            onFailure(e);
+    public Void call() {
+        if (state.get() != State.SCHEDULED) {
+            return null;
+        }
+        
+        RequestTask task = pending.peek();
+        while (task != null) {
+            if (! task.future().isDone()) {
+                break;
+            }
+            pending.poll();
+            Message.ServerMessage result;
+            try {
+                result = task.future().get();
+            } catch (Exception e) {
+                onFailure(e);
+                return null;
+            }
+            try {
+                codecConnection.write(result);
+            } catch (Exception e) {
+                logger.debug("Exception while writing {}", result, e);
+                onFailure(e);
+                return null;
+            }
+            task = pending.peek();
+        }
+        
+        if (state.compareAndSet(State.SCHEDULED, State.WAITING)) {
+            schedule();
+        }
+        return null;
+    }
+    
+    protected void schedule() {
+        RequestTask task = pending.peek();
+        if (task != null && task.future().isDone()) {
+            if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
+               executor.submit(this);
+            }
         }
     }
 
+    /**
+     * Thread-safe
+     */
+    @Override
+    public void onSuccess(Message.ServerMessage result) {
+        if (state.get() == State.TERMINATED) {
+            logger.debug("Dropping {}", result);
+        } else {
+            schedule();
+        }
+    }
+
+    /**
+     * Thread-safe
+     */
     @Override
     public void onFailure(Throwable t) {
-        logger.warn("Closing connection", t);
-        codecConnection.asConnection().close();
+        if (state.getAndSet(State.TERMINATED) == State.TERMINATED) {
+            return;
+        }
+
+        try {
+            unregister(this);
+        } catch (IllegalArgumentException e) {}
+        
+        Connection connection = codecConnection.asConnection();
+        switch (connection.state()) {
+        case CONNECTION_OPENING:
+        case CONNECTION_OPENED:
+            logger.debug("Closing connection", t);
+            connection.close();
+            break;
+        default:
+            break;
+        }
     }
 
     @Override
     public void register(Object handler) {
         codecConnection.register(handler);
         codecConnection.asConnection().register(handler);
-        super.register(handler);
     }
 
     @Override
     public void unregister(Object handler) {
         codecConnection.unregister(handler);
-        codecConnection.asConnection().unregister(handler);
-        super.unregister(handler);
+        try {
+            codecConnection.asConnection().unregister(handler);
+        } catch (IllegalArgumentException e) {}
     }
 }

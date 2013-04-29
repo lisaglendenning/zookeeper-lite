@@ -226,11 +226,17 @@ public abstract class AbstractMain implements Application {
             // create executor
             ExecutorService executor = factory.get(type);
             if (executor == null) {
-                if (ScheduledExecutorService.class.isAssignableFrom(type)) {
-                    executor = factory.get(ListeningScheduledExecutorService.class);
+                if (ListeningScheduledExecutorService.class.isAssignableFrom(type)) {
+                    executor = factory.get(ScheduledExecutorService.class);
+                } else if (ListeningExecutorService.class.isAssignableFrom(type)) {
+                    executor = factory.get(ExecutorService.class);
                 } else {
-                    executor = factory.get(ListeningExecutorService.class);
-                }            
+                    if (ScheduledExecutorService.class.isAssignableFrom(type)) {
+                        executor = factory.get(ListeningScheduledExecutorService.class);
+                    } else {
+                        executor = factory.get(ListeningExecutorService.class);
+                    }       
+                }
             }
             checkArgument(executor != null);
             
@@ -239,7 +245,7 @@ public abstract class AbstractMain implements Application {
                 if (ScheduledExecutorService.class.isAssignableFrom(type)) {
                     executor = MoreExecutors.listeningDecorator((ScheduledExecutorService)executor);
                 } else {
-                    executor = MoreExecutors.listeningDecorator((ScheduledExecutorService)executor);
+                    executor = MoreExecutors.listeningDecorator((ExecutorService)executor);
                 }
             }
             

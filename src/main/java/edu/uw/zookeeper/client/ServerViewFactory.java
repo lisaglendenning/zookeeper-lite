@@ -13,7 +13,7 @@ import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.TimeValue;
 
-public class ServerViewFactory extends NewClientProtocolExecutorFactory {
+public class ServerViewFactory extends NewClientProtocolConnectionFactory {
 
     public static class ZxidTrackingDecorator implements Factory<ClientCodecConnection> {
         public static ZxidTrackingDecorator newInstance(Factory<? extends ClientCodecConnection> delegate,

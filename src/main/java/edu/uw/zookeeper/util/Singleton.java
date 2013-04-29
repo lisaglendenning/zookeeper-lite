@@ -1,4 +1,4 @@
 package edu.uw.zookeeper.util;
 
-public interface Singleton<T> extends Factory<T> {
+public interface Singleton<T> extends Reference<T> {
 }

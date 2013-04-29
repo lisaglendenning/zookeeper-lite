@@ -7,7 +7,7 @@ import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.client.AssignXidProcessor;
-import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
+import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.ConfigurableTime;
@@ -79,10 +79,10 @@ public abstract class ClientMain extends AbstractMain {
                 ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
                         publisherFactory(), timeOut, executors().asScheduledExecutorServiceFactory().get());
                 EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(connections, codecFactory, ensemble, timeOut);
-                Factory<ClientProtocolExecutor> clientFactory = ensembleFactory.get();
+                Factory<ClientProtocolConnection> clientFactory = ensembleFactory.get();
                 
                 monitorsFactory.apply(
-                        ClientProtocolExecutorService.newInstance(processor, clientFactory));
+                        ClientProtocolConnectionService.newInstance(processor, clientFactory));
         
                 return ClientMain.super.application();
             }
