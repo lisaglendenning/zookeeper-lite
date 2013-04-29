@@ -36,13 +36,13 @@ public class OpCloseSessionProcessor extends OpRequestProcessor {
     }
 
     @Override
-    public Operation.Response apply(Operation.Request request) throws Exception {
+    public Operation.Response apply(Operation.Request request) {
         if (request.opcode() != OpCode.CLOSE_SESSION) {
             return null;
         }
         
         if (sessions().remove(sessionId()) == null) {
-            throw new IllegalStateException();
+            throw new IllegalStateException(String.format("Session %l not found", sessionId()));
         }
         return super.apply(request);
     }

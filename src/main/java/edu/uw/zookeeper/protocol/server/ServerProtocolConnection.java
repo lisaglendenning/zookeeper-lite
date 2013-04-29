@@ -2,7 +2,6 @@ package edu.uw.zookeeper.protocol.server;
 
 import java.util.Queue;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -20,6 +19,7 @@ import edu.uw.zookeeper.ServerExecutor;
 import edu.uw.zookeeper.event.ConnectionStateEvent;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.OpCreateSession;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.Message.ClientMessage;
 import edu.uw.zookeeper.protocol.Message.ServerMessage;
@@ -64,11 +64,14 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
     protected final Logger logger = LoggerFactory
             .getLogger(ServerProtocolConnection.class);
     // must be thread-safe
-    private final Queue<RequestTask> pending;
+    private final Queue<Message.ClientMessage> received;
+    private final Queue<RequestTask> submitted;
     private final ServerExecutor callback;
     private final ListeningExecutorService executor;
     private final ServerCodecConnection codecConnection;
     private final AtomicReference<State> state;
+    private volatile boolean throttled;
+    private volatile boolean pendingChanges;
     
     private ServerProtocolConnection(
             ServerCodecConnection codecConnection,
@@ -77,8 +80,11 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
         this.codecConnection = codecConnection;
         this.callback = callback;
         this.executor = executor;
-        this.pending = new LinkedBlockingQueue<RequestTask>();
+        this.received = new LinkedBlockingQueue<Message.ClientMessage>();
+        this.submitted = new LinkedBlockingQueue<RequestTask>();
         this.state = new AtomicReference<State>(State.WAITING);
+        this.throttled = false;
+        this.pendingChanges = false;
         register(this);
     }
     
@@ -102,15 +108,15 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
         }
     }
 
-    /**
-     * Don't call concurrently!
-     */
     @Subscribe
     public void handleRequest(Message.ClientMessage message) {
-        ListenableFuture<Message.ServerMessage> future = callback.submit(message);
-        RequestTask task = RequestTask.newInstance(message, future);
-        pending.add(task);
-        Futures.addCallback(future, this);
+        if (state.get() == State.TERMINATED) {
+            logger.debug("Dropping {}", message);
+        } else {
+            received.add(message);
+            pendingChanges = true;
+            schedule();
+        }
     }
 
     /**
@@ -121,12 +127,23 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
             return null;
         }
         
-        RequestTask task = pending.peek();
-        while (task != null) {
-            if (! task.future().isDone()) {
-                break;
+        pendingChanges = false;
+        
+        // submit received messages unless throttled
+        while (!throttled && received.peek() != null) {
+            Message.ClientMessage message = received.poll();
+            if (message instanceof OpCreateSession.Request) {
+                throttled = true;
             }
-            pending.poll();
+            ListenableFuture<Message.ServerMessage> future = callback.submit(message);
+            RequestTask task = RequestTask.newInstance(message, future);
+            submitted.add(task);
+            Futures.addCallback(future, this);
+        }
+
+        // write responses for completed requests
+        while (submitted.peek() != null && submitted.peek().future().isDone()) {
+            RequestTask task = submitted.poll();
             Message.ServerMessage result;
             try {
                 result = task.future().get();
@@ -141,21 +158,17 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
                 onFailure(e);
                 return null;
             }
-            task = pending.peek();
         }
         
-        if (state.compareAndSet(State.SCHEDULED, State.WAITING)) {
+        if (state.compareAndSet(State.SCHEDULED, State.WAITING) && pendingChanges) {
             schedule();
         }
         return null;
     }
     
     protected void schedule() {
-        RequestTask task = pending.peek();
-        if (task != null && task.future().isDone()) {
-            if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
-               executor.submit(this);
-            }
+        if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
+           executor.submit(this);
         }
     }
 
@@ -167,6 +180,10 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
         if (state.get() == State.TERMINATED) {
             logger.debug("Dropping {}", result);
         } else {
+            if (result instanceof OpCreateSession.Response.Valid) {
+                throttled = false;
+            }
+            pendingChanges = true;
             schedule();
         }
     }

@@ -12,7 +12,7 @@ public class OpRequestErrorProcessor extends OpRequestProcessor {
     }
 
     @Override
-    public Operation.Response apply(Operation.Request request) throws Exception {
+    public Operation.Response apply(Operation.Request request) {
         throw new IllegalArgumentException(request.toString());
     }
 }

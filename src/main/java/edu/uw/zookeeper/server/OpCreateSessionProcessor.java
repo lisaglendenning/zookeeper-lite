@@ -38,8 +38,7 @@ Processor<OpCreateSession.Request, OpCreateSession.Response> {
     }
 
     @Override
-    public OpCreateSession.Response apply(OpCreateSession.Request request)
-            throws Exception {
+    public OpCreateSession.Response apply(OpCreateSession.Request request) {
         // emulating the the behavior of ZooKeeperServer,
         // which is to just close the connection
         // without replying when the zxid is out of sync

@@ -87,7 +87,7 @@ public class OpRequestProcessor implements
     }
 
     @Override
-    public Operation.Response apply(Operation.Request request) throws Exception {
+    public Operation.Response apply(Operation.Request request) {
         OpCode opcode = request.opcode();
         Operation.Response reply;
         switch (opcode) {
