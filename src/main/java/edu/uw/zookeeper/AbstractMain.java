@@ -2,7 +2,6 @@ package edu.uw.zookeeper;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -299,6 +298,68 @@ public abstract class AbstractMain implements Application {
             return value;
         }
     }
+
+    public static class ConfigurableServerAddressViewFactory implements DefaultsFactory<Configuration, ServerView.Address<?>> {
+
+        public static ConfigurableServerAddressViewFactory newInstance() {
+            return newInstance("");
+        }
+
+        public static ConfigurableServerAddressViewFactory newInstance(String configPath) {
+            return new ConfigurableServerAddressViewFactory(configPath);
+        }
+        
+        public static final String ARG = "server";
+        public static final String CONFIG_KEY = "Server";
+        public static final String DEFAULT_ADDRESS = "localhost";
+        public static final int DEFAULT_PORT = 2181;
+
+        private final String configPath;
+        
+        protected ConfigurableServerAddressViewFactory(String configPath) {
+            this.configPath = configPath;
+        }
+        
+        @Override
+        public ServerInetAddressView get() {
+            return ServerInetAddressView.newInstance(
+                    DEFAULT_ADDRESS, DEFAULT_PORT);
+        }
+
+        @Override
+        public ServerView.Address<?> get(Configuration value) {
+            Arguments arguments = value.asArguments();
+            if (! arguments.has(ARG)) {
+                arguments.add(arguments.newOption(ARG, "Address"));
+            }
+            arguments.parse();
+            Map<String, Object> args = Maps.newHashMap();
+            if (arguments.hasValue(ARG)) {
+                args.put(CONFIG_KEY, arguments.getValue(ARG));
+            }
+            
+            Config config = value.asConfig();
+            if (configPath.length() > 0 && config.hasPath(configPath)) {
+                config = config.getConfig(configPath);
+            } else {
+                config = ConfigFactory.empty();
+            }
+            if (! args.isEmpty()) {
+                config = ConfigValueFactory.fromMap(args).toConfig().withFallback(config);
+            }
+           
+            if (config.hasPath(CONFIG_KEY)) {
+            String input = config.getString(CONFIG_KEY);
+                try {
+                    return ServerAddressView.fromString(input);
+                } catch (ClassNotFoundException e) {
+                    throw Throwables.propagate(e);
+                }
+            } else {
+                return get();
+            }
+        }
+    }
     
     public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleView> {
 
@@ -308,8 +369,6 @@ public abstract class AbstractMain implements Application {
         
         public static final String ARG = "ensemble";
         public static final String CONFIG_KEY = "Ensemble";
-        public static final String DEFAULT_ADDRESS = "localhost";
-        public static final int DEFAULT_PORT = 2181;
 
         private final String configPath;
         
@@ -319,9 +378,8 @@ public abstract class AbstractMain implements Application {
         
         @Override
         public EnsembleView get() {
-            ServerView.Address<InetSocketAddress> localhost = ServerInetAddressView.newInstance(
-                    DEFAULT_ADDRESS, DEFAULT_PORT);
-            return EnsembleView.of(ServerQuorumView.newInstance(localhost));
+            ServerView.Address<?> defaultServer = ConfigurableServerAddressViewFactory.newInstance(configPath).get();
+            return EnsembleView.of(ServerQuorumView.newInstance(defaultServer));
         }
 
         @Override
@@ -422,5 +480,12 @@ public abstract class AbstractMain implements Application {
         try {
             future.get(shutdownTimeout.value(), shutdownTimeout.unit());
         } catch (Exception e) {}
+
+        // TODO: hacky
+        try {
+            Class<?> cls = Class.forName("org.apache.log4j.LogManager");
+            cls.getMethod("shutdown").invoke(null);
+        } catch (Exception e) {
+        }
     }
 }

@@ -18,7 +18,7 @@ public class Main extends ServerMain {
         ConfigurableMain.main(args, ConfigurableMain.DefaultApplicationFactory.newInstance(Main.class));
     }
     
-    protected final ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory> connections;
+    protected final ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory> connectionFactory;
     
     public Main(Configuration configuration) {
         super(configuration);
@@ -26,11 +26,11 @@ public class Main extends ServerMain {
         ParameterizedFactory<SocketAddress, ServerBootstrap> bootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
                         NioServerBootstrapFactory.newInstance(threadFactory(), serviceMonitor()));
-        this.connections = ChannelServerConnectionFactory.ParameterizedServerFactoryBuilder.newInstance(publisherFactory(), connectionBuilder, bootstrapFactory);
+        this.connectionFactory = ChannelServerConnectionFactory.ParameterizedServerFactoryBuilder.newInstance(publisherFactory(), connectionBuilder, bootstrapFactory);
     }
 
     @Override
-    protected ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory> connections() {
-        return connections;
+    protected ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory> connectionFactory() {
+        return connectionFactory;
     }
 }

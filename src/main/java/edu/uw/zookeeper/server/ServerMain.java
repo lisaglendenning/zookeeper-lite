@@ -3,10 +3,9 @@ package edu.uw.zookeeper.server;
 
 import java.net.SocketAddress;
 
-import com.google.common.util.concurrent.Service;
 import edu.uw.zookeeper.AbstractMain;
-import edu.uw.zookeeper.AbstractMain.MonitorServiceFactory;
-import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
+import edu.uw.zookeeper.ServerView;
+import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.Factories;
@@ -27,8 +26,10 @@ public abstract class ServerMain extends AbstractMain {
                 ServiceMonitor monitor = serviceMonitor();
                 MonitorServiceFactory monitorsFactory = monitors(monitor);
 
-                ParameterizedFactory<? extends SocketAddress, ? extends ChannelServerConnectionFactory> connections = connections();
-                return null;
+                ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(configuration());
+                ServerConnectionFactory connections = monitorsFactory.apply(connectionFactory().get(address.get()));
+                        
+                return ServerMain.super.application();
             }
         });
     }
@@ -38,5 +39,5 @@ public abstract class ServerMain extends AbstractMain {
         return application.get();
     }
     
-    protected abstract ParameterizedFactory<? extends SocketAddress, ? extends ChannelServerConnectionFactory> connections();
+    protected abstract ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory> connectionFactory();
 }
