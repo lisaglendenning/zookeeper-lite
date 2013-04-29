@@ -8,15 +8,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.common.util.concurrent.UncaughtExceptionHandlers;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
@@ -32,16 +35,18 @@ import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
+import edu.uw.zookeeper.util.ServiceApplication;
 import edu.uw.zookeeper.util.ServiceMonitor;
 import edu.uw.zookeeper.util.Singleton;
+import edu.uw.zookeeper.util.TimeValue;
 
 
-public abstract class AbstractMain implements Runnable {
+public abstract class AbstractMain implements Application {
 
-    public static enum PublisherFactory implements Factory<Publisher> {
+    public static enum EventBusPublisherFactory implements Factory<Publisher> {
         INSTANCE;
 
-        public static PublisherFactory getInstance() {
+        public static EventBusPublisherFactory getInstance() {
             return INSTANCE;
         }
 
@@ -80,12 +85,14 @@ public abstract class AbstractMain implements Runnable {
         
         @Override
         public ScheduledExecutorService get(ThreadFactory threadFactory) {
-            return Executors.newSingleThreadScheduledExecutor(
+            ScheduledExecutorService instance = Executors.newSingleThreadScheduledExecutor(
                     new ThreadFactoryBuilder()
                     .setThreadFactory(threadFactory)
                     .setDaemon(true)
                     .setNameFormat(nameFormat)
                     .build());
+            //MoreExecutors.addDelayedShutdownHook(instance, 100, TimeUnit.MILLISECONDS);
+            return instance;
         }
     }
     
@@ -286,6 +293,11 @@ public abstract class AbstractMain implements Runnable {
             serviceMonitor.add(value);
             return value;
         }
+        
+        public <T extends Service> T apply(T value) {
+            get(value);
+            return value;
+        }
     }
     
     public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleView> {
@@ -347,20 +359,24 @@ public abstract class AbstractMain implements Runnable {
         }
     }
     
-    public static void main(String[] args) {
-        ConfigurableMain.main(args, ConfigurableMain.DefaultApplicationFactory.newInstance(AbstractMain.class));
-    }
+    protected static final TimeValue DEFAULT_SHUTDOWN_TIMEOUT = TimeValue.create(30L, TimeUnit.SECONDS);
     
     protected final Factory<Publisher> publisherFactory;
     protected final Singleton<ServiceMonitor> serviceMonitor;
     protected final Singleton<Configuration> configuration;
     protected final ListeningExecutorServiceFactory executors;
-    
+    protected final TimeValue shutdownTimeout;
+
     protected AbstractMain(Configuration configuration) {
+        this(configuration, DEFAULT_SHUTDOWN_TIMEOUT);
+    }
+    
+    protected AbstractMain(Configuration configuration, TimeValue shutdownTimeout) {
         this.configuration = Factories.holderOf(configuration);
-        this.publisherFactory = PublisherFactory.getInstance();
+        this.publisherFactory = EventBusPublisherFactory.getInstance();
         this.serviceMonitor = Factories.holderOf(ServiceMonitor.newInstance());
         this.executors = listeningExecutors(serviceMonitor.get());
+        this.shutdownTimeout = shutdownTimeout;
     }
     
     public Configuration configuration() {
@@ -385,10 +401,26 @@ public abstract class AbstractMain implements Runnable {
     
     @Override
     public void run() {
+        Thread.currentThread().setUncaughtExceptionHandler(UncaughtExceptionHandlers.systemExit());
         Application application = application();
         ConfigurableMain.exitIfHelpSet(configuration().asArguments());
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                shutdown();
+            }
+        });
         application.run();
     }
 
-    protected abstract Application application();
+    protected Application application() {
+        return ServiceApplication.newInstance(serviceMonitor());
+    }
+
+    public void shutdown() {
+        ListenableFuture<Service.State> future = serviceMonitor().stop();
+        try {
+            future.get(shutdownTimeout.value(), shutdownTimeout.unit());
+        } catch (Exception e) {}
+    }
 }

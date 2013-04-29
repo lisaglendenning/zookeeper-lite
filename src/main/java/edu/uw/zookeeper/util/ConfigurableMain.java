@@ -87,6 +87,5 @@ public abstract class ConfigurableMain {
         }
     }
     
-    protected ConfigurableMain() {
-    }
+    private ConfigurableMain() {}
 }

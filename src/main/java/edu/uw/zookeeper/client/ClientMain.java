@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.client;
 
 
-import com.google.common.util.concurrent.Service;
 import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.EnsembleView;
@@ -11,14 +10,13 @@ import edu.uw.zookeeper.protocol.client.AssignXidProcessor;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
 import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
 import edu.uw.zookeeper.util.Application;
-import edu.uw.zookeeper.util.BackgroundServiceApplication;
 import edu.uw.zookeeper.util.ConfigurableTime;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.ServiceApplication;
+import edu.uw.zookeeper.util.ServiceMonitor;
 import edu.uw.zookeeper.util.Singleton;
 import edu.uw.zookeeper.util.TimeValue;
 
@@ -62,7 +60,7 @@ public abstract class ClientMain extends AbstractMain {
             }
         }
     }
-    
+
     protected final Singleton<Application> application;
     
     protected ClientMain(Configuration configuration) {
@@ -70,10 +68,11 @@ public abstract class ClientMain extends AbstractMain {
         this.application = Factories.lazyFrom(new Factory<Application>() {
             @Override
             public Application get() {
-                ParameterizedFactory<Service, Service> monitorsFactory = monitors(serviceMonitor());
-
-                ClientConnectionFactory connections = (ClientConnectionFactory) Factories.apply(connections(), monitorsFactory);
-
+                ServiceMonitor monitor = serviceMonitor();
+                MonitorServiceFactory monitorsFactory = monitors(monitor);
+        
+                ClientConnectionFactory connections = monitorsFactory.apply(connectionFactory().get());
+        
                 TimeValue timeOut = TimeoutFactory.newInstance().get(configuration());
                 EnsembleView ensemble = ConfigurableEnsembleViewFactory.newInstance().get(configuration());
                 AssignXidProcessor processor = AssignXidProcessor.newInstance();
@@ -82,11 +81,10 @@ public abstract class ClientMain extends AbstractMain {
                 EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(connections, codecFactory, ensemble, timeOut);
                 Factory<ClientProtocolExecutor> clientFactory = ensembleFactory.get();
                 
-                Service service = ClientProtocolExecutorService.newInstance(processor, clientFactory);                
-                Application application = BackgroundServiceApplication.newInstance(
-                        ServiceApplication.newInstance(service),
-                        serviceMonitor());
-                return application;
+                monitorsFactory.apply(
+                        ClientProtocolExecutorService.newInstance(processor, clientFactory));
+        
+                return ClientMain.super.application();
             }
         });
     }
@@ -96,5 +94,5 @@ public abstract class ClientMain extends AbstractMain {
         return application.get();
     }
     
-    protected abstract Factory<? extends ClientConnectionFactory> connections();
+    protected abstract Factory<? extends ClientConnectionFactory> connectionFactory();
 }

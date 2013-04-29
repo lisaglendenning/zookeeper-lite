@@ -16,19 +16,19 @@ public class Main extends ClientMain {
     public static void main(String[] args) {
         ConfigurableMain.main(args, ConfigurableMain.DefaultApplicationFactory.newInstance(Main.class));
     }
-    
-    protected final Factory<ChannelClientConnectionFactory> connections;
+
+    protected final Factory<? extends ChannelClientConnectionFactory> connectionFactory;
     
     public Main(Configuration configuration) {
         super(configuration);
         Factory<Bootstrap> bootstrapFactory = NioClientBootstrapFactory.newInstance(threadFactory(), serviceMonitor());
         ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = ChannelConnection.ConnectionBuilder.newInstance(publisherFactory());
-        this.connections = 
+        this.connectionFactory = 
                 ChannelClientConnectionFactory.ClientFactoryBuilder.newInstance(publisherFactory(), connectionBuilder, bootstrapFactory);
     }
 
     @Override
-    protected Factory<ChannelClientConnectionFactory> connections() {
-        return connections;
+    protected Factory<? extends ChannelClientConnectionFactory> connectionFactory() {
+        return connectionFactory;
     }
 }
