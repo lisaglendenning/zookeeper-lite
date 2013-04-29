@@ -16,9 +16,9 @@ import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.event.ConnectionStateEvent;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.RequestTask;
 import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.Reference;
+import edu.uw.zookeeper.util.SettableTask;
 import edu.uw.zookeeper.util.Stateful;
 import edu.uw.zookeeper.util.TimeValue;
 
@@ -51,6 +51,16 @@ public class ClientProtocolExecutor implements Eventful, SessionRequestExecutor,
         return new ClientProtocolExecutor(
                 codecConnection,
                 initializer);
+    }
+    
+    public static class RequestTask extends SettableTask<Operation.SessionRequest, Operation.SessionReply> {
+        public static RequestTask create(Operation.SessionRequest request) {
+            return new RequestTask(request);
+        }
+
+        protected RequestTask(Operation.SessionRequest request) {
+            super(request);
+        }
     }
 
     // must be thread-safe
@@ -185,7 +195,7 @@ public class ClientProtocolExecutor implements Eventful, SessionRequestExecutor,
      * Don't call concurrently!
      */
     @Subscribe
-    public void handleMessage(Operation.SessionReply message) {
+    public void handleReply(Operation.SessionReply message) {
         // peek and poll need to be atomic!
         RequestTask next = pending.peek();
         if (next != null) {

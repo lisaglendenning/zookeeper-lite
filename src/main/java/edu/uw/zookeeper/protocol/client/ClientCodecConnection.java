@@ -10,78 +10,33 @@ import edu.uw.zookeeper.protocol.OpCreateSession;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.EventfulAutomaton;
+import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
 
 public class ClientCodecConnection extends CodecConnection<Message.ClientSessionMessage, Message.ServerSessionMessage, ClientProtocolCodec> {
 
-    public static Factory<? extends ClientCodecConnection> factory(
-            Factory<Connection> connectionFactory,
-            Factory<Publisher> publisherFactory) {
-        return factory(connectionFactory, Builder.newInstance(publisherFactory));
+    public static ParameterizedFactory<Connection, ClientCodecConnection> factory(
+            final Factory<Publisher> publisherFactory) {
+        return new ParameterizedFactory<Connection, ClientCodecConnection>() {
+                    @Override
+                    public ClientCodecConnection get(Connection value) {
+                        return ClientCodecConnection.newInstance(publisherFactory.get(), value);
+                    }
+                };
     }
 
-    public static Factory<? extends ClientCodecConnection> factory(
-            Factory<Connection> connectionFactory,
-            ParameterizedFactory<Connection, ? extends ClientCodecConnection> clientFactory) {
-        return FromConnectionBuilder.newInstance(connectionFactory, clientFactory);
-    }
-    
-    public static class FromConnectionBuilder implements Factory<ClientCodecConnection> {
-
-        public static FromConnectionBuilder newInstance(
-                Factory<Connection> connectionFactory,
-                ParameterizedFactory<Connection, ? extends ClientCodecConnection> codecFactory) {
-            return new FromConnectionBuilder(connectionFactory, codecFactory);
-        }
-        
-        protected final Factory<Connection> connectionFactory;
-        protected final ParameterizedFactory<Connection, ? extends ClientCodecConnection> codecFactory;
-        
-        protected FromConnectionBuilder(
-                Factory<Connection> connectionFactory,
-                ParameterizedFactory<Connection, ? extends ClientCodecConnection> codecFactory) {
-            this.connectionFactory = connectionFactory;
-            this.codecFactory = codecFactory;
-        }
-        
-        @Override
-        public ClientCodecConnection get() {
-            Connection connection = connectionFactory.get();
-            ClientCodecConnection client = codecFactory.get(connection);
-            return client;
-        }
-        
-    }
-    
-    public static class Builder implements ParameterizedFactory<Connection, ClientCodecConnection> {
-    
-        public static Builder newInstance(
-                Factory<Publisher> publisherFactory) {
-            return new Builder(publisherFactory);
-        }
-        
-        private final Factory<Publisher> publisherFactory;
-    
-        private Builder(
-                Factory<Publisher> publisherFactory) {
-            super();
-            this.publisherFactory = publisherFactory;
-        }
-    
-        @Override
-        public ClientCodecConnection get(Connection connection) {
-            Publisher publisher = publisherFactory.get();
-            return PingingClientCodecConnection.newInstance(
-                    publisher, connection);
-        }
+    public static <T extends ClientCodecConnection> Factory<T> factory(
+            final Factory<Connection> connectionFactory,
+            final ParameterizedFactory<Connection, ? extends T> clientFactory) {
+        return Factories.link(connectionFactory, clientFactory);
     }
 
     public static ClientCodecConnection newInstance(Publisher publisher,
             Connection connection) {
         Automaton<ProtocolState, Message> automaton = EventfulAutomaton.createSynchronized(publisher, ProtocolState.ANONYMOUS);
-        ClientProtocolCodec codec = ClientProtocolCodec.create(automaton);
+        ClientProtocolCodec codec = ClientProtocolCodec.newInstance(automaton);
         return newInstance(publisher, codec, connection);
     }
     

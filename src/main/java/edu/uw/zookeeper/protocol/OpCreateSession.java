@@ -61,7 +61,7 @@ public abstract class OpCreateSession<T extends Record>
         protected Request(ConnectRequest record, boolean readOnly, boolean wraps) {
             super(record, readOnly, wraps);
         }
-
+        
         public static class NewRequest extends Request {
 
             public static ConnectRequest createRecord() {
@@ -104,6 +104,10 @@ public abstract class OpCreateSession<T extends Record>
             private NewRequest(ConnectRequest record, boolean readOnly, boolean wraps) {
                 super(record, readOnly, wraps);
             }
+            
+            public Session toSession() {
+                return Session.uninitialized();
+            }
         }
         
         public static class RenewRequest extends Request {
@@ -139,6 +143,17 @@ public abstract class OpCreateSession<T extends Record>
 
             private RenewRequest(ConnectRequest record, boolean readOnly, boolean wraps) {
                 super(record, readOnly, wraps);
+            }
+
+            public Session.Parameters toParameters() {
+                ConnectRequest record = asRecord();
+                return Session.Parameters.create(record.getTimeOut(),
+                        record.getPasswd());
+            }
+            
+            public Session toSession() {
+                return Session.create(asRecord().getSessionId(),
+                        toParameters());
             }
         }
     }
@@ -180,17 +195,6 @@ public abstract class OpCreateSession<T extends Record>
             super(record, readOnly, wraps);
         }
 
-        public Session.Parameters toParameters() {
-            ConnectResponse response = asRecord();
-            return Session.Parameters.create(response.getTimeOut(),
-                    response.getPasswd());
-        }
-        
-        public Session toSession() {
-            return Session.create(asRecord().getSessionId(),
-                    toParameters());
-        }
-
         public static class Valid extends Response implements Operation.Response {
 
             public static ConnectResponse createRecord(Session session) {
@@ -224,7 +228,18 @@ public abstract class OpCreateSession<T extends Record>
 
             private Valid(ConnectResponse record, boolean readOnly, boolean wraps) {
                 super(record, readOnly, wraps);
-            }            
+            }     
+
+            public Session.Parameters toParameters() {
+                ConnectResponse record = asRecord();
+                return Session.Parameters.create(record.getTimeOut(),
+                        record.getPasswd());
+            }
+            
+            public Session toSession() {
+                return Session.create(asRecord().getSessionId(),
+                        toParameters());
+            }
         }
 
         public static class Invalid extends Response {
@@ -247,6 +262,10 @@ public abstract class OpCreateSession<T extends Record>
 
             private Invalid(boolean readOnly, boolean wraps) {
                 super(createRecord(), readOnly, wraps);
+            }
+            
+            public Session toSession() {
+                return Session.uninitialized();
             }
         }
     }
@@ -279,6 +298,8 @@ public abstract class OpCreateSession<T extends Record>
     public boolean wraps() {
         return wraps;
     }
+    
+    public abstract Session toSession();
 
     @Override
     public ByteBuf encode(ByteBufAllocator output) throws IOException {

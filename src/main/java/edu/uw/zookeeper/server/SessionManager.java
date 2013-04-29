@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Maps;
-import com.google.inject.Inject;
 
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.event.SessionStateEvent;
@@ -19,7 +18,7 @@ import edu.uw.zookeeper.util.TimeValue;
 
 public class SessionManager extends ForwardingEventful implements SessionTable {
 
-    public static SessionManager create(Publisher publisher,
+    public static SessionManager newInstance(Publisher publisher,
             SessionParametersPolicy policy) {
         return new SessionManager(publisher, policy);
     }
@@ -29,7 +28,6 @@ public class SessionManager extends ForwardingEventful implements SessionTable {
     protected final SessionParametersPolicy policy;
     protected final ConcurrentMap<Long, Session> sessions;
 
-    @Inject
     protected SessionManager(Publisher publisher, SessionParametersPolicy policy) {
         this(publisher, policy, Maps.<Long, Session>newConcurrentMap());
     }

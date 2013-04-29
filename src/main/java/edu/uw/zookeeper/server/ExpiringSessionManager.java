@@ -6,7 +6,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.collect.Maps;
-import com.google.inject.Inject;
 
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.event.SessionStateEvent;
@@ -14,14 +13,13 @@ import edu.uw.zookeeper.util.Publisher;
 
 public class ExpiringSessionManager extends SessionManager {
 
-    public static ExpiringSessionManager create(Publisher publisher,
+    public static ExpiringSessionManager newInstance(Publisher publisher,
             SessionParametersPolicy policy) {
         return new ExpiringSessionManager(publisher, policy);
     }
 
     protected final ConcurrentMap<Long, Long> touches;
 
-    @Inject
     protected ExpiringSessionManager(Publisher publisher,
             SessionParametersPolicy policy) {
         this(publisher, policy, Maps.<Long, Long> newConcurrentMap());

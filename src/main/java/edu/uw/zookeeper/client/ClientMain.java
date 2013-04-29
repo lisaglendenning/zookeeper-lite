@@ -76,7 +76,7 @@ public abstract class ClientMain extends AbstractMain {
                 TimeValue timeOut = TimeoutFactory.newInstance().get(configuration());
                 EnsembleView ensemble = ConfigurableEnsembleViewFactory.newInstance().get(configuration());
                 AssignXidProcessor processor = AssignXidProcessor.newInstance();
-                ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.Builder.newInstance(
+                ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
                         publisherFactory(), timeOut, executors().asScheduledExecutorServiceFactory().get());
                 EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(connections, codecFactory, ensemble, timeOut);
                 Factory<ClientProtocolExecutor> clientFactory = ensembleFactory.get();

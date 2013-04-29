@@ -13,18 +13,30 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.EventfulAutomaton;
+import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
 
 public class ServerCodecConnection extends CodecConnection<Message.ServerMessage, Message.ClientMessage, ServerProtocolCodec> {
 
-    public static ServerCodecConnection create(Publisher publisher,
+    public static ParameterizedFactory<Connection, ServerCodecConnection> factory(
+            final Factory<Publisher> publisherFactory) {
+        return new ParameterizedFactory<Connection, ServerCodecConnection>() {
+                    @Override
+                    public ServerCodecConnection get(Connection value) {
+                        return ServerCodecConnection.newInstance(publisherFactory.get(), value);
+                    }
+                };
+    }
+
+    public static ServerCodecConnection newInstance(Publisher publisher,
             Connection connection) {
         Automaton<ProtocolState, Message> automaton = EventfulAutomaton.createSynchronized(publisher, ProtocolState.ANONYMOUS);
         ServerProtocolCodec codec = ServerProtocolCodec.create(automaton);
-        return create(publisher, codec, connection);
+        return newInstance(publisher, codec, connection);
     }
     
-    public static ServerCodecConnection create(Publisher publisher,
+    public static ServerCodecConnection newInstance(Publisher publisher,
             ServerProtocolCodec codec,
             Connection connection) {
         return new ServerCodecConnection(publisher, codec, connection);

@@ -32,44 +32,20 @@ import edu.uw.zookeeper.util.TimeValue;
 
 public class PingingClientCodecConnection extends ClientCodecConnection implements Runnable {
 
-    public static Factory<? extends ClientCodecConnection> factory(
-            Factory<Publisher> publisherFactory,
-            Factory<Connection> connectionFactory,
-            TimeValue defaultTimeOut,
-            ScheduledExecutorService executor) {
-        return factory(connectionFactory,
-                Builder.newInstance(publisherFactory, defaultTimeOut, executor));
-    }
-    
-    public static class Builder implements ParameterizedFactory<Connection, PingingClientCodecConnection> {
-    
-        public static Builder newInstance(
-                Factory<Publisher> publisherFactory,
-                TimeValue defaultTimeOut,
-                ScheduledExecutorService executor) {
-            return new Builder(publisherFactory, defaultTimeOut, executor);
-        }
-        
-        private final ScheduledExecutorService executor;
-        private final TimeValue defaultTimeOut;
-        private final Factory<Publisher> publisherFactory;
-    
-        private Builder(
-                Factory<Publisher> publisherFactory,
-                TimeValue defaultTimeOut,
-                ScheduledExecutorService executor) {
-            super();
-            this.executor = executor;
-            this.defaultTimeOut = defaultTimeOut;
-            this.publisherFactory = publisherFactory;
-        }
-    
-        @Override
-        public PingingClientCodecConnection get(Connection connection) {
-            Publisher publisher = publisherFactory.get();
-            return PingingClientCodecConnection.newInstance(
-                    publisher, connection, executor, defaultTimeOut);
-        }
+    public static ParameterizedFactory<Connection, PingingClientCodecConnection> factory(
+            final Factory<Publisher> publisherFactory,
+            final TimeValue defaultTimeOut,
+            final ScheduledExecutorService executor) {
+        return new ParameterizedFactory<Connection, PingingClientCodecConnection>() {
+                    @Override
+                    public PingingClientCodecConnection get(Connection value) {
+                        return PingingClientCodecConnection.newInstance(
+                                publisherFactory.get(),
+                                value,
+                                executor,
+                                defaultTimeOut);
+                    }
+                };
     }
 
     public static PingingClientCodecConnection newInstance(
@@ -78,7 +54,7 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
             ScheduledExecutorService executor,
             TimeValue timeOut) {
         EventfulAutomaton<ProtocolState, Message> automaton = EventfulAutomaton.createSynchronized(publisher, ProtocolState.ANONYMOUS);
-        ClientProtocolCodec codec = ClientProtocolCodec.create(automaton);
+        ClientProtocolCodec codec = ClientProtocolCodec.newInstance(automaton);
         PingingClientCodecConnection client = newInstance(publisher, codec, connection, executor, timeOut);
         automaton.register(client);
         return client;
@@ -211,7 +187,7 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
 
     protected void handleCreateSessionResponse(OpCreateSession.Response message) {
         if (message instanceof OpCreateSession.Response.Valid) {
-            timeOut.set(message.toParameters().timeOut());
+            timeOut.set(((OpCreateSession.Response.Valid)message).toParameters().timeOut());
             schedule();
         } else {
             stop();

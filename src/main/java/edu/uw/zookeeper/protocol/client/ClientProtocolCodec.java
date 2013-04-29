@@ -39,7 +39,7 @@ public class ClientProtocolCodec implements
      * 
      * @param automaton must be thread-safe
      */
-    public static ClientProtocolCodec create(
+    public static ClientProtocolCodec newInstance(
             Automaton<ProtocolState, Message> automaton) {
         return new ClientProtocolCodec(automaton);
     }
