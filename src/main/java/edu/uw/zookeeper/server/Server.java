@@ -24,6 +24,32 @@ public class Server {
             ServerExecutor serverExecutor) {
         return new Server(publisherFactory, connections, serverExecutor);
     }
+    
+    protected class ConnectionListener {
+        protected final Connection connection;
+        protected final ServerProtocolConnection server;
+        
+        public ConnectionListener(Connection connection) {
+            this.connection = connection;
+            this.server = serverFactory.get(connection);
+            if (servers.putIfAbsent(connection, server) != null) {
+                throw new AssertionError();
+            }
+        }
+        
+        @Subscribe
+        public void handleConnectionStateEvent(ConnectionStateEvent event) {
+            Connection connection = event.connection();
+            switch (event.event().to()) {
+            case CONNECTION_CLOSED:
+                servers.remove(connection, server);
+                break;
+            default:
+                break;
+            }
+        }
+        
+    }
 
     protected final ServerConnectionFactory connections;
     protected final ServerExecutor serverExecutor;
@@ -36,18 +62,19 @@ public class Server {
             final ServerExecutor serverExecutor) {
         this.connections = connections;
         this.serverExecutor = serverExecutor;
+        this.servers = Maps.newConcurrentMap();
         ParameterizedFactory<Connection, ServerCodecConnection> codecFactory = ServerCodecConnection.factory(publisherFactory);
         ParameterizedFactory<ServerCodecConnection, ServerProtocolConnection> protocolFactory =
                 new ParameterizedFactory<ServerCodecConnection, ServerProtocolConnection>() {
                     @Override
                     public ServerProtocolConnection get(
                             ServerCodecConnection value) {
-                        return ServerProtocolConnection.newInstance(value, serverExecutor, serverExecutor, serverExecutor.executor());
+                        ServerProtocolConnection server = ServerProtocolConnection.newInstance(value, serverExecutor, serverExecutor, serverExecutor.executor());
+                        return server;
                     }
                     
                 };
         this.serverFactory = Factories.linkParameterized(codecFactory, protocolFactory);
-        this.servers = Maps.newConcurrentMap();
         
         connections.register(this);
     }
@@ -55,20 +82,6 @@ public class Server {
     @Subscribe
     public void handleNewConnection(NewConnectionEvent event) {
         Connection connection = event.connection();
-        ServerProtocolConnection server = serverFactory.get(connection);
-        servers.put(connection, server);
-        connection.register(this);
-    }
-    
-    @Subscribe
-    public void handleConnectionStateEvent(ConnectionStateEvent event) {
-        Connection connection = event.connection();
-        switch (event.event().to()) {
-        case CONNECTION_CLOSED:
-            servers.remove(connection);
-            break;
-        default:
-            break;
-        }
+        new ConnectionListener(connection);
     }
 }

@@ -33,7 +33,7 @@ public abstract class ServerMain extends AbstractMain {
                 ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
                 ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, executors.asScheduledExecutorServiceFactory().get(), configuration()));
 
-                final ServerExecutor serverExecutor = ServerExecutor.newInstance(executors.asListeningExecutorServiceFactory().get(), sessions);
+                final ServerExecutor serverExecutor = ServerExecutor.newInstance(executors.asListeningExecutorServiceFactory().get(), publisherFactory(), sessions);
                 final Server server = Server.newInstance(publisherFactory(), connections, serverExecutor);
                 
                 return ServerMain.super.application();
