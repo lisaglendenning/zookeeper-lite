@@ -16,7 +16,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
-import edu.uw.zookeeper.ServerExecutor;
+import edu.uw.zookeeper.ClientMessageExecutor;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.event.ConnectionStateEvent;
@@ -34,7 +34,7 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
 
     public static ServerProtocolConnection newInstance(
             ServerCodecConnection codecConnection,
-            ServerExecutor anonymousExecutor,
+            ClientMessageExecutor anonymousExecutor,
             ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors,
             ListeningExecutorService executor) {
         return new ServerProtocolConnection(codecConnection, anonymousExecutor, sessionExecutors, executor);
@@ -49,7 +49,7 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
     private final BlockingQueue<Message.ClientMessage> inbound;
     private final BlockingQueue<ListenableFuture<? extends Message.ServerMessage>> submitted;
     private final BlockingQueue<Message.ServerMessage> outbound;
-    private final ServerExecutor anonymousExecutor;
+    private final ClientMessageExecutor anonymousExecutor;
     private final ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors;
     private final ListeningExecutorService executor;
     private final ServerCodecConnection codecConnection;
@@ -59,7 +59,7 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
     
     private ServerProtocolConnection(
             ServerCodecConnection codecConnection,
-            ServerExecutor anonymousExecutor,
+            ClientMessageExecutor anonymousExecutor,
             ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors,
             ListeningExecutorService executor) {
         this.codecConnection = codecConnection;

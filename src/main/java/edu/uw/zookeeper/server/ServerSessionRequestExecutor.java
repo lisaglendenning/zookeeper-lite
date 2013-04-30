@@ -1,19 +1,27 @@
 package edu.uw.zookeeper.server;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.protocol.Operation;
 
 public class ServerSessionRequestExecutor implements SessionRequestExecutor {
 
-    protected ServerSessionRequestExecutor() {
+    public static ServerSessionRequestExecutor newInstance(long sessionId) {
+        return new ServerSessionRequestExecutor(sessionId);
+    }
+    
+    protected final long sessionId;
+    
+    protected ServerSessionRequestExecutor(long sessionId) {
+        this.sessionId = sessionId;
     }
 
     @Override
     public ListenableFuture<Operation.SessionReply> submit(Operation.SessionRequest request) {
-        // TODO Auto-generated method stub
-        return null;
+        System.out.printf("0x%s: %s%n", Long.toHexString(sessionId), request);
+        return SettableFuture.create();
     }
 
     @Override

@@ -3,25 +3,9 @@ package edu.uw.zookeeper.server;
 
 import java.net.SocketAddress;
 
-import com.google.common.eventbus.Subscribe;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
-
 import edu.uw.zookeeper.AbstractMain;
-import edu.uw.zookeeper.ServerExecutor;
 import edu.uw.zookeeper.ServerView;
-import edu.uw.zookeeper.SessionRequestExecutor;
-import edu.uw.zookeeper.event.NewConnectionEvent;
-import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
-import edu.uw.zookeeper.protocol.Message.ClientMessage;
-import edu.uw.zookeeper.protocol.Message.ServerMessage;
-import edu.uw.zookeeper.protocol.OpCreateSession;
-import edu.uw.zookeeper.protocol.Operation.SessionReply;
-import edu.uw.zookeeper.protocol.Operation.SessionRequest;
-import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
-import edu.uw.zookeeper.protocol.server.ServerProtocolConnection;
-import edu.uw.zookeeper.protocol.server.ZxidIncrementer;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.Factories;
@@ -49,50 +33,8 @@ public abstract class ServerMain extends AbstractMain {
                 ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
                 ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, executors.asScheduledExecutorServiceFactory().get(), configuration()));
 
-                final Server server = Server.newInstance(sessions);
-                
-                final ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors = new ParameterizedFactory<Long, SessionRequestExecutor>() {
-                    @Override
-                    public SessionRequestExecutor get(final Long value) {
-                        return new SessionRequestExecutor() {
-
-                            @Override
-                            public ListenableFuture<SessionReply> submit(
-                                    SessionRequest request) {
-                                System.out.printf("0x%s: %s%n", Long.toHexString(value), request);
-                                return SettableFuture.create();
-                            }
-
-                            @Override
-                            public void register(Object object) {
-                            }
-
-                            @Override
-                            public void unregister(Object object) {
-                            }
-                            
-                        };
-                    }};
-                
-                ParameterizedFactory<Connection, ServerCodecConnection> codecFactory = ServerCodecConnection.factory(publisherFactory());
-                ParameterizedFactory<ServerCodecConnection, ServerProtocolConnection> protocolFactory =
-                        new ParameterizedFactory<ServerCodecConnection, ServerProtocolConnection>() {
-                            @Override
-                            public ServerProtocolConnection get(
-                                    ServerCodecConnection value) {
-                                // TODO Auto-generated method stub
-                                ServerProtocolConnection p = ServerProtocolConnection.newInstance(value, server, sessionExecutors, executors.asListeningExecutorServiceFactory().get());
-                                return p;
-                            }
-                };
-                final ParameterizedFactory<Connection, ServerProtocolConnection> serverFactory = Factories.linkParameterized(codecFactory, protocolFactory);
-                
-                connections.register(new Object() {
-                    @Subscribe
-                    public void handle(NewConnectionEvent event) {
-                        serverFactory.get(event.connection());
-                    }
-                });
+                final ServerExecutor serverExecutor = ServerExecutor.newInstance(executors.asListeningExecutorServiceFactory().get(), sessions);
+                final Server server = Server.newInstance(publisherFactory(), connections, serverExecutor);
                 
                 return ServerMain.super.application();
             }
