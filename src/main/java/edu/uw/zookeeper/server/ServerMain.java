@@ -46,26 +46,10 @@ public abstract class ServerMain extends AbstractMain {
                 ServerConnectionFactory connections = monitorsFactory.apply(connectionFactory().get(address.get()));
                 
                 SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(configuration());
-                final ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
-                ExpireSessionsTask expire = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, executors().asScheduledExecutorServiceFactory().get(), configuration()));
-                
-                ZxidIncrementer zxids = ZxidIncrementer.newInstance();
-                final OpCreateSessionProcessor processor = OpCreateSessionProcessor.newInstance(sessions, zxids);
-                final Singleton<? extends ServerExecutor> anonymousExecutor = Factories.holderOf(new ServerExecutor() {
-                    @Override
-                    public ListenableFuture<ServerMessage> submit(
-                            ClientMessage message) {
-                        System.out.println(message.toString());
-                        SettableFuture<ServerMessage> future = SettableFuture.create();
-                        if (message instanceof OpCreateSession.Request) {
-                            try {
-                                future.set(processor.apply((OpCreateSession.Request)message));
-                            } catch (Exception e) {
-                                future.setException(e);
-                            }
-                        }
-                        return future;
-                    }});
+                ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
+                ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, executors.asScheduledExecutorServiceFactory().get(), configuration()));
+
+                final Server server = Server.newInstance(sessions);
                 
                 final ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors = new ParameterizedFactory<Long, SessionRequestExecutor>() {
                     @Override
@@ -97,8 +81,7 @@ public abstract class ServerMain extends AbstractMain {
                             public ServerProtocolConnection get(
                                     ServerCodecConnection value) {
                                 // TODO Auto-generated method stub
-                                ServerProtocolConnection p = ServerProtocolConnection.newInstance(value, anonymousExecutor.get(), sessionExecutors, executors.asListeningExecutorServiceFactory().get());
-                                sessions.register(p);
+                                ServerProtocolConnection p = ServerProtocolConnection.newInstance(value, server, sessionExecutors, executors.asListeningExecutorServiceFactory().get());
                                 return p;
                             }
                 };

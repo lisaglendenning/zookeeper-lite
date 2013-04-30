@@ -1,16 +1,67 @@
 package edu.uw.zookeeper.server;
 
+import javax.annotation.Nullable;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Predicate;
+
 import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.OpCreateSession;
 import edu.uw.zookeeper.util.Processor;
+import edu.uw.zookeeper.util.Processors;
 import edu.uw.zookeeper.util.Reference;
 
 public class OpCreateSessionProcessor  implements
 Processor<OpCreateSession.Request, OpCreateSession.Response> {
 
+    public static class Filtered implements Processors.FilteringProcessor<Message.ClientMessage, Message.ServerMessage> {
+        public static enum Filter implements Predicate<Message.ClientMessage> {
+            INSTANCE;
+            
+            public static Filter getInstance() {
+                return INSTANCE;
+            }
+            
+            @Override
+            public boolean apply(@Nullable Message.ClientMessage input) {
+                return (input instanceof OpCreateSession.Request);
+            }
+        }
+
+        public static Filtered newInstance(Processor<OpCreateSession.Request, OpCreateSession.Response> processor) {
+            return new Filtered(processor);
+        }
+
+        private final Processor<OpCreateSession.Request, OpCreateSession.Response> processor;
+        
+        protected Filtered(Processor<OpCreateSession.Request, OpCreateSession.Response> processor) {
+            this.processor = processor;
+        }
+        
+        @Override
+        public Message.ServerMessage apply(Message.ClientMessage input) throws Exception {
+            if (filter().apply(input)) {
+                return processor.apply((OpCreateSession.Request)input);
+            } else {
+                return null;
+            }
+        }
+
+        @Override
+        public Predicate<? super Message.ClientMessage> filter() {
+            return Filter.getInstance();
+        }
+    }
+    
+    public static Filtered filtered(
+            SessionTable sessions,
+            Reference<Long> lastZxid) {
+        return Filtered.newInstance(newInstance(sessions, lastZxid));
+    }
+    
     public static OpCreateSessionProcessor newInstance(
             SessionTable sessions,
             Reference<Long> lastZxid) {

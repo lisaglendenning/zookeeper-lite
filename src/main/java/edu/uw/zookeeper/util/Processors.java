@@ -4,8 +4,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.List;
 
-import javax.annotation.Nullable;
-
 import com.google.common.base.Predicate;
 import com.google.common.collect.ForwardingList;
 import com.google.common.collect.Lists;
@@ -61,26 +59,26 @@ public abstract class Processors {
 
     }
 
-    public static interface FilteringProcessor<T, V> extends Processor<T, V> {
-        Predicate<? super T> filter();
+    public static interface FilteringProcessor<V,T> extends Processor<V,T> {
+        Predicate<? super V> filter();
     }
 
-    public static class FilteredProcessor<T, V> extends
-            Pair<Predicate<? super T>, Processor<T, V>> implements
-            FilteringProcessor<T, V> {
+    public static class FilteredProcessor<V,T> extends
+            Pair<Predicate<? super V>, Processor<? super V, ? extends T>> implements
+            FilteringProcessor<V,T> {
 
-        public static <T, V> FilteredProcessor<T, V> newInstance(
-                Predicate<? super T> first, Processor<T, V> second) {
-            return new FilteredProcessor<T, V>(first, second);
+        public static <V,T> FilteredProcessor<V,T> newInstance(
+                Predicate<? super V> first, Processor<? super V, ? extends T> second) {
+            return new FilteredProcessor<V,T>(first, second);
         }
 
-        public FilteredProcessor(Predicate<? super T> first,
-                Processor<T, V> second) {
+        public FilteredProcessor(Predicate<? super V> first,
+                Processor<? super V, ? extends T> second) {
             super(first, second);
         }
 
         @Override
-        public V apply(T input) throws Exception {
+        public T apply(V input) throws Exception {
             if (filter().apply(input)) {
                 return second().apply(input);
             }
@@ -88,24 +86,24 @@ public abstract class Processors {
         }
 
         @Override
-        public Predicate<? super T> filter() {
+        public Predicate<? super V> filter() {
             return first();
         }
 
     }
 
-    public static class FilteredProcessors<T, V> implements
-            FilteringProcessor<T, V> {
+    public static class FilteredProcessors<V,T> implements
+            FilteringProcessor<V,T> {
 
-        public static <T, V> FilteredProcessors<T, V> newInstance(
-                FilteringProcessor<T, V>... processors) {
-            return new FilteredProcessors<T, V>(processors);
+        public static <V,T> FilteredProcessors<V,T> newInstance(
+                FilteringProcessor<? super V, ? extends T>... processors) {
+            return new FilteredProcessors<V,T>(processors);
         }
 
-        private class Filter implements Predicate<T> {
+        private class Filter implements Predicate<V> {
             @Override
-            public boolean apply(@Nullable T input) {
-                for (FilteringProcessor<T, V> processor : processors) {
+            public boolean apply(V input) {
+                for (FilteringProcessor<? super V, ? extends T> processor : processors) {
                     if (processor.filter().apply(input)) {
                         return true;
                     }
@@ -114,17 +112,17 @@ public abstract class Processors {
             }
         }
 
-        private final List<FilteringProcessor<T, V>> processors;
+        private final List<FilteringProcessor<? super V, ? extends T>> processors;
         private final Filter filter;
 
-        public FilteredProcessors(FilteringProcessor<T, V>... processors) {
+        public FilteredProcessors(FilteringProcessor<? super V, ? extends T>... processors) {
             this.processors = Lists.newArrayList(processors);
             this.filter = new Filter();
         }
 
         @Override
-        public V apply(T input) throws Exception {
-            for (FilteringProcessor<T, V> processor : processors) {
+        public T apply(V input) throws Exception {
+            for (FilteringProcessor<? super V, ? extends T> processor : processors) {
                 if (processor.filter().apply(input)) {
                     return processor.apply(input);
                 }
@@ -133,7 +131,7 @@ public abstract class Processors {
         }
 
         @Override
-        public Predicate<? super T> filter() {
+        public Predicate<? super V> filter() {
             return filter;
         }
     }
