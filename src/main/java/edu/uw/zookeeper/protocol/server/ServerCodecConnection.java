@@ -4,6 +4,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.io.IOException;
 
+import com.google.common.util.concurrent.MoreExecutors;
+
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.CodecConnection;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
@@ -64,5 +66,22 @@ public class ServerCodecConnection extends CodecConnection<Message.ServerMessage
             throw new IllegalStateException(protocolState.toString());
         }
         super.write(message);
+        
+        ProtocolState state = asCodec().state();
+        switch (state) {
+        case DISCONNECTED:
+        case ERROR:
+            {
+                asConnection().flush().addListener(new Runnable() {
+                    @Override
+                    public void run() {
+                        asConnection().close();
+                    }
+                }, MoreExecutors.sameThreadExecutor());
+            }
+            break;
+        default:
+            break;
+        }
     }
 }

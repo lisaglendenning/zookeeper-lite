@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
 import edu.uw.zookeeper.ServerExecutor;
+import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.event.ConnectionStateEvent;
 import edu.uw.zookeeper.net.Connection;
@@ -187,42 +188,50 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
                 throw Throwables.propagate(e);
             }
             outbound.remove(reply);
-            if (reply instanceof OpCreateSession.Response.Invalid) {
-                codecConnection.asConnection().flush().addListener(new Runnable() {
-                    @Override
-                    public void run() {
-                        onFailure(new KeeperException.SessionExpiredException());
-                    }
-                }, executor);
-            }
-            
             reply = outbound.peek();
         }
     }
+    
+    @Subscribe
+    public void handleSessionEvent(Session.State event) {
+        switch (event) {
+        case SESSION_EXPIRED:
+            // TODO: try to flush messages first?
+            onFailure(new KeeperException.SessionExpiredException());
+            break;
+        default:
+            break;
+        }
+    }
 
+    @Subscribe
     @Override
-    public synchronized void onSuccess(Message.ServerMessage result) {        
-        if (state.get() == State.TERMINATED) {
-            logger.debug("Dropping {}", result);
-            return;
-        }
-        
-        if (result instanceof OpCreateSession.Response.Valid) {
-            Long sessionId = ((OpCreateSession.Response.Valid)result).asRecord().getSessionId();
-            sessionExecutor = sessionExecutors.get(sessionId);
-            throttled = false;
-            schedule();
-        } else if (result instanceof Operation.SessionReply
-                && ((Operation.SessionReply)result).xid() == Records.OpCodeXid.NOTIFICATION.xid()) {
-            checkSubmitted();
-            outbound.add(result);
-            flush();
-            return; 
-        }
-
-        // assuming that the corresponding future isDone when this callback is called
-        if (checkSubmitted()) {
-            flush();
+    public synchronized void onSuccess(Message.ServerMessage result) {
+        try {        
+            if (state.get() == State.TERMINATED) {
+                logger.debug("Dropping {}", result);
+                return;
+            }
+            if (result instanceof Operation.SessionReply
+                    && ((Operation.SessionReply)result).xid() == Records.OpCodeXid.NOTIFICATION.xid()) {
+                checkSubmitted();
+                outbound.add(result);
+                flush();
+            } else {
+                if (result instanceof OpCreateSession.Response.Valid) {
+                    Long sessionId = ((OpCreateSession.Response.Valid)result).asRecord().getSessionId();
+                    sessionExecutor = sessionExecutors.get(sessionId);
+                    sessionExecutor.register(this);
+                    throttled = false;
+                    schedule();
+                }
+                // assuming that the corresponding future isDone when this callback is called
+                if (checkSubmitted()) {
+                    flush();
+                }
+            }
+        } catch (Exception e) {
+            onFailure(e);
         }
     }
 

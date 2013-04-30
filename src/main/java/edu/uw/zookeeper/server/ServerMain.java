@@ -46,7 +46,7 @@ public abstract class ServerMain extends AbstractMain {
                 ServerConnectionFactory connections = monitorsFactory.apply(connectionFactory().get(address.get()));
                 
                 SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(configuration());
-                ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
+                final ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
                 ExpireSessionsTask expire = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, executors().asScheduledExecutorServiceFactory().get(), configuration()));
                 
                 ZxidIncrementer zxids = ZxidIncrementer.newInstance();
@@ -97,7 +97,9 @@ public abstract class ServerMain extends AbstractMain {
                             public ServerProtocolConnection get(
                                     ServerCodecConnection value) {
                                 // TODO Auto-generated method stub
-                                return ServerProtocolConnection.newInstance(value, anonymousExecutor.get(), sessionExecutors, executors.asListeningExecutorServiceFactory().get());
+                                ServerProtocolConnection p = ServerProtocolConnection.newInstance(value, anonymousExecutor.get(), sessionExecutors, executors.asListeningExecutorServiceFactory().get());
+                                sessions.register(p);
+                                return p;
                             }
                 };
                 final ParameterizedFactory<Connection, ServerProtocolConnection> serverFactory = Factories.linkParameterized(codecFactory, protocolFactory);
@@ -108,9 +110,6 @@ public abstract class ServerMain extends AbstractMain {
                         serverFactory.get(event.connection());
                     }
                 });
-                
-                // pre-create executor
-                executors().asListeningExecutorServiceFactory().get();
                 
                 return ServerMain.super.application();
             }
