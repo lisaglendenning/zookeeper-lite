@@ -10,12 +10,15 @@ import com.google.common.util.concurrent.SettableFuture;
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.ServerExecutor;
 import edu.uw.zookeeper.ServerView;
+import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.event.NewConnectionEvent;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message.ClientMessage;
 import edu.uw.zookeeper.protocol.Message.ServerMessage;
 import edu.uw.zookeeper.protocol.OpCreateSession;
+import edu.uw.zookeeper.protocol.Operation.SessionReply;
+import edu.uw.zookeeper.protocol.Operation.SessionRequest;
 import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
 import edu.uw.zookeeper.protocol.server.ServerProtocolConnection;
 import edu.uw.zookeeper.protocol.server.ZxidIncrementer;
@@ -48,7 +51,7 @@ public abstract class ServerMain extends AbstractMain {
                 
                 ZxidIncrementer zxids = ZxidIncrementer.newInstance();
                 final OpCreateSessionProcessor processor = OpCreateSessionProcessor.newInstance(sessions, zxids);
-                final Singleton<? extends ServerExecutor> executor = Factories.holderOf(new ServerExecutor() {
+                final Singleton<? extends ServerExecutor> anonymousExecutor = Factories.holderOf(new ServerExecutor() {
                     @Override
                     public ListenableFuture<ServerMessage> submit(
                             ClientMessage message) {
@@ -64,6 +67,29 @@ public abstract class ServerMain extends AbstractMain {
                         return future;
                     }});
                 
+                final ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors = new ParameterizedFactory<Long, SessionRequestExecutor>() {
+                    @Override
+                    public SessionRequestExecutor get(final Long value) {
+                        return new SessionRequestExecutor() {
+
+                            @Override
+                            public ListenableFuture<SessionReply> submit(
+                                    SessionRequest request) {
+                                System.out.printf("0x%s: %s%n", Long.toHexString(value), request);
+                                return SettableFuture.create();
+                            }
+
+                            @Override
+                            public void register(Object object) {
+                            }
+
+                            @Override
+                            public void unregister(Object object) {
+                            }
+                            
+                        };
+                    }};
+                
                 ParameterizedFactory<Connection, ServerCodecConnection> codecFactory = ServerCodecConnection.factory(publisherFactory());
                 ParameterizedFactory<ServerCodecConnection, ServerProtocolConnection> protocolFactory =
                         new ParameterizedFactory<ServerCodecConnection, ServerProtocolConnection>() {
@@ -71,7 +97,7 @@ public abstract class ServerMain extends AbstractMain {
                             public ServerProtocolConnection get(
                                     ServerCodecConnection value) {
                                 // TODO Auto-generated method stub
-                                return ServerProtocolConnection.newInstance(value, executor.get(), executors.asListeningExecutorServiceFactory().get());
+                                return ServerProtocolConnection.newInstance(value, anonymousExecutor.get(), sessionExecutors, executors.asListeningExecutorServiceFactory().get());
                             }
                 };
                 final ParameterizedFactory<Connection, ServerProtocolConnection> serverFactory = Factories.linkParameterized(codecFactory, protocolFactory);
@@ -82,6 +108,9 @@ public abstract class ServerMain extends AbstractMain {
                         serverFactory.get(event.connection());
                     }
                 });
+                
+                // pre-create executor
+                executors().asListeningExecutorServiceFactory().get();
                 
                 return ServerMain.super.application();
             }

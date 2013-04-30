@@ -1,14 +1,9 @@
 package edu.uw.zookeeper.client;
 
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.google.common.util.concurrent.ListenableFuture;
-
-import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.protocol.OpAction;
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.Operation.SessionReply;
-import edu.uw.zookeeper.protocol.Operation.SessionRequest;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
@@ -18,7 +13,7 @@ import edu.uw.zookeeper.util.Singleton;
 /**
  * Wraps a lazily-instantiated ClientProtocolExecutor in a Service.
  */
-public class ClientProtocolConnectionService extends AbstractIdleService implements SessionRequestExecutor, Singleton<ClientProtocolConnection> {
+public class ClientProtocolConnectionService extends AbstractIdleService implements Singleton<ClientProtocolConnection> {
 
     public static ClientProtocolConnectionService newInstance(
             Processor<Operation.Request, Operation.SessionRequest> processor,
@@ -52,18 +47,5 @@ public class ClientProtocolConnectionService extends AbstractIdleService impleme
     @Override
     public synchronized ClientProtocolConnection get() {
         return client.get();
-    }
-
-    @Override
-    public ListenableFuture<SessionReply> submit(SessionRequest request) {
-        State state = state();
-        switch (state) {
-        case STARTING:
-        case RUNNING:
-            break;
-        default:
-            throw new IllegalStateException(state.toString());
-        }
-        return get().submit(request);
     }
 }

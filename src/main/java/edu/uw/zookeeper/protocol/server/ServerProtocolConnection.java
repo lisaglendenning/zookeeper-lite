@@ -1,6 +1,6 @@
 package edu.uw.zookeeper.protocol.server;
 
-import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
@@ -9,6 +9,7 @@ import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -16,75 +17,60 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
 import edu.uw.zookeeper.ServerExecutor;
+import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.event.ConnectionStateEvent;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.OpCreateSession;
+import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.Message.ClientMessage;
-import edu.uw.zookeeper.protocol.Message.ServerMessage;
-import edu.uw.zookeeper.util.AbstractPair;
+import edu.uw.zookeeper.protocol.Records;
 import edu.uw.zookeeper.util.Eventful;
+import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Stateful;
 
 public class ServerProtocolConnection implements Stateful<ProtocolState>, FutureCallback<Message.ServerMessage>, Eventful, Callable<Void> {
 
     public static ServerProtocolConnection newInstance(
             ServerCodecConnection codecConnection,
-            ServerExecutor callback,
+            ServerExecutor anonymousExecutor,
+            ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors,
             ListeningExecutorService executor) {
-        return new ServerProtocolConnection(codecConnection, callback, executor);
-    }
-    
-    public static class RequestTask extends AbstractPair<Message.ClientMessage, ListenableFuture<Message.ServerMessage>> {
-
-        public static RequestTask newInstance(ClientMessage first,
-                ListenableFuture<ServerMessage> second) {
-            return new RequestTask(first, second);
-        }
-        
-        protected RequestTask(ClientMessage first,
-                ListenableFuture<ServerMessage> second) {
-            super(first, second);
-        }
-        
-        public Message.ClientMessage request() {
-            return first;
-        }
-        
-        public ListenableFuture<Message.ServerMessage> future() {
-            return second;
-        }
+        return new ServerProtocolConnection(codecConnection, anonymousExecutor, sessionExecutors, executor);
     }
     
     public static enum State {
         WAITING, SCHEDULED, TERMINATED;
     }
 
-    protected final Logger logger = LoggerFactory
+    private final Logger logger = LoggerFactory
             .getLogger(ServerProtocolConnection.class);
-    // must be thread-safe
-    private final Queue<Message.ClientMessage> received;
-    private final Queue<RequestTask> submitted;
-    private final ServerExecutor callback;
+    private final BlockingQueue<Message.ClientMessage> inbound;
+    private final BlockingQueue<ListenableFuture<? extends Message.ServerMessage>> submitted;
+    private final BlockingQueue<Message.ServerMessage> outbound;
+    private final ServerExecutor anonymousExecutor;
+    private final ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors;
     private final ListeningExecutorService executor;
     private final ServerCodecConnection codecConnection;
     private final AtomicReference<State> state;
+    private volatile SessionRequestExecutor sessionExecutor;
     private volatile boolean throttled;
-    private volatile boolean pendingChanges;
     
     private ServerProtocolConnection(
             ServerCodecConnection codecConnection,
-            ServerExecutor callback,
+            ServerExecutor anonymousExecutor,
+            ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors,
             ListeningExecutorService executor) {
         this.codecConnection = codecConnection;
-        this.callback = callback;
+        this.anonymousExecutor = anonymousExecutor;
+        this.sessionExecutors = sessionExecutors;
         this.executor = executor;
-        this.received = new LinkedBlockingQueue<Message.ClientMessage>();
-        this.submitted = new LinkedBlockingQueue<RequestTask>();
+        this.inbound = new LinkedBlockingQueue<Message.ClientMessage>();
+        this.submitted = new LinkedBlockingQueue<ListenableFuture<? extends Message.ServerMessage>>();
+        this.outbound = new LinkedBlockingQueue<Message.ServerMessage>();
         this.state = new AtomicReference<State>(State.WAITING);
         this.throttled = false;
-        this.pendingChanges = false;
+        this.sessionExecutor = null;
         register(this);
     }
     
@@ -108,83 +94,135 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
         }
     }
 
+    /**
+     * Don't call concurrently.
+     */
     @Subscribe
-    public void handleRequest(Message.ClientMessage message) {
+    public void handleInbound(Message.ClientMessage message) throws InterruptedException {
         if (state.get() == State.TERMINATED) {
             logger.debug("Dropping {}", message);
         } else {
-            received.add(message);
-            pendingChanges = true;
+            inbound.put(message);
             schedule();
-        }
-    }
-
-    /**
-     * Don't call concurrently!
-     */
-    public Void call() {
-        if (state.get() != State.SCHEDULED) {
-            return null;
-        }
-        
-        pendingChanges = false;
-        
-        // submit received messages unless throttled
-        while (!throttled && received.peek() != null) {
-            Message.ClientMessage message = received.poll();
-            if (message instanceof OpCreateSession.Request) {
-                throttled = true;
-            }
-            ListenableFuture<Message.ServerMessage> future = callback.submit(message);
-            RequestTask task = RequestTask.newInstance(message, future);
-            submitted.add(task);
-            Futures.addCallback(future, this);
-        }
-
-        // write responses for completed requests
-        while (submitted.peek() != null && submitted.peek().future().isDone()) {
-            RequestTask task = submitted.poll();
-            Message.ServerMessage result;
-            try {
-                result = task.future().get();
-            } catch (Exception e) {
-                onFailure(e);
-                return null;
-            }
-            try {
-                codecConnection.write(result);
-            } catch (Exception e) {
-                logger.debug("Exception while writing {}", result, e);
-                onFailure(e);
-                return null;
-            }
-        }
-        
-        if (state.compareAndSet(State.SCHEDULED, State.WAITING) && pendingChanges) {
-            schedule();
-        }
-        return null;
-    }
-    
-    protected void schedule() {
-        if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
-           executor.submit(this);
         }
     }
 
     /**
      * Thread-safe
      */
+    public Void call() {
+        if (! state.compareAndSet(State.SCHEDULED, State.WAITING)) {
+            return null;
+        }
+        
+        try {
+            while (!throttled && !inbound.isEmpty()) {
+                submitInbound();
+            }
+        } catch (Exception e) {
+            onFailure(e);
+            return null;
+        }
+        
+        return null;
+    }
+    
+    private void schedule() {
+        if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
+            executor.submit(this);
+        }
+    }
+    
+    private synchronized void submitInbound() {
+        // ordering constraint: requests are submitted in the same
+        // order that they are received
+        Message.ClientMessage message = inbound.peek();
+        if (message != null) {
+            if (message instanceof OpCreateSession.Request) {
+                throttled = true;
+            }
+            ListenableFuture<? extends Message.ServerMessage> future;
+            if (sessionExecutor != null) {
+                assert (message instanceof Operation.SessionRequest);
+                future = sessionExecutor.submit((Operation.SessionRequest)message);
+            } else {
+                future = anonymousExecutor.submit(message);
+            }
+            inbound.remove(message);
+            submitted.add(future);
+            Futures.addCallback(future, this);
+        }
+    }
+    
+    private synchronized boolean checkSubmitted() {
+        // check for completed requests
+        // ordering constraint: replies are queued for outbound in the order
+        // that the requests were submitted
+        boolean changed = false;
+        ListenableFuture<? extends Message.ServerMessage> future = submitted.peek();
+        while (future != null && future.isDone()) {
+            Message.ServerMessage reply;
+            try {
+                reply = future.get();
+            } catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+            changed = true;
+            submitted.remove(future);
+            outbound.add(reply);
+            future = submitted.peek();
+        }
+        return changed;
+    }
+    
+    private synchronized void flush() {
+        // write outbound messages
+        // ordering constraint: messages are written in the order
+        // that they were enqueued in outbound
+        Message.ServerMessage reply = outbound.peek();
+        while (reply != null) {
+            try {
+                codecConnection.write(reply);
+            } catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+            outbound.remove(reply);
+            if (reply instanceof OpCreateSession.Response.Invalid) {
+                codecConnection.asConnection().flush().addListener(new Runnable() {
+                    @Override
+                    public void run() {
+                        onFailure(new KeeperException.SessionExpiredException());
+                    }
+                }, executor);
+            }
+            
+            reply = outbound.peek();
+        }
+    }
+
     @Override
-    public void onSuccess(Message.ServerMessage result) {
+    public synchronized void onSuccess(Message.ServerMessage result) {        
         if (state.get() == State.TERMINATED) {
             logger.debug("Dropping {}", result);
-        } else {
-            if (result instanceof OpCreateSession.Response.Valid) {
-                throttled = false;
-            }
-            pendingChanges = true;
+            return;
+        }
+        
+        if (result instanceof OpCreateSession.Response.Valid) {
+            Long sessionId = ((OpCreateSession.Response.Valid)result).asRecord().getSessionId();
+            sessionExecutor = sessionExecutors.get(sessionId);
+            throttled = false;
             schedule();
+        } else if (result instanceof Operation.SessionReply
+                && ((Operation.SessionReply)result).xid() == Records.OpCodeXid.NOTIFICATION.xid()) {
+            checkSubmitted();
+            outbound.add(result);
+            flush();
+            return; 
+        }
+
+        // assuming that the corresponding future isDone when this callback is called
+        if (checkSubmitted()) {
+            flush();
         }
     }
 
