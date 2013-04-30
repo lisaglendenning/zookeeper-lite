@@ -174,6 +174,8 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     
     @Override
     protected void post(Object event) {
+        super.post(event);
+        
         if (event instanceof OpCreateSession.Response) {
             handleCreateSessionResponse((OpCreateSession.Response)event);
         } else if (event instanceof Operation.SessionReply) {
@@ -182,7 +184,6 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
                 handlePingResponse((OpPing.Response)reply.reply());
             }
         }
-        super.post(event);
     }
 
     protected void handleCreateSessionResponse(OpCreateSession.Response message) {

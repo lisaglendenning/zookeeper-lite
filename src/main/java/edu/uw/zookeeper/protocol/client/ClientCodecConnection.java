@@ -66,4 +66,19 @@ public class ClientCodecConnection extends CodecConnection<Message.ClientSession
         }
         super.write(message);
     }
+    
+    @Override
+    protected void post(Object event) {
+        super.post(event);
+        
+        ProtocolState state = asCodec().state();
+        switch (state) {
+        case DISCONNECTED:
+        case ERROR:
+            asConnection().close();
+            break;
+        default:
+            break;
+        }
+    }
 }
