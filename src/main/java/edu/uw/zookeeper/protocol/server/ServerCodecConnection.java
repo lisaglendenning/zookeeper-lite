@@ -60,6 +60,7 @@ public class ServerCodecConnection extends CodecConnection<Message.ServerMessage
             checkArgument(message instanceof OpCreateSession.Response);
             break;
         case CONNECTED:
+        case DISCONNECTING:
             checkArgument(message instanceof Operation.SessionReply);
             break;
         default:

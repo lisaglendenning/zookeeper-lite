@@ -3,49 +3,65 @@ package edu.uw.zookeeper.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ForwardingList;
 import com.google.common.collect.Lists;
 
 public abstract class Processors {
-    public static class ProcessorBridge<T, U, V> extends
-        Pair<Processor<T, U>, Processor<U, V>> implements Processor<T, V> {
     
-        public static <T, U, V> ProcessorBridge<T, U, V> newInstance(
-                Processor<T, U> first, Processor<U, V> second) {
-            return new ProcessorBridge<T, U, V>(first, second);
+    public static <V,U,T> ProcessorBridge<V,U,T> bridge(
+            Processor<? super V, ? extends U> first, Processor<? super U, ? extends T> second) {
+        return ProcessorBridge.newInstance(first, second);
+    }
+    
+    public static class ProcessorBridge<V,U,T> extends
+        Pair<Processor<? super V, ? extends U>, Processor<? super U, ? extends T>> implements Processor<V,T> {
+    
+        public static <V,U,T> ProcessorBridge<V,U,T> newInstance(
+                Processor<? super V, ? extends U> first, Processor<? super U, ? extends T> second) {
+            return new ProcessorBridge<V,U,T>(first, second);
         }
         
-        protected ProcessorBridge(Processor<T, U> first, Processor<U, V> second) {
+        public ProcessorBridge(
+                Processor<? super V, ? extends U> first, Processor<? super U, ? extends T> second) {
             super(checkNotNull(first), checkNotNull(second));
         }
         
         @Override
-        public V apply(T input) throws Exception {
+        public T apply(V input) throws Exception {
             return second().apply(first().apply(input));
         }
     }
+    
+    public static <T> ProcessorChain<T> chain(List<Processor<T,T>> delegate) {
+        return ProcessorChain.newInstance(delegate);
+    }
 
     public static class ProcessorChain<T> extends
-            ForwardingList<Processor<T, T>> implements Processor<T, T> {
+            ForwardingList<Processor<T,T>> implements Processor<T,T> {
 
         public static <T> ProcessorChain<T> newInstance() {
             return new ProcessorChain<T>();
         }
 
-        private final List<Processor<T, T>> delegate;
-
-        protected ProcessorChain() {
-            this(Lists.<Processor<T, T>> newArrayList());
+        public static <T> ProcessorChain<T> newInstance(List<Processor<T,T>> delegate) {
+            return new ProcessorChain<T>(delegate);
         }
 
-        protected ProcessorChain(List<Processor<T, T>> delegate) {
+        private final List<Processor<T,T>> delegate;
+
+        public ProcessorChain() {
+            this(Lists.<Processor<T,T>> newArrayList());
+        }
+
+        public ProcessorChain(List<Processor<T,T>> delegate) {
             this.delegate = delegate;
         }
 
         @Override
-        protected List<Processor<T, T>> delegate() {
+        protected List<Processor<T,T>> delegate() {
             return delegate;
         }
 
@@ -56,7 +72,6 @@ public abstract class Processors {
             }
             return input;
         }
-
     }
 
     public static interface FilteringProcessor<V,T> extends Processor<V,T> {
@@ -89,7 +104,6 @@ public abstract class Processors {
         public Predicate<? super V> filter() {
             return first();
         }
-
     }
 
     public static class FilteredProcessors<V,T> implements
@@ -164,4 +178,21 @@ public abstract class Processors {
         }
     }
 
+    public static class ProcessorThunk<V,T> extends AbstractPair<Processor<? super V, ? extends T>, V> implements Callable<T> {
+
+        public static <V,T> ProcessorThunk<V,T> newInstance(
+                Processor<? super V, ? extends T> first, V second) {
+            return new ProcessorThunk<V,T>(first, second);
+        }
+        
+        public ProcessorThunk(
+                Processor<? super V, ? extends T> first, V second) {
+            super(first, second);
+        }
+
+        @Override
+        public T call() throws Exception {
+            return first.apply(second);
+        }
+    }
 }

@@ -10,11 +10,16 @@ import edu.uw.zookeeper.util.Processors.FilteringProcessor;
 
 public class OpCloseSessionProcessor extends OpRequestProcessor {
 
-    public static FilteringProcessor<Operation.Request, Operation.Response> newInstance(
+    public static FilteringProcessor<Operation.Request, Operation.Response> filtered(
             long sessionId, SessionManager sessions) {
         return FilteredProcessor.newInstance(
                 EqualsFilter.newInstance(OpCode.CLOSE_SESSION),
                 new OpCloseSessionProcessor(sessionId, sessions));
+    }
+    
+    public static OpCloseSessionProcessor newInstance(
+            long sessionId, SessionManager sessions) {
+        return new OpCloseSessionProcessor(sessionId, sessions);
     }
 
     protected final Logger logger = LoggerFactory

@@ -6,7 +6,6 @@ import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.protocol.client.AssignXidProcessor;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
 import edu.uw.zookeeper.util.Application;

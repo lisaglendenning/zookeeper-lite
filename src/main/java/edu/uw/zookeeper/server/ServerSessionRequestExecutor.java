@@ -1,9 +1,11 @@
 package edu.uw.zookeeper.server;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
-
+import com.google.common.util.concurrent.ListenableFutureTask;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.protocol.OpAction;
@@ -11,29 +13,62 @@ import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionRequestWrapper;
 import edu.uw.zookeeper.util.ForwardingEventful;
+import edu.uw.zookeeper.util.Processor;
+import edu.uw.zookeeper.util.Processors.*;
 import edu.uw.zookeeper.util.Publisher;
 
 public class ServerSessionRequestExecutor extends ForwardingEventful implements SessionRequestExecutor, Publisher {
 
     public static ServerSessionRequestExecutor newInstance(
-            Publisher publisher, ExpiringSessionManager sessions, long sessionId) {
-        return new ServerSessionRequestExecutor(publisher, sessions, sessionId);
+            Publisher publisher,
+            ServerExecutor executor,
+            long sessionId) {
+
+        @SuppressWarnings("unchecked")
+        Processor<Operation.Request, Operation.Response> responseProcessor = FilteredProcessors
+                .newInstance(
+                        OpCloseSessionProcessor.filtered(sessionId, executor.sessions()),
+                        FilteredProcessor.newInstance(
+                                OpRequestProcessor.NotEqualsFilter
+                                        .newInstance(OpCode.CLOSE_SESSION),
+                                OpRequestProcessor.newInstance()));
+        Processor<Operation.Request, Operation.Reply> replyProcessor = OpErrorProcessor.newInstance(responseProcessor);
+        Processor<Operation.SessionRequest, Operation.SessionReply> processor = SessionRequestProcessor.newInstance(replyProcessor, executor.zxids());
+        return new ServerSessionRequestExecutor(publisher, executor, processor, sessionId);
     }
+
+    public static class SessionRequestTask extends ProcessorThunk<Operation.SessionRequest, Operation.SessionReply> {
+        public static SessionRequestTask newInstance(
+                Processor<? super Operation.SessionRequest, ? extends Operation.SessionReply> first,
+                Operation.SessionRequest second) {
+            return new SessionRequestTask(first, second);
+        }
+        
+        public SessionRequestTask(
+                Processor<? super Operation.SessionRequest, ? extends Operation.SessionReply> first,
+                Operation.SessionRequest second) {
+            super(first, second);
+        }}
     
+    protected final Logger logger = LoggerFactory
+            .getLogger(ServerSessionRequestExecutor.class);
     protected final long sessionId;
-    protected final ExpiringSessionManager sessions;
+    protected final ServerExecutor executor;
+    protected final Processor<Operation.SessionRequest, Operation.SessionReply> processor;
     
     protected ServerSessionRequestExecutor(
             Publisher publisher,
-            ExpiringSessionManager sessions,
+            ServerExecutor executor,
+            Processor<Operation.SessionRequest, Operation.SessionReply> processor,
             long sessionId) {
         super(publisher);
+        this.executor = executor;
+        this.processor = processor;
         this.sessionId = sessionId;
-        this.sessions = sessions;
     }
     
-    public ExpiringSessionManager sessions() {
-        return sessions;
+    public ServerExecutor executor() {
+        return executor;
     }
 
     @Override
@@ -51,8 +86,12 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
     
     @Override
     public ListenableFuture<Operation.SessionReply> submit(Operation.SessionRequest request) {
-        sessions().touch(sessionId);
-        System.out.printf("0x%s: %s%n", Long.toHexString(sessionId), request);
-        return SettableFuture.create();
+        executor().sessions().touch(sessionId);
+        if (logger.isDebugEnabled()) {
+            logger.debug(String.format("0x%s: Submitting %s", Long.toHexString(sessionId), request));
+        }
+        ListenableFutureTask<Operation.SessionReply> task = ListenableFutureTask.create(SessionRequestTask.newInstance(processor, request));
+        executor().execute(task);
+        return task;
     }
 }

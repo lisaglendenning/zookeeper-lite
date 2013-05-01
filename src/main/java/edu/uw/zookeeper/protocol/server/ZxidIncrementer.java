@@ -14,7 +14,7 @@ import edu.uw.zookeeper.util.Generator;
 public class ZxidIncrementer implements Generator<Long> {
 
     public static ZxidIncrementer newInstance() {
-        return new ZxidIncrementer(new AtomicLong(1));
+        return new ZxidIncrementer(new AtomicLong(0));
     }
     
     public static ZxidIncrementer newInstance(AtomicLong lastZxid) {
