@@ -25,7 +25,8 @@ public class NioClientBootstrapFactory implements Factory<Bootstrap> {
         return newInstance(groupFactory);
     }
 
-    public static NioClientBootstrapFactory newInstance(Factory<? extends EventLoopGroup> groupFactory) {
+    public static NioClientBootstrapFactory newInstance(
+            Factory<? extends EventLoopGroup> groupFactory) {
         return new NioClientBootstrapFactory(groupFactory);
     }
     

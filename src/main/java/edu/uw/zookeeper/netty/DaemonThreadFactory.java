@@ -13,7 +13,7 @@ public enum DaemonThreadFactory implements ParameterizedFactory<ThreadFactory, T
         return INSTANCE;
     }
 
-    private final String threadNameFormat = "Netty-%d";
+    private final String threadNameFormat = "netty-%d";
     
     @Override
     public ThreadFactory get(ThreadFactory backingFactory) {

@@ -105,7 +105,7 @@ public abstract class AbstractMain implements Application {
         // TODO: configurable
         private final int CORE_SIZE = Math.max(1,
                 Runtime.getRuntime().availableProcessors() * 2);
-        private final String nameFormat = "application-%d";
+        private final String nameFormat = "main-pool-%d";
 
         @Override
         public ExecutorService get() {

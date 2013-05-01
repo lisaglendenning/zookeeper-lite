@@ -27,13 +27,23 @@ import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.Processors.*;
 
-public class ServerExecutor implements ClientMessageExecutor, Executor, Callable<Object>, ParameterizedFactory<Long, SessionRequestExecutor> {
+public class ServerExecutor implements ClientMessageExecutor, Executor, Callable<Object>, ParameterizedFactory<Long, ServerExecutor.PublishingSessionRequestExecutor> {
 
+    public interface PublishingSessionRequestExecutor extends SessionRequestExecutor, Publisher {}
+    
     public static ServerExecutor newInstance(
-            ListeningExecutorService executor,
-            Factory<Publisher> publisherFactory,
-            ExpiringSessionManager sessions) {
+            final ListeningExecutorService executor,
+            final Factory<Publisher> publisherFactory,
+            final ExpiringSessionManager sessions) {
         AssignZxidProcessor zxids = AssignZxidProcessor.newInstance();
+        return newInstance(executor, publisherFactory, sessions, zxids);
+    }
+    
+    public static ServerExecutor newInstance(
+            final ListeningExecutorService executor,
+            final Factory<Publisher> publisherFactory,
+            final ExpiringSessionManager sessions,
+            AssignZxidProcessor zxids) {
         return new ServerExecutor(executor, publisherFactory, sessions, zxids);
     }
 
@@ -46,6 +56,12 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
         public static ServerClientMessageExecutor newInstance(
                 Reference<Long> zxids,
                 SessionTable sessions) {
+            return newInstance(processor(zxids, sessions));
+        }
+        
+        public static Processor<Message.ClientMessage, Message.ServerMessage> processor(
+                Reference<Long> zxids,
+                SessionTable sessions) {
             FilteringProcessor<Message.ClientMessage, Message.ServerMessage> createProcessor =
                     OpCreateSessionProcessor.filtered(sessions, zxids);
             FilteringProcessor<Message.ClientMessage, Message.ServerMessage> errorProcessor =
@@ -55,6 +71,11 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
             @SuppressWarnings("unchecked")
             Processor<Message.ClientMessage, Message.ServerMessage> processor = 
                     FilteredProcessors.newInstance(createProcessor, errorProcessor);
+            return processor;
+        }
+
+        public static ServerClientMessageExecutor newInstance(
+                Processor<Message.ClientMessage, Message.ServerMessage> processor) {
             return new ServerClientMessageExecutor(processor);
         }
         
@@ -89,7 +110,7 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
     protected final AssignZxidProcessor zxids;
     protected final ExpiringSessionManager sessions;
     protected final BlockingQueue<Runnable> pending;
-    protected final ConcurrentMap<Long, ServerSessionRequestExecutor> executors;
+    protected final ConcurrentMap<Long, PublishingSessionRequestExecutor> executors;
     protected final ServerClientMessageExecutor anonymousExecutor;
     protected final AtomicReference<State> state;
     
@@ -161,7 +182,7 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
         return null;
     }
     
-    public synchronized void next() {
+    protected synchronized void next() {
         Runnable next = pending.peek();
         if (next != null) {
             try {
@@ -174,11 +195,11 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
     }
 
     @Override
-    public ServerSessionRequestExecutor get(Long value) {
-        ServerSessionRequestExecutor executor = executors.get(value);
+    public PublishingSessionRequestExecutor get(Long sessionId) {
+        PublishingSessionRequestExecutor executor = executors.get(sessionId);
         if (executor == null) {
-            executor = ServerSessionRequestExecutor.newInstance(publisherFactory.get(), this, value);
-            if (executors.putIfAbsent(value, executor) != null) {
+            executor = newSessionRequestExecutor(sessionId);
+            if (executors.putIfAbsent(sessionId, executor) != null) {
                 throw new AssertionError();
             }
         }
@@ -188,7 +209,7 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
     @Subscribe
     public void handleSessionStateEvent(SessionStateEvent event) {
         Long sessionId = event.session().id();
-        ServerSessionRequestExecutor executor = executors.get(sessionId);
+        PublishingSessionRequestExecutor executor = executors.get(sessionId);
         if (executor != null) {
             Session.State state = event.event();
             executor.post(state);
@@ -200,5 +221,9 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
                 break;
             }
         }
+    }
+    
+    protected PublishingSessionRequestExecutor newSessionRequestExecutor(Long sessionId) {
+        return ServerSessionRequestExecutor.newInstance(publisherFactory.get(), this, sessionId);
     }
 }

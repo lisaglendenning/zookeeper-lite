@@ -70,18 +70,17 @@ public abstract class ClientMain extends AbstractMain {
                 ServiceMonitor monitor = serviceMonitor();
                 MonitorServiceFactory monitorsFactory = monitors(monitor);
         
-                ClientConnectionFactory connections = monitorsFactory.apply(connectionFactory().get());
+                ClientConnectionFactory clientConnections = monitorsFactory.apply(clientConnectionFactory().get());
         
                 TimeValue timeOut = TimeoutFactory.newInstance().get(configuration());
                 EnsembleView ensemble = ConfigurableEnsembleViewFactory.newInstance().get(configuration());
-                AssignXidProcessor processor = AssignXidProcessor.newInstance();
                 ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
                         publisherFactory(), timeOut, executors().asScheduledExecutorServiceFactory().get());
-                EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(connections, codecFactory, ensemble, timeOut);
+                EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(clientConnections, codecFactory, ensemble, timeOut);
                 Factory<ClientProtocolConnection> clientFactory = ensembleFactory.get();
                 
                 monitorsFactory.apply(
-                        ClientProtocolConnectionService.newInstance(processor, clientFactory));
+                        ClientProtocolConnectionService.newInstance(clientFactory));
         
                 return ClientMain.super.application();
             }
@@ -93,5 +92,5 @@ public abstract class ClientMain extends AbstractMain {
         return application.get();
     }
     
-    protected abstract Factory<? extends ClientConnectionFactory> connectionFactory();
+    protected abstract Factory<? extends ClientConnectionFactory> clientConnectionFactory();
 }

@@ -16,6 +16,11 @@ import edu.uw.zookeeper.util.Singleton;
 public class ClientProtocolConnectionService extends AbstractIdleService implements Singleton<ClientProtocolConnection> {
 
     public static ClientProtocolConnectionService newInstance(
+            Factory<ClientProtocolConnection> clientFactory) {
+        return newInstance(AssignXidProcessor.newInstance(), clientFactory);
+    }
+    
+    public static ClientProtocolConnectionService newInstance(
             Processor<Operation.Request, Operation.SessionRequest> processor,
             Factory<ClientProtocolConnection> clientFactory) {
         return new ClientProtocolConnectionService(processor, clientFactory);

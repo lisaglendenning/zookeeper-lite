@@ -27,14 +27,14 @@ public abstract class ServerMain extends AbstractMain {
                 MonitorServiceFactory monitorsFactory = monitors(monitor);
 
                 ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(configuration());
-                ServerConnectionFactory connections = monitorsFactory.apply(connectionFactory().get(address.get()));
+                ServerConnectionFactory serverConnections = monitorsFactory.apply(serverConnectionFactory().get(address.get()));
                 
                 SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(configuration());
                 ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
                 ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, executors.asScheduledExecutorServiceFactory().get(), configuration()));
 
                 final ServerExecutor serverExecutor = ServerExecutor.newInstance(executors.asListeningExecutorServiceFactory().get(), publisherFactory(), sessions);
-                final Server server = Server.newInstance(publisherFactory(), connections, serverExecutor);
+                final Server server = Server.newInstance(publisherFactory(), serverConnections, serverExecutor);
                 
                 return ServerMain.super.application();
             }
@@ -46,5 +46,5 @@ public abstract class ServerMain extends AbstractMain {
         return application.get();
     }
     
-    protected abstract ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory> connectionFactory();
+    protected abstract ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory> serverConnectionFactory();
 }

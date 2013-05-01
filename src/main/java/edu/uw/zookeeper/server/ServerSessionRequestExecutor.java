@@ -1,5 +1,7 @@
 package edu.uw.zookeeper.server;
 
+import java.util.concurrent.Executor;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -7,7 +9,6 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.protocol.OpAction;
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
@@ -17,13 +18,26 @@ import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Processors.*;
 import edu.uw.zookeeper.util.Publisher;
 
-public class ServerSessionRequestExecutor extends ForwardingEventful implements SessionRequestExecutor, Publisher {
+public class ServerSessionRequestExecutor extends ForwardingEventful implements ServerExecutor.PublishingSessionRequestExecutor, Executor {
 
     public static ServerSessionRequestExecutor newInstance(
             Publisher publisher,
             ServerExecutor executor,
             long sessionId) {
-
+        return newInstance(publisher, executor, processor(executor, sessionId), sessionId);
+    }
+    
+    public static ServerSessionRequestExecutor newInstance(
+            Publisher publisher,
+            ServerExecutor executor,
+            Processor<Operation.SessionRequest, Operation.SessionReply> processor,
+            long sessionId) {
+        return new ServerSessionRequestExecutor(publisher, executor, processor, sessionId);
+    }
+    
+    public static Processor<Operation.SessionRequest, Operation.SessionReply> processor(
+            ServerExecutor executor,
+            long sessionId) {
         @SuppressWarnings("unchecked")
         Processor<Operation.Request, Operation.Response> responseProcessor = FilteredProcessors
                 .newInstance(
@@ -34,7 +48,7 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
                                 OpRequestProcessor.newInstance()));
         Processor<Operation.Request, Operation.Reply> replyProcessor = OpErrorProcessor.newInstance(responseProcessor);
         Processor<Operation.SessionRequest, Operation.SessionReply> processor = SessionRequestProcessor.newInstance(replyProcessor, executor.zxids());
-        return new ServerSessionRequestExecutor(publisher, executor, processor, sessionId);
+        return processor;
     }
 
     public static class SessionRequestTask extends ProcessorThunk<Operation.SessionRequest, Operation.SessionReply> {
@@ -86,12 +100,21 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
     
     @Override
     public ListenableFuture<Operation.SessionReply> submit(Operation.SessionRequest request) {
-        executor().sessions().touch(sessionId);
+        touch();
         if (logger.isDebugEnabled()) {
             logger.debug(String.format("0x%s: Submitting %s", Long.toHexString(sessionId), request));
         }
         ListenableFutureTask<Operation.SessionReply> task = ListenableFutureTask.create(SessionRequestTask.newInstance(processor, request));
-        executor().execute(task);
+        execute(task);
         return task;
+    }
+    
+    protected void touch() {
+        executor().sessions().touch(sessionId);
+    }
+
+    @Override
+    public void execute(Runnable runnable) {
+        executor().execute(runnable);
     }
 }

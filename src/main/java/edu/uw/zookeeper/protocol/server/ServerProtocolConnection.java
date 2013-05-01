@@ -35,7 +35,7 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
     public static ServerProtocolConnection newInstance(
             ServerCodecConnection codecConnection,
             ClientMessageExecutor anonymousExecutor,
-            ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors,
+            ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
             ListeningExecutorService executor) {
         return new ServerProtocolConnection(codecConnection, anonymousExecutor, sessionExecutors, executor);
     }
@@ -50,7 +50,7 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
     private final BlockingQueue<ListenableFuture<? extends Message.ServerMessage>> submitted;
     private final BlockingQueue<Message.ServerMessage> outbound;
     private final ClientMessageExecutor anonymousExecutor;
-    private final ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors;
+    private final ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors;
     private final ListeningExecutorService executor;
     private final ServerCodecConnection codecConnection;
     private final AtomicReference<State> state;
@@ -60,7 +60,7 @@ public class ServerProtocolConnection implements Stateful<ProtocolState>, Future
     private ServerProtocolConnection(
             ServerCodecConnection codecConnection,
             ClientMessageExecutor anonymousExecutor,
-            ParameterizedFactory<Long, SessionRequestExecutor> sessionExecutors,
+            ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
             ListeningExecutorService executor) {
         this.codecConnection = codecConnection;
         this.anonymousExecutor = anonymousExecutor;

@@ -149,6 +149,9 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
 
         OpPing.Request ping = OpPing.Request.create();
         try {
+            // FIXME: this violates our condition that write() not be called
+            // concurrently, but because pings aren't saved in the queue, it shouldn't matter,
+            // probably?
             write(SessionRequestWrapper.create(ping.xid(), ping));
         } catch (Exception e) {
             stop();

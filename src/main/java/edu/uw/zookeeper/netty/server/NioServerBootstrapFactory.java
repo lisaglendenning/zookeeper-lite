@@ -50,14 +50,16 @@ public class NioServerBootstrapFactory implements Factory<ServerBootstrap> {
         return newInstance(groupFactory);
     }
 
-    public static NioServerBootstrapFactory newInstance(Factory<? extends EventLoopGroup> groupFactory) {
+    public static NioServerBootstrapFactory newInstance(
+            Factory<? extends EventLoopGroup> groupFactory) {
         return new NioServerBootstrapFactory(groupFactory);
     }
     
     protected final Factory<? extends EventLoopGroup> groupFactory;
     protected final ParameterizedFactory<Factory<? extends EventLoopGroup>, ServerBootstrap> bootstrapFactory;
     
-    protected NioServerBootstrapFactory(Factory<? extends EventLoopGroup> groupFactory) {
+    protected NioServerBootstrapFactory(
+            Factory<? extends EventLoopGroup> groupFactory) {
         this.groupFactory = groupFactory;
         this.bootstrapFactory = SimpleServerBootstrapFactory.newInstance(
                 NioServerChannelTypeFactory.getInstance().get(),
