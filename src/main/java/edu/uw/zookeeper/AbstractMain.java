@@ -317,7 +317,7 @@ public abstract class AbstractMain implements Application {
         
         public static final String ARG = "server";
         public static final String CONFIG_KEY = "Server";
-        public static final String DEFAULT_ADDRESS = "localhost";
+        public static final String DEFAULT_ADDRESS = "";
         public static final int DEFAULT_PORT = 2181;
 
         private final String configPath;
@@ -376,6 +376,9 @@ public abstract class AbstractMain implements Application {
         public static final String ARG = "ensemble";
         public static final String CONFIG_KEY = "Ensemble";
 
+        public static final String DEFAULT_ADDRESS = "localhost";
+        public static final int DEFAULT_PORT = 2181;
+        
         private final String configPath;
         
         protected ConfigurableEnsembleViewFactory(String configPath) {
@@ -384,8 +387,9 @@ public abstract class AbstractMain implements Application {
         
         @Override
         public EnsembleView get() {
-            ServerView.Address<?> defaultServer = ConfigurableServerAddressViewFactory.newInstance(configPath).get();
-            return EnsembleView.of(ServerQuorumView.newInstance(defaultServer));
+            return EnsembleView.of(
+                    ServerQuorumView.newInstance(ServerInetAddressView.newInstance(
+                    DEFAULT_ADDRESS, DEFAULT_PORT)));
         }
 
         @Override
