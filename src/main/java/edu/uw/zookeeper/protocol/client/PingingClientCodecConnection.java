@@ -216,16 +216,18 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     
     @Subscribe
     @Override
-    public void handleConnectionState(ConnectionStateEvent event) {
-        Connection.State state = event.event().to();
-        switch(state) {
-        case CONNECTION_CLOSED:
-            stop();
-            break;
-        default:
-            break;
+    public void handleConnectionStateEvent(ConnectionStateEvent event) {
+        if (event.connection() == asConnection()) {
+            switch(event.event().to()) {
+            case CONNECTION_CLOSED:
+                stop();
+                break;
+            default:
+                break;
+            }
         }
-        super.handleConnectionState(event);
+
+        super.handleConnectionStateEvent(event);
     }
 
     @Subscribe

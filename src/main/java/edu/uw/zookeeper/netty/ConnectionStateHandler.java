@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.util.Automaton;
+import edu.uw.zookeeper.util.EventfulAutomaton;
+import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Stateful;
 
 import io.netty.channel.Channel;
@@ -21,7 +23,11 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
         return state;
     }
 
-    public static ConnectionStateHandler create(Automaton<Connection.State, Connection.State> state) {
+    public static ConnectionStateHandler newInstance(Publisher publisher) {
+        return newInstance(EventfulAutomaton.createSynchronized(publisher, Connection.State.class));
+    }
+    
+    public static ConnectionStateHandler newInstance(Automaton<Connection.State, Connection.State> state) {
         return new ConnectionStateHandler(state);
     }
 
@@ -46,14 +52,12 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        logger.debug("Channel Active {}", ctx.channel().remoteAddress());
         automaton.apply(Connection.State.CONNECTION_OPENED);
         super.channelActive(ctx);
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        logger.debug("Channel Inactive {}", ctx.channel().remoteAddress());
         automaton.apply(Connection.State.CONNECTION_CLOSED);
         super.channelInactive(ctx);
     }

@@ -7,7 +7,9 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
 import edu.uw.zookeeper.event.ConnectionBufferEvent;
 import edu.uw.zookeeper.event.ConnectionStateEvent;
@@ -34,6 +36,7 @@ public class CodecConnection<I, O, T extends Codec<I,Optional<? extends O>>> ext
         super(publisher);
         this.codec = codec;
         this.connection = connection;
+        
         connection.register(this);
     }
     
@@ -46,8 +49,7 @@ public class CodecConnection<I, O, T extends Codec<I,Optional<? extends O>>> ext
     }
     
     public void write(I message) throws IOException {
-        logger.debug("Writing: {}", message);
-        Connection.State connectionState = connection.state();
+        Connection.State connectionState = asConnection().state();
         switch (connectionState) {
         case CONNECTION_OPENING:
         case CONNECTION_OPENED:
@@ -55,14 +57,27 @@ public class CodecConnection<I, O, T extends Codec<I,Optional<? extends O>>> ext
         default:
             throw new IllegalStateException(connectionState.toString());
         }
-        ByteBuf input = codec.encode(message, connection.allocator());
-        connection.write(input);
+
+        if (logger.isTraceEnabled()) {
+            logger.trace("Encoding {} ({})", message, this);
+        }
+        ByteBuf input;
+        try {
+            input = codec.encode(message, asConnection().allocator());
+        } catch (Exception e) {
+            logger.warn("Exception while encoding {} ({})", message, this, e);
+            throw Throwables.propagate(e);
+        }
+        
+        if (logger.isTraceEnabled()) {
+            logger.trace("Writing {} ({})", input, this);
+        }
+        asConnection().write(input);
     }
 
     @Subscribe
-    public void handleConnectionState(ConnectionStateEvent event) {
-        Connection.State state = event.event().to();
-        switch(state) {
+    public void handleConnectionStateEvent(ConnectionStateEvent event) {
+        switch (event.event().to()) {
         case CONNECTION_CLOSED:
             event.connection().unregister(this);
             break;
@@ -70,20 +85,40 @@ public class CodecConnection<I, O, T extends Codec<I,Optional<? extends O>>> ext
             break;
         }
     }
+
+    @Subscribe
+    public void handleConnectionBufferEvent(ConnectionBufferEvent event) {
+        if (event.connection() == asConnection()) {
+            handleBuffer(event.event());
+        }
+    }
     
     @Subscribe
-    public void handleConnectionRead(ConnectionBufferEvent event) {
-        ByteBuf input = event.event();
-        Optional<? extends O> output;
-        try {
-            output = codec.decode(input);
-        } catch (Exception e) {
-            output = Optional.absent();
-            logger.warn("Exception while decoding Connection buffer", e);
-            connection.close();
+    public void handleBuffer(ByteBuf input) {
+        while (input.isReadable()) {
+            Optional<? extends O> output;
+            try {
+                output = codec.decode(input);
+            } catch (Exception e) {
+                logger.warn("Exception while decoding {} ({})", input, this, e);
+                asConnection().close();
+                return;
+            }
+            if (output.isPresent()) {
+                if (logger.isTraceEnabled()) {
+                    logger.trace("Read {} ({})", output.get(), this);
+                }
+                post(output.get());
+            } else {
+                break;
+            }
         }
-        if (output.isPresent()) {
-            post(output.get());
-        }
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("codec", asCodec()).add("connection", asConnection())
+                .toString();
     }
 }

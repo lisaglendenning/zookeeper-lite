@@ -21,7 +21,7 @@ public class Main extends ClientMain {
     public Main(Configuration configuration) {
         super(configuration);
         Factory<Bootstrap> bootstrapFactory = NioClientBootstrapFactory.newInstance(threadFactory(), serviceMonitor());
-        ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = ChannelConnection.ConnectionBuilder.newInstance(publisherFactory());
+        ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = ChannelConnection.PerConnectionPublisherFactory.newInstance(publisherFactory());
         this.clientConnectionFactory = 
                 ChannelClientConnectionFactory.ClientFactoryBuilder.newInstance(publisherFactory(), connectionBuilder, bootstrapFactory);
     }

@@ -22,7 +22,7 @@ public class Main extends ServerMain {
     
     public Main(Configuration configuration) {
         super(configuration);
-        ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = ChannelConnection.ConnectionBuilder.newInstance(publisherFactory());
+        ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = ChannelConnection.PerConnectionPublisherFactory.newInstance(publisherFactory());
         ParameterizedFactory<SocketAddress, ServerBootstrap> bootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
                         NioServerBootstrapFactory.newInstance(threadFactory(), serviceMonitor()));

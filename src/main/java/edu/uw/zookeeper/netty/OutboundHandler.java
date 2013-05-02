@@ -10,10 +10,14 @@ public class OutboundHandler extends ChannelOutboundMessageHandlerAdapter<ByteBu
         return new OutboundHandler();
     }
     
+    private OutboundHandler() {
+        super();
+    }
+    
     // TODO: since channel type doesn't change,
     // add a subclass handler depending on channel type
     @Override
-    public void flush(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
+    public void flush(ChannelHandlerContext ctx, ByteBuf msg) {
         switch (ctx.channel().metadata().bufferType()) {
         case BYTE:
             ctx.nextOutboundByteBuffer().writeBytes(msg);

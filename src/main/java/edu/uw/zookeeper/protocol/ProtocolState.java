@@ -60,8 +60,6 @@ public enum ProtocolState implements Function<Message, Optional<ProtocolState>> 
                         return Optional.of(DISCONNECTED);
                     }
                 }
-            } else if (input instanceof Message.SessionMessage) {
-                // noop
             } else {
                 throw new IllegalArgumentException(input.toString());                    
             }

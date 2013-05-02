@@ -52,8 +52,7 @@ public class InboundHandler extends ChannelInboundByteHandlerAdapter {
     }
 
     @Override
-    protected void inboundBufferUpdated(ChannelHandlerContext ctx, ByteBuf in)
-            throws Exception {
+    protected void inboundBufferUpdated(ChannelHandlerContext ctx, ByteBuf in) {
         if (in.isReadable()) {
             post(in);
         }
