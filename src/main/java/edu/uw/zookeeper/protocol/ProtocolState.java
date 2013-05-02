@@ -28,8 +28,10 @@ public enum ProtocolState implements Function<Message, Optional<ProtocolState>> 
                 } else {
                     return Optional.of(ERROR);
                 }
-            } else {
+            } else if (input instanceof Operation.SessionRequest || input instanceof FourLetterResponse){
                 // no-op                   
+            } else {
+                throw new IllegalArgumentException(input.toString());
             }
             return Optional.absent();
         }
@@ -42,7 +44,7 @@ public enum ProtocolState implements Function<Message, Optional<ProtocolState>> 
                 if (request.opcode() == OpCode.CLOSE_SESSION) {
                     return Optional.of(DISCONNECTING);
                 }
-            } else if (input instanceof Message.SessionMessage) {
+            } else if (input instanceof Operation.SessionReply) {
                 // noop
             } else {
                 throw new IllegalArgumentException(input.toString());                    

@@ -82,6 +82,8 @@ public class ClientProtocolCodec implements
      */
     @Override
     public ByteBuf encode(Message.ClientSessionMessage input, ByteBufAllocator output) throws IOException {
+        automaton.apply(input);
+        ByteBuf out = encoder.encode(input, output);
         // we only need to remember xid -> opcode of pending messages
         Pair<Integer, OpCode> pair = null;
         if (input instanceof Operation.XidHeader) {
@@ -90,14 +92,9 @@ public class ClientProtocolCodec implements
                 assert (input instanceof Operation.SessionRequest);
                 OpCode opcode = ((Operation.SessionRequest)input).request().opcode();
                 pair = Pair.create(xid, opcode);
+                pending.add(pair);
             }
         }
-        // the following lines need to be atomic
-        if (pair != null) {
-            pending.add(pair);
-        }
-        ByteBuf out = encoder.encode(input, output);
-        automaton.apply(input);
         return out;
     }
 

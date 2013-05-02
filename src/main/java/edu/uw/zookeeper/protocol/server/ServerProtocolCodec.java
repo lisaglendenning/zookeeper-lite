@@ -55,8 +55,8 @@ public class ServerProtocolCodec implements
 
     @Override
     public ByteBuf encode(Message.ServerMessage input, ByteBufAllocator output) throws IOException {
-        ByteBuf out = encoder.encode(input, output);
         automaton.apply(input);
+        ByteBuf out = encoder.encode(input, output);
         return out;
     }
     
