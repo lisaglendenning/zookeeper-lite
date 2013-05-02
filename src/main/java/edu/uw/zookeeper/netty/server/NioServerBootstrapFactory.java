@@ -45,7 +45,7 @@ public class NioServerBootstrapFactory implements Factory<ServerBootstrap> {
             ServiceMonitor serviceMonitor) {
         ThreadFactory threads = DaemonThreadFactory.getInstance().get(threadFactory.get());
         Singleton<? extends EventLoopGroup> groupFactory = MonitoredEventLoopGroupFactory.newInstance(
-                NioEventLoopGroupFactory.getInstance(),
+                NioEventLoopGroupFactory.DEFAULT,
                 serviceMonitor).get(threads);
         return newInstance(groupFactory);
     }

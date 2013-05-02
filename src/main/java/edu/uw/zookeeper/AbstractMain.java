@@ -3,10 +3,13 @@ package edu.uw.zookeeper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Throwables;
@@ -113,11 +116,21 @@ public abstract class AbstractMain implements Application {
         }
         
         public ExecutorService get(ThreadFactory threadFactory) {
-            return Executors.newFixedThreadPool(CORE_SIZE,
-                    new ThreadFactoryBuilder()
-                        .setThreadFactory(threadFactory)
-                        .setNameFormat(nameFormat)
-                        .build());
+            int corePoolSize = CORE_SIZE;
+            int maxPoolSize = CORE_SIZE;
+            TimeValue keepAlive = TimeValue.create(60L, TimeUnit.SECONDS);
+            BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>();
+            ThreadFactory threads = new ThreadFactoryBuilder()
+                .setThreadFactory(threadFactory)
+                .setNameFormat(nameFormat)
+                .build();
+            ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                    corePoolSize, maxPoolSize,
+                    keepAlive.value(), keepAlive.unit(),
+                    queue,
+                    threads);
+            executor.prestartAllCoreThreads();
+            return executor;
         }
     }
     

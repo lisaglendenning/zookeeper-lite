@@ -8,13 +8,11 @@ import edu.uw.zookeeper.util.DefaultsFactory;
 
 public enum NioEventLoopGroupFactory implements DefaultsFactory<ThreadFactory, EventLoopGroup> {
 
-    DEFAULT(NioEventLoopGroup.DEFAULT_POOL_SIZE);
+    DEFAULT(0), AVAILABLE_PROCESSORS(Math.max(1,
+                Runtime.getRuntime().availableProcessors()));
     
-    public static NioEventLoopGroupFactory getInstance() {
-        return DEFAULT;
-    }
-
     private final int nthreads;
+    private final int ioRatio = 75;
     
     private NioEventLoopGroupFactory(int nthreads) {
         this.nthreads = nthreads;
@@ -22,11 +20,15 @@ public enum NioEventLoopGroupFactory implements DefaultsFactory<ThreadFactory, E
     
     @Override
     public NioEventLoopGroup get() {
-        return new NioEventLoopGroup(nthreads);
+        NioEventLoopGroup instance = new NioEventLoopGroup(nthreads);
+        instance.setIoRatio(ioRatio);
+        return instance;
     }
 
     @Override
     public NioEventLoopGroup get(ThreadFactory value) {
-        return new NioEventLoopGroup(nthreads, value);
+        NioEventLoopGroup instance =  new NioEventLoopGroup(nthreads, value);
+        instance.setIoRatio(ioRatio);
+        return instance;
     }
 }
