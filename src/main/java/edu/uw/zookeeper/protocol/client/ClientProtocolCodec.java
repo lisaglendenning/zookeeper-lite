@@ -10,7 +10,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 
-import edu.uw.zookeeper.protocol.Codec;
 import edu.uw.zookeeper.protocol.Decoder;
 import edu.uw.zookeeper.protocol.Encodable;
 import edu.uw.zookeeper.protocol.Encoder;
@@ -18,11 +17,13 @@ import edu.uw.zookeeper.protocol.Frame;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.Records;
 import edu.uw.zookeeper.protocol.SessionReplyDecoder;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Pair;
+import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.Stateful;
 
 /**
@@ -30,10 +31,8 @@ import edu.uw.zookeeper.util.Stateful;
  * but it is not safe for multiple threads to call encode or multiple
  * threads to call decode.
  */
-public class ClientProtocolCodec implements 
-        Stateful<ProtocolState>,
-        Function<Integer, OpCode>,
-        Codec<Message.ClientSessionMessage, Optional<? extends Message.ServerSessionMessage>> {
+public class ClientProtocolCodec
+    extends ProtocolCodec<Message.ClientSessionMessage, Message.ServerSessionMessage> {
 
     /**
      * 
@@ -41,49 +40,56 @@ public class ClientProtocolCodec implements
      */
     public static ClientProtocolCodec newInstance(
             Automaton<ProtocolState, Message> automaton) {
-        return new ClientProtocolCodec(automaton);
+        Pending pending = new Pending();
+        ClientProtocolEncoder encoder = ClientProtocolEncoder.create(automaton);
+        ClientProtocolDecoder decoder = ClientProtocolDecoder.create(automaton, pending);
+        return new ClientProtocolCodec(automaton, encoder, decoder, pending);
     }
     
-    // must be thread-safe
-    private final Automaton<ProtocolState, Message> automaton;
-    private final ClientProtocolEncoder encoder;
-    private final ClientProtocolDecoder decoder;
-    // must be thread-safe
-    private final Queue<Pair<Integer, OpCode>> pending;
+    public static class Pending implements Function<Integer, OpCode>, Reference<Queue<Pair<Integer, OpCode>>> {
+        // must be thread-safe
+        private final Queue<Pair<Integer, OpCode>> queue;
+        
+        public Pending() {
+            this.queue = new LinkedBlockingQueue<Pair<Integer, OpCode>>();
+        }
+
+        @Override
+        public OpCode apply(Integer xid) {
+            Pair<Integer, OpCode> next = queue.peek();
+            if (next == null) {
+                throw new IllegalStateException(String.format("Unexpected xid (%d), no pending requests", xid));
+            }
+            if (xid.equals(next.first())) {
+                return next.second();
+            } else {
+                throw new IllegalArgumentException(String.format("Unexpected xid (%d), expecting %s", xid, next));
+            }
+        }
+
+        @Override
+        public Queue<Pair<Integer, OpCode>> get() {
+            return queue;
+        }
+    }
+    
+    private final Pending pending;
     
     private ClientProtocolCodec(
-            Automaton<ProtocolState, Message> automaton) {
-        this.automaton = automaton;
-        this.encoder = ClientProtocolEncoder.create(automaton);
-        this.decoder = ClientProtocolDecoder.create(automaton, this);
-        this.pending = new LinkedBlockingQueue<Pair<Integer, OpCode>>();
-    }
-    
-    @Override
-    public OpCode apply(Integer xid) {
-        Pair<Integer, OpCode> next = pending.peek();
-        if (next == null) {
-            throw new IllegalStateException(String.format("Unexpected xid (%d), no pending requests", xid));
-        }
-        if (xid.equals(next.first())) {
-            return next.second();
-        } else {
-            throw new IllegalArgumentException(String.format("Unexpected xid (%d), expecting %s", xid, next));
-        }
+            Automaton<ProtocolState, Message> automaton,
+            Encoder<Message.ClientSessionMessage> encoder,
+            Decoder<Optional<? extends Message.ServerSessionMessage>> decoder,
+            Pending pending) {
+        super(automaton, encoder, decoder);
+        this.pending = pending;
     }
 
-    @Override
-    public ProtocolState state() {
-        return automaton.state();
-    }
-    
     /**
      * Don't call concurrently!
      */
     @Override
     public ByteBuf encode(Message.ClientSessionMessage input, ByteBufAllocator output) throws IOException {
-        automaton.apply(input);
-        ByteBuf out = encoder.encode(input, output);
+        ByteBuf out = super.encode(input, output);
         // we only need to remember xid -> opcode of pending messages
         Pair<Integer, OpCode> pair = null;
         if (input instanceof Operation.XidHeader) {
@@ -92,7 +98,7 @@ public class ClientProtocolCodec implements
                 assert (input instanceof Operation.SessionRequest);
                 OpCode opcode = ((Operation.SessionRequest)input).request().opcode();
                 pair = Pair.create(xid, opcode);
-                pending.add(pair);
+                pending.get().add(pair);
             }
         }
         return out;
@@ -105,16 +111,15 @@ public class ClientProtocolCodec implements
     public Optional<? extends Message.ServerSessionMessage> decode(ByteBuf input)
             throws IOException {
         // the peek and poll need to be atomic
-        Optional<? extends Message.ServerSessionMessage> out = decoder.decode(input);
+        Optional<? extends Message.ServerSessionMessage> out = super.decode(input);
         if (out.isPresent()) {
             Message.ServerSessionMessage reply = out.get();
-            Pair<Integer, OpCode> next = pending.peek();
+            Pair<Integer, OpCode> next = pending.get().peek();
             if (next != null && reply instanceof Operation.XidHeader) {
                 if (next.first().equals(((Operation.XidHeader)reply).xid())) {
-                    pending.poll();
+                    pending.get().poll();
                 }
             }
-            automaton.apply(reply);
         }
         return out;
     }
@@ -163,7 +168,7 @@ public class ClientProtocolCodec implements
     
     public static class ClientProtocolDecoder implements 
             Stateful<ProtocolState>,
-            Decoder<Optional<? extends Message.ServerMessage>> {
+            Decoder<Optional<? extends Message.ServerSessionMessage>> {
 
         public static ClientProtocolDecoder create(
                 Stateful<ProtocolState> stateful,

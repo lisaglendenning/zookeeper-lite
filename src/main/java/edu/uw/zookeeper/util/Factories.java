@@ -93,6 +93,10 @@ public abstract class Factories {
             this.instance = Optional.<T>absent();
         }
         
+        public boolean has() {
+            return instance.isPresent();
+        }
+        
         /**
          * Not thread-safe!
          */

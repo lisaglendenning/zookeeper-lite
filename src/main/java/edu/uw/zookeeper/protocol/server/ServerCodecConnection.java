@@ -29,7 +29,7 @@ public class ServerCodecConnection extends CodecConnection<Message.ServerMessage
     public static ServerCodecConnection newInstance(Publisher publisher,
             Connection connection) {
         Automaton<ProtocolState, Message> automaton = EventfulAutomaton.createSynchronized(publisher, ProtocolState.ANONYMOUS);
-        ServerProtocolCodec codec = ServerProtocolCodec.create(automaton);
+        ServerProtocolCodec codec = ServerProtocolCodec.newInstance(automaton);
         return newInstance(publisher, codec, connection);
     }
     

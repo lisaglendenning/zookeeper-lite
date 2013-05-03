@@ -1,56 +1,57 @@
 package edu.uw.zookeeper.client;
 
 import com.google.common.util.concurrent.AbstractIdleService;
-import edu.uw.zookeeper.protocol.OpAction;
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.Processor;
-import edu.uw.zookeeper.util.Singleton;
+import edu.uw.zookeeper.util.Reference;
 
 /**
- * Wraps a lazily-instantiated ClientProtocolExecutor in a Service.
+ * Wraps a lazily-instantiated SessionClient in a Service.
  */
-public class ClientProtocolConnectionService extends AbstractIdleService implements Singleton<ClientProtocolConnection> {
+public class ClientProtocolConnectionService extends AbstractIdleService implements Reference<SessionClient> {
 
     public static ClientProtocolConnectionService newInstance(
-            Factory<ClientProtocolConnection> clientFactory) {
-        return newInstance(AssignXidProcessor.newInstance(), clientFactory);
+            Factory<SessionClient> clientFactory) {
+        return new ClientProtocolConnectionService(clientFactory);
     }
     
-    public static ClientProtocolConnectionService newInstance(
-            Processor<Operation.Request, Operation.SessionRequest> processor,
-            Factory<ClientProtocolConnection> clientFactory) {
-        return new ClientProtocolConnectionService(processor, clientFactory);
-    }
-    
-    protected final Processor<Operation.Request, Operation.SessionRequest> processor;
-    protected final Singleton<ClientProtocolConnection> client;
+    protected final Factories.LazyHolder<SessionClient> client;
     
     protected ClientProtocolConnectionService(
-            Processor<Operation.Request, Operation.SessionRequest> processor,
-            Factory<ClientProtocolConnection> clientFactory) {
-        this.processor = processor;
+            Factory<SessionClient> clientFactory) {
         this.client = Factories.lazyFrom(clientFactory);
     }
     
     @Override
-    protected void startUp() throws Exception {
-        ClientProtocolConnection client = get();
-        client.connect().get();
+    protected void startUp() {
+        get().connect();
     }
 
     @Override
-    protected void shutDown() throws Exception {
-        ClientProtocolConnection client = get();
-        Operation.SessionRequest message = processor.apply(OpAction.Request.create(OpCode.CLOSE_SESSION));
-        client.submit(message).get();
+    protected void shutDown() {
+        if (client.has()) {
+            SessionClient client = get();
+            switch (client.get().state()) {
+            case CONNECTING:
+            case CONNECTED:
+                client.disconnect();
+                break;
+            default:
+                break;
+            }
+        }
     }
 
     @Override
-    public synchronized ClientProtocolConnection get() {
+    public synchronized SessionClient get() {
+        State state = state();
+        switch (state) {
+        case STOPPING:
+        case TERMINATED:
+            throw new IllegalStateException(state.toString());
+        default:
+            break;
+        }
         return client.get();
     }
 }

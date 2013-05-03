@@ -7,57 +7,32 @@ import java.io.IOException;
 
 import com.google.common.base.Optional;
 
-import edu.uw.zookeeper.protocol.Codec;
 import edu.uw.zookeeper.protocol.Decoder;
 import edu.uw.zookeeper.protocol.Encodable;
 import edu.uw.zookeeper.protocol.Encoder;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.Frame;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.SessionRequestDecoder;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Stateful;
 
-public class ServerProtocolCodec implements 
-        Stateful<ProtocolState>,
-        Codec<Message.ServerMessage, Optional<? extends Message.ClientMessage>> {
+public class ServerProtocolCodec extends ProtocolCodec<Message.ServerMessage, Message.ClientMessage> {
 
-    public static ServerProtocolCodec create(Automaton<ProtocolState, Message> automaton) {
-        return new ServerProtocolCodec(automaton);
+    public static ServerProtocolCodec newInstance(
+            Automaton<ProtocolState, Message> automaton) {
+        ServerProtocolEncoder encoder = ServerProtocolEncoder.create(automaton);
+        ServerProtocolDecoder decoder = ServerProtocolDecoder.create(automaton);
+        return new ServerProtocolCodec(automaton, encoder, decoder);
     }
-    
-    private final Automaton<ProtocolState, Message> automaton;
-    private final ServerProtocolEncoder encoder;
-    private final ServerProtocolDecoder decoder;
     
     private ServerProtocolCodec(
-            Automaton<ProtocolState, Message> automaton) {
-        this.automaton = automaton;
-        this.encoder = ServerProtocolEncoder.create(automaton);
-        this.decoder = ServerProtocolDecoder.create(automaton);
-    }
-    
-    @Override
-    public ProtocolState state() {
-        return automaton.state();
-    }
-
-    @Override
-    public Optional<? extends Message.ClientMessage> decode(ByteBuf input)
-            throws IOException {
-        Optional<? extends Message.ClientMessage> out = decoder.decode(input);
-        if (out.isPresent()) {
-            automaton.apply(out.get());
-        }
-        return out;
-    }
-
-    @Override
-    public ByteBuf encode(Message.ServerMessage input, ByteBufAllocator output) throws IOException {
-        automaton.apply(input);
-        ByteBuf out = encoder.encode(input, output);
-        return out;
+            Automaton<ProtocolState, Message> automaton,
+            Encoder<Message.ServerMessage> encoder,
+            Decoder<Optional<? extends Message.ClientMessage>> decoder) {
+        super(automaton, encoder, decoder);
     }
     
     public static class ServerProtocolEncoder implements 
