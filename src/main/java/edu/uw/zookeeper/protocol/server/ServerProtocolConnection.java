@@ -25,7 +25,7 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.OpCreateSession;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Stateful;

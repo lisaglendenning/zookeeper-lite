@@ -9,8 +9,8 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.protocol.OpAction;
 import edu.uw.zookeeper.protocol.OpCode;
+import edu.uw.zookeeper.protocol.OpRecord;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionRequestWrapper;
 import edu.uw.zookeeper.util.ForwardingEventful;
@@ -89,7 +89,7 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
     public void post(Object event) {
         if (event == Session.State.SESSION_EXPIRED) {
             try {
-                submit(SessionRequestWrapper.create(0, OpAction.Request.create(OpCode.CLOSE_SESSION)));
+                submit(SessionRequestWrapper.newInstance(0, OpRecord.OpRequest.newInstance(OpCode.CLOSE_SESSION)));
             } catch (Exception e) {
                 // TODO
                 Throwables.propagate(e);

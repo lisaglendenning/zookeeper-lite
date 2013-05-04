@@ -78,7 +78,7 @@ public abstract class ClientProtocolInitializer implements Callable<ListenableFu
         }
 
         protected OpCreateSession.Request request() {
-            OpCreateSession.Request message = OpCreateSession.Request.NewRequest.create(timeOut, lastZxid.get());
+            OpCreateSession.Request message = OpCreateSession.Request.NewRequest.newInstance(timeOut, lastZxid.get());
             return message;
         }
     }
@@ -104,7 +104,7 @@ public abstract class ClientProtocolInitializer implements Callable<ListenableFu
         }
         
         protected OpCreateSession.Request request() {
-            OpCreateSession.Request message = OpCreateSession.Request.RenewRequest.create(session, lastZxid.get());
+            OpCreateSession.Request message = OpCreateSession.Request.RenewRequest.newInstance(session, lastZxid.get());
             return message;
         }
     } 

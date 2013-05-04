@@ -78,7 +78,7 @@ public enum OpCode {
                             return input.intValue();
                         }});
 
-    public static OpCode get(int code) {
+    public static OpCode of(int code) {
         checkArgument(byInt.containsKey(code));
         return byInt.get(code);
     }

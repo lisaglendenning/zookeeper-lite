@@ -4,17 +4,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Set;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Sets;
 
 public class ZNodePath implements CharSequence {
-    // TODO: check if unicode is handled correctly
 
-    public static final Character SLASH = '/';
-    public static final ZNodePath ROOT = new ZNodePath(SLASH.toString());
-    
+    // TODO: check if unicode is handled correctly
     public static class ZNodeName implements CharSequence {
         public static final Set<String> ILLEGAL = Sets.newHashSet();
         static {
@@ -23,7 +21,7 @@ public class ZNodePath implements CharSequence {
         }
         public static final ZNodeName RESERVED = new ZNodeName("zookeeper");
 
-        public static ZNodeName create(String name) {
+        public static ZNodeName of(String name) {
             return new ZNodeName(validate(name));
         }
         
@@ -82,8 +80,13 @@ public class ZNodePath implements CharSequence {
             return toString().subSequence(arg0, arg1);
         }
     }
+
+    public static final Character SLASH = '/';
+    public static final ZNodePath ROOT = new ZNodePath(SLASH.toString());
     
-    public static ZNodePath create(String path) {
+    private static final Joiner joiner = Joiner.on(SLASH);
+
+    public static ZNodePath of(String path) {
         path = canonicalize(path);
         if (path.length() == 1) {
             return ROOT;
@@ -91,27 +94,10 @@ public class ZNodePath implements CharSequence {
         return new ZNodePath(path);
     }
 
-    public static ZNodePath join(String...names) {
+    public static ZNodePath join(Object...names) {
         if (names.length > 0) {
-            StringBuilder builder = new StringBuilder(SLASH.toString());
-            for (String name: names) {
-                builder.append(SLASH);
-                builder.append(name);
-            }
-            return ZNodePath.create(builder.toString());
-        } else {
-            return ROOT;
-        }
-    }
-
-    public static ZNodePath join(ZNodeName...names) {
-        if (names.length > 0) {
-            StringBuilder builder = new StringBuilder(SLASH.toString());
-            for (ZNodeName name: names) {
-                builder.append(SLASH);
-                builder.append(name.toString());
-            }
-            return ZNodePath.create(builder.toString());
+            String path = joiner.appendTo(new StringBuilder(SLASH.toString()), names).toString();
+            return ZNodePath.of(path);
         } else {
             return ROOT;
         }

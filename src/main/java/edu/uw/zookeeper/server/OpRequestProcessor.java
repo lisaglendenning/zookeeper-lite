@@ -5,11 +5,9 @@ import java.util.Set;
 
 import com.google.common.base.Predicate;
 
-import edu.uw.zookeeper.protocol.OpAction;
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.OpCodeRecord;
+import edu.uw.zookeeper.protocol.OpRecord;
 import edu.uw.zookeeper.protocol.OpCreateSession;
-import edu.uw.zookeeper.protocol.OpPing;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.util.Processor;
 
@@ -92,19 +90,10 @@ public class OpRequestProcessor implements
         Operation.Response reply;
         switch (opcode) {
         case CREATE_SESSION:
-            reply = OpCreateSession.Response.Invalid.create();
-            break;
-        case PING:
-            reply = OpPing.Response.create();
-            break;
-        case AUTH:
-        case SET_WATCHES:
-        case DELETE:
-        case CLOSE_SESSION:
-            reply = OpAction.Response.create(opcode);
+            reply = OpCreateSession.Response.Invalid.newInstance();
             break;
         default:
-            reply = OpCodeRecord.Response.create(opcode);
+            reply = OpRecord.OpResponse.newInstance(opcode);
             break;
         }
         return reply;

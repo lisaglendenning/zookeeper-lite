@@ -84,7 +84,7 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     private final ScheduledExecutorService executor;
     private final AtomicReference<TimeValue> timeOut;
     private final AtomicLong nextTimeOut;
-    private final AtomicReference<OpPing.Request> lastPing = new AtomicReference<OpPing.Request>(null);
+    private final AtomicReference<OpPing.OpPingRequest> lastPing = new AtomicReference<OpPing.OpPingRequest>(null);
     private final AtomicReference<ScheduledFuture<?>> future = new AtomicReference<ScheduledFuture<?>>(null);
     private final AtomicReference<PingingState> pingingState = new AtomicReference<PingingState>(PingingState.WAITING);
 
@@ -147,12 +147,12 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
             return;
         }
 
-        OpPing.Request ping = OpPing.Request.create();
+        OpPing.OpPingRequest ping = OpPing.OpPingRequest.newInstance();
         try {
             // FIXME: this violates our condition that write() not be called
             // concurrently, but because pings aren't saved in the queue, it shouldn't matter,
             // probably?
-            write(SessionRequestWrapper.create(ping.xid(), ping));
+            write(SessionRequestWrapper.newInstance(ping.xid(), ping));
         } catch (Exception e) {
             stop();
             return;
@@ -183,26 +183,26 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
             handleCreateSessionResponse((OpCreateSession.Response)event);
         } else if (event instanceof Operation.SessionReply) {
             Operation.SessionReply reply = (Operation.SessionReply)event;
-            if (reply.reply() instanceof OpPing.Response) {
-                handlePingResponse((OpPing.Response)reply.reply());
+            if (reply.reply() instanceof OpPing.OpPingResponse) {
+                handlePingResponse((OpPing.OpPingResponse)reply.reply());
             }
         }
     }
 
     protected void handleCreateSessionResponse(OpCreateSession.Response message) {
         if (message instanceof OpCreateSession.Response.Valid) {
-            timeOut.set(((OpCreateSession.Response.Valid)message).toParameters().timeOut());
+            timeOut.set(message.toParameters().timeOut());
             schedule();
         } else {
             stop();
         }
     }
     
-    protected void handlePingResponse(OpPing.Response message) {
+    protected void handlePingResponse(OpPing.OpPingResponse message) {
         if (logger.isTraceEnabled()) {
             // of course, this pong could be for an earlier ping,
             // so this time difference is not very accurate...
-            OpPing.Request ping = lastPing.get();
+            OpPing.OpPingRequest ping = lastPing.get();
             logger.trace(String.format("PONG %s: %s",
                     (ping == null) ? 0 : message.difference(ping), message));
         }

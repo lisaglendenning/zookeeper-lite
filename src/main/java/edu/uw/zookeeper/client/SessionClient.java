@@ -6,10 +6,11 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.protocol.OpAction;
 import edu.uw.zookeeper.protocol.OpCode;
+import edu.uw.zookeeper.protocol.OpRecord;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.TaskExecutor;
@@ -56,7 +57,7 @@ public class SessionClient implements Reference<ClientProtocolConnection>, TaskE
         case CONNECTING:
         case CONNECTED:
             try {
-                submit(OpAction.Request.create(OpCode.CLOSE_SESSION)).get();
+                submit(OpRecord.OpRequest.newInstance(OpCode.CLOSE_SESSION)).get();
             } catch (Exception e) {
                 throw Throwables.propagate(e);
             }
@@ -72,7 +73,10 @@ public class SessionClient implements Reference<ClientProtocolConnection>, TaskE
     }
 
     @Override
-    public ListenableFuture<Operation.SessionReply> submit(Operation.Request request) {                   
+    public ListenableFuture<Operation.SessionReply> submit(Operation.Request request) {
+        if (request instanceof Records.RequestRecord) {
+            request = OpRecord.OpRequest.newInstance((Records.RequestRecord)request);
+        }
         Operation.SessionRequest message;
         try {
             message = processor.apply(request);

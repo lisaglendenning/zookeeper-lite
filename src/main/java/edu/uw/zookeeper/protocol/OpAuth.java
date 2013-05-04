@@ -1,43 +1,35 @@
 package edu.uw.zookeeper.protocol;
 
-import org.apache.zookeeper.proto.AuthPacket;
+import edu.uw.zookeeper.protocol.proto.IAuthRequest;
+import edu.uw.zookeeper.protocol.proto.Records;
 
 
 public abstract class OpAuth {
 
-    public static class Request extends OpCodeRecord.Request<AuthPacket> 
+    public static class OpAuthRequest extends OpRecord.OpRequest<IAuthRequest> 
         implements Operation.XidHeader {
         
-        public static OpAuth.Request create() {
-            return create(createRecord());
+        public static OpAuthRequest newInstance() {
+            return newInstance(newRecord());
         }
 
-        public static OpAuth.Request create(AuthPacket record) {
-            return new OpAuth.Request(record);
+        public static OpAuthRequest newInstance(IAuthRequest record) {
+            return new OpAuthRequest(record);
         }
 
-        public static AuthPacket createRecord() {
-            return Records.Requests.<AuthPacket>create(opCodeXid().opcode());
+        public static IAuthRequest newRecord() {
+            return (IAuthRequest) Records.Requests.getInstance().get(IAuthRequest.OPCODE);
         }
 
-        private Request(AuthPacket record) {
+        private OpAuthRequest(IAuthRequest record) {
             super(record);
         }
 
         @Override
-        public OpCode opcode() {
-            return opCodeXid().opcode();
-        }
-
-        @Override
         public int xid() {
-            return opCodeXid().xid();
+            return asRecord().xid();
         }
     }
 
-    public static Records.OpCodeXid opCodeXid() {
-        return Records.OpCodeXid.AUTH;
-    }
-    
     private OpAuth() {}
 }

@@ -7,39 +7,26 @@ import io.netty.buffer.ByteBufOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-import org.apache.zookeeper.proto.RequestHeader;
-
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.net.Buffers;
+import edu.uw.zookeeper.protocol.proto.IRequestHeader;
+import edu.uw.zookeeper.protocol.proto.Records;
 
 
 public class SessionRequestWrapper implements Operation.SessionRequest {
 
-    public static Operation.SessionRequest create(
+    public static Operation.SessionRequest newInstance(
             int xid,
             Operation.Request request) {
         return new SessionRequestWrapper(xid, request);
     }
     
     public static Operation.SessionRequest decode(InputStream input) throws IOException {
-        RequestHeader header = Records.Requests.Headers.decode(input);
-        OpCode opcode = OpCode.get(header.getType());
-        Operation.Request request;
-        switch (opcode) {
-        case CREATE_SESSION:
-            throw new IllegalArgumentException();
-        case PING:
-            request = OpPing.Request.create();
-            break;
-        case CLOSE_SESSION:
-            request = OpAction.Request.create(opcode);
-            break;
-        default:
-            request = OpCodeRecord.Request.decode(opcode, input);
-            break;
-        }        
-        return create(header.getXid(), request);
+        IRequestHeader header = Records.Requests.Headers.decode(input);
+        OpCode opcode = header.opcode();
+        Operation.Request request = OpRecord.OpRequest.decode(opcode, input);
+        return newInstance(header.getXid(), request);
     }
     
     private final int xid;
@@ -60,7 +47,6 @@ public class SessionRequestWrapper implements Operation.SessionRequest {
         return request;
     }
 
-    // TODO: refactor common header-related encoding
     @Override
     public ByteBuf encode(ByteBufAllocator output) throws IOException {
         Operation.Request request = request();

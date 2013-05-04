@@ -10,12 +10,13 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.proto.ReplyHeader;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.net.Buffers;
+import edu.uw.zookeeper.protocol.proto.IReplyHeader;
+import edu.uw.zookeeper.protocol.proto.Records;
 
 
 public class SessionReplyWrapper implements Operation.SessionReply {
@@ -30,16 +31,12 @@ public class SessionReplyWrapper implements Operation.SessionReply {
     public static Operation.SessionReply decode(
             Function<Integer, OpCode> xidToOpCode, InputStream stream)
             throws IOException {
-        ReplyHeader header = Records.Responses.Headers.decode(stream);
+        IReplyHeader header = Records.Responses.Headers.decode(stream);
         KeeperException.Code err = KeeperException.Code
                 .get(header.getErr());
         checkArgument(err != null);
         Operation.Reply reply;
-        if (err != KeeperException.Code.OK) {
-            // FIXME: not sure if there's ever a record following an
-            // error header? doesn't look like the client expects one
-            reply = OpError.create(err);
-        } else {
+        if (err == KeeperException.Code.OK) {
             int xid = header.getXid();
             OpCode opcode;
             if (Records.OpCodeXid.has(xid)) {
@@ -51,19 +48,14 @@ public class SessionReplyWrapper implements Operation.SessionReply {
             switch (opcode) {
             case CREATE_SESSION:
                 throw new IllegalArgumentException();
-            case PING:
-                reply = OpPing.Response.create();
-                break;
-            case AUTH:
-            case SET_WATCHES:
-            case DELETE:
-            case CLOSE_SESSION:
-                reply = OpAction.Response.create(opcode);
-                break;
             default:
-                reply = OpCodeRecord.Response.decode(opcode, stream);
+                reply = OpRecord.OpResponse.decode(opcode, stream);
                 break;
             }
+        } else {
+            // FIXME: make sure there isn't anything following an
+            // error header? doesn't look like the client expects one
+            reply = OpError.create(err);
         }
         return SessionReplyWrapper.create(header.getXid(), header.getZxid(), reply);
     }

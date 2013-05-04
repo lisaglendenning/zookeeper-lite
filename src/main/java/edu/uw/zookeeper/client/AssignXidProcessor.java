@@ -39,7 +39,7 @@ public class AssignXidProcessor implements
         } else {
             xid = next();
         }
-        return SessionRequestWrapper.create(xid, request);
+        return SessionRequestWrapper.newInstance(xid, request);
     }
 
     @Override

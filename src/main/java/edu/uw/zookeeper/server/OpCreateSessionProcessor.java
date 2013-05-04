@@ -114,8 +114,8 @@ Processor<OpCreateSession.Request, OpCreateSession.Response> {
             throw new IllegalArgumentException(request.toString());
         }
         OpCreateSession.Response response = (session == null)
-            ? OpCreateSession.Response.Invalid.create(request.readOnly(), request.wraps())
-            : OpCreateSession.Response.Valid.create(session, request.readOnly(), request.wraps());
+            ? OpCreateSession.Response.Invalid.newInstance(request.readOnly(), request.wraps())
+            : OpCreateSession.Response.Valid.newInstance(session, request.readOnly(), request.wraps());
         return response;
     }
 }
