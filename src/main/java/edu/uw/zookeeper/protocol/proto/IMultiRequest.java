@@ -6,23 +6,24 @@ import java.util.List;
 
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
+import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
 
-public class IMultiResponse implements Records.ResponseRecord, Iterable<MultiOpResponse> {
+public class IMultiRequest implements Records.RequestRecord, Iterable<MultiOpRequest> {
     public static final OpCode OPCODE = OpCode.MULTI;
 
-    private final List<MultiOpResponse> results;
+    private final List<MultiOpRequest> requests;
     
-    public IMultiResponse() {
-        this(ImmutableList.<MultiOpResponse>of());
+    public IMultiRequest() {
+        this(ImmutableList.<MultiOpRequest>of());
     }
 
-    public IMultiResponse(Iterable<MultiOpResponse> ops) {
-        this.results = Lists.newArrayList(ops);
+    public IMultiRequest(Iterable<MultiOpRequest> ops) {
+        this.requests = Lists.newArrayList(ops);
     }
 
     @Override
@@ -31,40 +32,37 @@ public class IMultiResponse implements Records.ResponseRecord, Iterable<MultiOpR
     }
 
     @Override
-    public Iterator<MultiOpResponse> iterator() {
-        return results.iterator() ;
+    public Iterator<MultiOpRequest> iterator() {
+        return requests.iterator() ;
     }
 
-    public void add(MultiOpResponse result) {
-        results.add(result);
+    public void add(MultiOpRequest op) {
+        requests.add(op);
     }
 
     public int size() {
-        return results.size();
+        return requests.size();
     }
 
     @Override
     public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Records.Responses.TAG);
+        serialize(archive, Records.Requests.TAG);
+    }
+
+    @Override
+    public void deserialize(InputArchive archive) throws IOException {
+        deserialize(archive, Records.Requests.TAG);
     }
 
     @Override
     public void serialize(OutputArchive archive, String tag) throws IOException {
         archive.startRecord(this, tag);
-        for (MultiOpResponse result : this) {
-            IMultiHeader header = (result instanceof IErrorResponse) 
-                    ? IMultiHeader.ofError(((IErrorResponse)result).getErr())
-                    : IMultiHeader.ofResponse(result.opcode());
-            header.serialize(archive, tag);
-            result.serialize(archive, tag);
+        for (MultiOpRequest request: this) {
+            IMultiHeader.ofRequest(request.opcode()).serialize(archive, tag);
+            request.serialize(archive, tag);
         }
         IMultiHeader.ofEnd().serialize(archive, tag);
         archive.endRecord(this, tag);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Records.Responses.TAG);
     }
 
     @Override
@@ -75,12 +73,12 @@ public class IMultiResponse implements Records.ResponseRecord, Iterable<MultiOpR
         h.deserialize(archive, tag);
         while (!h.getDone()) {
             OpCode opcode = OpCode.of(h.getType());
-            Records.ResponseRecord record = Records.Responses.getInstance().get(opcode);
-            if (! (record instanceof MultiOpResponse)) {
+            Records.RequestRecord record = Records.Requests.getInstance().get(opcode);
+            if (! (record instanceof MultiOpRequest)) {
                 throw new IllegalArgumentException();
             }
             record.deserialize(archive, tag);
-            add((MultiOpResponse)record);
+            add((MultiOpRequest)record);
             h.deserialize(archive, tag);
         }
         archive.endRecord(tag);

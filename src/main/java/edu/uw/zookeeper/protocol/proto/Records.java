@@ -45,6 +45,8 @@ public class Records {
 
     public static interface HeaderRecord extends TaggedRecord {}
     public static interface DataRecord extends OperationRecord {}
+    public static interface MultiOpRequest extends RequestRecord {}
+    public static interface MultiOpResponse extends ResponseRecord {}
 
     public static interface ConnectRecord extends OperationRecord {
         int getProtocolVersion();
@@ -137,11 +139,11 @@ public class Records {
                                     IPingRequest.class,
                                     IGetChildren2Request.class,
                                     ICheckVersionRequest.class,
-                                    IMultiTransactionRecord.class,
                                     IAuthRequest.class,
                                     ISetWatchesRequest.class,
                                     IConnectRequest.class,
-                                    IDisconnectRequest.class),
+                                    IDisconnectRequest.class,
+                                    IMultiRequest.class),
                             new Function<Class<? extends RequestRecord>, OpCode>() {
                                @Override public OpCode apply(Class<? extends RequestRecord> type) {
                                    try {
@@ -169,11 +171,12 @@ public class Records {
                                     IGetChildrenResponse.class,
                                     ISyncResponse.class,
                                     IGetChildren2Response.class,
-                                    IMultiResponse.class,
                                     IPingResponse.class,
                                     IConnectResponse.class,
                                     IWatcherEvent.class,
-                                    ISetWatchesResponse.class),
+                                    ISetWatchesResponse.class,
+                                    IErrorResponse.class,
+                                    IMultiResponse.class),
                             new Function<Class<? extends ResponseRecord>, OpCode>() {
                                 @Override public OpCode apply(Class<? extends ResponseRecord> type) {
                                     try {

@@ -5,14 +5,14 @@ import org.apache.jute.OutputArchive;
 
 import edu.uw.zookeeper.protocol.OpCode;
 
-public enum IDeleteResponse implements Records.ResponseRecord, Records.DataRecord, Records.MultiOpResponse {
-    DELETE_RESPONSE;
+public enum ICheckVersionResponse implements Records.ResponseRecord, Records.MultiOpResponse {
+    CHECK_VERSION_RESPONSE;
     
-    public static IDeleteResponse getInstance() {
-        return DELETE_RESPONSE;
+    public static ICheckVersionResponse getInstance() {
+        return CHECK_VERSION_RESPONSE;
     }
     
-    public static final OpCode OPCODE = OpCode.DELETE;
+    public static final OpCode OPCODE = OpCode.CHECK;
     
     @Override
     public OpCode opcode() {
