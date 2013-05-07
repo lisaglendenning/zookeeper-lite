@@ -64,6 +64,11 @@ public class Records {
         void setPath(String path);
     }
     
+    public static interface ChildrenHolder extends DataRecord {
+        java.util.List<String> getChildren();
+        void setChildren(java.util.List<String> m_);
+    }
+    
     // Used by ConnectRequest/Response
     public static final int PROTOCOL_VERSION = 0;
 
