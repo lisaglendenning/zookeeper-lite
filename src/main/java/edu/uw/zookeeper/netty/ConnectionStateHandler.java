@@ -45,9 +45,9 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
     }
 
     @Override
-    public void afterAdd(ChannelHandlerContext ctx) throws Exception {
+    public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
         automaton.apply(getChannelState(ctx.channel()));
-        super.afterAdd(ctx);
+        super.handlerAdded(ctx);
     }
 
     @Override

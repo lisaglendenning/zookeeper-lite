@@ -40,7 +40,7 @@ public class InboundHandler extends ChannelInboundByteHandlerAdapter {
     }
 
     @Override
-    public void afterAdd(ChannelHandlerContext ctx) throws Exception {
+    public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
         // I think that when the underlying channel type is
         // MESSAGE that our byte buffer will be skipped,
         // even if the message is a bytebuf
@@ -48,7 +48,7 @@ public class InboundHandler extends ChannelInboundByteHandlerAdapter {
             ctx.pipeline().addBefore(ctx.name(), MessageToByteHandler.class.getName(),
                     new MessageToByteHandler());
         }
-        super.afterAdd(ctx);
+        super.handlerAdded(ctx);
     }
 
     @Override
