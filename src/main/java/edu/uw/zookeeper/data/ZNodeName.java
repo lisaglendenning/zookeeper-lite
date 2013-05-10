@@ -87,8 +87,12 @@ public abstract class ZNodeName implements CharSequence {
             checkArgument(path != null);
             checkArgument(path.length() > 0);
             checkArgument(path.indexOf(SLASH) >= 0);
+            if (root().toString().equals(path)) {
+                return path;
+            }
             boolean first = true;
             for (String name : splitter.split(path)) {
+                // the only empty component should be the first one
                 if (first) {
                     first = false;
                     if (SLASH.equals(path.charAt(0))) {
