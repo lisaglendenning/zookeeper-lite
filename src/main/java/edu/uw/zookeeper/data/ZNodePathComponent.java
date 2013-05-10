@@ -8,14 +8,14 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableSet;
 
 //TODO: check if unicode is handled correctly
-public class ZNodeName implements CharSequence {
+public class ZNodePathComponent implements CharSequence {
     public static final Set<String> ILLEGAL = ImmutableSet.of(".", "..");
     
-    public static final ZNodeName ZOOKEEPER = new ZNodeName("zookeeper");
+    public static final ZNodePathComponent ZOOKEEPER = new ZNodePathComponent("zookeeper");
 
-    public static ZNodeName of(String name) {
+    public static ZNodePathComponent of(String name) {
         String validated = validate(name);
-        return new ZNodeName(validated);
+        return new ZNodePathComponent(validated);
     }
     
     public static String validate(String name) {
@@ -33,7 +33,7 @@ public class ZNodeName implements CharSequence {
 
     private final String name;
 
-    private ZNodeName(String name) {
+    private ZNodePathComponent(String name) {
         this.name = name;
     }
     
@@ -72,7 +72,7 @@ public class ZNodeName implements CharSequence {
         if (obj.getClass() != getClass()) {
             return false;
         }
-        ZNodeName other = (ZNodeName) obj;
+        ZNodePathComponent other = (ZNodePathComponent) obj;
         return (Objects.equal(toString(), other.toString()));
     }
 

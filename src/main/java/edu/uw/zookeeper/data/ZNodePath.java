@@ -47,7 +47,7 @@ public class ZNodePath implements CharSequence {
                     continue;
                 }
             }
-            ZNodeName.validate(name);
+            ZNodePathComponent.validate(name);
         }
         return path;
     }
@@ -87,15 +87,15 @@ public class ZNodePath implements CharSequence {
         return Optional.of(ZNodePath.of(path.substring(0, lastSlash)));
     }
 
-    public Optional<ZNodeName> name() {
+    public Optional<ZNodePathComponent> name() {
         // TODO: memoize since we are immutable
         if (isRoot()) {
-            return Optional.<ZNodeName> absent();
+            return Optional.<ZNodePathComponent> absent();
         }
         int lastSlash = path.lastIndexOf(SLASH);
         // we are canonicalized
         assert (lastSlash > 0) && (lastSlash < length() - 2) : path;
-        return Optional.of(ZNodeName.of(path.substring(lastSlash + 1)));
+        return Optional.of(ZNodePathComponent.of(path.substring(lastSlash + 1)));
     }
 
     @Override
