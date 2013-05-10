@@ -103,7 +103,7 @@
         <dependency>
             <groupId>edu.uw.zookeeper</groupId>
             <artifactId>zookeeper-lite-deps</artifactId>
-            <version>3.4.5</version>
+            <version>[3.4.5]</version>
             <scope>compile</scope>
         </dependency>
 		<dependency>
