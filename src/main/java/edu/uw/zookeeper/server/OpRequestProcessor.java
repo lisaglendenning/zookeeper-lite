@@ -92,6 +92,9 @@ public class OpRequestProcessor implements
         case CREATE_SESSION:
             reply = OpCreateSession.Response.Invalid.newInstance();
             break;
+        case RECONFIG:
+            reply = OpRecord.OpResponse.newInstance(OpCode.GET_DATA);
+            break;
         default:
             reply = OpRecord.OpResponse.newInstance(opcode);
             break;
