@@ -8,8 +8,8 @@ import edu.uw.zookeeper.util.DefaultsFactory;
 
 public enum NioEventLoopGroupFactory implements DefaultsFactory<ThreadFactory, EventLoopGroup> {
 
-    DEFAULT(0), AVAILABLE_PROCESSORS(Math.max(1,
-                Runtime.getRuntime().availableProcessors()));
+    DEFAULT(NioEventLoopGroup.DEFAULT_EVENT_LOOP_THREADS),
+    AVAILABLE_PROCESSORS(Math.max(1, Runtime.getRuntime().availableProcessors()));
     
     private final int nthreads;
     private final int ioRatio = 75;
