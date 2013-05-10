@@ -2,7 +2,6 @@ package edu.uw.zookeeper.client;
 
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionRequestWrapper;
-import edu.uw.zookeeper.protocol.client.XidIncrementer;
 import edu.uw.zookeeper.util.Generator;
 import edu.uw.zookeeper.util.Processor;
 
@@ -11,7 +10,7 @@ public class AssignXidProcessor implements
         Generator<Integer> {
 
     public static AssignXidProcessor newInstance() {
-        return new AssignXidProcessor(XidIncrementer.newInstance());
+        return new AssignXidProcessor(XidIncrementer.fromZero());
     }
 
     public static AssignXidProcessor newInstance(Generator<Integer> xid) {

@@ -2,7 +2,6 @@ package edu.uw.zookeeper.server;
 
 
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.server.ZxidIncrementer;
 import edu.uw.zookeeper.util.Generator;
 import edu.uw.zookeeper.util.Processor;
 
@@ -11,7 +10,7 @@ public class AssignZxidProcessor implements
         Generator<Long> {
 
     public static AssignZxidProcessor newInstance() {
-        return newInstance(ZxidIncrementer.newInstance());
+        return newInstance(ZxidIncrementer.fromZero());
     }
 
     public static AssignZxidProcessor newInstance(

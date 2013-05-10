@@ -1,8 +1,10 @@
-package edu.uw.zookeeper.protocol.server;
+package edu.uw.zookeeper.server;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.concurrent.atomic.AtomicLong;
+
+import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.util.Generator;
 
@@ -13,19 +15,19 @@ import edu.uw.zookeeper.util.Generator;
  */
 public class ZxidIncrementer implements Generator<Long> {
 
-    public static ZxidIncrementer newInstance() {
-        return new ZxidIncrementer(new AtomicLong(0));
+    public static ZxidIncrementer fromZero() {
+        return of(new AtomicLong(0));
     }
     
-    public static ZxidIncrementer newInstance(AtomicLong lastZxid) {
+    public static ZxidIncrementer of(AtomicLong lastZxid) {
+        checkArgument(lastZxid.get() >= 0);
         return new ZxidIncrementer(lastZxid);
     }
 
-    private final AtomicLong lastZxid;
+    protected final AtomicLong lastZxid;
     
     protected ZxidIncrementer(AtomicLong lastZxid) {
         super();
-        checkArgument(lastZxid.get() >= 0);
         this.lastZxid = lastZxid;
     }
 
@@ -37,5 +39,12 @@ public class ZxidIncrementer implements Generator<Long> {
     @Override
     public Long next() {
         return lastZxid.incrementAndGet();
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .addValue(String.format("0x%s", Long.toHexString(get())))
+                .toString();
     }
 }
