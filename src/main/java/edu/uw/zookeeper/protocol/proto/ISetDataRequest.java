@@ -16,6 +16,14 @@ import edu.uw.zookeeper.protocol.proto.Records.Requests;
 public class ISetDataRequest extends SetDataRequest implements RequestRecord, DataRecord, MultiOpRequest, PathHolder {
     public static final OpCode OPCODE = OpCode.SET_DATA;
     
+    public ISetDataRequest() {
+        super();
+    }
+
+    public ISetDataRequest(String path, byte[] data, int version) {
+        super(path, data, version);
+    }
+
     @Override
     public OpCode opcode() {
         return OPCODE;

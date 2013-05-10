@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.protocol.proto;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
@@ -13,6 +14,14 @@ import edu.uw.zookeeper.protocol.proto.Records.Responses;
 public class IGetChildrenResponse extends GetChildrenResponse implements ResponseRecord, Records.ChildrenHolder {
     public static final OpCode OPCODE = OpCode.GET_CHILDREN;
     
+    public IGetChildrenResponse() {
+        super();
+    }
+
+    public IGetChildrenResponse(List<String> children) {
+        super(children);
+    }
+
     @Override
     public OpCode opcode() {
         return OPCODE;

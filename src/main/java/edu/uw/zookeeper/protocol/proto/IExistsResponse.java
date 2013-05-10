@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
+import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.ExistsResponse;
 
 import edu.uw.zookeeper.protocol.OpCode;
@@ -14,6 +15,14 @@ import edu.uw.zookeeper.protocol.proto.Records.Responses;
 public class IExistsResponse extends ExistsResponse implements ResponseRecord, DataRecord {
     public static final OpCode OPCODE = OpCode.EXISTS;
     
+    public IExistsResponse() {
+        super();
+    }
+
+    public IExistsResponse(Stat stat) {
+        super(stat);
+    }
+
     @Override
     public OpCode opcode() {
         return OPCODE;

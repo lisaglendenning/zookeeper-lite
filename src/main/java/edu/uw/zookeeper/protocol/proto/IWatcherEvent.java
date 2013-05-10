@@ -16,7 +16,15 @@ public class IWatcherEvent extends WatcherEvent implements ResponseRecord, PathH
     public static final OpCodeXid OPCODE_XID = OpCodeXid.NOTIFICATION;
     public static final OpCode OPCODE = OPCODE_XID.opcode();
     public static final int XID = OPCODE_XID.xid();
-            
+    
+    public IWatcherEvent() {
+        super();
+    }
+
+    public IWatcherEvent(int type, int state, String path) {
+        super(type, state, path);
+    }
+
     @Override
     public OpCode opcode() {
         return OPCODE;

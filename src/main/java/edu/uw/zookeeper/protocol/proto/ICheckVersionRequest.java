@@ -16,6 +16,14 @@ import edu.uw.zookeeper.protocol.proto.Records.Requests;
 public class ICheckVersionRequest extends CheckVersionRequest implements RequestRecord, DataRecord, MultiOpRequest, PathHolder {
     public static final OpCode OPCODE = OpCode.CHECK;
     
+    public ICheckVersionRequest() {
+        super();
+    }
+
+    public ICheckVersionRequest(String path, int version) {
+        super(path, version);
+    }
+
     @Override
     public OpCode opcode() {
         return OPCODE;

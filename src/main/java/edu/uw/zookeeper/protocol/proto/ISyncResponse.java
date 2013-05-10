@@ -13,6 +13,14 @@ import edu.uw.zookeeper.protocol.proto.Records.Responses;
 public class ISyncResponse extends SyncResponse implements ResponseRecord, Records.PathHolder {
     public static final OpCode OPCODE = OpCode.SYNC;
     
+    public ISyncResponse() {
+        super();
+    }
+
+    public ISyncResponse(String path) {
+        super(path);
+    }
+
     @Override
     public OpCode opcode() {
         return OPCODE;

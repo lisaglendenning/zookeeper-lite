@@ -15,6 +15,14 @@ import edu.uw.zookeeper.protocol.proto.Records.Requests;
 public class IGetChildrenRequest extends GetChildrenRequest implements RequestRecord, DataRecord, PathHolder {
     public static final OpCode OPCODE = OpCode.GET_CHILDREN;
     
+    public IGetChildrenRequest() {
+        super();
+    }
+
+    public IGetChildrenRequest(String path, boolean watch) {
+        super(path, watch);
+    }
+
     @Override
     public OpCode opcode() {
         return OPCODE;

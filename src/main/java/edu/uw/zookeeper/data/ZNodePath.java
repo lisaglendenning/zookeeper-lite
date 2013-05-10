@@ -2,101 +2,33 @@ package edu.uw.zookeeper.data;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import java.util.Set;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
-import com.google.common.collect.Sets;
 
 public class ZNodePath implements CharSequence {
-
-    // TODO: check if unicode is handled correctly
-    public static class ZNodeName implements CharSequence {
-        public static final Set<String> ILLEGAL = Sets.newHashSet();
-        static {
-            ILLEGAL.add(".");
-            ILLEGAL.add("..");
-        }
-        public static final ZNodeName RESERVED = new ZNodeName("zookeeper");
-
-        public static ZNodeName of(String name) {
-            return new ZNodeName(validate(name));
-        }
-        
-        public static String validate(String name) {
-            checkArgument(name != null);
-            checkArgument(name.length() > 0);
-            checkArgument(! ILLEGAL.contains(name));
-            checkArgument(name.indexOf(SLASH) == -1);
-            // TODO: check for illegal unicode values
-            return name;
-        }
-
-        private final String name;
-
-        private ZNodeName(String name) {
-            this.name = name;
-        }
-        
-        @Override
-        public int hashCode() {
-            return name.hashCode();
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null) {
-                return false;
-            }
-            if (obj.getClass() != getClass()) {
-                return false;
-            }
-            ZNodeName other = (ZNodeName) obj;
-            return (Objects.equal(toString(), other.toString()));
-        }
-
-        @Override
-        public String toString() {
-            return name;
-        }
-
-        @Override
-        public int length() {
-            return toString().length();
-        }
-
-        @Override
-        public char charAt(int arg0) {
-            return toString().charAt(arg0);
-        }
-
-        @Override
-        public CharSequence subSequence(int arg0, int arg1) {
-            return toString().subSequence(arg0, arg1);
-        }
-    }
 
     public static final Character SLASH = '/';
     public static final ZNodePath ROOT = new ZNodePath(SLASH.toString());
     
     private static final Joiner joiner = Joiner.on(SLASH);
+    private static final Splitter splitter = Splitter.on(SLASH);
 
     public static ZNodePath of(String path) {
-        path = canonicalize(path);
-        if (path.length() == 1) {
+        String canonicalized = canonicalize(path);
+        if (canonicalized.length() == 1) {
             return ROOT;
+        } else {
+            return new ZNodePath(path);
         }
-        return new ZNodePath(path);
     }
 
+    // TODO: strip intermediate slashes
     public static ZNodePath join(Object...names) {
         if (names.length > 0) {
-            String path = joiner.appendTo(new StringBuilder(SLASH.toString()), names).toString();
+            String path = joiner.appendTo(new StringBuilder(ROOT.toString()), names).toString();
             return ZNodePath.of(path);
         } else {
             return ROOT;
@@ -106,12 +38,15 @@ public class ZNodePath implements CharSequence {
     public static String validate(String path) {
         checkArgument(path != null);
         checkArgument(path.length() > 0);
-        checkArgument(path.charAt(0) == SLASH);
-        if (path.length() == 1) {
-            return path;
-        }
-        Splitter splitter = Splitter.on(SLASH);
-        for (String name : splitter.split(path.substring(1))) {
+        boolean first = true;
+        for (String name : splitter.split(path)) {
+            if (first) {
+                first = false;
+                if (SLASH.equals(path.charAt(0))) {
+                    assert (name.length() == 0);
+                    continue;
+                }
+            }
             ZNodeName.validate(name);
         }
         return path;
@@ -120,8 +55,9 @@ public class ZNodePath implements CharSequence {
     public static String canonicalize(String path) {
         path = validate(path);
         // don't end in a slash
-        if ((path.length() > 1) && (path.charAt(path.length() - 1) == SLASH)) {
-            path = path.substring(0, path.length() - 2);
+        int length = path.length();
+        if ((length > 1) && SLASH.equals(path.charAt(length - 1))) {
+            path = path.substring(0, length - 2);
         }
         return path;
     }
@@ -131,47 +67,35 @@ public class ZNodePath implements CharSequence {
     private ZNodePath(String path) {
         this.path = path;
     }
+    
+    public boolean isRoot() {
+        return equals(ROOT);
+    }
+    
+    public boolean isAbsolute() {
+        return SLASH.equals(charAt(0));
+    }
 
     public Optional<ZNodePath> parent() {
         // TODO: memoize since we are immutable
-        if (ROOT.equals(this)) {
+        if (isRoot()) {
             return Optional.<ZNodePath> absent();
         }
         int lastSlash = path.lastIndexOf(SLASH);
         // we are canonicalized
         assert (lastSlash > 0) && (lastSlash < length() - 2) : path;
-        return Optional.of(new ZNodePath(path.substring(0, lastSlash)));
+        return Optional.of(ZNodePath.of(path.substring(0, lastSlash)));
     }
 
     public Optional<ZNodeName> name() {
         // TODO: memoize since we are immutable
-        if (ROOT.equals(this)) {
+        if (isRoot()) {
             return Optional.<ZNodeName> absent();
         }
         int lastSlash = path.lastIndexOf(SLASH);
         // we are canonicalized
         assert (lastSlash > 0) && (lastSlash < length() - 2) : path;
-        return Optional.of(new ZNodeName(path.substring(lastSlash + 1)));
-    }
-
-    @Override
-    public int hashCode() {
-        return path.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (obj.getClass() != getClass()) {
-            return false;
-        }
-        ZNodePath other = (ZNodePath) obj;
-        return (Objects.equal(toString(), other.toString()));
+        return Optional.of(ZNodeName.of(path.substring(lastSlash + 1)));
     }
 
     @Override
@@ -192,5 +116,25 @@ public class ZNodePath implements CharSequence {
     @Override
     public CharSequence subSequence(int arg0, int arg1) {
         return toString().subSequence(arg0, arg1);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (obj.getClass() != getClass()) {
+            return false;
+        }
+        ZNodePath other = (ZNodePath) obj;
+        return (Objects.equal(toString(), other.toString()));
+    }
+
+    @Override
+    public int hashCode() {
+        return path.hashCode();
     }
 }
