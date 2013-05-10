@@ -103,7 +103,7 @@
         <dependency>
             <groupId>edu.uw.zookeeper</groupId>
             <artifactId>zookeeper-lite-deps</artifactId>
-            <version>3.4.5</version>
+            <version>3.5.0</version>
             <scope>compile</scope>
         </dependency>
 		<dependency>
@@ -134,6 +134,7 @@
 		    <groupId>com.typesafe</groupId>
 		    <artifactId>config</artifactId>
 		    <version>1.0.0</version>
+            <scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>
@@ -165,7 +166,5 @@
 			<version>4.11</version>
 			<scope>test</scope>
 		</dependency>
-<!-- <dependency> <groupId>org.mockito</groupId> <artifactId>mockito-core</artifactId> 
-			<version>1.9.5</version> <scope>test</scope> </dependency> -->
 	</dependencies>
 </project>
