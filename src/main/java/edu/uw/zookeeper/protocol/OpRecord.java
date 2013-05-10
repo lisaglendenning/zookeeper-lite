@@ -11,6 +11,7 @@ import java.io.InputStream;
 
 import com.google.common.base.Objects;
 
+import edu.uw.zookeeper.data.Encodable;
 import edu.uw.zookeeper.protocol.proto.IAuthRequest;
 import edu.uw.zookeeper.protocol.proto.IPingRequest;
 import edu.uw.zookeeper.protocol.proto.IPingResponse;

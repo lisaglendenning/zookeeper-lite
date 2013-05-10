@@ -1,8 +1,7 @@
-package edu.uw.zookeeper.event;
+package edu.uw.zookeeper.net;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.net.Connection;
 
 public class NewConnectionEvent implements ConnectionEvent {
 

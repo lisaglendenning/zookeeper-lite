@@ -1,7 +1,6 @@
-package edu.uw.zookeeper.event;
+package edu.uw.zookeeper.net;
 
 import io.netty.buffer.ByteBuf;
-import edu.uw.zookeeper.net.Connection;
 
 public class ConnectionBufferEvent extends ConnectionEventValue<ByteBuf> {
 

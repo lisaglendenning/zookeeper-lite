@@ -8,6 +8,7 @@ import java.io.InputStream;
 
 import com.google.common.base.Function;
 
+import edu.uw.zookeeper.data.Decoder;
 import edu.uw.zookeeper.util.Stateful;
 
 public class SessionReplyDecoder implements Stateful<ProtocolState>, 

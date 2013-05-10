@@ -18,8 +18,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.Service.State;
 
-import edu.uw.zookeeper.event.ConnectionStateEvent;
-import edu.uw.zookeeper.event.NewConnectionEvent;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ConnectionFactory;
 import edu.uw.zookeeper.util.Publisher;

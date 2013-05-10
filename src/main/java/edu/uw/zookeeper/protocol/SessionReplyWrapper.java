@@ -14,7 +14,8 @@ import org.apache.zookeeper.KeeperException;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.net.Buffers;
+import edu.uw.zookeeper.data.Buffers;
+import edu.uw.zookeeper.data.Encodable;
 import edu.uw.zookeeper.protocol.proto.IReplyHeader;
 import edu.uw.zookeeper.protocol.proto.Records;
 

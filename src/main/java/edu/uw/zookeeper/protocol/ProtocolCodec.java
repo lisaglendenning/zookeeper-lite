@@ -8,6 +8,9 @@ import java.io.IOException;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
+import edu.uw.zookeeper.data.Codec;
+import edu.uw.zookeeper.data.Decoder;
+import edu.uw.zookeeper.data.Encoder;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Stateful;
 

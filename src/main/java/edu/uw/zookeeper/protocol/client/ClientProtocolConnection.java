@@ -13,7 +13,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionRequestExecutor;
-import edu.uw.zookeeper.event.ConnectionStateEvent;
+import edu.uw.zookeeper.net.ConnectionStateEvent;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.util.Eventful;

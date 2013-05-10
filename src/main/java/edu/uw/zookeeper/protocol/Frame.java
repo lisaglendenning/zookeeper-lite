@@ -13,7 +13,10 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
 
-import edu.uw.zookeeper.net.Buffers;
+import edu.uw.zookeeper.data.Buffers;
+import edu.uw.zookeeper.data.Decoder;
+import edu.uw.zookeeper.data.Encodable;
+import edu.uw.zookeeper.data.Encoder;
 import edu.uw.zookeeper.util.Factory;
 
 

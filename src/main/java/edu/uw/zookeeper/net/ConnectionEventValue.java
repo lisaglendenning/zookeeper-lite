@@ -1,11 +1,10 @@
-package edu.uw.zookeeper.event;
+package edu.uw.zookeeper.net;
 
 
 import io.netty.buffer.ByteBuf;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.util.AbstractPair;
 import edu.uw.zookeeper.util.AutomatonTransition;
 

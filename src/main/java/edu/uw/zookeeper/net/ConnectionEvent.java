@@ -1,6 +1,6 @@
-package edu.uw.zookeeper.event;
+package edu.uw.zookeeper.net;
 
-import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.Event;
 
 public interface ConnectionEvent extends Event {
     Connection connection();

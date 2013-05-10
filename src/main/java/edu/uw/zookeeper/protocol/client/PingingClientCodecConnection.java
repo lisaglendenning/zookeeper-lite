@@ -15,8 +15,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.eventbus.Subscribe;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.event.ConnectionStateEvent;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.ConnectionStateEvent;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.OpCreateSession;
 import edu.uw.zookeeper.protocol.OpPing;

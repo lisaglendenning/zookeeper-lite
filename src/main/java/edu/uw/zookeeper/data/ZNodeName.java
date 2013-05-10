@@ -2,12 +2,15 @@ package edu.uw.zookeeper.data;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.util.Iterator;
 import java.util.Set;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import edu.uw.zookeeper.util.Singleton;
 
@@ -16,7 +19,7 @@ public abstract class ZNodeName implements CharSequence {
 
     public static final Character SLASH = '/';
     
-    public static class Component extends ZNodeName {
+    public static class Component extends ZNodeName implements Comparable<Component> {
         
         protected static final Set<String> ILLEGAL = ImmutableSet.of(".", "..");
         
@@ -53,6 +56,19 @@ public abstract class ZNodeName implements CharSequence {
             return name;
         }
 
+        public static enum ComponentOfString implements Function<String, Component> {
+            INSTANCE;
+
+            public static ComponentOfString getInstance() {
+                return INSTANCE;
+            }
+            
+            @Override
+            public Component apply(String input) {
+                return Component.of(input);
+            }
+        }
+        
         private Component(String name) {
             super(name);
         }
@@ -65,9 +81,14 @@ public abstract class ZNodeName implements CharSequence {
             }
             return false;
         }
+
+        @Override
+        public int compareTo(Component other) {
+            return toString().compareTo(other.toString());
+        }
     }
     
-    public static class Path extends ZNodeName {
+    public static class Path extends ZNodeName implements Iterable<Component>, Comparable<Path> {
 
         public static Path root() {
             return Root.getInstance().get();
@@ -130,8 +151,8 @@ public abstract class ZNodeName implements CharSequence {
             }
         }
         
-        protected static final Joiner joiner = Joiner.on(SLASH);
-        protected static final Splitter splitter = Splitter.on(SLASH);
+        protected static final Joiner joiner = Joiner.on(SLASH.charValue());
+        protected static final Splitter splitter = Splitter.on(SLASH.charValue());
 
         private Path(String path) {
             super(path);
@@ -184,6 +205,18 @@ public abstract class ZNodeName implements CharSequence {
             } else {
                 return Path.of(joiner.join(toString(), tail));
             }
+        }
+
+        @Override
+        public Iterator<Component> iterator() {
+            return Iterables.transform(
+                    splitter.omitEmptyStrings().split(toString()),
+                    Component.ComponentOfString.getInstance()).iterator();
+        }
+
+        @Override
+        public int compareTo(Path other) {
+            return toString().compareTo(other.toString());
         }
     }
 

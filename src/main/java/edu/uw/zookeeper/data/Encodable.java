@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.protocol;
+package edu.uw.zookeeper.data;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;

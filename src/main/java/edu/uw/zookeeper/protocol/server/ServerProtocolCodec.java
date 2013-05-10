@@ -7,9 +7,9 @@ import java.io.IOException;
 
 import com.google.common.base.Optional;
 
-import edu.uw.zookeeper.protocol.Decoder;
-import edu.uw.zookeeper.protocol.Encodable;
-import edu.uw.zookeeper.protocol.Encoder;
+import edu.uw.zookeeper.data.Decoder;
+import edu.uw.zookeeper.data.Encodable;
+import edu.uw.zookeeper.data.Encoder;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.Frame;
 import edu.uw.zookeeper.protocol.Message;

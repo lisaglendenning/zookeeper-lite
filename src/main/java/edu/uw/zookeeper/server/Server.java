@@ -5,9 +5,9 @@ import java.util.concurrent.ConcurrentMap;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 
-import edu.uw.zookeeper.event.ConnectionStateEvent;
-import edu.uw.zookeeper.event.NewConnectionEvent;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.ConnectionStateEvent;
+import edu.uw.zookeeper.net.NewConnectionEvent;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
 import edu.uw.zookeeper.protocol.server.ServerProtocolConnection;

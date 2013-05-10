@@ -14,9 +14,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
 import com.google.common.util.concurrent.ListenableFuture;
-import edu.uw.zookeeper.event.ConnectionEvent;
-import edu.uw.zookeeper.event.ConnectionEventValue;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.ConnectionEvent;
+import edu.uw.zookeeper.net.ConnectionEventValue;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ForwardingEventful;
 import edu.uw.zookeeper.util.ParameterizedFactory;

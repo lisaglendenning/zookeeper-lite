@@ -11,9 +11,11 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
-import edu.uw.zookeeper.event.ConnectionBufferEvent;
-import edu.uw.zookeeper.event.ConnectionStateEvent;
+
+import edu.uw.zookeeper.data.Codec;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.ConnectionBufferEvent;
+import edu.uw.zookeeper.net.ConnectionStateEvent;
 import edu.uw.zookeeper.util.ForwardingEventful;
 import edu.uw.zookeeper.util.Publisher;
 
