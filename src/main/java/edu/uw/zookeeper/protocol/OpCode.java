@@ -69,6 +69,12 @@ public enum OpCode {
     },
 
     ERROR(ZooDefs.OpCode.error) {
+    },
+
+    CREATE2(ZooDefs.OpCode.create2) {
+    },
+
+    RECONFIG(ZooDefs.OpCode.reconfig) {
     };
 
     private static final ImmutableMap<Integer, OpCode> byInt = Maps

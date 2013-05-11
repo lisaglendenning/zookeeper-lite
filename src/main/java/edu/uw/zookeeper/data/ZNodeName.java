@@ -35,14 +35,14 @@ public abstract class ZNodeName implements CharSequence {
         public static enum Reserved implements Singleton<Component> {
             ZOOKEEPER(new Component("zookeeper"));
             
-            private final Component instance;
+            private final Component value;
             
-            private Reserved(Component instance) {
-                this.instance = instance;
+            private Reserved(Component value) {
+                this.value = value;
             }
             
             public Component get() {
-                return instance;
+                return value;
             }
         }
         
@@ -100,7 +100,7 @@ public abstract class ZNodeName implements CharSequence {
     public static class Path extends ZNodeName implements Iterable<Component>, Comparable<Path> {
 
         public static Path root() {
-            return Root.getInstance().get();
+            return Reserved.ROOT.get();
         }
 
         public static Path of(String path) {
@@ -155,7 +155,7 @@ public abstract class ZNodeName implements CharSequence {
             }
             return path;
         }
-
+        
         public static String join(String...components) {
             return join(Arrays.asList(components));
         }
@@ -180,18 +180,20 @@ public abstract class ZNodeName implements CharSequence {
             return builder.toString();
         }
 
-        public static enum Root implements Singleton<Path> {
-            INSTANCE;
+        public static enum Reserved implements Singleton<Path> {
+            ROOT(new Path(SLASH.toString())), 
+            CONFIG(new Path(join(Component.Reserved.ZOOKEEPER.get().toString(),
+                    "config")));
+  
+            private final Path value;
             
-            public static Root getInstance() {
-                return INSTANCE;
+            private Reserved(Path value) {
+                this.value = value;
             }
-
-            private final Path instance = new Path(SLASH.toString());
             
             @Override
             public Path get() {
-                return instance;
+                return value;
             }
         }
         

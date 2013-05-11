@@ -133,6 +133,7 @@ public class Records {
                     Maps.<OpCode, Class<? extends RequestRecord>>uniqueIndex(
                             ImmutableList.<Class<? extends RequestRecord>>of(
                                     ICreateRequest.class,
+                                    ICreate2Request.class,
                                     IDeleteRequest.class,
                                     IExistsRequest.class,
                                     IGetDataRequest.class,
@@ -148,7 +149,8 @@ public class Records {
                                     ISetWatchesRequest.class,
                                     IConnectRequest.class,
                                     IDisconnectRequest.class,
-                                    IMultiRequest.class),
+                                    IMultiRequest.class,
+                                    IReconfigRequest.class),
                             new Function<Class<? extends RequestRecord>, OpCode>() {
                                @Override public OpCode apply(Class<? extends RequestRecord> type) {
                                    try {
@@ -166,6 +168,7 @@ public class Records {
                             ImmutableList.<Class<? extends ResponseRecord>>of(
                                     IAuthResponse.class,
                                     ICreateResponse.class,
+                                    ICreate2Response.class,
                                     IDeleteResponse.class,
                                     IDisconnectResponse.class,
                                     IExistsResponse.class,
