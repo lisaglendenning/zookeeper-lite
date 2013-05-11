@@ -2,6 +2,7 @@ package edu.uw.zookeeper.data;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -18,6 +19,14 @@ import edu.uw.zookeeper.util.Singleton;
 public abstract class ZNodeName implements CharSequence {
 
     public static final Character SLASH = '/';
+    
+    public static ZNodeName of(String name) {
+        if (name.indexOf(SLASH.charValue()) >= 0) {
+            return Path.of(name);
+        } else {
+            return Component.of(name);
+        }
+    }
     
     public static class Component extends ZNodeName implements Comparable<Component> {
         
@@ -104,6 +113,17 @@ public abstract class ZNodeName implements CharSequence {
             }
         }
 
+        public static Path of(ZNodeName...components) {
+            if (components.length == 0) {
+                return root();
+            }
+            return of(Arrays.asList(components));
+        }
+
+        public static Path of(Iterable<ZNodeName> components) {
+            return new Path(join(Iterables.transform(components, NameToString.getInstance())));
+        }
+
         public static String validate(String path) {
             checkArgument(path != null);
             checkArgument(path.length() > 0);
@@ -134,6 +154,30 @@ public abstract class ZNodeName implements CharSequence {
                 path = path.substring(0, length - 2);
             }
             return path;
+        }
+
+        public static String join(String...components) {
+            return join(Arrays.asList(components));
+        }
+
+        public static String join(Iterable<String> components) {
+            StringBuilder builder = new StringBuilder();
+            for (String component: components) {
+                if (component.length() == 0) {
+                    continue;
+                }
+                if (!SLASH.equals(component.charAt(0))
+                        && (builder.length() > 0)
+                        && !SLASH.equals(builder.charAt(builder.length() - 1))) {
+                    builder.append(SLASH.charValue());
+                }
+                builder.append(component);
+            }
+            if ((builder.length() > 0)
+                    && SLASH.equals(builder.charAt(builder.length() - 1))) {
+                builder.deleteCharAt(builder.length() - 1);
+            }
+            return builder.toString();
         }
 
         public static enum Root implements Singleton<Path> {
@@ -219,7 +263,20 @@ public abstract class ZNodeName implements CharSequence {
             return toString().compareTo(other.toString());
         }
     }
+    
+    public static enum NameToString implements Function<ZNodeName, String> {
+        INSTANCE;
 
+        public static NameToString getInstance() {
+            return INSTANCE;
+        }
+        
+        @Override
+        public String apply(ZNodeName input) {
+            return input.toString();
+        }
+    }
+    
     protected final String value;
 
     protected ZNodeName(String value) {
