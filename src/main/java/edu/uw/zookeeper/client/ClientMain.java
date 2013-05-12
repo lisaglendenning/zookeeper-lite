@@ -85,7 +85,7 @@ public abstract class ClientMain extends AbstractMain {
                 };
                 
                 monitorsFactory.apply(
-                        ClientProtocolConnectionService.newInstance(clientFactory));
+                        SessionClientService.newInstance(clientFactory));
         
                 return ClientMain.super.application();
             }

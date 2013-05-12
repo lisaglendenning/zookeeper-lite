@@ -14,23 +14,23 @@ import edu.uw.zookeeper.util.Processor;
 /**
  * Wraps a SessionClient Factory in a Service.
  */
-public class ClientProtocolConnectionsService extends AbstractIdleService implements Iterable<SessionClient>, Factory<SessionClient> {
+public class SessionClientsService extends AbstractIdleService implements Iterable<SessionClient>, Factory<SessionClient> {
 
-    public static ClientProtocolConnectionsService newInstance(
+    public static SessionClientsService newInstance(
             Factory<SessionClient> clientFactory) {
         return newInstance(AssignXidProcessor.newInstance(), clientFactory);
     }
     
-    public static ClientProtocolConnectionsService newInstance(
+    public static SessionClientsService newInstance(
             Processor<Operation.Request, Operation.SessionRequest> processor,
             Factory<SessionClient> clientFactory) {
-        return new ClientProtocolConnectionsService(processor, clientFactory);
+        return new SessionClientsService(processor, clientFactory);
     }
     
     protected final Factory<SessionClient> clientFactory;
     protected final List<SessionClient> clients;
     
-    protected ClientProtocolConnectionsService(
+    protected SessionClientsService(
             Processor<Operation.Request, Operation.SessionRequest> processor,
             Factory<SessionClient> clientFactory) {
         this.clientFactory = clientFactory;

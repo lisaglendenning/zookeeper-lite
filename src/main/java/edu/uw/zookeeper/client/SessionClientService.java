@@ -8,16 +8,16 @@ import edu.uw.zookeeper.util.Reference;
 /**
  * Wraps a lazily-instantiated SessionClient in a Service.
  */
-public class ClientProtocolConnectionService extends AbstractIdleService implements Reference<SessionClient> {
+public class SessionClientService extends AbstractIdleService implements Reference<SessionClient> {
 
-    public static ClientProtocolConnectionService newInstance(
+    public static SessionClientService newInstance(
             Factory<SessionClient> clientFactory) {
-        return new ClientProtocolConnectionService(clientFactory);
+        return new SessionClientService(clientFactory);
     }
     
     protected final Factories.LazyHolder<SessionClient> client;
     
-    protected ClientProtocolConnectionService(
+    protected SessionClientService(
             Factory<SessionClient> clientFactory) {
         this.client = Factories.lazyFrom(clientFactory);
     }
