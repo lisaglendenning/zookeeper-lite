@@ -15,6 +15,14 @@ import edu.uw.zookeeper.protocol.proto.Records.Requests;
 public class ISyncRequest extends SyncRequest implements RequestRecord, DataRecord, PathHolder {
     public static final OpCode OPCODE = OpCode.SYNC;
     
+    public ISyncRequest() {
+        super();
+    }
+
+    public ISyncRequest(String path) {
+        super(path);
+    }
+
     @Override
     public OpCode opcode() {
         return OPCODE;

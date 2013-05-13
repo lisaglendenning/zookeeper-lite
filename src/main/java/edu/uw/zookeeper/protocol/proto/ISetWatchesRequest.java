@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.protocol.proto;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
@@ -17,6 +18,15 @@ public class ISetWatchesRequest extends SetWatches implements RequestRecord, Ope
     public static final OpCode OPCODE = OPCODE_XID.opcode();
     public static final int XID = OPCODE_XID.xid();
            
+    public ISetWatchesRequest() {
+        super();
+    }
+
+    public ISetWatchesRequest(long relativeZxid, List<String> dataWatches,
+            List<String> existWatches, List<String> childWatches) {
+        super(relativeZxid, dataWatches, existWatches, childWatches);
+    }
+
     @Override
     public OpCode opcode() {
         return OPCODE;

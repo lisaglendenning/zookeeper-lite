@@ -15,6 +15,14 @@ import edu.uw.zookeeper.protocol.proto.Records.Requests;
 public class IGetACLRequest extends GetACLRequest implements RequestRecord, DataRecord, PathHolder {
     public static final OpCode OPCODE = OpCode.GET_ACL;
     
+    public IGetACLRequest() {
+        super();
+    }
+
+    public IGetACLRequest(String path) {
+        super(path);
+    }
+
     @Override
     public OpCode opcode() {
         return OPCODE;

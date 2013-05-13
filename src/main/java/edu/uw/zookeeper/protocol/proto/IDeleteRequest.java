@@ -16,6 +16,14 @@ import edu.uw.zookeeper.protocol.proto.Records.Requests;
 public class IDeleteRequest extends DeleteRequest implements RequestRecord, DataRecord, MultiOpRequest, PathHolder {
     public static final OpCode OPCODE = OpCode.DELETE;
     
+    public IDeleteRequest() {
+        super();
+    }
+
+    public IDeleteRequest(String path, int version) {
+        super(path, version);
+    }
+
     @Override
     public OpCode opcode() {
         return OPCODE;

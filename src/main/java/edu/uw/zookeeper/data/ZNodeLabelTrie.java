@@ -23,7 +23,7 @@ public class ZNodeLabelTrie {
     
     public static class Pointer extends AbstractPair<ZNodeLabel.Component, Node> {
 
-        public Pointer newInstance(ZNodeLabel.Component label, Node node) {
+        public static Pointer newInstance(ZNodeLabel.Component label, Node node) {
             return new Pointer(label, node);
         }
         
@@ -88,18 +88,25 @@ public class ZNodeLabelTrie {
             return Collections.unmodifiableSortedMap(children);
         }
         
-        public Node add(Node child) {
-            checkArgument(child != null);
-            Optional<Pointer> pointer = child.parent();
-            checkArgument(pointer.isPresent());
-            checkArgument(this == pointer.get().node());
-            return children.put(pointer.get().label(), child);
+        public Node add(ZNodeLabel.Component label) {
+            checkArgument(label != null);
+            Node child = newChild(label);
+            Node prevChild = children.putIfAbsent(label, child);
+            if (prevChild != null) {
+                return prevChild;
+            }
+            return child;
         }
         
         public ZNodeLabel.Path path() {
             return path;
         }
         
+        protected Node newChild(ZNodeLabel.Component label) {
+            Pointer childPointer = Pointer.newInstance(label, this);
+            return Node.newInstance(childPointer);
+        }
+
         @Override
         public String toString() {
             return Objects.toStringHelper(this)
@@ -130,9 +137,6 @@ public class ZNodeLabelTrie {
 
     public Node longestPrefix(ZNodeLabel.Path path) {
         Node floor = root();
-        if (path.isRoot()) {
-            return floor;
-        }
         for (ZNodeLabel.Component component: path) {
             Node next = floor.children().get(component);
             if (next == null) {
@@ -143,5 +147,18 @@ public class ZNodeLabelTrie {
         }
         assert (floor != null);
         return floor;
+    }
+    
+    public Node add(ZNodeLabel.Path path) {
+        Node parent = root();
+        Node next = parent;
+        for (ZNodeLabel.Component component: path) {
+            next = parent.children().get(component);
+            if (next == null) {
+                next = parent.add(component);
+            }
+        }
+        assert (next != null);
+        return next;
     }
 }
