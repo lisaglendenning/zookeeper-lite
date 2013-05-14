@@ -2,32 +2,61 @@ package edu.uw.zookeeper.data;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.util.AbstractMap;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import edu.uw.zookeeper.util.AbstractPair;
+import edu.uw.zookeeper.util.DefaultsFactory;
+import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.Reference;
 
 
-public class ZNodeLabelTrie {
+public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNodeLabel.Path, E>, Iterable<E> {
     
-    public static ZNodeLabelTrie newInstance() {
-        return new ZNodeLabelTrie(Node.newInstance());
+    public static <E extends Node<E>> ZNodeLabelTrie<E> of(E root) {
+        return new ZNodeLabelTrie<E>(root);
     }
     
-    public static class Pointer extends AbstractPair<ZNodeLabel.Component, Node> {
+    public static interface Pointer<E extends Node<E>> extends Reference<E> {
+        ZNodeLabel.Component label();
+    }
 
-        public static Pointer newInstance(ZNodeLabel.Component label, Node node) {
-            return new Pointer(label, node);
+    public static interface Node<E extends Node<E>> {
+        Optional<Pointer<E>> parent();
+
+        ZNodeLabel.Path path();
+        
+        SortedMap<ZNodeLabel.Component, E> children();
+        
+        E put(ZNodeLabel.Component label);
+
+        E remove(ZNodeLabel.Component label);
+        
+        void clear(); 
+    }
+    
+    public static class SimplePointer<E extends Node<E>> extends AbstractPair<ZNodeLabel.Component, E> implements Pointer<E> {
+
+        public static <E extends Node<E>> SimplePointer<E> of(ZNodeLabel.Component label, E node) {
+            return new SimplePointer<E>(label, node);
         }
         
-        protected Pointer(ZNodeLabel.Component label, Node node) {
+        protected SimplePointer(ZNodeLabel.Component label, E node) {
             super(label, node);
         }
         
@@ -35,7 +64,7 @@ public class ZNodeLabelTrie {
             return first;
         }
         
-        public Node node() {
+        public E get() {
             return second;
         }
 
@@ -46,67 +75,79 @@ public class ZNodeLabelTrie {
                     .toString();
         }
     }
-    
-    public static class Node {
-        
-        public static Node newInstance() {
-            return new Node(Optional.<Pointer>absent());
-        }
 
-        public static Node newInstance(Pointer parent) {
-            return new Node(Optional.of(parent));
-        }
+    public static abstract class AbstractNode<E extends AbstractNode<E>> implements Node<E> {
         
-        protected final Optional<Pointer> parent;
-        protected final ConcurrentNavigableMap<ZNodeLabel.Component, Node> children;
+        protected final Optional<Pointer<E>> parent;
+        protected final ConcurrentNavigableMap<ZNodeLabel.Component, E> children;
         protected final ZNodeLabel.Path path;
+        protected final ParameterizedFactory<Pointer<E>, E> factory;
         
-        protected Node(Optional<Pointer> parent) {
+        protected AbstractNode(Optional<Pointer<E>> parent, 
+                ParameterizedFactory<Pointer<E>, E> factory) {
             this.parent = parent;
-            this.children = new ConcurrentSkipListMap<ZNodeLabel.Component, Node>();
+            this.children = new ConcurrentSkipListMap<ZNodeLabel.Component, E>();
+            this.factory = factory;
             
             // parents are immutable, so pre-compute
             ZNodeLabel.Path path = ZNodeLabel.Path.root();
-            Optional<Pointer> prev = parent();
+            Optional<? extends Pointer<E>> prev = parent();
             if (prev.isPresent()) {
                 List<ZNodeLabel.Component> components = Lists.newLinkedList();
                 while (prev.isPresent()) {
-                    Pointer pointer = prev.get();
+                    Pointer<E> pointer = prev.get();
                     components.add(0, pointer.label());
-                    prev = pointer.node().parent();
+                    prev = pointer.get().parent();
                 }
                 path = ZNodeLabel.Path.of(components.iterator());
             }
             this.path = path;
         }
-        
-        public Optional<Pointer> parent() {
+
+        @Override
+        public Optional<Pointer<E>> parent() {
             return parent;
         }
-        
-        public SortedMap<ZNodeLabel.Component, Node> children() {
+
+        @Override
+        public SortedMap<ZNodeLabel.Component, E> children() {
             return Collections.unmodifiableSortedMap(children);
         }
-        
-        public Node add(ZNodeLabel.Component label) {
+
+        @Override
+        public E put(ZNodeLabel.Component label) {
             checkArgument(label != null);
-            Node child = newChild(label);
-            Node prevChild = children.putIfAbsent(label, child);
+            E child = children.get(label);
+            if (child != null) {
+                return child;
+            }
+            @SuppressWarnings("unchecked")
+            Pointer<E> childPointer = SimplePointer.of(label, (E) this);
+            child = factory.get(childPointer);
+            E prevChild = children.putIfAbsent(label, child);
             if (prevChild != null) {
                 return prevChild;
+            } else {
+                return child;
             }
-            return child;
         }
-        
+
+        @Override
+        public E remove(ZNodeLabel.Component label) {
+            checkArgument(label != null);
+            return children.remove(label);
+        }
+
+        @Override
+        public void clear() {
+            children.clear();
+        }
+
+        @Override
         public ZNodeLabel.Path path() {
             return path;
         }
         
-        protected Node newChild(ZNodeLabel.Component label) {
-            Pointer childPointer = Pointer.newInstance(label, this);
-            return Node.newInstance(childPointer);
-        }
-
         @Override
         public String toString() {
             return Objects.toStringHelper(this)
@@ -116,29 +157,118 @@ public class ZNodeLabelTrie {
         }
     }
     
-    protected final Node root;
-    
-    protected ZNodeLabelTrie(Node root) {
-        this.root = root;
+    public static class SimpleNode extends AbstractNode<SimpleNode> {
+
+        public static SimpleNode root() {
+            return SimpleNodeFactory.getInstance().get();
+        }
+
+        public static SimpleNode childOf(Pointer<SimpleNode> parent) {
+            return SimpleNodeFactory.getInstance().get(parent);
+        }
+        
+        public static enum SimpleNodeFactory implements DefaultsFactory<Pointer<SimpleNode>, SimpleNode> {
+            INSTANCE;
+            
+            public static SimpleNodeFactory getInstance() {
+                return INSTANCE;
+            }
+            
+            @Override
+            public SimpleNode get() {
+                return new SimpleNode(Optional.<Pointer<SimpleNode>>absent());
+            }
+
+            @Override
+            public SimpleNode get(Pointer<SimpleNode> value) {
+                return new SimpleNode(Optional.of(value));
+            }
+            
+        }
+        
+        protected SimpleNode(Optional<Pointer<SimpleNode>> parent) {
+            super(parent, SimpleNodeFactory.getInstance());
+        }
+        
     }
     
-    public Node root() {
-        return root;
+    public static enum TraversalStrategy {
+        PREORDER, BREADTH_FIRST;
+    }
+
+    public abstract static class IterativeTraversal<E extends Node<E>> extends AbstractIterator<E> {
+
+        protected final LinkedList<E> pending;
+        
+        public IterativeTraversal(E root) {
+            this.pending = Lists.newLinkedList();
+            pending.add(root);
+        }
+        
+        public abstract TraversalStrategy strategy();
     }
     
-    public Node get(ZNodeLabel.Path path) {
-        Node floor = longestPrefix(path);
-        if (path.equals(floor.path())) {
-            return floor;
-        } else {
-            return null;
+    public static class PreOrderTraversal<E extends Node<E>> extends IterativeTraversal<E> {
+
+        public PreOrderTraversal(E root) {
+            super(root);
+        }
+        
+        @Override
+        protected E computeNext() {
+            if (! pending.isEmpty()) {
+                E next = pending.pop();
+                for (E child: next.children().values()) {
+                    pending.push(child);
+                }
+                return next;
+            }
+            return endOfData();
+        }
+
+        public TraversalStrategy strategy() {
+            return TraversalStrategy.PREORDER;
         }
     }
 
-    public Node longestPrefix(ZNodeLabel.Path path) {
-        Node floor = root();
+    public static class BreadthFirstTraversal<E extends Node<E>> extends IterativeTraversal<E> {
+
+        public BreadthFirstTraversal(E root) {
+            super(root);
+        }
+        
+        @Override
+        protected E computeNext() {
+            E next = pending.poll();
+            if (next != null) {
+                for (E child: next.children().values()) {
+                    pending.add(child);
+                }
+                return next;
+            } else {
+                return endOfData();
+            }
+        }
+
+        public TraversalStrategy strategy() {
+            return TraversalStrategy.BREADTH_FIRST;
+        }
+    }
+    
+    protected final E root;
+    
+    protected ZNodeLabelTrie(E root) {
+        this.root = root;
+    }
+    
+    public E root() {
+        return root;
+    }
+
+    public E longestPrefix(ZNodeLabel.Path path) {
+        E floor = root();
         for (ZNodeLabel.Component component: path) {
-            Node next = floor.children().get(component);
+            E next = floor.children().get(component);
             if (next == null) {
                 break;
             } else {
@@ -149,16 +279,115 @@ public class ZNodeLabelTrie {
         return floor;
     }
     
-    public Node add(ZNodeLabel.Path path) {
-        Node parent = root();
-        Node next = parent;
+    public E put(ZNodeLabel.Path path) {
+        E parent = root();
+        E next = parent;
         for (ZNodeLabel.Component component: path) {
             next = parent.children().get(component);
             if (next == null) {
-                next = parent.add(component);
+                next = parent.put(component);
             }
         }
         assert (next != null);
         return next;
+    }
+
+    @Override
+    public void clear() {
+        root().clear();
+    }
+
+    @Override
+    public boolean containsKey(Object k) {
+        return get(k) != null;
+    }
+
+    @Override
+    public boolean containsValue(Object v) {
+        @SuppressWarnings("unchecked")
+        E item = get(((E)v).path());
+        return ((item != null) && item.equals(v));
+    }
+
+    @Override
+    public Set<Map.Entry<ZNodeLabel.Path, E>> entrySet() {
+        Set<Map.Entry<ZNodeLabel.Path, E>> entries = Sets.newHashSet();
+        for (E e: this) {
+            entries.add(new AbstractMap.SimpleImmutableEntry<ZNodeLabel.Path, E>(e.path(), e));
+        }
+        return entries;
+    }
+
+    @Override
+    public E get(Object k) {
+        ZNodeLabel.Path path = (ZNodeLabel.Path)k;
+        E floor = longestPrefix(path);
+        if (path.equals(floor.path())) {
+            return floor;
+        } else {
+            return null;
+        }
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return root().children().isEmpty();
+    }
+
+    @Override
+    public Set<ZNodeLabel.Path> keySet() {
+        Set<ZNodeLabel.Path> keys = Sets.newHashSet();
+        for (E e: this) {
+            keys.add(e.path());
+        }
+        return keys;
+    }
+
+    @Override
+    public E put(ZNodeLabel.Path k, E v) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void putAll(Map<? extends ZNodeLabel.Path, ? extends E> arg0) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public E remove(Object k) {
+        ZNodeLabel.Path path = (ZNodeLabel.Path) k;
+        checkArgument(! path.isRoot());
+        E e = get(path);
+        if (e != null) {
+            Pointer<E> parent = e.parent().orNull();
+            parent.get().remove(parent.label());
+        }
+        return e;
+    }
+
+    @Override
+    public int size() {
+        return values().size();
+    }
+
+    @Override
+    public Collection<E> values() {
+        return Lists.newArrayList(this);
+    }
+
+    @Override
+    public Iterator<E> iterator() {
+        return iterator(TraversalStrategy.PREORDER);
+    }
+
+    public IterativeTraversal<E> iterator(TraversalStrategy strategy) {
+        switch (strategy) {
+        case PREORDER:
+            return new PreOrderTraversal<E>(root());
+        case BREADTH_FIRST:
+            return new BreadthFirstTraversal<E>(root());
+        default:
+            throw new UnsupportedOperationException();
+        }
     }
 }
