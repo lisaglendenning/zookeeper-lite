@@ -20,6 +20,8 @@ import edu.uw.zookeeper.Session.Parameters;
 import edu.uw.zookeeper.protocol.proto.IConnectRequest;
 import edu.uw.zookeeper.protocol.proto.IConnectResponse;
 import edu.uw.zookeeper.protocol.proto.Records;
+import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.TimeValue;
 
 public abstract class OpCreateSession<T extends Records.ConnectRecord>
@@ -28,6 +30,15 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
     public static abstract class Request extends
             OpCreateSession<IConnectRequest> implements
             Operation.Request, Message.ClientSessionMessage {
+
+        public static abstract class RequestsFactory implements Factory<OpCreateSession.Request> {
+            protected final Reference<Long> lastZxid;
+        
+            protected RequestsFactory(
+                    Reference<Long> lastZxid) {
+                this.lastZxid = lastZxid;
+            }
+        }
 
         public static Request decode(InputStream input) throws IOException {
             IConnectRequest record = Records.decode(newRecord(), input);
@@ -63,6 +74,34 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
         }
         
         public static class NewRequest extends Request {
+
+            public static class NewSessionRequestsFactory extends RequestsFactory {
+                public static NewSessionRequestsFactory newInstance(
+                        Reference<Long> lastZxid,
+                        TimeValue timeOut) {
+                    return new NewSessionRequestsFactory(lastZxid, timeOut);
+                }
+                
+                protected final TimeValue timeOut;
+                
+                protected NewSessionRequestsFactory(
+                        Reference<Long> lastZxid,
+                        TimeValue timeOut) {
+                    super(lastZxid);
+                    this.timeOut = timeOut;
+                }
+            
+                @Override
+                public OpCreateSession.Request get() {
+                    return OpCreateSession.Request.NewRequest.newInstance(timeOut, lastZxid.get());
+                }
+            }
+            
+            public static NewSessionRequestsFactory factory(
+                    Reference<Long> lastZxid,
+                    TimeValue timeOut) {
+                return NewSessionRequestsFactory.newInstance(lastZxid, timeOut);
+            }
 
             public static IConnectRequest newRecord() {
                 return newRecord(0, 0L);
@@ -107,6 +146,35 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
         }
         
         public static class RenewRequest extends Request {
+
+            public static class RenewSessionRequestsFactory extends RequestsFactory {
+                public static RenewSessionRequestsFactory newInstance(
+                        Reference<Long> lastZxid,
+                        Session session) {
+                    return new RenewSessionRequestsFactory(lastZxid, session);
+                }
+                
+                protected final Session session;
+            
+                protected RenewSessionRequestsFactory(
+                        Reference<Long> lastZxid,
+                        Session session) {
+                    super(lastZxid);
+                    checkArgument(session.initialized());
+                    this.session = session;
+                }
+                
+                @Override
+                public OpCreateSession.Request get() {
+                    return OpCreateSession.Request.RenewRequest.newInstance(session, lastZxid.get());
+                }
+            }
+            
+            public static RenewSessionRequestsFactory factory(
+                    Reference<Long> lastZxid,
+                    Session session) {
+                return RenewSessionRequestsFactory.newInstance(lastZxid, session);
+            }
 
             public static IConnectRequest newRecord(Session session) {
                 return newRecord(session, 0L);

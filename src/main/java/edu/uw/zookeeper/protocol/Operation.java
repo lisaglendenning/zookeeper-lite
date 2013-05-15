@@ -21,16 +21,14 @@ public class Operation {
         T asRecord();
     }
 
-    public static interface Request extends Action {
-    }
+    public static interface Request extends Action {}
 
     public static interface Reply {}
-    
+
     /**
      * A reply indicating a successful operation.
      */
-    public static interface Response extends Action, Reply {
-    }
+    public static interface Response extends Action, Reply {}
 
     /**
      * A reply indicating an unsuccessful operation.
@@ -45,5 +43,10 @@ public class Operation {
     
     public static interface SessionReply extends Message.ServerSessionMessage, XidHeader, ZxidHeader {
         Reply reply();
+    }
+    
+    public static interface SessionResult {
+        SessionRequest request();
+        SessionReply reply();
     }
 }

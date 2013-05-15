@@ -1,7 +1,9 @@
 package edu.uw.zookeeper.client;
 
+import edu.uw.zookeeper.protocol.OpRecord;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionRequestWrapper;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Generator;
 import edu.uw.zookeeper.util.Processor;
 
@@ -25,6 +27,10 @@ public class AssignXidProcessor implements
 
     @Override
     public Operation.SessionRequest apply(Operation.Request request) {
+        if (request instanceof Records.RequestRecord) {
+            request = OpRecord.OpRequest.newInstance((Records.RequestRecord)request);
+        }
+        
         switch (request.opcode()) {
         case CREATE_SESSION:
             return null;

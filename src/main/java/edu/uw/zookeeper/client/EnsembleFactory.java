@@ -14,10 +14,12 @@ import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ServerQuorumView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientCodecConnection;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.TimeValue;
 
 public class EnsembleFactory implements DefaultsFactory<ServerQuorumView, ClientProtocolConnection> {
@@ -25,8 +27,9 @@ public class EnsembleFactory implements DefaultsFactory<ServerQuorumView, Client
     public static EnsembleFactory newInstance(
             ClientConnectionFactory connections,
             ParameterizedFactory<Connection, ? extends ClientCodecConnection> codecFactory,
+            Processor<Operation.Request, Operation.SessionRequest> processor,
             EnsembleView view, TimeValue timeOut) {
-        return new EnsembleFactory(connections, codecFactory, view, timeOut, SelectServer.RANDOM);
+        return new EnsembleFactory(connections, codecFactory, processor, view, timeOut, SelectServer.RANDOM);
     }
     
     public static enum SelectServer implements Function<EnsembleView, ServerQuorumView> {
@@ -51,19 +54,22 @@ public class EnsembleFactory implements DefaultsFactory<ServerQuorumView, Client
     protected final EnsembleView view;
     protected final TimeValue timeOut;
     protected final Map<ServerQuorumView, ServerViewFactory> factories;
+    protected final Processor<Operation.Request, Operation.SessionRequest> processor;
     
     protected EnsembleFactory(
             ClientConnectionFactory connections,
             ParameterizedFactory<Connection, ? extends ClientCodecConnection> codecFactory,
+            Processor<Operation.Request, Operation.SessionRequest> processor,
             EnsembleView view, 
             TimeValue timeOut,
             Function<EnsembleView,ServerQuorumView> selector) {
         this.view = view;
         this.timeOut = timeOut;
         this.selector = selector;
-        this.factories = Collections.synchronizedMap(Maps.<ServerQuorumView, ServerViewFactory>newHashMap());
         this.connections = connections;
         this.codecFactory = codecFactory;
+        this.processor = processor;
+        this.factories = Collections.synchronizedMap(Maps.<ServerQuorumView, ServerViewFactory>newHashMap());
     }
     
     @Override
@@ -75,7 +81,7 @@ public class EnsembleFactory implements DefaultsFactory<ServerQuorumView, Client
     public synchronized ClientProtocolConnection get(ServerQuorumView server) {
         ServerViewFactory factory = factories.get(server);
         if (factory == null) {
-            factory = ServerViewFactory.newInstance(connections, codecFactory, server, timeOut);
+            factory = ServerViewFactory.newInstance(connections, codecFactory, processor, server, timeOut);
             factories.put(server, factory);
         }
         return factory.get();

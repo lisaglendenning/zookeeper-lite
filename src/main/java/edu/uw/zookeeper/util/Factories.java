@@ -31,7 +31,11 @@ public abstract class Factories {
     }
 
     public static <T> LazyHolder<T> lazyFrom(Factory<? extends T> factory) {
-        return new LazyHolder<T>(factory);
+        return LazyHolder.newInstance(factory);
+    }
+
+    public static <T> SynchronizedLazyHolder<T> synchronizedLazyFrom(Factory<? extends T> factory) {
+        return SynchronizedLazyHolder.newInstance(factory);
     }
     
     public static <T,U> LinkedFactory<T,U> link(
@@ -111,6 +115,32 @@ public abstract class Factories {
         @Override
         public String toString() {
             return Objects.toStringHelper(this).addValue(instance).toString();
+        }
+    }
+    
+    public static class SynchronizedLazyHolder<T> extends LazyHolder<T> {
+
+        public static <T> SynchronizedLazyHolder<T> newInstance(Factory<? extends T> factory) {
+            return new SynchronizedLazyHolder<T>(factory);
+        }
+        
+        protected SynchronizedLazyHolder(Factory<? extends T> factory) {
+            super(factory);
+        }
+
+        @Override
+        public synchronized boolean has() {
+            return super.has();
+        }
+        
+        @Override
+        public synchronized T get() {
+            return super.get();
+        }
+
+        @Override
+        public synchronized String toString() {
+            return super.toString();
         }
     }
 

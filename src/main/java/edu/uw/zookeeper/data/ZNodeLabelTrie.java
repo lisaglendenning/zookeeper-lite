@@ -36,6 +36,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         ZNodeLabel.Component label();
     }
 
+    // TODO: add a bit that tells us whether the node has been deleted?
     public static interface Node<E extends Node<E>> {
         Optional<Pointer<E>> parent();
 

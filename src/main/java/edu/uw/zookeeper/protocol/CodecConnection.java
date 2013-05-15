@@ -95,7 +95,6 @@ public class CodecConnection<I, O, T extends Codec<I,Optional<? extends O>>> ext
         }
     }
     
-    @Subscribe
     public void handleBuffer(ByteBuf input) {
         while (input.isReadable()) {
             Optional<? extends O> output;

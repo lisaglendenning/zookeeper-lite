@@ -9,17 +9,27 @@ import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.net.ConnectionStateEvent;
+import edu.uw.zookeeper.protocol.OpCode;
+import edu.uw.zookeeper.protocol.OpCreateSession;
+import edu.uw.zookeeper.protocol.OpRecord;
+import edu.uw.zookeeper.protocol.OpSessionResult;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
+import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Eventful;
+import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.Processor;
+import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Reference;
-import edu.uw.zookeeper.util.SettableTask;
+import edu.uw.zookeeper.util.PromiseTask;
+import edu.uw.zookeeper.util.SettableFuturePromise;
 import edu.uw.zookeeper.util.Stateful;
+import edu.uw.zookeeper.util.TaskExecutor;
 import edu.uw.zookeeper.util.TimeValue;
 
 /**
@@ -27,84 +37,170 @@ import edu.uw.zookeeper.util.TimeValue;
  * the Subscribe methods, but it is not safe for multiple threads to call 
  * submit or multiple threads to call handle*
  */
-public class ClientProtocolConnection implements Eventful, SessionRequestExecutor, Stateful<ProtocolState> {
-
-    public static ClientProtocolConnection newSession(
-            ClientCodecConnection codecConnection,
+public class ClientProtocolConnection 
+        implements Eventful, 
+        Stateful<ProtocolState>, 
+        Reference<ClientCodecConnection>, 
+        TaskExecutor<Operation.Request, Operation.SessionResult> {
+    
+    public static interface RequestFuture extends ListenableFuture<Operation.SessionResult> {
+        Operation.SessionRequest task();
+    }
+    
+    public static ClientProtocolConnectionFactory factory(
+            Processor<Operation.Request, Operation.SessionRequest> processor,
+            Factory<? extends ClientCodecConnection> connections,
             Reference<Long> lastZxid,
             TimeValue timeOut) {
-        ClientProtocolInitializer initializer = ClientProtocolInitializer.newSession(codecConnection, lastZxid, timeOut);
-        return newInstance(codecConnection, initializer);
+        return ClientProtocolConnectionFactory.newInstance(processor, connections, lastZxid, timeOut);
     }
+    
+    public static class ClientProtocolConnectionFactory implements DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolConnection> {
 
-    public static ClientProtocolConnection renewSession(
-            ClientCodecConnection codecConnection,
-            Reference<Long> lastZxid,
-            Session session) {
-        ClientProtocolInitializer initializer = ClientProtocolInitializer.renewSession(codecConnection, lastZxid, session);
-        return newInstance(codecConnection, initializer);
+        public static ClientProtocolConnectionFactory newInstance(
+                Processor<Operation.Request, Operation.SessionRequest> processor,
+                Factory<? extends ClientCodecConnection> connections,
+                Reference<Long> lastZxid,
+                TimeValue timeOut) {
+            return newInstance(
+                    processor, connections, 
+                    OpCreateSession.Request.NewRequest.factory(lastZxid, timeOut));
+        }
+        
+        public static ClientProtocolConnectionFactory newInstance(
+                Processor<Operation.Request, Operation.SessionRequest> processor,
+                Factory<? extends ClientCodecConnection> connections,
+                Factory<OpCreateSession.Request> requests) {
+            return new ClientProtocolConnectionFactory(
+                    processor, connections, requests); 
+        }
+        
+        protected final Processor<Operation.Request, Operation.SessionRequest> processor;
+        protected final Factory<OpCreateSession.Request> requests;
+        protected final Factory<? extends ClientCodecConnection> connections;
+        
+        protected ClientProtocolConnectionFactory(
+                Processor<Operation.Request, Operation.SessionRequest> processor,
+                Factory<? extends ClientCodecConnection> connections,
+                Factory<OpCreateSession.Request> requests) {
+            this.processor = processor;
+            this.connections = connections;
+            this.requests = requests;
+        }
+        
+        @Override
+        public ClientProtocolConnection get() {
+            return get(requests);
+        }
+
+        @Override
+        public ClientProtocolConnection get(Factory<OpCreateSession.Request> requests) {
+            ClientCodecConnection codecConnection = connections.get();
+            return ClientProtocolConnection.newInstance(
+                    codecConnection, 
+                    processor,
+                    requests);
+        }
     }
     
     public static ClientProtocolConnection newInstance(
             ClientCodecConnection codecConnection,
-            ClientProtocolInitializer initializer) {
+            Processor<Operation.Request, Operation.SessionRequest> processor,
+            Factory<OpCreateSession.Request> requests) {
         return new ClientProtocolConnection(
                 codecConnection,
-                initializer);
+                processor,
+                ClientProtocolInitializer.newInstance(codecConnection, requests));
     }
     
-    public static class RequestTask extends SettableTask<Operation.SessionRequest, Operation.SessionReply> {
-        public static RequestTask create(Operation.SessionRequest request) {
-            return new RequestTask(request);
+    public static class RequestPromise 
+            extends PromiseTask<Operation.SessionRequest, Operation.SessionResult>
+            implements RequestFuture, FutureCallback<Operation.SessionReply> {
+
+        public static RequestPromise of(
+                Operation.SessionRequest request) {
+            return of(request, SettableFuturePromise.<Operation.SessionResult>create());
         }
 
-        protected RequestTask(Operation.SessionRequest request) {
-            super(request);
+        public static RequestPromise of(
+                Operation.SessionRequest request, 
+                Promise<Operation.SessionResult> delegate) {
+            return new RequestPromise(request, delegate);
+        }
+        
+        protected RequestPromise(
+                Operation.SessionRequest task,
+                Promise<Operation.SessionResult> delegate) {
+            super(task, delegate);
+        }
+
+        @Override
+        public void onSuccess(Operation.SessionReply result) {
+            set(OpSessionResult.of(task(), result));
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+            setException(t);
         }
     }
 
     // must be thread-safe
-    private final Queue<RequestTask> pending;
+    private final Queue<RequestPromise> pending;
     private final ClientCodecConnection codecConnection;
     private final ClientProtocolInitializer initializer;
+    private final Processor<Operation.Request, Operation.SessionRequest> processor;
     
     private ClientProtocolConnection(
             ClientCodecConnection codecConnection,
+            Processor<Operation.Request, Operation.SessionRequest> processor,
             ClientProtocolInitializer initializer) {
         this.codecConnection = codecConnection;
         this.initializer = initializer;
-        this.pending = new LinkedBlockingQueue<RequestTask>();
+        this.processor = processor;
+        this.pending = new LinkedBlockingQueue<RequestPromise>();
+        
         register(this);
     }
     
-    public ClientCodecConnection asCodecConnection() {
+    @Override
+    public ClientCodecConnection get() {
         return codecConnection;
     }
     
     @Override
     public ProtocolState state() {
-        return asCodecConnection().asCodec().state();
+        return get().asCodec().state();
+    }
+
+    public Session session() {
+        if (initializer.isDone()) {
+            try {
+                return initializer.get();
+            } catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+        } else {
+            return Session.uninitialized();
+        }
     }
     
     public ListenableFuture<Session> connect() throws IOException {
-        ProtocolState state = state();
-        switch (state) {
-        case ANONYMOUS:
-            break;
-        default:
-            throw new IllegalStateException(state.toString());
-        }
         return initializer.call();
     }
-    
+
+    public RequestFuture disconnect() {
+        return submit(OpRecord.OpRequest.newInstance(OpCode.CLOSE_SESSION));
+    }
+
     public void cancel() {
         try {
             unregister(this);
         } catch (IllegalArgumentException e) {}
 
-        RequestTask task = pending.poll();
+        RequestPromise task = pending.poll();
         while (task != null) {
-            task.future().cancel(false);
+            task.cancel(false);
             task = pending.poll();
         }
     }
@@ -115,12 +211,12 @@ public class ClientProtocolConnection implements Eventful, SessionRequestExecuto
      * @throws RejectedExecutionException
      */
     @Override
-    public ListenableFuture<Operation.SessionReply> submit(Operation.SessionRequest request) {
+    public RequestFuture submit(Operation.Request request) {
         ProtocolState state = state();
         switch (state) {
         case ANONYMOUS:
             try {
-                initializer.call();
+                connect();
             } catch (IOException e) {
                 throw new RejectedExecutionException(e);
             }
@@ -132,6 +228,17 @@ public class ClientProtocolConnection implements Eventful, SessionRequestExecuto
             throw new IllegalStateException(state.toString());
         }
 
+        Operation.SessionRequest message;
+        if (request instanceof Operation.SessionRequest) {
+            message = (Operation.SessionRequest) request;
+        } else {
+            try {
+                message = processor.apply(request);
+            } catch (Exception e) {
+                throw new RejectedExecutionException(e);
+            }
+        }
+        
         // TODO: what about opxid requests?
         // TODO: this part of the code needs to be atomic
         // so that the order in which messages are encoded and sent is the same
@@ -139,19 +246,19 @@ public class ClientProtocolConnection implements Eventful, SessionRequestExecuto
         // but we can't just use a a simple lock because
         // it's possible that write() could cause an event
         // that would hook into unknown upcalls
-        RequestTask task = RequestTask.create(request);
+        RequestPromise task = RequestPromise.of(message);
         pending.add(task);
         try {
-            codecConnection.write(request);
+            codecConnection.write(message);
         } catch (Exception e) {
-            task.future().cancel(false);
+            task.cancel(false);
             pending.remove(task);
             if (e instanceof IOException) {
                 throw new RejectedExecutionException(e);
             }
             throw Throwables.propagate(e);
         }
-        return task.future();
+        return task;
     }
     
     @Override
@@ -184,9 +291,9 @@ public class ClientProtocolConnection implements Eventful, SessionRequestExecuto
             } catch (IllegalArgumentException e) {}
 
             Exception e = new KeeperException.ConnectionLossException();
-            RequestTask task = pending.poll();
+            RequestPromise task = pending.poll();
             while (task != null) {
-                task.future().setException(e);
+                task.onFailure(e);
                 task = pending.poll();
             }
             break;
@@ -201,11 +308,11 @@ public class ClientProtocolConnection implements Eventful, SessionRequestExecuto
     @Subscribe
     public void handleReply(Operation.SessionReply message) {
         // peek and poll need to be atomic!
-        RequestTask next = pending.peek();
+        RequestPromise next = pending.peek();
         if (next != null) {
             if (message.xid() == next.task().xid()) {
                 pending.poll();
-                next.future().set(message);
+                next.onSuccess(message);
             } else {
                 // TODO
             }
