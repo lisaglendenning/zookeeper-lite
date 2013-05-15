@@ -42,30 +42,30 @@ public abstract class OpRecord<T extends Records.OperationRecord>
         }
          
         @SuppressWarnings("unchecked")
-        public static <T extends Records.RequestRecord> OpRequest<? extends T> newInstance(OpCode opcode) {
+        public static <T extends OpRequest<?>> T newInstance(OpCode opcode) {
             switch (opcode) {
             case CREATE_SESSION:
                 throw new IllegalArgumentException(opcode.toString());
             case AUTH:
-                return (OpRequest<? extends T>) OpAuth.OpAuthRequest.newInstance();
+                return (T) OpAuth.OpAuthRequest.newInstance();
             case PING:
-                return (OpRequest<? extends T>) OpPing.OpPingRequest.newInstance();
+                return (T) OpPing.OpPingRequest.newInstance();
             default:
-                return (OpRequest<? extends T>) newInstance(newRecord(opcode));
+                return (T) newInstance(newRecord(opcode));
             }
         }
 
         @SuppressWarnings("unchecked")
-        public static <T extends Records.RequestRecord> OpRequest<? extends T> newInstance(T record) {
+        public static <T extends OpRequest<?>> T newInstance(Records.RequestRecord record) {
             switch (record.opcode()) {
             case CREATE_SESSION:
                 throw new IllegalArgumentException(record.toString());
             case AUTH:
-                return (OpRequest<T>) OpAuth.OpAuthRequest.newInstance((IAuthRequest)record);
+                return (T) OpAuth.OpAuthRequest.newInstance((IAuthRequest)record);
             case PING:
-                return (OpRequest<T>) OpPing.OpPingRequest.newInstance((IPingRequest)record);
+                return (T) OpPing.OpPingRequest.newInstance((IPingRequest)record);
             default:
-                return new OpRequest<T>(record);
+                return (T) new OpRequest<Records.RequestRecord>(record);
                 
             }
         }
@@ -95,30 +95,30 @@ public abstract class OpRecord<T extends Records.OperationRecord>
         }
 
         @SuppressWarnings("unchecked")
-        public static <T extends Records.ResponseRecord> OpResponse<? extends T> newInstance(OpCode opcode) {
+        public static <T extends OpResponse<?>> T newInstance(OpCode opcode) {
             switch (opcode) {
             case CREATE_SESSION:
                 throw new IllegalArgumentException(opcode.toString());
             case PING:
-                return (OpResponse<? extends T>) OpPing.OpPingResponse.newInstance();
+                return (T) OpPing.OpPingResponse.newInstance();
             case NOTIFICATION:
-                return (OpResponse<? extends T>) OpNotification.OpNotificationResponse.newInstance();
+                return (T) OpNotification.OpNotificationResponse.newInstance();
             default:
-                return (OpResponse<? extends T>) newInstance(newRecord(opcode));
+                return (T) newInstance(newRecord(opcode));
             }
         }
 
         @SuppressWarnings("unchecked")
-        public static <T extends Records.ResponseRecord> OpResponse<? extends T> newInstance(T record) {
+        public static <T extends OpResponse<?>> T newInstance(Records.ResponseRecord record) {
             switch (record.opcode()) {
             case CREATE_SESSION:
                 throw new IllegalArgumentException(record.toString());
             case PING:
-                return (OpResponse<? extends T>) OpPing.OpPingResponse.newInstance((IPingResponse)record);
+                return (T) OpPing.OpPingResponse.newInstance((IPingResponse)record);
             case NOTIFICATION:
-                return (OpResponse<? extends T>) OpNotification.OpNotificationResponse.newInstance((IWatcherEvent)record);
+                return (T) OpNotification.OpNotificationResponse.newInstance((IWatcherEvent)record);
             default:
-                return new OpResponse<T>(record);
+                return (T) new OpResponse<Records.ResponseRecord>(record);
             }
         }
 
