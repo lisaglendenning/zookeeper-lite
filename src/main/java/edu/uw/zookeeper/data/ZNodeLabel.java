@@ -242,7 +242,8 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
                 if (builder.length() == 0) {
                     builder.append(component);
                 } else {
-                    if (firstSlash != 0) {
+                    if ((firstSlash != 0) 
+                            && (SLASH != builder.charAt(builder.length() - 1))) {
                         builder.append(SLASH);
                     }
                     builder.append(component);
@@ -324,25 +325,6 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             return new Component(tail);
         }
 
-        public Path append(Component tail) {
-            return append(tail.toString());
-        }
-        
-        public Path append(Path tail) {
-            return append(tail.toString());
-        }
-        
-        public Path append(String tail) {
-            if (SLASH == tail.charAt(0)) {
-                tail = tail.substring(1);
-            }
-            if (tail.length() == 0) {
-                return this;
-            } else {
-                return Path.of(JOINER.join(toString(), tail));
-            }
-        }
-        
         public ZNodeLabel suffix() {
             String suffix = toString();
             int slash = suffix.indexOf(SLASH);
