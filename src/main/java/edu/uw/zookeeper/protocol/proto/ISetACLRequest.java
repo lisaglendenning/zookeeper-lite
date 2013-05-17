@@ -9,12 +9,10 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.proto.SetACLRequest;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.DataRecord;
-import edu.uw.zookeeper.protocol.proto.Records.PathHolder;
 import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
 import edu.uw.zookeeper.protocol.proto.Records.Requests;
 
-public class ISetACLRequest extends SetACLRequest implements RequestRecord, DataRecord, PathHolder {
+public class ISetACLRequest extends SetACLRequest implements RequestRecord, Records.PathRecord, Records.AclRecord, Records.VersionRecord {
     public static final OpCode OPCODE = OpCode.SET_ACL;
     
     public ISetACLRequest() {

@@ -12,7 +12,7 @@ import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records.ResponseRecord;
 import edu.uw.zookeeper.protocol.proto.Records.Responses;
 
-public class IGetChildren2Response extends GetChildren2Response implements ResponseRecord, Records.ChildrenHolder {
+public class IGetChildren2Response extends GetChildren2Response implements ResponseRecord, Records.ChildrenRecord, Records.StatRecord {
     public static final OpCode OPCODE = OpCode.GET_CHILDREN2;
     
     public IGetChildren2Response() {

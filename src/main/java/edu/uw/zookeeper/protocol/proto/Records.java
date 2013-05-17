@@ -11,6 +11,8 @@ import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.data.Stat;
+
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.BiMap;
@@ -44,7 +46,6 @@ public class Records {
     public static interface ResponseRecord extends Operation.Response, OperationRecord {}
 
     public static interface HeaderRecord extends TaggedRecord {}
-    public static interface DataRecord extends OperationRecord {}
     public static interface MultiOpRequest extends RequestRecord {}
     public static interface MultiOpResponse extends ResponseRecord {}
 
@@ -59,14 +60,64 @@ public class Records {
         void setPasswd(byte[] passwd);
     }
     
-    public static interface PathHolder extends DataRecord {
+    public static interface View {}
+    
+    public static interface PathHolder extends View {
         String getPath();
+    }
+    
+    public static interface PathRecord extends PathHolder {
         void setPath(String path);
     }
     
-    public static interface ChildrenHolder extends DataRecord {
+    public static interface StatHolder extends View {
+        Stat getStat();
+    }
+    
+    public static interface StatRecord extends StatHolder {
+        void setStat(Stat stat);
+    }
+    
+    public static interface DataHolder extends View {
+        byte[] getData();    
+    }
+
+    public static interface DataRecord extends DataHolder {
+        void setData(byte[] data);     
+    }
+    
+    public static interface AclHolder extends View {
+        java.util.List<org.apache.zookeeper.data.ACL> getAcl();     
+    }
+
+    public static interface AclRecord extends AclHolder {
+        void setAcl(java.util.List<org.apache.zookeeper.data.ACL> acl);       
+    }
+    
+    public static interface ChildrenHolder extends View {
         java.util.List<String> getChildren();
-        void setChildren(java.util.List<String> m_);
+    }
+
+    public static interface ChildrenRecord extends ChildrenHolder {
+        void setChildren(java.util.List<String> children);
+    }
+    
+    public static interface VersionHolder extends View {
+        int getVersion();
+    }
+    
+    public static interface VersionRecord extends VersionHolder {
+        void setVersion(int version);
+    }
+    
+    public static interface WatchRecord {
+        boolean getWatch();
+        void setWatch(boolean watch);
+    }
+    
+    public static interface CreateRecord extends RequestRecord, PathRecord, DataRecord, AclRecord {
+        int getFlags();
+        void setFlags(int flags);
     }
     
     // Used by ConnectRequest/Response

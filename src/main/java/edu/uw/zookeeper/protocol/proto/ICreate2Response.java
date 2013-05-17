@@ -8,13 +8,12 @@ import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.Create2Response;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.DataRecord;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
-import edu.uw.zookeeper.protocol.proto.Records.PathHolder;
+import edu.uw.zookeeper.protocol.proto.Records.PathRecord;
 import edu.uw.zookeeper.protocol.proto.Records.ResponseRecord;
 import edu.uw.zookeeper.protocol.proto.Records.Responses;
 
-public class ICreate2Response extends Create2Response implements ResponseRecord, DataRecord, MultiOpResponse, PathHolder {
+public class ICreate2Response extends Create2Response implements ResponseRecord, MultiOpResponse, PathRecord {
     public static final OpCode OPCODE = OpCode.CREATE2;
     
     public ICreate2Response() {

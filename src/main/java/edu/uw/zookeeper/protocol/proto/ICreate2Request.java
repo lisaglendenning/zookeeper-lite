@@ -9,13 +9,12 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.proto.Create2Request;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.DataRecord;
+import edu.uw.zookeeper.protocol.proto.Records.CreateRecord;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
-import edu.uw.zookeeper.protocol.proto.Records.PathHolder;
 import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
 import edu.uw.zookeeper.protocol.proto.Records.Requests;
 
-public class ICreate2Request extends Create2Request implements RequestRecord, DataRecord, MultiOpRequest, PathHolder {
+public class ICreate2Request extends Create2Request implements RequestRecord, CreateRecord, MultiOpRequest {
     public static final OpCode OPCODE = OpCode.CREATE2;
 
     public ICreate2Request() {

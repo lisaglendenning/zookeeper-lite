@@ -4,8 +4,13 @@ import com.google.common.base.Objects;
 
 public class PromiseTask<T,V> extends ForwardingPromise<V> {
 
+    public static <V> Promise<V> newPromise() {
+        return SettableFuturePromise.<V>create();
+    }
+    
     public static <T,V> PromiseTask<T,V> of(T task) {
-        return of(task, SettableFuturePromise.<V>create());
+        Promise<V> promise = newPromise();
+        return of(task, promise);
     }
 
     public static <T,V> PromiseTask<T,V> of(T task, Promise<V> promise) {

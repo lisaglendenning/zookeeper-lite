@@ -27,7 +27,6 @@ import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.PromiseTask;
-import edu.uw.zookeeper.util.SettableFuturePromise;
 import edu.uw.zookeeper.util.Stateful;
 import edu.uw.zookeeper.util.TaskExecutor;
 import edu.uw.zookeeper.util.TimeValue;
@@ -119,7 +118,8 @@ public class ClientProtocolConnection
 
         public static RequestPromise of(
                 Operation.SessionRequest request) {
-            return of(request, SettableFuturePromise.<Operation.SessionResult>create());
+            Promise<Operation.SessionResult> promise = newPromise();
+            return of(request, promise);
         }
 
         public static RequestPromise of(
@@ -210,8 +210,7 @@ public class ClientProtocolConnection
      * 
      * @throws RejectedExecutionException
      */
-    @Override
-    public RequestFuture submit(Operation.Request request) {
+    public RequestFuture submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
         ProtocolState state = state();
         switch (state) {
         case ANONYMOUS:
@@ -246,7 +245,7 @@ public class ClientProtocolConnection
         // but we can't just use a a simple lock because
         // it's possible that write() could cause an event
         // that would hook into unknown upcalls
-        RequestPromise task = RequestPromise.of(message);
+        RequestPromise task = RequestPromise.of(message, promise);
         pending.add(task);
         try {
             codecConnection.write(message);
@@ -259,6 +258,17 @@ public class ClientProtocolConnection
             throw Throwables.propagate(e);
         }
         return task;
+    }
+    
+    /**
+     * Don't call concurrently!
+     * 
+     * @throws RejectedExecutionException
+     */
+    @Override
+    public RequestFuture submit(Operation.Request request) {
+        Promise<Operation.SessionResult> promise = RequestPromise.newPromise();
+        return submit(request, promise);
     }
     
     @Override

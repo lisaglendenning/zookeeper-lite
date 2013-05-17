@@ -8,12 +8,11 @@ import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.SetDataResponse;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.DataRecord;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
 import edu.uw.zookeeper.protocol.proto.Records.ResponseRecord;
 import edu.uw.zookeeper.protocol.proto.Records.Responses;
 
-public class ISetDataResponse extends SetDataResponse implements ResponseRecord, DataRecord, MultiOpResponse {
+public class ISetDataResponse extends SetDataResponse implements ResponseRecord, Records.StatRecord, MultiOpResponse {
     public static final OpCode OPCODE = OpCode.SET_DATA;
     
     public ISetDataResponse() {

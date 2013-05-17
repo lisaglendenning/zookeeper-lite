@@ -10,7 +10,7 @@ import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records.ResponseRecord;
 import edu.uw.zookeeper.protocol.proto.Records.Responses;
 
-public class ISyncResponse extends SyncResponse implements ResponseRecord, Records.PathHolder {
+public class ISyncResponse extends SyncResponse implements ResponseRecord, Records.PathRecord {
     public static final OpCode OPCODE = OpCode.SYNC;
     
     public ISyncResponse() {

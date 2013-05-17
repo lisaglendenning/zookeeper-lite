@@ -7,13 +7,12 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.CheckVersionRequest;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.DataRecord;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
-import edu.uw.zookeeper.protocol.proto.Records.PathHolder;
+import edu.uw.zookeeper.protocol.proto.Records.PathRecord;
 import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
 import edu.uw.zookeeper.protocol.proto.Records.Requests;
 
-public class ICheckVersionRequest extends CheckVersionRequest implements RequestRecord, DataRecord, MultiOpRequest, PathHolder {
+public class ICheckVersionRequest extends CheckVersionRequest implements RequestRecord, MultiOpRequest, PathRecord, Records.VersionRecord {
     public static final OpCode OPCODE = OpCode.CHECK;
     
     public ICheckVersionRequest() {

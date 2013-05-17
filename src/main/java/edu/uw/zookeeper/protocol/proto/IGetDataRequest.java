@@ -7,12 +7,10 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.GetDataRequest;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.DataRecord;
-import edu.uw.zookeeper.protocol.proto.Records.PathHolder;
 import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
 import edu.uw.zookeeper.protocol.proto.Records.Requests;
 
-public class IGetDataRequest extends GetDataRequest implements RequestRecord, DataRecord, PathHolder {
+public class IGetDataRequest extends GetDataRequest implements RequestRecord, Records.PathRecord, Records.WatchRecord {
     public static final OpCode OPCODE = OpCode.GET_DATA;
     
     public IGetDataRequest() {

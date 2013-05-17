@@ -7,12 +7,10 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.SyncRequest;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.DataRecord;
-import edu.uw.zookeeper.protocol.proto.Records.PathHolder;
 import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
 import edu.uw.zookeeper.protocol.proto.Records.Requests;
 
-public class ISyncRequest extends SyncRequest implements RequestRecord, DataRecord, PathHolder {
+public class ISyncRequest extends SyncRequest implements RequestRecord, Records.PathRecord {
     public static final OpCode OPCODE = OpCode.SYNC;
     
     public ISyncRequest() {
