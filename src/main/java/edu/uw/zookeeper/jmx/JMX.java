@@ -272,11 +272,11 @@ public abstract class Jmx {
         }
     }
     
-    public static enum LocalMBeanServerFactory implements Factory<MBeanServer> {
-        LOCAL;
+    public static enum PlatformMBeanServerFactory implements Factory<MBeanServer> {
+        PLATFORM;
         
-        public static LocalMBeanServerFactory getInstance() {
-            return LOCAL;
+        public static PlatformMBeanServerFactory getInstance() {
+            return PLATFORM;
         }
 
         @Override
@@ -284,53 +284,23 @@ public abstract class Jmx {
             return ManagementFactory.getPlatformMBeanServer();
         }
     }
-    
-    public static enum UrlToMBeanServer implements Function<JMXServiceURL, MBeanServerConnection> {
-        INSTANCE;
-        
-        public static UrlToMBeanServer getInstance() {
-            return INSTANCE;
-        }
-        
-        public MBeanServerConnection apply(JMXServiceURL url) {
-            try {
-                JMXConnector connector = JMXConnectorFactory.connect(url);
-                return connector.getMBeanServerConnection();
-            } catch (Exception e) {
-                throw Throwables.propagate(e);
-            }
-        }
-    }
 
-    public static enum AttachMBeanServerFactory implements DefaultsFactory<String, MBeanServerConnection> {
-        SUN(SunAttachQueryJmx.getInstance());
-        
-        private final DefaultsFactory<String, JMXServiceURL> delegate;
-        
-        private AttachMBeanServerFactory(DefaultsFactory<String, JMXServiceURL> delegate) {
-            this.delegate = delegate;
-        }
-
-        public MBeanServerConnection get() {
-            JMXServiceURL url = delegate.get();
-            return UrlToMBeanServer.getInstance().apply(url);
-        }
-
-        public MBeanServerConnection get(String id) {
-            JMXServiceURL url = delegate.get(id);
-            return UrlToMBeanServer.getInstance().apply(url);
-        }
-    }
-    
     private Jmx() {}
     
     public static void main(String[] args) throws IOException {
-        MBeanServerConnection mbeans = Jmx.AttachMBeanServerFactory.SUN.get();
-        for (ServerSchema schema: ServerSchema.values()) {
-            ZNodeLabelTrie<ObjectNameNode> objectNames = schema.instantiate(mbeans);
-            if (! objectNames.isEmpty()) {
-                System.out.println(objectNames.toString());
+        DefaultsFactory<String, JMXServiceURL> urlFactory = SunAttachQueryJmx.getInstance();
+        JMXServiceURL url = (args.length > 0) ? urlFactory.get(args[0]) : urlFactory.get();
+        JMXConnector connector = JMXConnectorFactory.connect(url);
+        try {
+            MBeanServerConnection mbeans = connector.getMBeanServerConnection();
+            for (ServerSchema schema: ServerSchema.values()) {
+                ZNodeLabelTrie<ObjectNameNode> objectNames = schema.instantiate(mbeans);
+                if (! objectNames.isEmpty()) {
+                    System.out.println(objectNames.toString());
+                }
             }
+        } finally {
+            connector.close();
         }
     }
 }

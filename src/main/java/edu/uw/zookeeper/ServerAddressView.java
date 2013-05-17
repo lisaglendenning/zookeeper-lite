@@ -4,7 +4,7 @@ import java.net.SocketAddress;
 
 import com.google.common.base.Throwables;
 
-public abstract class ServerAddressView implements ServerView {
+public abstract class ServerAddressView {
 
     private final static String PROPERTY_SERVER_ADDRESS_VIEW_TYPE = ServerAddressView.class.getName();
     
