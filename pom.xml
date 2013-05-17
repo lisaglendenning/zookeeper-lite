@@ -119,12 +119,6 @@
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
-			<groupId>com.google.inject</groupId>
-			<artifactId>guice</artifactId>
-			<version>RELEASE</version>
-			<scope>compile</scope>
-		</dependency>
-		<dependency>
 			<groupId>io.netty</groupId>
 			<artifactId>netty-all</artifactId>
 			<version>LATEST</version>

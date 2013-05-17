@@ -10,9 +10,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
-import com.google.inject.Inject;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigUtil;
 
 import edu.uw.zookeeper.Session;
@@ -54,7 +51,6 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
         this(null);
     }
 
-    @Inject
     protected DefaultSessionParametersPolicy(Configuration configuration) {
         ConfigurableTime timeoutFactory = ConfigurableTime.create(
                 DEFAULT_MIN_TIMEOUT,
