@@ -213,10 +213,12 @@ public abstract class Jmx {
             case REPLICATED_SERVER:
             {
                 ZNodeLabelTrie.SimpleNode replica = root.put(Key.REPLICA.value());
-                Key[] roles = { Key.FOLLOWER, Key.LEADER };
+                Key[] roles = { Key.FOLLOWER, Key.LEADER, Key.LEADER_ELECTION };
                 for (Key k: roles) {
                     ZNodeLabelTrie.SimpleNode role = replica.put(k.value());
-                    role.put(Key.IN_MEMORY_DATA_TREE.value());
+                    if (k != Key.LEADER_ELECTION) {
+                        role.put(Key.IN_MEMORY_DATA_TREE.value());
+                    }
                 }
                 break;
             }
