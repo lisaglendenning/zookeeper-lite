@@ -1,24 +1,27 @@
 package edu.uw.zookeeper.util;
 
-import com.google.inject.Inject;
+import java.util.Map;
+
+import com.google.common.collect.Maps;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 
 public class Configuration {
 
-    public static class DefaultConfigFactory implements Factory<Config> {
+    public static class DefaultConfigFactory implements Singleton<Config> {
         
-        public static enum Singleton implements Factory<Config> {
-            INSTANCE;
+        public static enum Holder implements Singleton<Config> {
+            DEFAULT(DefaultConfigFactory.create());
 
-            public static Singleton getInstance() {
-                return INSTANCE;
+            public static Holder getInstance() {
+                return DEFAULT;
             }
             
             private final DefaultConfigFactory instance;
             
-            private Singleton() {
-                this.instance = DefaultConfigFactory.create();
+            private Holder(DefaultConfigFactory instance) {
+                this.instance = instance;
             }
             
             @Override
@@ -64,11 +67,10 @@ public class Configuration {
         return new Configuration(arguments, config);
     }
 
-    private Arguments arguments;
-    private Config config;
+    private final Arguments arguments;
+    private volatile Config config;
     
-    @Inject
-    private Configuration(Arguments arguments, Config config) {
+    protected Configuration(Arguments arguments, Config config) {
         this.arguments = arguments;
         this.config = config;
     }
@@ -81,8 +83,34 @@ public class Configuration {
         return config;
     }
     
-    public Config add(Config updated) {
+    public Config updateConfig(Config updated) {
         config = updated.withFallback(config);
+        return config;
+    }
+    
+    public Config getConfigOrEmpty(String configPath) {
+        Config config = asConfig();
+        if (configPath.length() > 0 && config.hasPath(configPath)) {
+            config = config.getConfig(configPath);
+        } else {
+            config = ConfigFactory.empty();
+        }
+        return config;
+    }
+    
+    public Config withArguments(String configPath, Map.Entry<String, String>...argToConfig) {
+        Arguments arguments = asArguments();
+        Map<String, Object> args = Maps.newHashMap();
+        for (Map.Entry<String, String> entry: argToConfig) {
+            if (arguments.hasValue(entry.getKey())) {
+                args.put(entry.getValue(), arguments.getValue(entry.getKey()));
+            }
+        }
+
+        Config config = getConfigOrEmpty(configPath);
+        if (! args.isEmpty()) {
+            config = ConfigValueFactory.fromMap(args).toConfig().withFallback(config);
+        }
         return config;
     }
 }

@@ -2,7 +2,7 @@ package edu.uw.zookeeper.client;
 
 import java.net.SocketAddress;
 
-import edu.uw.zookeeper.ServerQuorumView;
+import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
@@ -24,9 +24,9 @@ public class ServerViewFactory implements DefaultsFactory<Session, ClientProtoco
             ClientConnectionFactory connections,
             ParameterizedFactory<Connection, ? extends ClientCodecConnection> codecFactory,
             Processor<Operation.Request, Operation.SessionRequest> processor,
-            ServerQuorumView view,
+            ServerView.Address<? extends SocketAddress> view,
             TimeValue timeOut) {
-        SocketAddress address = view.asAddress().get();
+        SocketAddress address = view.get();
         Factory<Connection> connectionFactory = FixedClientConnectionFactory.newInstance(
                 address, connections);
         ZxidTracker.Decorator zxids = 

@@ -81,7 +81,7 @@ public class EnsembleFactory implements DefaultsFactory<ServerQuorumView, Client
     public synchronized ClientProtocolConnection get(ServerQuorumView server) {
         ServerViewFactory factory = factories.get(server);
         if (factory == null) {
-            factory = ServerViewFactory.newInstance(connections, codecFactory, processor, server, timeOut);
+            factory = ServerViewFactory.newInstance(connections, codecFactory, processor, server.asAddress(), timeOut);
             factories.put(server, factory);
         }
         return factory.get();

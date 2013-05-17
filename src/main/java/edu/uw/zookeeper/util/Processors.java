@@ -11,6 +11,19 @@ import com.google.common.collect.Lists;
 
 public abstract class Processors {
     
+    public static <T> Identity<T> identity() {
+        return new Identity<T>();
+    }
+    
+    public static class Identity<T> implements Processor<T, T> {
+        public Identity() {}
+
+        @Override
+        public T apply(T input) {
+            return input;
+        }
+    }
+    
     public static <V,U,T> ProcessorBridge<V,U,T> bridge(
             Processor<? super V, ? extends U> first, Processor<? super U, ? extends T> second) {
         return ProcessorBridge.newInstance(first, second);
@@ -195,4 +208,6 @@ public abstract class Processors {
             return first.apply(second);
         }
     }
+    
+    private Processors() {}
 }

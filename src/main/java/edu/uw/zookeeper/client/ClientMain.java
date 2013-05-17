@@ -1,13 +1,20 @@
 package edu.uw.zookeeper.client;
 
 
+import java.util.AbstractMap;
+import java.util.Map;
+
+import com.google.common.base.Throwables;
 import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.EnsembleView;
+import edu.uw.zookeeper.ServerInetAddressView;
+import edu.uw.zookeeper.ServerQuorumView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
 import edu.uw.zookeeper.util.Application;
+import edu.uw.zookeeper.util.Arguments;
 import edu.uw.zookeeper.util.ConfigurableTime;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.DefaultsFactory;
@@ -20,6 +27,54 @@ import edu.uw.zookeeper.util.TimeValue;
 
 public abstract class ClientMain extends AbstractMain {
 
+    public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleView> {
+
+        public static ConfigurableEnsembleViewFactory newInstance() {
+            return new ConfigurableEnsembleViewFactory("");
+        }
+        
+        public static final String ARG = "ensemble";
+        public static final String CONFIG_KEY = "Ensemble";
+
+        public static final String DEFAULT_ADDRESS = "localhost";
+        public static final int DEFAULT_PORT = 2181;
+        
+        private final String configPath;
+        
+        protected ConfigurableEnsembleViewFactory(String configPath) {
+            this.configPath = configPath;
+        }
+        
+        @Override
+        public EnsembleView get() {
+            return EnsembleView.of(
+                    ServerQuorumView.newInstance(ServerInetAddressView.newInstance(
+                    DEFAULT_ADDRESS, DEFAULT_PORT)));
+        }
+
+        @Override
+        public EnsembleView get(Configuration value) {
+            Arguments arguments = value.asArguments();
+            if (! arguments.has(ARG)) {
+                arguments.add(arguments.newOption(ARG, "Ensemble"));
+            }
+            arguments.parse();
+            Map.Entry<String, String> args = new AbstractMap.SimpleImmutableEntry<String,String>(ARG, CONFIG_KEY);
+            @SuppressWarnings("unchecked")
+            Config config = value.withArguments(configPath, args);
+            if (config.hasPath(CONFIG_KEY)) {
+                String input = config.getString(CONFIG_KEY);
+                try {
+                    return EnsembleView.fromString(input);
+                } catch (ClassNotFoundException e) {
+                    throw Throwables.propagate(e);
+                }
+            } else {
+                return get();
+            }
+        }
+    }
+    
     public static class TimeoutFactory implements DefaultsFactory<Configuration, TimeValue> {
 
         public static TimeoutFactory newInstance() {
@@ -75,8 +130,8 @@ public abstract class ClientMain extends AbstractMain {
                 TimeValue timeOut = TimeoutFactory.newInstance().get(configuration());
                 ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
                         publisherFactory(), timeOut, executors().asScheduledExecutorServiceFactory().get());
-                final AssignXidProcessor xids = AssignXidProcessor.newInstance();
-                final EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(clientConnections, codecFactory, xids, ensemble, timeOut);
+                AssignXidProcessor xids = AssignXidProcessor.newInstance();
+                EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(clientConnections, codecFactory, xids, ensemble, timeOut);
                 monitorsFactory.apply(
                         ClientProtocolConnectionService.newInstance(ensembleFactory));
         

@@ -51,7 +51,7 @@ public abstract class ConfigurableMain {
             return INSTANCE;
         }
         
-        private final Factory<Config> configFactory = Configuration.DefaultConfigFactory.Singleton.getInstance();
+        private final Factory<Config> configFactory = Configuration.DefaultConfigFactory.Holder.getInstance();
         
         @Override
         public Configuration get(Arguments arguments) {
