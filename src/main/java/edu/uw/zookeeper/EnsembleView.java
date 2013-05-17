@@ -14,7 +14,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-public class EnsembleView implements Iterable<ServerQuorumView> {
+public class EnsembleView implements ServerView, Iterable<ServerQuorumView> {
 
     public static final char TOKEN_SEP = ',';
     public static final char TOKEN_START = '[';

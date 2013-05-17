@@ -8,7 +8,7 @@ import com.google.common.collect.Iterables;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.SimpleAutomaton;
 
-public class ServerQuorumView implements ServerView.Quorum {
+public class ServerQuorumView implements ServerView, ServerView.Quorum {
 
     public static final char SEP = ';';
 

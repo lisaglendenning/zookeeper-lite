@@ -9,7 +9,7 @@ import com.google.common.collect.Iterables;
 
 import edu.uw.zookeeper.util.Factories;
 
-public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAddress> implements ServerView.Address<InetSocketAddress> {
+public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAddress> implements ServerView, ServerView.Address<InetSocketAddress> {
 
     public static final char TOKEN_SEP = ':';
 

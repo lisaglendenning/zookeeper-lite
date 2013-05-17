@@ -228,7 +228,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
         // validates but may return an empty String or a Component
         public static String join(Iterator<String> components) {
             StringBuilder builder = new StringBuilder();
-            while(components.hasNext()) {
+            while (components.hasNext()) {
                 String component = components.next();
                 if (component == null) {
                     continue;
@@ -242,6 +242,9 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
                 if (builder.length() == 0) {
                     builder.append(component);
                 } else {
+                    if (Path.root().toString().equals(component)) {
+                        continue;
+                    }
                     if ((firstSlash != 0) 
                             && (SLASH != builder.charAt(builder.length() - 1))) {
                         builder.append(SLASH);

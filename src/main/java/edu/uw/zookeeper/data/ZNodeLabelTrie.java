@@ -5,7 +5,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +42,9 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         ZNodeLabel.Path path();
         
         SortedMap<ZNodeLabel.Component, E> children();
-        
+
+        E put(String label);
+
         E put(ZNodeLabel.Component label);
 
         E remove(ZNodeLabel.Component label);
@@ -91,18 +92,15 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
             this.factory = factory;
             
             // parents are immutable, so pre-compute
-            ZNodeLabel.Path path = ZNodeLabel.Path.root();
+            List<ZNodeLabel> components = Lists.newLinkedList();
             Optional<? extends Pointer<E>> prev = parent();
-            if (prev.isPresent()) {
-                List<ZNodeLabel.Component> components = Lists.newLinkedList();
-                while (prev.isPresent()) {
-                    Pointer<E> pointer = prev.get();
-                    components.add(0, pointer.label());
-                    prev = pointer.get().parent();
-                }
-                path = ZNodeLabel.Path.of(components.iterator());
+            while (prev.isPresent()) {
+                Pointer<E> pointer = prev.get();
+                components.add(0, pointer.label());
+                prev = pointer.get().parent();
             }
-            this.path = path;
+            components.add(0, ZNodeLabel.Path.root());
+            this.path = ZNodeLabel.Path.of(components.iterator());
         }
 
         @Override
@@ -115,6 +113,11 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
             return Collections.unmodifiableSortedMap(children);
         }
 
+        @Override
+        public E put(String label) {
+            return put(ZNodeLabel.Component.of(label));
+        }
+        
         @Override
         public E put(ZNodeLabel.Component label) {
             checkArgument(label != null);
@@ -280,6 +283,10 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         return floor;
     }
     
+    public E put(String path) {
+        return put(ZNodeLabel.Path.of(path));
+    }
+    
     public E put(ZNodeLabel.Path path) {
         E parent = root();
         E next = parent;
@@ -288,6 +295,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
             if (next == null) {
                 next = parent.put(component);
             }
+            parent = next;
         }
         assert (next != null);
         return next;
@@ -321,7 +329,8 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
 
     @Override
     public E get(Object k) {
-        ZNodeLabel.Path path = (ZNodeLabel.Path)k;
+        ZNodeLabel.Path path = (k instanceof String) 
+                ? ZNodeLabel.Path.of((String)k) : (ZNodeLabel.Path)k;
         E floor = longestPrefix(path);
         if (path.equals(floor.path())) {
             return floor;
@@ -356,7 +365,8 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
 
     @Override
     public E remove(Object k) {
-        ZNodeLabel.Path path = (ZNodeLabel.Path) k;
+        ZNodeLabel.Path path = (k instanceof String) 
+                ? ZNodeLabel.Path.of((String)k) : (ZNodeLabel.Path)k;
         checkArgument(! path.isRoot());
         E e = get(path);
         if (e != null) {
@@ -377,7 +387,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
     }
 
     @Override
-    public Iterator<E> iterator() {
+    public IterativeTraversal<E> iterator() {
         return iterator(TraversalStrategy.PREORDER);
     }
 
@@ -390,5 +400,12 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         default:
             throw new UnsupportedOperationException();
         }
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("root", root())
+                .toString();
     }
 }
