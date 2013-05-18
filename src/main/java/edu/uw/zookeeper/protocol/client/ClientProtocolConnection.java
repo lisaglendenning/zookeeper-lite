@@ -1,18 +1,24 @@
 package edu.uw.zookeeper.protocol.client;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 
+import javax.annotation.Nullable;
+
 import org.apache.zookeeper.KeeperException;
 
+import com.google.common.base.Function;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Iterators;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.net.ConnectionStateEvent;
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.OpCreateSession;
@@ -21,14 +27,14 @@ import edu.uw.zookeeper.protocol.OpSessionResult;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.ForwardingEventful;
 import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Promise;
+import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.Stateful;
-import edu.uw.zookeeper.util.TaskExecutor;
 import edu.uw.zookeeper.util.TimeValue;
 
 /**
@@ -36,11 +42,12 @@ import edu.uw.zookeeper.util.TimeValue;
  * the Subscribe methods, but it is not safe for multiple threads to call 
  * submit or multiple threads to call handle*
  */
-public class ClientProtocolConnection 
-        implements Eventful, 
+public class ClientProtocolConnection
+        extends ForwardingEventful
+        implements ClientExecutor,
         Stateful<ProtocolState>, 
         Reference<ClientCodecConnection>, 
-        TaskExecutor<Operation.Request, Operation.SessionResult> {
+        Iterable<ClientProtocolConnection.RequestFuture> {
     
     public static interface RequestFuture extends ListenableFuture<Operation.SessionResult> {
         Operation.SessionRequest task();
@@ -48,43 +55,50 @@ public class ClientProtocolConnection
     
     public static ClientProtocolConnectionFactory factory(
             Processor<Operation.Request, Operation.SessionRequest> processor,
+            Factory<Publisher> publishers,
             Factory<? extends ClientCodecConnection> connections,
             Reference<Long> lastZxid,
             TimeValue timeOut) {
-        return ClientProtocolConnectionFactory.newInstance(processor, connections, lastZxid, timeOut);
+        return ClientProtocolConnectionFactory.newInstance(
+                processor, publishers, connections, lastZxid, timeOut);
     }
     
     public static class ClientProtocolConnectionFactory implements DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolConnection> {
 
         public static ClientProtocolConnectionFactory newInstance(
                 Processor<Operation.Request, Operation.SessionRequest> processor,
+                Factory<Publisher> publishers,
                 Factory<? extends ClientCodecConnection> connections,
                 Reference<Long> lastZxid,
                 TimeValue timeOut) {
             return newInstance(
-                    processor, connections, 
+                    processor, publishers, connections, 
                     OpCreateSession.Request.NewRequest.factory(lastZxid, timeOut));
         }
         
         public static ClientProtocolConnectionFactory newInstance(
                 Processor<Operation.Request, Operation.SessionRequest> processor,
+                Factory<Publisher> publishers,
                 Factory<? extends ClientCodecConnection> connections,
                 Factory<OpCreateSession.Request> requests) {
             return new ClientProtocolConnectionFactory(
-                    processor, connections, requests); 
+                    processor, publishers, connections, requests); 
         }
         
         protected final Processor<Operation.Request, Operation.SessionRequest> processor;
         protected final Factory<OpCreateSession.Request> requests;
         protected final Factory<? extends ClientCodecConnection> connections;
+        protected final Factory<Publisher> publishers;
         
         protected ClientProtocolConnectionFactory(
                 Processor<Operation.Request, Operation.SessionRequest> processor,
+                Factory<Publisher> publishers,
                 Factory<? extends ClientCodecConnection> connections,
                 Factory<OpCreateSession.Request> requests) {
             this.processor = processor;
             this.connections = connections;
             this.requests = requests;
+            this.publishers = publishers;
         }
         
         @Override
@@ -94,24 +108,27 @@ public class ClientProtocolConnection
 
         @Override
         public ClientProtocolConnection get(Factory<OpCreateSession.Request> requests) {
-            ClientCodecConnection codecConnection = connections.get();
             return ClientProtocolConnection.newInstance(
-                    codecConnection, 
+                    publishers.get(),
+                    connections.get(), 
                     processor,
                     requests);
         }
     }
     
     public static ClientProtocolConnection newInstance(
+            Publisher publisher,
             ClientCodecConnection codecConnection,
             Processor<Operation.Request, Operation.SessionRequest> processor,
             Factory<OpCreateSession.Request> requests) {
         return new ClientProtocolConnection(
+                publisher,
                 codecConnection,
                 processor,
                 ClientProtocolInitializer.newInstance(codecConnection, requests));
     }
     
+    // TODO: what does cancel mean?
     public static class RequestPromise 
             extends PromiseTask<Operation.SessionRequest, Operation.SessionResult>
             implements RequestFuture, FutureCallback<Operation.SessionReply> {
@@ -152,15 +169,18 @@ public class ClientProtocolConnection
     private final Processor<Operation.Request, Operation.SessionRequest> processor;
     
     private ClientProtocolConnection(
+            Publisher publisher,
             ClientCodecConnection codecConnection,
             Processor<Operation.Request, Operation.SessionRequest> processor,
             ClientProtocolInitializer initializer) {
+        super(publisher);
         this.codecConnection = codecConnection;
         this.initializer = initializer;
         this.processor = processor;
         this.pending = new LinkedBlockingQueue<RequestPromise>();
         
-        register(this);
+        codecConnection.register(this);
+        codecConnection.asConnection().register(this);
     }
     
     @Override
@@ -191,18 +211,6 @@ public class ClientProtocolConnection
 
     public RequestFuture disconnect() {
         return submit(OpRecord.OpRequest.newInstance(OpCode.CLOSE_SESSION));
-    }
-
-    public void cancel() {
-        try {
-            unregister(this);
-        } catch (IllegalArgumentException e) {}
-
-        RequestPromise task = pending.poll();
-        while (task != null) {
-            task.cancel(false);
-            task = pending.poll();
-        }
     }
     
     /**
@@ -271,44 +279,28 @@ public class ClientProtocolConnection
         return submit(request, promise);
     }
     
-    @Override
-    public void register(Object handler) {
-        // According to EventBus source code, registering the same
-        // object multiple times is a no-op
-        // so...let's register for everything!
-        codecConnection.register(handler);
-        codecConnection.asConnection().register(handler);
-    }
-
-    @Override
-    public void unregister(Object handler) {
-        codecConnection.unregister(handler);
-        try {
-            codecConnection.asConnection().unregister(handler);
-        } catch (IllegalArgumentException e) {
-            // by doing this multiple registration,
-            // we could easily attempt to unregister multiple times
-            // if the same underlying Publisher is used
-        }
-    }
-    
     @Subscribe
     public void handleConnectionState(ConnectionStateEvent event) {
-        switch (event.event().to()) {
-        case CONNECTION_CLOSED:
-            try {
-                unregister(this);
-            } catch (IllegalArgumentException e) {}
-
-            Exception e = new KeeperException.ConnectionLossException();
-            RequestPromise task = pending.poll();
-            while (task != null) {
-                task.onFailure(e);
-                task = pending.poll();
+        if (event.connection().equals(get().asConnection())) {
+            switch (event.event().to()) {
+            case CONNECTION_CLOSED:
+                try {
+                    codecConnection.unregister(this);
+                    codecConnection.asConnection().unregister(this);
+                } catch (IllegalArgumentException e) {}
+    
+                Exception e = new KeeperException.ConnectionLossException();
+                RequestPromise task = pending.poll();
+                while (task != null) {
+                    task.onFailure(e);
+                    task = pending.poll();
+                }
+                break;
+            default:
+                break;
             }
-            break;
-        default:
-            break;
+            
+            post(event);
         }
     }
     
@@ -329,5 +321,21 @@ public class ClientProtocolConnection
         } else {
             // TODO: should this happen for non-opxid messages?
         }
+
+        // Future will be completed before the event is posted
+        post(message);
+    }
+
+    @Override
+    public Iterator<RequestFuture> iterator() {
+        // make it compile....
+        return Iterators.transform(pending.iterator(), 
+                new Function<RequestPromise, RequestFuture>() {
+            @Override
+            @Nullable
+            public RequestFuture apply(@Nullable RequestPromise input) {
+                return input;
+            }
+        });
     }
 }

@@ -9,6 +9,10 @@ import edu.uw.zookeeper.util.Reference;
 
 public class StampedReference<T> extends AbstractPair<Long, T> implements Reference<T> {
 
+    public static <T> StampedReference<T> of(T value) {
+        return new StampedReference<T>(Long.valueOf(0), value);
+    }
+
     public static <T> StampedReference<T> of(Long stamp, T value) {
         return new StampedReference<T>(stamp, value);
     }

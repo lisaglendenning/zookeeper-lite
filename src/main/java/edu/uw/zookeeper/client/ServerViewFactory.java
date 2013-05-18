@@ -16,12 +16,14 @@ import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Processor;
+import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.TimeValue;
 
 public class ServerViewFactory implements DefaultsFactory<Session, ClientProtocolConnection> {
 
     public static ServerViewFactory newInstance(
             ClientConnectionFactory connections,
+            Factory<Publisher> publishers,
             ParameterizedFactory<Connection, ? extends ClientCodecConnection> codecFactory,
             Processor<Operation.Request, Operation.SessionRequest> processor,
             ServerView.Address<? extends SocketAddress> view,
@@ -32,7 +34,7 @@ public class ServerViewFactory implements DefaultsFactory<Session, ClientProtoco
         ZxidTracker.Decorator zxids = 
                 ZxidTracker.Decorator.newInstance(ClientCodecConnection.factory(connectionFactory, codecFactory));
         DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolConnection> delegate = 
-                ClientProtocolConnection.factory(processor, zxids, zxids.asTracker(), timeOut);
+                ClientProtocolConnection.factory(processor, publishers, zxids, zxids.asTracker(), timeOut);
         return new ServerViewFactory(zxids, delegate);
     }
     

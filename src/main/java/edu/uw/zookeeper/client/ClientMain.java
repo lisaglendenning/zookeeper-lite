@@ -131,7 +131,7 @@ public abstract class ClientMain extends AbstractMain {
                 ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
                         publisherFactory(), timeOut, executors().asScheduledExecutorServiceFactory().get());
                 AssignXidProcessor xids = AssignXidProcessor.newInstance();
-                EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(clientConnections, codecFactory, xids, ensemble, timeOut);
+                EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, publisherFactory(), codecFactory, xids, ensemble, timeOut);
                 monitorsFactory.apply(
                         ClientProtocolConnectionService.newInstance(ensembleFactory));
         

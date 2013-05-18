@@ -9,6 +9,8 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.Maps;
 
+import edu.uw.zookeeper.client.ClientExecutor;
+import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.protocol.proto.IGetACLResponse;
@@ -18,17 +20,17 @@ import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.proto.Records.ChildrenRecord;
 import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.Eventful;
-import edu.uw.zookeeper.util.ForwardingEventful;
 import edu.uw.zookeeper.util.ForwardingPromise;
 import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.SettableFuturePromise;
-import edu.uw.zookeeper.util.TaskExecutor;
 
-public class ZNodeCacheTrie extends ForwardingEventful implements TaskExecutor<Operation.Request, Operation.SessionResult>, Eventful {
+public class ZNodeCacheTrie<E extends ZNodeCacheTrie.ZNodeCache<E>> implements ClientExecutor {
 
-    public static class ZNodeCache extends ZNodeLabelTrie.AbstractNode<ZNodeCache> {
+    public static <E extends ZNodeCacheTrie.ZNodeCache<E>> ZNodeCacheTrie<E> newInstance(ClientProtocolConnection client, E root) {
+        return new ZNodeCacheTrie<E>(client, root);
+    }
+    
+    public static class ZNodeCache<E extends ZNodeCache<E>> extends ZNodeLabelTrie.AbstractNode<E> {
 
         public static enum View {
             DATA(Records.DataHolder.class), 
@@ -55,35 +57,11 @@ public class ZNodeCacheTrie extends ForwardingEventful implements TaskExecutor<O
             }
         }
         
-        public static ZNodeCache root() {
-            return new ZNodeViewFactory().get();
-        }
-
-        public static ZNodeCache childOf(ZNodeLabelTrie.Pointer<ZNodeCache> parent) {
-            return new ZNodeViewFactory().get(parent);
-        }
-        
-        public static class ZNodeViewFactory implements DefaultsFactory<ZNodeLabelTrie.Pointer<ZNodeCache>, ZNodeCache> {
-
-            public ZNodeViewFactory() {}
-            
-            @Override
-            public ZNodeCache get() {
-                return new ZNodeCache(Optional.<ZNodeLabelTrie.Pointer<ZNodeCache>>absent(), this);
-            }
-
-            @Override
-            public ZNodeCache get(ZNodeLabelTrie.Pointer<ZNodeCache> value) {
-                return new ZNodeCache(Optional.of(value), this);
-            }
-            
-        }
-
         protected final Map<View, StampedReference.Updater<? extends Records.View>> views;
         
         protected ZNodeCache(
-                Optional<ZNodeLabelTrie.Pointer<ZNodeCache>> parent,
-                DefaultsFactory<ZNodeLabelTrie.Pointer<ZNodeCache>, ZNodeCache> factory) {
+                Optional<ZNodeLabelTrie.Pointer<E>> parent,
+                DefaultsFactory<ZNodeLabelTrie.Pointer<E>, E> factory) {
             super(parent, factory);
             this.views = Collections.synchronizedMap(Maps.<View, StampedReference.Updater<? extends Records.View>>newEnumMap(View.class));
         }
@@ -124,7 +102,41 @@ public class ZNodeCacheTrie extends ForwardingEventful implements TaskExecutor<O
         }
         
         public String toString() {
-            return Objects.toStringHelper(this).add("path", path()).add("views", views).toString();
+            return Objects.toStringHelper(this)
+                    .add("path", path()).add("views", views).toString();
+        }
+    }
+    
+    public static class SimpleZNodeCache extends ZNodeCache<SimpleZNodeCache> {
+
+        public static SimpleZNodeCache root() {
+            return new SimpleZNodeCacheFactory().get();
+        }
+
+        public static SimpleZNodeCache childOf(ZNodeLabelTrie.Pointer<SimpleZNodeCache> parent) {
+            return new SimpleZNodeCacheFactory().get(parent);
+        }
+        
+        public static class SimpleZNodeCacheFactory implements DefaultsFactory<ZNodeLabelTrie.Pointer<SimpleZNodeCache>, SimpleZNodeCache> {
+
+            public SimpleZNodeCacheFactory() {}
+            
+            @Override
+            public SimpleZNodeCache get() {
+                return new SimpleZNodeCache(Optional.<ZNodeLabelTrie.Pointer<SimpleZNodeCache>>absent(), this);
+            }
+
+            @Override
+            public SimpleZNodeCache get(ZNodeLabelTrie.Pointer<SimpleZNodeCache> value) {
+                return new SimpleZNodeCache(Optional.of(value), this);
+            }
+            
+        }
+
+        protected SimpleZNodeCache(
+                Optional<Pointer<SimpleZNodeCache>> parent,
+                DefaultsFactory<Pointer<SimpleZNodeCache>, SimpleZNodeCache> factory) {
+            super(parent, factory);
         }
     }
     
@@ -150,40 +162,57 @@ public class ZNodeCacheTrie extends ForwardingEventful implements TaskExecutor<O
         }
     }
     
-    protected final ZNodeLabelTrie<ZNodeCache> trie;
+    protected final ZNodeLabelTrie<E> trie;
     protected final ClientProtocolConnection client;
     
-    protected ZNodeCacheTrie(Publisher publisher, ClientProtocolConnection client) {
-        super(publisher);
-        this.trie = ZNodeLabelTrie.of(ZNodeCache.root());
+    protected ZNodeCacheTrie(ClientProtocolConnection client, E root) {
+        this.trie = ZNodeLabelTrie.of(root);
         this.client = client;
         client.register(this);
     }
     
-    public ZNodeLabelTrie<ZNodeCache> asTrie() {
+    public ClientProtocolConnection asClient() {
+        return client;
+    }
+    
+    public ZNodeLabelTrie<E> asTrie() {
         return trie;
     }
 
+    @Override
+    public void register(Object object) {
+        asClient().register(object);
+    }
+
+    @Override
+    public void unregister(Object object) {
+        asClient().unregister(object);
+    }
+
+    /**
+     * Only caches the results of operations submitted through this function.
+     */
     @Override
     public ClientProtocolConnection.RequestFuture submit(Operation.Request request) {
         // wrapper so that we can apply changes before our client sees them
         return client.submit(request, new PromiseWrapper());
     }
     
-    protected void handleResult(Operation.SessionResult result) {
+    protected boolean handleResult(Operation.SessionResult result) {
         if (! (result.reply().reply() instanceof Operation.Response)) {
             // no updates to apply
-            return;
+            return false;
         }
         Operation.Response response = (Operation.Response) (result.reply().reply());
         Operation.Request request = result.request().request();
         
+        boolean changed = true;
         switch (request.opcode()) {
         case CREATE:
         case CREATE2:
         {
             Record responseRecord = ((Operation.RecordHolder<?>)response).asRecord();
-            ZNodeCache node = asTrie().put(((Records.PathHolder)responseRecord).getPath());
+            E node = asTrie().put(((Records.PathHolder)responseRecord).getPath());
             Long zxid = result.reply().zxid();
             Records.CreateRecord record = (Records.CreateRecord)((Operation.RecordHolder<?>)request).asRecord();
             StampedReference<Records.CreateRecord> stampedRequest = StampedReference.of(zxid, record);
@@ -202,7 +231,7 @@ public class ZNodeCacheTrie extends ForwardingEventful implements TaskExecutor<O
         }
         case EXISTS:
         {
-            ZNodeCache node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
+            E node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
             Long zxid = result.reply().zxid();
             StampedReference<Records.StatRecord> stampedResponse = StampedReference.of(zxid, (Records.StatRecord)((Operation.RecordHolder<?>)response).asRecord());
             node.update(stampedResponse);
@@ -210,7 +239,7 @@ public class ZNodeCacheTrie extends ForwardingEventful implements TaskExecutor<O
         }
         case GET_ACL:
         {
-            ZNodeCache node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
+            E node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
             StampedReference<IGetACLResponse> stampedResponse = StampedReference.of(
                     result.reply().zxid(), (IGetACLResponse)((Operation.RecordHolder<?>)response).asRecord());
             node.update(stampedResponse);
@@ -219,7 +248,7 @@ public class ZNodeCacheTrie extends ForwardingEventful implements TaskExecutor<O
         case GET_CHILDREN:
         case GET_CHILDREN2:        
         {
-            ZNodeCache node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
+            E node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
             Records.ChildrenRecord responseRecord = (ChildrenRecord) ((Operation.RecordHolder<?>)response).asRecord();
             for (String child: responseRecord.getChildren()) {
                 node.put(child);
@@ -233,7 +262,7 @@ public class ZNodeCacheTrie extends ForwardingEventful implements TaskExecutor<O
         }
         case GET_DATA:
         {
-            ZNodeCache node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
+            E node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
             StampedReference<IGetDataResponse> stampedResponse = StampedReference.of(
                     result.reply().zxid(), (IGetDataResponse)((Operation.RecordHolder<?>)response).asRecord());
             node.update(stampedResponse);
@@ -247,7 +276,7 @@ public class ZNodeCacheTrie extends ForwardingEventful implements TaskExecutor<O
         case SET_ACL:
         {
             ISetACLRequest requestRecord = (ISetACLRequest) ((Operation.RecordHolder<?>)request).asRecord();
-            ZNodeCache node = asTrie().get(requestRecord.getPath());
+            E node = asTrie().get(requestRecord.getPath());
             Long zxid = result.reply().zxid();
             node.update(StampedReference.of(zxid, requestRecord));
             Records.StatRecord responseRecord = (Records.StatRecord) ((Operation.RecordHolder<?>)response).asRecord();
@@ -257,7 +286,7 @@ public class ZNodeCacheTrie extends ForwardingEventful implements TaskExecutor<O
         case SET_DATA:
         {
             ISetDataRequest requestRecord = (ISetDataRequest) ((Operation.RecordHolder<?>)request).asRecord();
-            ZNodeCache node = asTrie().get(requestRecord.getPath());
+            E node = asTrie().get(requestRecord.getPath());
             Long zxid = result.reply().zxid();
             node.update(StampedReference.of(zxid, requestRecord));
             Records.StatRecord responseRecord = (Records.StatRecord) ((Operation.RecordHolder<?>)response).asRecord();
@@ -265,7 +294,9 @@ public class ZNodeCacheTrie extends ForwardingEventful implements TaskExecutor<O
             break;
         }
         default:
+            changed = false;
             break;
         }
+        return changed;
     }
 }
