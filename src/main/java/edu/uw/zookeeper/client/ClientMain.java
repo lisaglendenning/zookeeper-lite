@@ -48,7 +48,7 @@ public abstract class ClientMain extends AbstractMain {
         @Override
         public EnsembleView get() {
             return EnsembleView.of(
-                    ServerQuorumView.newInstance(ServerInetAddressView.newInstance(
+                    ServerQuorumView.newInstance(ServerInetAddressView.of(
                     DEFAULT_ADDRESS, DEFAULT_PORT)));
         }
 

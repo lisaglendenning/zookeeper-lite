@@ -12,20 +12,45 @@ import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 
-public class ZNodeDataTrie extends ZNodeCacheTrie<ZNodeDataTrie.ZNodeData> {
+public class ZNodeDataCacheTrie extends ZNodeCacheTrie<ZNodeDataCacheTrie.ZNodeDataCache> {
 
-    public static class ZNodeData extends ZNodeCache<ZNodeData> {
+    public static enum Decoder implements DefaultsFactory<ByteBuf, Object> {
+        NULL {
+            @Override
+            public Object get() {
+                return null;
+            }
 
-        public static ZNodeData root(ParameterizedFactory<ZNodeLabel.Path, DefaultsFactory<ByteBuf, ?>> decoders) {
+            @Override
+            public Object get(ByteBuf value) {
+                return null;
+            }
+        },
+        BYTEBUF {
+            @Override
+            public ByteBuf get() {
+                return null;
+            }
+
+            @Override
+            public ByteBuf get(ByteBuf value) {
+                return value;
+            }
+        };
+    }
+    
+    public static class ZNodeDataCache extends ZNodeCache<ZNodeDataCache> {
+
+        public static ZNodeDataCache root(ParameterizedFactory<ZNodeLabel.Path, DefaultsFactory<ByteBuf, ?>> decoders) {
             return new ZNodeDataFactory(decoders).get();
         }
 
-        public static ZNodeData childOf(ZNodeLabelTrie.Pointer<ZNodeData> parent,
+        public static ZNodeDataCache childOf(ZNodeLabelTrie.Pointer<ZNodeDataCache> parent,
                 ParameterizedFactory<ZNodeLabel.Path, DefaultsFactory<ByteBuf, ?>> decoders) {
             return new ZNodeDataFactory(decoders).get(parent);
         }
         
-        public static class ZNodeDataFactory implements DefaultsFactory<ZNodeLabelTrie.Pointer<ZNodeData>, ZNodeData> {
+        public static class ZNodeDataFactory implements DefaultsFactory<ZNodeLabelTrie.Pointer<ZNodeDataCache>, ZNodeDataCache> {
 
             protected final ParameterizedFactory<ZNodeLabel.Path, DefaultsFactory<ByteBuf, ?>> decoders;
             
@@ -38,20 +63,20 @@ public class ZNodeDataTrie extends ZNodeCacheTrie<ZNodeDataTrie.ZNodeData> {
             }
             
             @Override
-            public ZNodeData get() {
-                return new ZNodeData(Optional.<ZNodeLabelTrie.Pointer<ZNodeData>>absent(), this);
+            public ZNodeDataCache get() {
+                return new ZNodeDataCache(Optional.<ZNodeLabelTrie.Pointer<ZNodeDataCache>>absent(), this);
             }
 
             @Override
-            public ZNodeData get(ZNodeLabelTrie.Pointer<ZNodeData> value) {
-                return new ZNodeData(Optional.of(value), this);
+            public ZNodeDataCache get(ZNodeLabelTrie.Pointer<ZNodeDataCache> value) {
+                return new ZNodeDataCache(Optional.of(value), this);
             }
         }
         
         protected final StampedReference.Updater<Object> value;
 
-        protected ZNodeData(
-                Optional<Pointer<ZNodeData>> parent,
+        protected ZNodeDataCache(
+                Optional<Pointer<ZNodeDataCache>> parent,
                 ZNodeDataFactory factory) {
             super(parent, factory);
             Object initialValue = factory.decoders().get(path()).get();
@@ -79,7 +104,7 @@ public class ZNodeDataTrie extends ZNodeCacheTrie<ZNodeDataTrie.ZNodeData> {
         }
     }
     
-    protected ZNodeDataTrie(ClientProtocolConnection client, ZNodeData root) {
+    protected ZNodeDataCacheTrie(ClientProtocolConnection client, ZNodeDataCache root) {
         super(client, root);
     }
 }

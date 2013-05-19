@@ -1,7 +1,10 @@
 package edu.uw.zookeeper.data;
 
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Map;
 import org.apache.jute.Record;
 
@@ -11,14 +14,21 @@ import com.google.common.collect.Maps;
 
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
+import edu.uw.zookeeper.protocol.OpSessionResult;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.SessionReplyWrapper;
+import edu.uw.zookeeper.protocol.SessionRequestWrapper;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.protocol.proto.IGetACLResponse;
 import edu.uw.zookeeper.protocol.proto.IGetDataResponse;
+import edu.uw.zookeeper.protocol.proto.IMultiRequest;
+import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.ISetACLRequest;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.proto.Records.ChildrenRecord;
+import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
+import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
 import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.ForwardingPromise;
 import edu.uw.zookeeper.util.Promise;
@@ -199,7 +209,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.ZNodeCache<E>> implements C
     }
     
     protected boolean handleResult(Operation.SessionResult result) {
-        if (! (result.reply().reply() instanceof Operation.Response)) {
+        if (result.reply().reply() instanceof Operation.Error) {
             // no updates to apply
             return false;
         }
@@ -270,7 +280,19 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.ZNodeCache<E>> implements C
         }
         case MULTI:
         {
-            // TODO
+            int xid = result.request().xid();
+            long zxid = result.reply().zxid();
+            IMultiRequest requestRecord = (IMultiRequest) ((Operation.RecordHolder<?>)request).asRecord();
+            IMultiResponse responseRecord = (IMultiResponse) ((Operation.RecordHolder<?>)response).asRecord();
+            Iterator<MultiOpRequest> requests = requestRecord.iterator();
+            Iterator<MultiOpResponse> responses = responseRecord.iterator();
+            while (requests.hasNext()) {
+                checkArgument(responses.hasNext());
+                Operation.SessionResult nestedResult = OpSessionResult.of(
+                        SessionRequestWrapper.newInstance(xid, requests.next()), 
+                        SessionReplyWrapper.create(xid, zxid, responses.next()));
+                handleResult(nestedResult);
+            }
             break;
         }
         case SET_ACL:

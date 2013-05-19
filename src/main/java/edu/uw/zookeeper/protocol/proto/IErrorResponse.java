@@ -8,9 +8,10 @@ import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.proto.ErrorResponse;
 
 import edu.uw.zookeeper.protocol.OpCode;
+import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class IErrorResponse extends ErrorResponse implements Records.MultiOpResponse {
+public class IErrorResponse extends ErrorResponse implements Records.MultiOpResponse, Operation.Error {
     public static final OpCode OPCODE = OpCode.ERROR;
     
     public IErrorResponse() {
@@ -23,6 +24,11 @@ public class IErrorResponse extends ErrorResponse implements Records.MultiOpResp
 
     public IErrorResponse(int err) {
         super(err);
+    }
+
+    @Override
+    public KeeperException.Code error() {
+        return KeeperException.Code.get(getErr());
     }
 
     @Override

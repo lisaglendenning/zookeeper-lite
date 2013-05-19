@@ -2,7 +2,6 @@ package edu.uw.zookeeper.client;
 
 import java.net.SocketAddress;
 
-import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
@@ -19,29 +18,28 @@ import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.TimeValue;
 
-public class ServerViewFactory implements DefaultsFactory<Session, ClientProtocolConnection> {
+public class SingleAddressFactory implements DefaultsFactory<Session, ClientProtocolConnection> {
 
-    public static ServerViewFactory newInstance(
+    public static SingleAddressFactory newInstance(
             ClientConnectionFactory connections,
             Factory<Publisher> publishers,
             ParameterizedFactory<Connection, ? extends ClientCodecConnection> codecFactory,
             Processor<Operation.Request, Operation.SessionRequest> processor,
-            ServerView.Address<? extends SocketAddress> view,
+            SocketAddress address,
             TimeValue timeOut) {
-        SocketAddress address = view.get();
         Factory<Connection> connectionFactory = FixedClientConnectionFactory.newInstance(
                 address, connections);
         ZxidTracker.Decorator zxids = 
                 ZxidTracker.Decorator.newInstance(ClientCodecConnection.factory(connectionFactory, codecFactory));
         DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolConnection> delegate = 
                 ClientProtocolConnection.factory(processor, publishers, zxids, zxids.asTracker(), timeOut);
-        return new ServerViewFactory(zxids, delegate);
+        return new SingleAddressFactory(zxids, delegate);
     }
     
     protected final ZxidTracker.Decorator zxids;
     protected final DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolConnection> delegate;
 
-    protected ServerViewFactory(
+    protected SingleAddressFactory(
             ZxidTracker.Decorator zxids,
             DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolConnection> delegate) {
         this.zxids = zxids;

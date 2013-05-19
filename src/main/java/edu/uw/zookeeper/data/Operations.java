@@ -6,9 +6,9 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.data.ACL;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import edu.uw.zookeeper.protocol.OpCode;
@@ -92,7 +92,7 @@ public abstract class Operations {
                 public Create() {
                     super(OpCode.CREATE);
                     this.mode = CreateMode.PERSISTENT;
-                    this.acl = ImmutableList.of();
+                    this.acl = ZooDefs.Ids.OPEN_ACL_UNSAFE;
                 }
                 
                 public CreateMode getMode() {
@@ -104,15 +104,15 @@ public abstract class Operations {
                     return this;
                 }
                 
-                public boolean hasStat() {
+                public boolean getStat() {
                     return (opcode == OpCode.CREATE2);
                 }
                 
                 /**
                  * >= 3.5.0
                  */
-                public Create getStat() {
-                    this.opcode = OpCode.CREATE2;
+                public Create setStat(boolean getStat) {
+                    this.opcode = getStat? OpCode.CREATE2 : OpCode.CREATE;
                     return this;
                 }
                 
@@ -199,6 +199,7 @@ public abstract class Operations {
                 
                 public GetChildren() {
                     super(OpCode.GET_CHILDREN);
+                    this.watch = false;
                 }
 
                 public boolean getWatch() {
@@ -210,12 +211,12 @@ public abstract class Operations {
                     return this;
                 }
 
-                public boolean hasStat() {
+                public boolean getStat() {
                     return (opcode == OpCode.GET_CHILDREN2);
                 }
                 
-                public GetChildren getStat() {
-                    this.opcode = OpCode.GET_CHILDREN2;
+                public GetChildren setStat(boolean getStat) {
+                    this.opcode = getStat ? OpCode.GET_CHILDREN2 : OpCode.GET_CHILDREN;
                     return this;
                 }
                 
@@ -234,6 +235,7 @@ public abstract class Operations {
                 
                 public GetData() {
                     super(OpCode.GET_DATA);
+                    this.watch = false;
                 }
 
                 public boolean getWatch() {
@@ -290,7 +292,7 @@ public abstract class Operations {
                 public SetAcl() {
                     super(OpCode.SET_ACL);
                     this.version = -1;
-                    this.acl = ImmutableList.of();
+                    this.acl = ZooDefs.Ids.OPEN_ACL_UNSAFE;
                 }
                 
                 public int getVersion() {

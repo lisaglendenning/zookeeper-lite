@@ -47,7 +47,7 @@ public abstract class ServerMain extends AbstractMain {
         
         @Override
         public ServerInetAddressView get() {
-            return ServerInetAddressView.newInstance(
+            return ServerInetAddressView.of(
                     DEFAULT_ADDRESS, DEFAULT_PORT);
         }
 
