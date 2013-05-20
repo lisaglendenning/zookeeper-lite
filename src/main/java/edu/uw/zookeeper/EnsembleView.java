@@ -14,7 +14,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import edu.uw.zookeeper.data.Serializer;
+import edu.uw.zookeeper.data.Serializes;
 
 public class EnsembleView implements ServerView, Iterable<ServerQuorumView> {
 
@@ -37,7 +37,7 @@ public class EnsembleView implements ServerView, Iterable<ServerQuorumView> {
         }
     }
 
-    @Serializer(input=EnsembleView.class, output=String.class)
+    @Serializes(from=EnsembleView.class, to=String.class)
     public static String toString(EnsembleView input) {
         StringBuilder output = new StringBuilder();
         output.append(TOKEN_START);
@@ -46,7 +46,7 @@ public class EnsembleView implements ServerView, Iterable<ServerQuorumView> {
         return output.toString();
     }
 
-    @Serializer(input=String.class, output=EnsembleView.class)
+    @Serializes(from=String.class, to=EnsembleView.class)
     public static EnsembleView fromString(String input) {
         List<ServerQuorumView> members = Lists.newArrayList();
         input = input.trim();

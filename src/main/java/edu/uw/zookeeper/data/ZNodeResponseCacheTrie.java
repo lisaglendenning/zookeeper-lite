@@ -34,10 +34,10 @@ import edu.uw.zookeeper.util.ForwardingPromise;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
-public class ZNodeCacheTrie<E extends ZNodeCacheTrie.ZNodeCache<E>> implements ClientExecutor {
+public class ZNodeResponseCacheTrie<E extends ZNodeResponseCacheTrie.ZNodeCache<E>> implements ClientExecutor {
 
-    public static <E extends ZNodeCacheTrie.ZNodeCache<E>> ZNodeCacheTrie<E> newInstance(ClientProtocolConnection client, E root) {
-        return new ZNodeCacheTrie<E>(client, root);
+    public static <E extends ZNodeResponseCacheTrie.ZNodeCache<E>> ZNodeResponseCacheTrie<E> newInstance(ClientProtocolConnection client, E root) {
+        return new ZNodeResponseCacheTrie<E>(client, root);
     }
     
     public static class ZNodeCache<E extends ZNodeCache<E>> extends ZNodeLabelTrie.AbstractNode<E> {
@@ -175,7 +175,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.ZNodeCache<E>> implements C
     protected final ZNodeLabelTrie<E> trie;
     protected final ClientProtocolConnection client;
     
-    protected ZNodeCacheTrie(ClientProtocolConnection client, E root) {
+    protected ZNodeResponseCacheTrie(ClientProtocolConnection client, E root) {
         this.trie = ZNodeLabelTrie.of(root);
         this.client = client;
         client.register(this);

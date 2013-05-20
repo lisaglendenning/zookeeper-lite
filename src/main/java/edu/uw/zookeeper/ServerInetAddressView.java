@@ -9,7 +9,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
-import edu.uw.zookeeper.data.Serializer;
+import edu.uw.zookeeper.data.Serializes;
 import edu.uw.zookeeper.util.Factories;
 
 public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAddress> implements ServerView, ServerView.Address<InetSocketAddress> {
@@ -19,7 +19,7 @@ public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAdd
         public static final char TOKEN_SEP = ':';
         private static final Splitter SPLITTER = Splitter.on(TOKEN_SEP).trimResults().limit(2);
         
-        @Serializer(input=InetSocketAddress.class, output=String.class)
+        @Serializes(from=InetSocketAddress.class, to=String.class)
         public static String toString(InetSocketAddress address) {
             // Prefer IP address, otherwise use the hostname
             String host;
@@ -32,7 +32,7 @@ public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAdd
             return String.format("%s%c%d", host, TOKEN_SEP, address.getPort());
         }
 
-        @Serializer(input=String.class, output=InetSocketAddress.class)
+        @Serializes(from=String.class, to=InetSocketAddress.class)
         public static InetSocketAddress fromString(String input) {
             checkNotNull(input);
             String[] fields = Iterables.toArray(SPLITTER.split(input), String.class);
@@ -52,12 +52,12 @@ public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAdd
         private Address() {}
     }
 
-    @Serializer(input=ServerInetAddressView.class, output=String.class)
+    @Serializes(from=ServerInetAddressView.class, to=String.class)
     public static String toString(ServerInetAddressView input) {
         return Address.toString(checkNotNull(input).get());
     }
 
-    @Serializer(input=String.class, output=ServerInetAddressView.class)
+    @Serializes(from=String.class, to=ServerInetAddressView.class)
     public static ServerInetAddressView fromString(String input)
             throws IllegalArgumentException {
         return of(Address.fromString(input));

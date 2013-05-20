@@ -3,7 +3,7 @@ package edu.uw.zookeeper;
 
 import com.google.common.base.Throwables;
 
-import edu.uw.zookeeper.data.Serializer;
+import edu.uw.zookeeper.data.Serializes;
 import edu.uw.zookeeper.data.Serializers;
 import edu.uw.zookeeper.util.Reference;
 
@@ -34,11 +34,11 @@ public abstract class ServerAddressView {
         return Type.DEFAULT.get();
     }
 
-    @Serializer(input=ServerView.Address.class, output=String.class)
+    @Serializes(from=ServerView.Address.class, to=String.class)
     public static String toString(ServerView.Address<?> input) {
         @SuppressWarnings("rawtypes")
         Class<? extends ServerView.Address> type = input.getClass();
-        Serializers.SerializerMethod method = Serializers.getInstance().find(type, type, String.class);
+        Serializers.Serializer method = Serializers.getInstance().find(type, type, String.class);
         String output;
         try {
             output = (String) method.method().invoke(input);
@@ -48,14 +48,14 @@ public abstract class ServerAddressView {
         return output;
     }
 
-    @Serializer(input=String.class, output=ServerView.Address.class)
+    @Serializes(from=String.class, to=ServerView.Address.class)
     public static ServerView.Address<?> fromString(String input) {
         return fromString(input, getDefaultType());
     }
     
     public static ServerView.Address<?> fromString(String input, Class<? extends ServerView.Address<?>> type) {
         ServerView.Address<?> view;
-        Serializers.SerializerMethod method = Serializers.getInstance().find(type, String.class, type);
+        Serializers.Serializer method = Serializers.getInstance().find(type, String.class, type);
         try {
             view = (ServerView.Address<?>) method.method().invoke(null, input);
         } catch (Exception e) {

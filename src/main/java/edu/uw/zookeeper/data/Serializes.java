@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Serializer {
-    Class<?> input() default Void.class;
-    Class<?> output() default Void.class;
+public @interface Serializes {
+    Class<?> from() default Void.class;
+    Class<?> to() default Void.class;
 }

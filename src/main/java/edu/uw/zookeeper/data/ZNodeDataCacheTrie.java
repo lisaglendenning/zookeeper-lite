@@ -6,13 +6,13 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 
-import edu.uw.zookeeper.data.ZNodeCacheTrie.ZNodeCache;
+import edu.uw.zookeeper.data.ZNodeResponseCacheTrie.ZNodeCache;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.DefaultsFactory;
 
-public class ZNodeDataCacheTrie<T> extends ZNodeCacheTrie<ZNodeDataCacheTrie.ZNodeDataCache<T>> {
+public class ZNodeDataCacheTrie<T> extends ZNodeResponseCacheTrie<ZNodeDataCacheTrie.ZNodeDataCache<T>> {
 
     public static interface Deserializer<T> {
         T deserialize(ZNodeLabel.Path path, byte[] bytes);
@@ -30,7 +30,7 @@ public class ZNodeDataCacheTrie<T> extends ZNodeCacheTrie<ZNodeDataCacheTrie.ZNo
         public T deserialize(ZNodeLabel.Path path, byte[] bytes) {
             Class<?> inputType = byte[].class;
             Class<? extends T> outputType = mapper.apply(path);
-            Serializers.SerializerMethod serializer = Serializers.getInstance().find(outputType, inputType, outputType);
+            Serializers.Serializer serializer = Serializers.getInstance().find(outputType, inputType, outputType);
             try {
                 return (T) serializer.method().invoke(null, bytes);
             } catch (Exception e) {

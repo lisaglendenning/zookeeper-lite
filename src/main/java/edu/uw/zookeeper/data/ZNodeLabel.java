@@ -24,7 +24,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
 
     public static final char SLASH = '/';
     
-    @Serializer(input=String.class, output=ZNodeLabel.class)
+    @Serializes(from=String.class, to=ZNodeLabel.class)
     public static ZNodeLabel of(String label) {
         if (label.indexOf(SLASH) >= 0) {
             return Path.of(label);
@@ -64,7 +64,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             return label;
         }
 
-        @Serializer(input=String.class, output=ZNodeLabel.Component.class)
+        @Serializes(from=String.class, to=ZNodeLabel.Component.class)
         public static Component of(String label) {
             String validated = validate(label);
             return new Component(validated);
@@ -171,7 +171,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             return Reserved.ROOT.get();
         }
 
-        @Serializer(input=String.class, output=ZNodeLabel.Path.class)
+        @Serializes(from=String.class, to=ZNodeLabel.Path.class)
         public static Path of(String path) {
             return fromString(StringToString.VALIDATE, path);
         }
@@ -376,7 +376,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
     }
     
     @Override
-    @Serializer(input=ZNodeLabel.class, output=String.class)
+    @Serializes(from=ZNodeLabel.class, to=String.class)
     public String toString() {
         return label;
     }

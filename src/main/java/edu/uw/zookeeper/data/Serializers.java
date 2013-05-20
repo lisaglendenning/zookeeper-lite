@@ -14,41 +14,41 @@ public enum Serializers {
         return REGISTRY;
     }
     
-    protected final ConcurrentMap<Class<?>, List<SerializerMethod>> registry;
+    protected final ConcurrentMap<Class<?>, List<Serializer>> registry;
     
     private Serializers() {
         this.registry = Maps.newConcurrentMap();
     }
     
-    public List<SerializerMethod> add(Class<?> type) {
-        List<SerializerMethod> serializers = registry.get(type);
+    public List<Serializer> add(Class<?> type) {
+        List<Serializer> serializers = registry.get(type);
         if (serializers == null) {
-            serializers = SerializerMethod.discover(type);
+            serializers = Serializer.discover(type);
             registry.put(type, serializers);
         }
         return serializers;
     }
     
-    public List<SerializerMethod> get(Class<?> type) {
+    public List<Serializer> get(Class<?> type) {
         return registry.get(type);
     }
 
-    public SerializerMethod find(Class<?> type,
+    public Serializer find(Class<?> type,
             Class<?> inputType, Class<?> outputType) {
-        List<SerializerMethod> serializers = add(type);
-        return SerializerMethod.find(serializers, inputType, outputType);
+        List<Serializer> serializers = add(type);
+        return Serializer.find(serializers, inputType, outputType);
     }
     
-    public static class SerializerMethod {
+    public static class Serializer {
 
-        public static List<SerializerMethod> discover(Class<?> type) {
-            List<SerializerMethod> serializers = Lists.newLinkedList();
+        public static List<Serializer> discover(Class<?> type) {
+            List<Serializer> serializers = Lists.newLinkedList();
             for (Method method: type.getMethods()) {
-                Serializer annotation = method.getAnnotation(Serializer.class);
+                Serializes annotation = method.getAnnotation(Serializes.class);
                 if (annotation == null) {
                     continue;
                 }
-                Class<?> input = annotation.input();
+                Class<?> input = annotation.from();
                 if (input.equals(Void.class)) {
                     Class<?>[] parameterTypes = method.getParameterTypes();
                     if (parameterTypes.length == 0) {
@@ -59,22 +59,22 @@ public enum Serializers {
                         // ?
                     }
                 }
-                Class<?> output = annotation.output();
+                Class<?> output = annotation.to();
                 if (output.equals(Void.class)) {
                     output = method.getReturnType();
                 } else {
                     // ?
                 }
-                SerializerMethod serializer = new SerializerMethod(method, annotation, input, output);
+                Serializer serializer = new Serializer(method, annotation, input, output);
                 serializers.add(serializer);
             }
             return serializers;
         }
         
-        public static SerializerMethod find(Iterable<SerializerMethod> serializers,
+        public static Serializer find(Iterable<Serializer> serializers,
                 Class<?> inputType, Class<?> outputType) {
-            SerializerMethod bestMatch = null;
-            for (SerializerMethod serializer: serializers) {
+            Serializer bestMatch = null;
+            for (Serializer serializer: serializers) {
                 if (serializer.inputType().isAssignableFrom(inputType)
                         && outputType.isAssignableFrom(serializer.outputType())) {
                     if (bestMatch == null 
@@ -88,13 +88,13 @@ public enum Serializers {
         }
         
         protected final Method method;
-        protected final Serializer annotation;
+        protected final Serializes annotation;
         protected final Class<?> inputType;
         protected final Class<?> outputType;
         
-        public SerializerMethod(
+        public Serializer(
                 Method method,
-                Serializer annotation,
+                Serializes annotation,
                 Class<?> inputType, 
                 Class<?> outputType) {
             this.method = method;
@@ -107,7 +107,7 @@ public enum Serializers {
             return method;
         }
         
-        public Serializer annotation() {
+        public Serializes annotation() {
             return annotation;
         }
         

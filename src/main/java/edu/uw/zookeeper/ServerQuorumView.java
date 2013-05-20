@@ -5,7 +5,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
-import edu.uw.zookeeper.data.Serializer;
+import edu.uw.zookeeper.data.Serializes;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.SimpleAutomaton;
 
@@ -15,7 +15,7 @@ public class ServerQuorumView implements ServerView, ServerView.Quorum {
     
     protected static Splitter SPLITTER = Splitter.on(SEP).trimResults().limit(2);
 
-    @Serializer(input=ServerQuorumView.class, output=String.class)
+    @Serializes(from=ServerQuorumView.class, to=String.class)
     public static String toString(ServerQuorumView input) {
         String netString = ServerAddressView.toString(input.asAddress());
         String output = netString;
@@ -26,7 +26,7 @@ public class ServerQuorumView implements ServerView, ServerView.Quorum {
         return output;
     }
 
-    @Serializer(input=String.class, output=ServerQuorumView.class)
+    @Serializes(from=String.class, to=ServerQuorumView.class)
     public static ServerQuorumView fromString(String input) {
         String[] fields = Iterables.toArray(SPLITTER.split(input), String.class);
         ServerView.Address<?> address = ServerAddressView.fromString(input);

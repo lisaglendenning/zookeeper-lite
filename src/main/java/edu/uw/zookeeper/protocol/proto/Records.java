@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 
+import edu.uw.zookeeper.data.Serializes;
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.util.ParameterizedFactory;
@@ -387,6 +388,7 @@ public class Records {
         }
     }
 
+    @Serializes(from=InputStream.class, to=TaggedRecord.class)
     public static <T extends TaggedRecord> T decode(T record, InputStream stream)
             throws IOException {
         BinaryInputArchive bis = BinaryInputArchive.getArchive(stream);
@@ -394,7 +396,8 @@ public class Records {
         return record;
     }
 
-    public static <T extends TaggedRecord> OutputStream encode(T record,
+    @Serializes(from=TaggedRecord.class, to=OutputStream.class)
+    public static OutputStream encode(TaggedRecord record,
             OutputStream stream) throws IOException {
         BinaryOutputArchive bos = BinaryOutputArchive.getArchive(stream);
         record.serialize(bos);
