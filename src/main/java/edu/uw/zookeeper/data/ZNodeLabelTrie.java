@@ -42,6 +42,8 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         ZNodeLabel.Path path();
         
         SortedMap<ZNodeLabel.Component, E> children();
+        
+        E get(ZNodeLabel.Component label);
 
         E put(String label);
 
@@ -113,6 +115,11 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
             return Collections.unmodifiableSortedMap(children);
         }
 
+        @Override
+        public E get(ZNodeLabel.Component label) {
+            return children.get(label);
+        }
+        
         @Override
         public E put(String label) {
             return put(ZNodeLabel.Component.of(label));

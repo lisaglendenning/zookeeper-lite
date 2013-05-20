@@ -6,9 +6,6 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.ZooDefs;
-import org.apache.zookeeper.data.ACL;
-
 import com.google.common.collect.Lists;
 
 import edu.uw.zookeeper.protocol.OpCode;
@@ -87,12 +84,12 @@ public abstract class Operations {
             public static class Create extends Data<Records.CreateRecord, Create> {
 
                 protected CreateMode mode;
-                protected List<ACL> acl;
+                protected List<Acls.Acl> acls;
                 
                 public Create() {
                     super(OpCode.CREATE);
                     this.mode = CreateMode.PERSISTENT;
-                    this.acl = ZooDefs.Ids.OPEN_ACL_UNSAFE;
+                    this.acls = Acls.Definition.ANYONE_ALL.asList();
                 }
                 
                 public CreateMode getMode() {
@@ -116,19 +113,19 @@ public abstract class Operations {
                     return this;
                 }
                 
-                public List<ACL> getAcl() {
-                    return acl;
+                public List<Acls.Acl> getAcl() {
+                    return acls;
                 }
                 
-                public Create setAcl(List<ACL> acl) {
-                    this.acl = checkNotNull(acl);
+                public Create setAcl(List<Acls.Acl> acls) {
+                    this.acls = checkNotNull(acls);
                     return this;
                 }
                 
                 @Override
                 public Records.CreateRecord build() {
                     Records.CreateRecord record = OpRecord.OpRequest.newRecord(opcode);
-                    record.setAcl(getAcl());
+                    record.setAcl(Acls.Acl.asRecordList(getAcl()));
                     record.setPath(getPath().toString());
                     record.setData(getData());
                     record.setFlags(getMode().toFlag());
@@ -287,12 +284,12 @@ public abstract class Operations {
             public static class SetAcl extends Path<ISetACLRequest, SetAcl> {
 
                 protected int version;
-                protected List<ACL> acl;
+                protected List<Acls.Acl> acls;
                 
                 public SetAcl() {
                     super(OpCode.SET_ACL);
                     this.version = -1;
-                    this.acl = ZooDefs.Ids.OPEN_ACL_UNSAFE;
+                    this.acls = Acls.Definition.ANYONE_ALL.asList();
                 }
                 
                 public int getVersion() {
@@ -304,19 +301,19 @@ public abstract class Operations {
                     return this;
                 }
                 
-                public List<ACL> getAcl() {
-                    return acl;
+                public List<Acls.Acl> getAcl() {
+                    return acls;
                 }
                 
-                public SetAcl setAcl(List<ACL> acl) {
-                    this.acl = checkNotNull(acl);
+                public SetAcl setAcl(List<Acls.Acl> acls) {
+                    this.acls = checkNotNull(acls);
                     return this;
                 }
                 
                 @Override
                 public ISetACLRequest build() {
                     ISetACLRequest record = new ISetACLRequest(
-                            getPath().toString(), getAcl(), getVersion());
+                            getPath().toString(), Acls.Acl.asRecordList(getAcl()), getVersion());
                     return record;
                 }
             }
