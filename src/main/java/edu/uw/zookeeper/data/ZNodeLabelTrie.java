@@ -2,6 +2,7 @@ package edu.uw.zookeeper.data;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.lang.reflect.Constructor;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Collections;
@@ -13,15 +14,15 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import edu.uw.zookeeper.util.AbstractPair;
-import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Reference;
 
 
@@ -33,6 +34,21 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
     
     public static interface Pointer<E extends Node<E>> extends Reference<E> {
         ZNodeLabel.Component label();
+    }
+    
+    public static ZNodeLabel.Path pathOf(Optional<? extends Pointer<?>> pointer) {
+        if (! pointer.isPresent()) {
+            return ZNodeLabel.Path.root();
+        }
+        List<ZNodeLabel> components = Lists.newLinkedList();
+        Optional<? extends Pointer<?>> prev = pointer;
+        while (prev.isPresent()) {
+            Pointer<?> p = prev.get();
+            components.add(0, p.label());
+            prev = p.get().parent();
+        }
+        components.add(0, ZNodeLabel.Path.root());
+        return ZNodeLabel.Path.of(components.iterator());
     }
 
     // TODO: add a bit that tells us whether the node has been deleted?
@@ -85,24 +101,12 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         protected final Optional<Pointer<E>> parent;
         protected final ConcurrentNavigableMap<ZNodeLabel.Component, E> children;
         protected final ZNodeLabel.Path path;
-        protected final ParameterizedFactory<Pointer<E>, E> factory;
         
-        protected AbstractNode(Optional<Pointer<E>> parent, 
-                ParameterizedFactory<Pointer<E>, E> factory) {
+        protected AbstractNode(Optional<Pointer<E>> parent) {
             this.parent = parent;
             this.children = new ConcurrentSkipListMap<ZNodeLabel.Component, E>();
-            this.factory = factory;
-            
-            // parents are immutable, so pre-compute
-            List<ZNodeLabel> components = Lists.newLinkedList();
-            Optional<? extends Pointer<E>> prev = parent();
-            while (prev.isPresent()) {
-                Pointer<E> pointer = prev.get();
-                components.add(0, pointer.label());
-                prev = pointer.get().parent();
-            }
-            components.add(0, ZNodeLabel.Path.root());
-            this.path = ZNodeLabel.Path.of(components.iterator());
+            // parents are immutable, so pre-compute path
+            this.path = pathOf(parent);
         }
 
         @Override
@@ -132,14 +136,24 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
             if (child != null) {
                 return child;
             }
-            @SuppressWarnings("unchecked")
-            Pointer<E> childPointer = SimplePointer.of(label, (E) this);
-            child = factory.get(childPointer);
+            child = newChild(label);
             E prevChild = children.putIfAbsent(label, child);
             if (prevChild != null) {
                 return prevChild;
             } else {
                 return child;
+            }
+        }
+        
+        @SuppressWarnings("unchecked")
+        protected E newChild(ZNodeLabel.Component label) {
+            try {
+                Pointer<E> pointer = SimplePointer.of(label, (E) this);
+                Optional<Pointer<E>> parent = Optional.of(pointer);
+                Constructor<E> constructor = (Constructor<E>) getClass().getConstructor(parent.getClass());
+                return constructor.newInstance(parent);
+            } catch (Exception e) {
+                throw Throwables.propagate(e);
             }
         }
 
@@ -171,82 +185,55 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
     public static class SimpleNode extends AbstractNode<SimpleNode> {
 
         public static SimpleNode root() {
-            return SimpleNodeFactory.getInstance().get();
+            return new SimpleNode(Optional.<Pointer<SimpleNode>>absent());
         }
 
-        public static SimpleNode childOf(Pointer<SimpleNode> parent) {
-            return SimpleNodeFactory.getInstance().get(parent);
-        }
-        
-        public static enum SimpleNodeFactory implements DefaultsFactory<Pointer<SimpleNode>, SimpleNode> {
-            INSTANCE;
-            
-            public static SimpleNodeFactory getInstance() {
-                return INSTANCE;
-            }
-            
-            @Override
-            public SimpleNode get() {
-                return new SimpleNode(Optional.<Pointer<SimpleNode>>absent());
-            }
-
-            @Override
-            public SimpleNode get(Pointer<SimpleNode> value) {
-                return new SimpleNode(Optional.of(value));
-            }
-            
-        }
-        
         protected SimpleNode(Optional<Pointer<SimpleNode>> parent) {
-            super(parent, SimpleNodeFactory.getInstance());
+            super(parent);
         }
         
+        @Override
+        protected SimpleNode newChild(ZNodeLabel.Component label) {
+            Pointer<SimpleNode> childPointer = SimplePointer.of(label, this);
+            return new SimpleNode(Optional.of(childPointer));
+        }
     }
 
     public static class ValueNode<V> extends AbstractNode<ValueNode<V>> implements Reference<V> {
 
-        public static <V> ValueNode<V> root(ParameterizedFactory<ZNodeLabel.Path, V> values) {
-            return ValueNodeFactory.of(values).get();
-        }
-
-        public static class ValueNodeFactory<V> implements DefaultsFactory<Pointer<ValueNode<V>>, ValueNode<V>> {
-
-            public static <V> ValueNodeFactory<V> of(ParameterizedFactory<ZNodeLabel.Path, V> values) {
-                return new ValueNodeFactory<V>(values);
-            }
-            
-            protected final ParameterizedFactory<ZNodeLabel.Path, V> values;
-            
-            protected ValueNodeFactory(ParameterizedFactory<ZNodeLabel.Path, V> values) {
-                this.values = values;
-            }
-            
-            public ParameterizedFactory<ZNodeLabel.Path, V> values() {
-                return values;
-            }
-            
-            @Override
-            public ValueNode<V> get() {
-                return new ValueNode<V>(Optional.<Pointer<ValueNode<V>>>absent(), this);
-            }
-
-            @Override
-            public ValueNode<V> get(Pointer<ValueNode<V>> value) {
-                return new ValueNode<V>(Optional.of(value), this);
-            }
-            
+        public static <V> ValueNode<V> root(Function<ZNodeLabel.Path, V> values) {
+            Optional<Pointer<ValueNode<V>>> pointer = Optional.absent();
+            V value = values.apply(pathOf(pointer));
+            return new ValueNode<V>(pointer, values, value);
         }
         
+        protected final Function<ZNodeLabel.Path, V> values;
         protected final V value;
         
-        protected ValueNode(Optional<Pointer<ValueNode<V>>> parent, ValueNodeFactory<V> factory) {
-            super(parent, factory);
-            this.value = factory.values().get(path());
+        protected ValueNode(
+                Optional<Pointer<ValueNode<V>>> parent, 
+                Function<ZNodeLabel.Path, V> values, 
+                V value) {
+            super(parent);
+            this.values = values;
+            this.value = value;
         }
         
         @Override
         public V get() {
             return value;
+        }
+        
+        public Function<ZNodeLabel.Path, V> values() {
+            return values;
+        }
+
+        @Override
+        protected ValueNode<V> newChild(ZNodeLabel.Component label) {
+            Pointer<ValueNode<V>> pointer = SimplePointer.of(label, this);
+            Optional<Pointer<ValueNode<V>>> parent = Optional.of(pointer);
+            V value = values().apply(pathOf(parent));
+            return new ValueNode<V>(parent, values(), value);
         }
         
         @Override

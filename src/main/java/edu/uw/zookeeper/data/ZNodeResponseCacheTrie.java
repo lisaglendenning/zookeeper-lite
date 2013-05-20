@@ -14,6 +14,7 @@ import com.google.common.collect.Maps;
 
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
+import edu.uw.zookeeper.data.ZNodeLabelTrie.SimplePointer;
 import edu.uw.zookeeper.protocol.OpSessionResult;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionReplyWrapper;
@@ -29,7 +30,6 @@ import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.proto.Records.ChildrenRecord;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
-import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.ForwardingPromise;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.SettableFuturePromise;
@@ -40,7 +40,7 @@ public class ZNodeResponseCacheTrie<E extends ZNodeResponseCacheTrie.ZNodeCache<
         return new ZNodeResponseCacheTrie<E>(client, root);
     }
     
-    public static class ZNodeCache<E extends ZNodeCache<E>> extends ZNodeLabelTrie.AbstractNode<E> {
+    public abstract static class ZNodeCache<E extends ZNodeCache<E>> extends ZNodeLabelTrie.AbstractNode<E> {
 
         public static enum View {
             DATA(Records.DataHolder.class), 
@@ -70,9 +70,8 @@ public class ZNodeResponseCacheTrie<E extends ZNodeResponseCacheTrie.ZNodeCache<
         protected final Map<View, StampedReference.Updater<? extends Records.View>> views;
         
         protected ZNodeCache(
-                Optional<ZNodeLabelTrie.Pointer<E>> parent,
-                DefaultsFactory<ZNodeLabelTrie.Pointer<E>, E> factory) {
-            super(parent, factory);
+                Optional<ZNodeLabelTrie.Pointer<E>> parent) {
+            super(parent);
             this.views = Collections.synchronizedMap(Maps.<View, StampedReference.Updater<? extends Records.View>>newEnumMap(View.class));
         }
 
@@ -120,33 +119,18 @@ public class ZNodeResponseCacheTrie<E extends ZNodeResponseCacheTrie.ZNodeCache<
     public static class SimpleZNodeCache extends ZNodeCache<SimpleZNodeCache> {
 
         public static SimpleZNodeCache root() {
-            return new SimpleZNodeCacheFactory().get();
-        }
-
-        public static SimpleZNodeCache childOf(ZNodeLabelTrie.Pointer<SimpleZNodeCache> parent) {
-            return new SimpleZNodeCacheFactory().get(parent);
-        }
-        
-        public static class SimpleZNodeCacheFactory implements DefaultsFactory<ZNodeLabelTrie.Pointer<SimpleZNodeCache>, SimpleZNodeCache> {
-
-            public SimpleZNodeCacheFactory() {}
-            
-            @Override
-            public SimpleZNodeCache get() {
-                return new SimpleZNodeCache(Optional.<ZNodeLabelTrie.Pointer<SimpleZNodeCache>>absent(), this);
-            }
-
-            @Override
-            public SimpleZNodeCache get(ZNodeLabelTrie.Pointer<SimpleZNodeCache> value) {
-                return new SimpleZNodeCache(Optional.of(value), this);
-            }
-            
+            return new SimpleZNodeCache(Optional.<Pointer<SimpleZNodeCache>>absent());
         }
 
         protected SimpleZNodeCache(
-                Optional<Pointer<SimpleZNodeCache>> parent,
-                DefaultsFactory<Pointer<SimpleZNodeCache>, SimpleZNodeCache> factory) {
-            super(parent, factory);
+                Optional<Pointer<SimpleZNodeCache>> parent) {
+            super(parent);
+        }
+
+        @Override
+        protected SimpleZNodeCache newChild(ZNodeLabel.Component label) {
+            Pointer<SimpleZNodeCache> childPointer = SimplePointer.of(label, this);
+            return new SimpleZNodeCache(Optional.of(childPointer));
         }
     }
     

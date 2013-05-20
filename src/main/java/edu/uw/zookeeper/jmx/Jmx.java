@@ -23,7 +23,6 @@ import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.data.ZNodeLabelTrie;
 import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.ParameterizedFactory;
 
 public abstract class Jmx {
     
@@ -143,7 +142,7 @@ public abstract class Jmx {
     }
     
 
-    public static enum ObjectNameNodeFactory implements ParameterizedFactory<ZNodeLabel.Path, Set<ObjectName>> {
+    public static enum ObjectNameNodeFactory implements Function<ZNodeLabel.Path, Set<ObjectName>> {
         INSTANCE;
 
         public static ZNodeLabelTrie.ValueNode<Set<ObjectName>> root() {
@@ -157,7 +156,7 @@ public abstract class Jmx {
         private ObjectNameNodeFactory() {}
         
         @Override
-        public Set<ObjectName> get(ZNodeLabel.Path value) {
+        public Set<ObjectName> apply(ZNodeLabel.Path value) {
             return Sets.newHashSet();
         }
     }

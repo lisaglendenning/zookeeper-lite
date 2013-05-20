@@ -1,4 +1,4 @@
 package edu.uw.zookeeper;
 
-public interface Event {
+public @interface Event {
 }

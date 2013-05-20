@@ -11,7 +11,8 @@ import edu.uw.zookeeper.Event;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 
-public class WatchEvent implements Event, Operation.RecordHolder<IWatcherEvent> {
+@Event
+public class WatchEvent implements Operation.RecordHolder<IWatcherEvent> {
     
     public static WatchEvent of(WatcherEvent message) {
         return new WatchEvent(EventType.fromInt(message.getType()), 
