@@ -24,11 +24,11 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
 
     public static final char SLASH = '/';
     
-    public static ZNodeLabel of(String name) {
-        if (name.indexOf(SLASH) >= 0) {
-            return Path.of(name);
+    public static ZNodeLabel of(String label) {
+        if (label.indexOf(SLASH) >= 0) {
+            return Path.of(label);
         } else {
-            return Component.of(name);
+            return Component.of(label);
         }
     }
     
@@ -100,7 +100,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             }
         }
 
-        private Component(String label) {
+        protected Component(String label) {
             super(label);
         }
         
@@ -288,8 +288,8 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             };
         }
 
-        private Path(String path) {
-            super(path);
+        protected Path(String label) {
+            super(label);
         }
 
         public boolean isAbsolute() {
@@ -361,10 +361,10 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
         }
     }
     
-    protected final String value;
+    protected final String label;
 
-    protected ZNodeLabel(String value) {
-        this.value = value;
+    protected ZNodeLabel(String label) {
+        this.label = label;
     }
 
     @Override
@@ -374,7 +374,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
     
     @Override
     public String toString() {
-        return value;
+        return label;
     }
 
     @Override

@@ -9,48 +9,58 @@ import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
+import edu.uw.zookeeper.data.Serializer;
 import edu.uw.zookeeper.util.Factories;
 
 public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAddress> implements ServerView, ServerView.Address<InetSocketAddress> {
 
-    public static final char TOKEN_SEP = ':';
-    private static final Splitter SPLITTER = Splitter.on(TOKEN_SEP).trimResults().limit(2);
-    
-    public static String addressToString(InetSocketAddress address) {
-        // Prefer IP address, otherwise use the hostname
-        String host;
-        InetAddress ip = address.getAddress();
-        if (ip != null) {
-            host = ip.getHostAddress();
-        } else {
-            host = address.getHostName();
-        }
-        return String.format("%s%c%d", host, TOKEN_SEP, address.getPort());
-    }
+    public static abstract class Address {
 
-    public static String toString(ServerInetAddressView input) {
-        return addressToString(checkNotNull(input).get());
-    }
-    
-    public static InetSocketAddress addressFromString(String input) {
-        checkNotNull(input);
-        String[] fields = Iterables.toArray(SPLITTER.split(input), String.class);
-        if (fields.length == 0) {
-            return new InetSocketAddress(0);
-        } else {
-            String portField = (fields.length > 1) ? fields[1] : fields[0];
-            int port = Integer.parseInt(portField);
-            if (fields.length > 1) {
-                return new InetSocketAddress(fields[0], port);
+        public static final char TOKEN_SEP = ':';
+        private static final Splitter SPLITTER = Splitter.on(TOKEN_SEP).trimResults().limit(2);
+        
+        @Serializer(input=InetSocketAddress.class, output=String.class)
+        public static String toString(InetSocketAddress address) {
+            // Prefer IP address, otherwise use the hostname
+            String host;
+            InetAddress ip = address.getAddress();
+            if (ip != null) {
+                host = ip.getHostAddress();
             } else {
-                return new InetSocketAddress(port);
+                host = address.getHostName();
             }
-        }        
+            return String.format("%s%c%d", host, TOKEN_SEP, address.getPort());
+        }
+
+        @Serializer(input=String.class, output=InetSocketAddress.class)
+        public static InetSocketAddress fromString(String input) {
+            checkNotNull(input);
+            String[] fields = Iterables.toArray(SPLITTER.split(input), String.class);
+            if (fields.length == 0) {
+                return new InetSocketAddress(0);
+            } else {
+                String portField = (fields.length > 1) ? fields[1] : fields[0];
+                int port = Integer.parseInt(portField);
+                if (fields.length > 1) {
+                    return new InetSocketAddress(fields[0], port);
+                } else {
+                    return new InetSocketAddress(port);
+                }
+            }        
+        }
+
+        private Address() {}
     }
 
+    @Serializer(input=ServerInetAddressView.class, output=String.class)
+    public static String toString(ServerInetAddressView input) {
+        return Address.toString(checkNotNull(input).get());
+    }
+
+    @Serializer(input=String.class, output=ServerInetAddressView.class)
     public static ServerInetAddressView fromString(String input)
             throws IllegalArgumentException {
-        return of(addressFromString(input));
+        return of(Address.fromString(input));
     }
 
     /**

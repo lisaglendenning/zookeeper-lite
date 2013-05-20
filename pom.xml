@@ -9,6 +9,7 @@
 	<organization>
 		<name>University of Washington</name>
 	</organization>
+    <!--  Figure out how to make code dependent on Sun attach API optional -->
 	<build>
 		<plugins>
 			<plugin>

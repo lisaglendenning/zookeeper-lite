@@ -4,7 +4,6 @@ package edu.uw.zookeeper.client;
 import java.util.AbstractMap;
 import java.util.Map;
 
-import com.google.common.base.Throwables;
 import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.EnsembleView;
@@ -64,11 +63,7 @@ public abstract class ClientMain extends AbstractMain {
             Config config = value.withArguments(configPath, args);
             if (config.hasPath(CONFIG_KEY)) {
                 String input = config.getString(CONFIG_KEY);
-                try {
-                    return EnsembleView.fromString(input);
-                } catch (ClassNotFoundException e) {
-                    throw Throwables.propagate(e);
-                }
+                return EnsembleView.fromString(input);
             } else {
                 return get();
             }

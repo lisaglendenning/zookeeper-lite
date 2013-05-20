@@ -5,7 +5,6 @@ import java.net.SocketAddress;
 import java.util.AbstractMap;
 import java.util.Map;
 
-import com.google.common.base.Throwables;
 import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.ServerAddressView;
@@ -63,11 +62,7 @@ public abstract class ServerMain extends AbstractMain {
             Config config = value.withArguments(configPath, args);
             if (config.hasPath(CONFIG_KEY)) {
             String input = config.getString(CONFIG_KEY);
-                try {
-                    return ServerAddressView.fromString(input);
-                } catch (ClassNotFoundException e) {
-                    throw Throwables.propagate(e);
-                }
+                return ServerAddressView.fromString(input);
             } else {
                 return get();
             }

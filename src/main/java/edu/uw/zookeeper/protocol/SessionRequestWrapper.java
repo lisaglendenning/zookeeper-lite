@@ -9,8 +9,6 @@ import java.io.InputStream;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.data.Buffers;
-import edu.uw.zookeeper.data.Encodable;
 import edu.uw.zookeeper.protocol.proto.IRequestHeader;
 import edu.uw.zookeeper.protocol.proto.Records;
 

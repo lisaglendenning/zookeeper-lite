@@ -1,6 +1,5 @@
 package edu.uw.zookeeper.protocol;
 
-import edu.uw.zookeeper.data.Encodable;
 
 
 public interface Message extends Encodable {

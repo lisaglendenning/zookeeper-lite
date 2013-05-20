@@ -6,7 +6,6 @@ import io.netty.buffer.ByteBufInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-import edu.uw.zookeeper.data.Decoder;
 import edu.uw.zookeeper.util.Stateful;
 
 public class SessionRequestDecoder implements Stateful<ProtocolState>,

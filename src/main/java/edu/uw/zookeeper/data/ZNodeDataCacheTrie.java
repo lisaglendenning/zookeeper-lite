@@ -1,8 +1,5 @@
 package edu.uw.zookeeper.data;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-
 import java.util.Arrays;
 import com.google.common.base.Optional;
 import edu.uw.zookeeper.data.ZNodeCacheTrie.ZNodeCache;
@@ -10,88 +7,66 @@ import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.ParameterizedFactory;
 
-public class ZNodeDataCacheTrie extends ZNodeCacheTrie<ZNodeDataCacheTrie.ZNodeDataCache> {
+public class ZNodeDataCacheTrie<T> extends ZNodeCacheTrie<ZNodeDataCacheTrie.ZNodeDataCache<T>> {
 
-    public static enum Decoder implements DefaultsFactory<ByteBuf, Object> {
-        NULL {
-            @Override
-            public Object get() {
-                return null;
-            }
-
-            @Override
-            public Object get(ByteBuf value) {
-                return null;
-            }
-        },
-        BYTEBUF {
-            @Override
-            public ByteBuf get() {
-                return null;
-            }
-
-            @Override
-            public ByteBuf get(ByteBuf value) {
-                return value;
-            }
-        };
+    public static interface Deserializer<T> {
+        T deserialize(ZNodeLabel.Path path, byte[] bytes);
     }
     
-    public static class ZNodeDataCache extends ZNodeCache<ZNodeDataCache> {
+    public static class ZNodeDataCache<T> extends ZNodeCache<ZNodeDataCache<T>> {
 
-        public static ZNodeDataCache root(ParameterizedFactory<ZNodeLabel.Path, DefaultsFactory<ByteBuf, ?>> decoders) {
-            return new ZNodeDataFactory(decoders).get();
+        public static <T> ZNodeDataCache<T> root(Deserializer<T> deserializer) {
+            return new ZNodeDataFactory<T>(deserializer).get();
         }
 
-        public static ZNodeDataCache childOf(ZNodeLabelTrie.Pointer<ZNodeDataCache> parent,
-                ParameterizedFactory<ZNodeLabel.Path, DefaultsFactory<ByteBuf, ?>> decoders) {
-            return new ZNodeDataFactory(decoders).get(parent);
+        public static <T> ZNodeDataCache<T> childOf(ZNodeLabelTrie.Pointer<ZNodeDataCache<T>> parent,
+                Deserializer<T> deserializer) {
+            return new ZNodeDataFactory<T>(deserializer).get(parent);
         }
         
-        public static class ZNodeDataFactory implements DefaultsFactory<ZNodeLabelTrie.Pointer<ZNodeDataCache>, ZNodeDataCache> {
+        public static class ZNodeDataFactory<T> implements DefaultsFactory<ZNodeLabelTrie.Pointer<ZNodeDataCache<T>>, ZNodeDataCache<T>> {
 
-            protected final ParameterizedFactory<ZNodeLabel.Path, DefaultsFactory<ByteBuf, ?>> decoders;
+            protected final Deserializer<T> deserializer;
             
-            public ZNodeDataFactory(ParameterizedFactory<ZNodeLabel.Path, DefaultsFactory<ByteBuf, ?>> decoders) {
-                this.decoders = decoders;
+            public ZNodeDataFactory(Deserializer<T> deserializer) {
+                this.deserializer = deserializer;
             }
             
-            public ParameterizedFactory<ZNodeLabel.Path, DefaultsFactory<ByteBuf, ?>> decoders() {
-                return decoders;
+            public Deserializer<T> deserializer() {
+                return deserializer;
             }
             
             @Override
-            public ZNodeDataCache get() {
-                return new ZNodeDataCache(Optional.<ZNodeLabelTrie.Pointer<ZNodeDataCache>>absent(), this);
+            public ZNodeDataCache<T> get() {
+                return new ZNodeDataCache<T>(Optional.<ZNodeLabelTrie.Pointer<ZNodeDataCache<T>>>absent(), this);
             }
 
             @Override
-            public ZNodeDataCache get(ZNodeLabelTrie.Pointer<ZNodeDataCache> value) {
-                return new ZNodeDataCache(Optional.of(value), this);
+            public ZNodeDataCache<T> get(ZNodeLabelTrie.Pointer<ZNodeDataCache<T>> value) {
+                return new ZNodeDataCache<T>(Optional.of(value), this);
             }
         }
         
-        protected final StampedReference.Updater<Object> value;
+        protected final StampedReference.Updater<T> value;
 
         protected ZNodeDataCache(
-                Optional<Pointer<ZNodeDataCache>> parent,
-                ZNodeDataFactory factory) {
+                Optional<Pointer<ZNodeDataCache<T>>> parent,
+                ZNodeDataFactory<T> factory) {
             super(parent, factory);
-            Object initialValue = factory.decoders().get(path()).get();
+            T initialValue = null;
             this.value = StampedReference.Updater.newInstance(StampedReference.of(initialValue));
         }
         
-        public <T extends Records.View> StampedReference<? extends T> update(View view, StampedReference<T> value) {
-            StampedReference<? extends T> prev = super.update(view, value);
+        @Override
+        public <U extends Records.View> StampedReference<? extends U> update(View view, StampedReference<U> value) {
+            StampedReference<? extends U> prev = super.update(view, value);
             if (view == View.DATA && prev.stamp().compareTo(value.stamp()) < 0) {
                 byte[] prevData = ((Records.DataHolder) prev.get()).getData();
                 byte[] updatedData = ((Records.DataHolder) value.get()).getData();
                 if (! Arrays.equals(prevData, updatedData)) {
-                    ByteBuf buf = Unpooled.wrappedBuffer(updatedData);
-                    Object updatedObj = ((ZNodeDataFactory)factory).decoders().get(path()).get(buf);
-                    StampedReference<?> updatedValue = StampedReference.of(value.stamp(), updatedObj);
+                    T updatedObj = ((ZNodeDataFactory<T>)factory).deserializer().deserialize(path(), updatedData);
+                    StampedReference<T> updatedValue = StampedReference.of(value.stamp(), updatedObj);
                     this.value.setIfGreater(updatedValue);
                 }
             }
@@ -99,12 +74,12 @@ public class ZNodeDataCacheTrie extends ZNodeCacheTrie<ZNodeDataCacheTrie.ZNodeD
         }
         
         @SuppressWarnings("unchecked")
-        public <T> T get() {
-            return (T) value.get();
+        public <U extends T> U get() {
+            return (U) value.get();
         }
     }
     
-    protected ZNodeDataCacheTrie(ClientProtocolConnection client, ZNodeDataCache root) {
+    protected ZNodeDataCacheTrie(ClientProtocolConnection client, ZNodeDataCache<T> root) {
         super(client, root);
     }
 }

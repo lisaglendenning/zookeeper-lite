@@ -14,6 +14,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
+import edu.uw.zookeeper.data.Serializer;
+
 public class EnsembleView implements ServerView, Iterable<ServerQuorumView> {
 
     public static final char TOKEN_SEP = ',';
@@ -22,23 +24,30 @@ public class EnsembleView implements ServerView, Iterable<ServerQuorumView> {
 
     public static final Optional<ServerQuorumView> LEADER_NONE = Optional
             .<ServerQuorumView> absent();
+    
+    protected static final Joiner JOINER = Joiner.on(TOKEN_SEP);
+    protected static final Splitter SPLITTER = Splitter.on(TOKEN_SEP).trimResults();
+    
+    public static enum ServerQuorumViewToString implements Function<ServerQuorumView, String> {
+        TO_STRING;
+        
+        @Override
+        public String apply(ServerQuorumView e) {
+            return ServerQuorumView.toString(e);
+        }
+    }
 
+    @Serializer(input=EnsembleView.class, output=String.class)
     public static String toString(EnsembleView input) {
         StringBuilder output = new StringBuilder();
         output.append(TOKEN_START);
-        Joiner joiner = Joiner.on(TOKEN_SEP);
-        joiner.appendTo(output, Iterables.transform(input,
-                new Function<ServerQuorumView, String>() {
-                    @Override
-                    public String apply(ServerQuorumView e) {
-                        return ServerQuorumView.toString(e);
-                    }
-                }));
+        JOINER.appendTo(output, Iterables.transform(input, ServerQuorumViewToString.TO_STRING));
         output.append(TOKEN_END);
         return output.toString();
     }
-    
-    public static EnsembleView fromString(String input) throws ClassNotFoundException {
+
+    @Serializer(input=String.class, output=EnsembleView.class)
+    public static EnsembleView fromString(String input) {
         List<ServerQuorumView> members = Lists.newArrayList();
         input = input.trim();
         if (input.length() > 0) {
@@ -46,8 +55,7 @@ public class EnsembleView implements ServerView, Iterable<ServerQuorumView> {
                 checkArgument(input.charAt(input.length() - 1) == TOKEN_END);
                 input = input.substring(1, input.length() - 1).trim();
             }
-            Splitter splitter = Splitter.on(TOKEN_SEP).trimResults();
-            String[] fields = Iterables.toArray(splitter.split(input), String.class);
+            String[] fields = Iterables.toArray(SPLITTER.split(input), String.class);
             for (String field : fields) {
                 ServerQuorumView member = ServerQuorumView.fromString(field);
                 members.add(member);
