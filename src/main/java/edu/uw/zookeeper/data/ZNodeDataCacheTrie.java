@@ -1,7 +1,11 @@
 package edu.uw.zookeeper.data;
 
 import java.util.Arrays;
+
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
+
 import edu.uw.zookeeper.data.ZNodeCacheTrie.ZNodeCache;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
@@ -12,6 +16,27 @@ public class ZNodeDataCacheTrie<T> extends ZNodeCacheTrie<ZNodeDataCacheTrie.ZNo
 
     public static interface Deserializer<T> {
         T deserialize(ZNodeLabel.Path path, byte[] bytes);
+    }
+    
+    public static class AnnotationDeserializer<T> implements Deserializer<T> {
+        protected final Function<ZNodeLabel.Path, Class<? extends T>> mapper;
+        
+        protected AnnotationDeserializer(Function<ZNodeLabel.Path, Class<? extends T>> mapper) {
+            this.mapper = mapper;
+        }
+        
+        @SuppressWarnings("unchecked")
+        @Override
+        public T deserialize(ZNodeLabel.Path path, byte[] bytes) {
+            Class<?> inputType = byte[].class;
+            Class<? extends T> outputType = mapper.apply(path);
+            Serializers.SerializerMethod serializer = Serializers.getInstance().find(outputType, inputType, outputType);
+            try {
+                return (T) serializer.method().invoke(null, bytes);
+            } catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+        }
     }
     
     public static class ZNodeDataCache<T> extends ZNodeCache<ZNodeDataCache<T>> {
