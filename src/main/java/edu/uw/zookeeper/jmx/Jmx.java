@@ -13,8 +13,6 @@ import javax.management.remote.JMXServiceURL;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
@@ -25,6 +23,7 @@ import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.data.ZNodeLabelTrie;
 import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.ParameterizedFactory;
 
 public abstract class Jmx {
     
@@ -144,52 +143,22 @@ public abstract class Jmx {
     }
     
 
-    public static class ObjectNameNode extends ZNodeLabelTrie.AbstractNode<ObjectNameNode> {
+    public static enum ObjectNameNodeFactory implements ParameterizedFactory<ZNodeLabel.Path, Set<ObjectName>> {
+        INSTANCE;
 
-        public static ObjectNameNode root() {
-            return new ObjectNameNodeFactory().get();
+        public static ZNodeLabelTrie.ValueNode<Set<ObjectName>> root() {
+            return ZNodeLabelTrie.ValueNode.root(ObjectNameNodeFactory.getInstance());
         }
 
-        public static ObjectNameNode childOf(ZNodeLabelTrie.Pointer<ObjectNameNode> parent) {
-            return new ObjectNameNodeFactory().get(parent);
-        }
-        
-        public static class ObjectNameNodeFactory implements DefaultsFactory<ZNodeLabelTrie.Pointer<ObjectNameNode>, ObjectNameNode> {
-
-            public ObjectNameNodeFactory() {}
-            
-            @Override
-            public ObjectNameNode get() {
-                return new ObjectNameNode(Optional.<ZNodeLabelTrie.Pointer<ObjectNameNode>>absent(), this);
-            }
-
-            @Override
-            public ObjectNameNode get(ZNodeLabelTrie.Pointer<ObjectNameNode> value) {
-                return new ObjectNameNode(Optional.of(value), this);
-            }
-            
+        public static ObjectNameNodeFactory getInstance() {
+            return INSTANCE;
         }
         
-        protected final Set<ObjectName> names;
-
-        protected ObjectNameNode(
-                Optional<ZNodeLabelTrie.Pointer<ObjectNameNode>> parent,
-                DefaultsFactory<ZNodeLabelTrie.Pointer<ObjectNameNode>, ObjectNameNode> factory) {
-            super(parent, factory);
-            this.names = Sets.newHashSet();
-        }
-
-        public Set<ObjectName> names() {
-            return names;
-        }
+        private ObjectNameNodeFactory() {}
         
-        @Override 
-        public String toString() {
-            return Objects.toStringHelper(this)
-                    .add("path", path())
-                    .add("children", children())
-                    .add("names", names())
-                    .toString();
+        @Override
+        public Set<ObjectName> get(ZNodeLabel.Path value) {
+            return Sets.newHashSet();
         }
     }
     
@@ -244,8 +213,8 @@ public abstract class Jmx {
             throw new IllegalArgumentException(key.toString());
         }
         
-        public ZNodeLabelTrie<ObjectNameNode> instantiate(MBeanServerConnection mbeans) throws IOException {
-            ZNodeLabelTrie<ObjectNameNode> instance = ZNodeLabelTrie.of(ObjectNameNode.root());
+        public ZNodeLabelTrie<ZNodeLabelTrie.ValueNode<Set<ObjectName>>> instantiate(MBeanServerConnection mbeans) throws IOException {
+            ZNodeLabelTrie<ZNodeLabelTrie.ValueNode<Set<ObjectName>>> instance = ZNodeLabelTrie.of(ObjectNameNodeFactory.root());
             for (ZNodeLabelTrie.SimpleNode n: asTrie()) {
                 ZNodeLabel.Path path = n.path();
                 if (path.isRoot()) {
@@ -256,16 +225,16 @@ public abstract class Jmx {
                     ObjectName pattern = PathObjectName.of(ZNodeLabel.Path.of(patternOf(path.toString())));
                     Set<ObjectName> results = mbeans.queryNames(pattern, null);
                     if (results.size() > 0) {
-                        ObjectNameNode node = instance.put(path);
+                        ZNodeLabelTrie.ValueNode<Set<ObjectName>> node = instance.put(path);
                         for (ObjectName result: results) {
-                            node.names().add(result);
+                            node.get().add(result);
                         }
                     }
                 } else {
                     ObjectName result = PathObjectName.of(path);
                     if (mbeans.isRegistered(result)) {
-                        ObjectNameNode node = instance.put(path);
-                        node.names().add(result);
+                        ZNodeLabelTrie.ValueNode<Set<ObjectName>> node = instance.put(path);
+                        node.get().add(result);
                     }
                 }
             }
@@ -296,7 +265,7 @@ public abstract class Jmx {
         try {
             MBeanServerConnection mbeans = connector.getMBeanServerConnection();
             for (ServerSchema schema: ServerSchema.values()) {
-                ZNodeLabelTrie<ObjectNameNode> objectNames = schema.instantiate(mbeans);
+                ZNodeLabelTrie<ZNodeLabelTrie.ValueNode<Set<ObjectName>>> objectNames = schema.instantiate(mbeans);
                 if (! objectNames.isEmpty()) {
                     System.out.println(objectNames.toString());
                 }

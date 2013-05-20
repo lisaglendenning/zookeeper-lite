@@ -195,6 +195,62 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         }
         
     }
+
+    public static class ValueNode<V> extends AbstractNode<ValueNode<V>> implements Reference<V> {
+
+        public static <V> ValueNode<V> root(ParameterizedFactory<ZNodeLabel.Path, V> values) {
+            return ValueNodeFactory.of(values).get();
+        }
+
+        public static class ValueNodeFactory<V> implements DefaultsFactory<Pointer<ValueNode<V>>, ValueNode<V>> {
+
+            public static <V> ValueNodeFactory<V> of(ParameterizedFactory<ZNodeLabel.Path, V> values) {
+                return new ValueNodeFactory<V>(values);
+            }
+            
+            protected final ParameterizedFactory<ZNodeLabel.Path, V> values;
+            
+            protected ValueNodeFactory(ParameterizedFactory<ZNodeLabel.Path, V> values) {
+                this.values = values;
+            }
+            
+            public ParameterizedFactory<ZNodeLabel.Path, V> values() {
+                return values;
+            }
+            
+            @Override
+            public ValueNode<V> get() {
+                return new ValueNode<V>(Optional.<Pointer<ValueNode<V>>>absent(), this);
+            }
+
+            @Override
+            public ValueNode<V> get(Pointer<ValueNode<V>> value) {
+                return new ValueNode<V>(Optional.of(value), this);
+            }
+            
+        }
+        
+        protected final V value;
+        
+        protected ValueNode(Optional<Pointer<ValueNode<V>>> parent, ValueNodeFactory<V> factory) {
+            super(parent, factory);
+            this.value = factory.values().get(path());
+        }
+        
+        @Override
+        public V get() {
+            return value;
+        }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("path", path())
+                    .add("children", children())
+                    .add("value", get())
+                    .toString();
+        }
+    }
     
     public static enum TraversalStrategy {
         PREORDER, BREADTH_FIRST;
