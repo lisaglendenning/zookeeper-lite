@@ -245,14 +245,20 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
                 if (builder.length() == 0) {
                     builder.append(component);
                 } else {
-                    if (Path.root().toString().equals(component)) {
-                        continue;
+                    if (firstSlash == 0) {
+                        if (component.length() == 1) {
+                            continue;
+                        }
+                        if (SLASH == builder.charAt(builder.length() - 1)) {
+                            component = component.substring(1);
+                        }
+                        builder.append(component);
+                    } else {
+                        if (SLASH != builder.charAt(builder.length() - 1)) {
+                            builder.append(SLASH);
+                        }
+                        builder.append(component);
                     }
-                    if ((firstSlash != 0) 
-                            && (SLASH != builder.charAt(builder.length() - 1))) {
-                        builder.append(SLASH);
-                    }
-                    builder.append(component);
                 }
             }
             return builder.toString();
