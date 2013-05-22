@@ -1,5 +1,8 @@
 package edu.uw.zookeeper;
 
+import java.net.SocketAddress;
+
+import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
@@ -7,72 +10,69 @@ import com.google.common.collect.Iterables;
 
 import edu.uw.zookeeper.data.Serializes;
 import edu.uw.zookeeper.util.Automaton;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.SimpleAutomaton;
 
-public class ServerQuorumView implements ServerView, ServerView.Quorum {
+public class ServerQuorumView<T extends SocketAddress> 
+        extends Pair<ServerView.Address<T>,Automaton<QuorumRole, QuorumRole>> 
+        implements ServerView.Quorum, ServerView.Address<T> {
 
     public static final char SEP = ';';
-    
+
+    protected static Joiner JOINER = Joiner.on(SEP);
     protected static Splitter SPLITTER = Splitter.on(SEP).trimResults().limit(2);
 
     @Serializes(from=ServerQuorumView.class, to=String.class)
-    public static String toString(ServerQuorumView input) {
-        String netString = ServerAddressView.toString(input.asAddress());
-        String output = netString;
+    public static String toString(ServerQuorumView<?> input) {
+        String addressStr = ServerAddressView.toString(input.first());
+        String output = addressStr;
         QuorumRole state = input.state();
         if (state != QuorumRole.UNKNOWN) {
-            output = String.format("%s%c%s", netString, SEP, state);
+            output = JOINER.join(addressStr, state.name());
         }
         return output;
     }
 
     @Serializes(from=String.class, to=ServerQuorumView.class)
-    public static ServerQuorumView fromString(String input) {
+    public static ServerQuorumView<?> fromString(String input) {
         String[] fields = Iterables.toArray(SPLITTER.split(input), String.class);
         ServerView.Address<?> address = ServerAddressView.fromString(input);
         QuorumRole state = (fields.length > 1) ? QuorumRole.valueOf(fields[1])
                 : QuorumRole.UNKNOWN;
-        return newInstance(address, state);
+        return of(address, state);
     }
     
-    public static ServerQuorumView newInstance(ServerView.Address<?> address) {
-        Automaton<QuorumRole, QuorumRole> automaton = SimpleAutomaton.create(QuorumRole.class);
-        return newInstance(address, automaton);
+    public static <T extends SocketAddress> ServerQuorumView<T> of(
+            ServerView.Address<T> address) {
+        return of(address, SimpleAutomaton.create(QuorumRole.class));
     }
     
-    public static ServerQuorumView newInstance(ServerView.Address<?> address,
+    public static <T extends SocketAddress> ServerQuorumView<T> of(
+            ServerView.Address<T> address,
             QuorumRole state) {
-        Automaton<QuorumRole, QuorumRole> automaton = SimpleAutomaton.create(state);
-        return newInstance(address, automaton);
+        return of(address, SimpleAutomaton.create(state));
     }
     
-    public static ServerQuorumView newInstance(ServerView.Address<?> address,
+    public static <T extends SocketAddress> ServerQuorumView<T> of(
+            ServerView.Address<T> address,
             Automaton<QuorumRole, QuorumRole> automaton) {
-        return new ServerQuorumView(address, automaton);
+        return new ServerQuorumView<T>(address, automaton);
     }
 
-    protected final ServerView.Address<?> address;
-    protected final Automaton<QuorumRole, QuorumRole> automaton;
-
-    public ServerQuorumView(ServerView.Address<?> address,
+    public ServerQuorumView(
+            ServerView.Address<T> address,
             Automaton<QuorumRole, QuorumRole> automaton) {
-        super();
-        this.address = address;
-        this.automaton = automaton;
+        super(address, automaton);
     }
 
     @Override
     public Optional<QuorumRole> apply(QuorumRole input) {
-        return automaton.apply(input);
+        return second().apply(input);
     }
 
     @Override
     public QuorumRole state() {
-        return automaton.state();
-    }
-
-    public ServerView.Address<?> asAddress() {
-        return address;
+        return second().state();
     }
 
     public boolean isLeading() {
@@ -82,6 +82,11 @@ public class ServerQuorumView implements ServerView, ServerView.Quorum {
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .add("state", state()).add("address", asAddress()).toString();
+                .add("state", state()).add("address", get()).toString();
+    }
+
+    @Override
+    public T get() {
+        return first().get();
     }
 }

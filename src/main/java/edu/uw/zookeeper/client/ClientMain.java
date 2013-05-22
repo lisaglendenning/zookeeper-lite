@@ -6,7 +6,7 @@ import java.util.Map;
 
 import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
-import edu.uw.zookeeper.EnsembleView;
+import edu.uw.zookeeper.EnsembleQuorumView;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerQuorumView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
@@ -26,7 +26,7 @@ import edu.uw.zookeeper.util.TimeValue;
 
 public abstract class ClientMain extends AbstractMain {
 
-    public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleView> {
+    public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleQuorumView<?>> {
 
         public static ConfigurableEnsembleViewFactory newInstance() {
             return new ConfigurableEnsembleViewFactory("");
@@ -44,15 +44,16 @@ public abstract class ClientMain extends AbstractMain {
             this.configPath = configPath;
         }
         
+        @SuppressWarnings("unchecked")
         @Override
-        public EnsembleView get() {
-            return EnsembleView.of(
-                    ServerQuorumView.newInstance(ServerInetAddressView.of(
+        public EnsembleQuorumView<?> get() {
+            return EnsembleQuorumView.ofQuorum(
+                    ServerQuorumView.of(ServerInetAddressView.of(
                     DEFAULT_ADDRESS, DEFAULT_PORT)));
         }
 
         @Override
-        public EnsembleView get(Configuration value) {
+        public EnsembleQuorumView<?> get(Configuration value) {
             Arguments arguments = value.asArguments();
             if (! arguments.has(ARG)) {
                 arguments.add(arguments.newOption(ARG, "Ensemble"));
@@ -63,7 +64,7 @@ public abstract class ClientMain extends AbstractMain {
             Config config = value.withArguments(configPath, args);
             if (config.hasPath(CONFIG_KEY)) {
                 String input = config.getString(CONFIG_KEY);
-                return EnsembleView.fromString(input);
+                return EnsembleQuorumView.fromStringQuorum(input);
             } else {
                 return get();
             }
@@ -121,7 +122,7 @@ public abstract class ClientMain extends AbstractMain {
         
                 ClientConnectionFactory clientConnections = monitorsFactory.apply(clientConnectionFactory().get());
 
-                EnsembleView ensemble = ConfigurableEnsembleViewFactory.newInstance().get(configuration());
+                EnsembleQuorumView<?> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(configuration());
                 TimeValue timeOut = TimeoutFactory.newInstance().get(configuration());
                 ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
                         publisherFactory(), timeOut, executors().asScheduledExecutorServiceFactory().get());

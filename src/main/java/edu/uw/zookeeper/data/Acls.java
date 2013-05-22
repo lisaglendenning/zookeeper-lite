@@ -9,12 +9,14 @@ import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.ForwardingSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractPair;
 import edu.uw.zookeeper.util.Reference;
 
@@ -166,6 +168,12 @@ public abstract class Acls {
         @Override
         public ACL asRecord() {
             return new ACL(permissions().intValue(), id());
+        }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("id", Records.toString(id())).add("permissions", permissions()).toString();
         }
     }
     

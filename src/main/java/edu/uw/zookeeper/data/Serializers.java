@@ -4,14 +4,39 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
+import com.google.common.base.Function;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+
 
 public enum Serializers {
     REGISTRY;
     
     public static Serializers getInstance() {
         return REGISTRY;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <I,O> O toClass(I input, Class<O> outputType) {
+        Class<?> inputType = input.getClass();
+        O output;
+        Serializers.Serializer method = find(outputType, inputType, outputType);
+        try {
+            output = (O) method.method().invoke(outputType, input);
+        } catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+        return output;
+    }
+    
+    public static enum ToString implements Function<Object, String> {
+        TO_STRING {
+            @Override
+            public String apply(Object input) {
+                return Serializers.getInstance().toClass(input, String.class);
+            }
+        };
     }
     
     protected final ConcurrentMap<Class<?>, List<Serializer>> registry;

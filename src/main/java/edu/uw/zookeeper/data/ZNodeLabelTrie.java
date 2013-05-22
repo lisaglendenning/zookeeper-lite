@@ -19,6 +19,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
@@ -58,6 +59,8 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         ZNodeLabel.Path path();
         
         SortedMap<ZNodeLabel.Component, E> children();
+
+        E get(String label);
         
         E get(ZNodeLabel.Component label);
 
@@ -120,6 +123,11 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         }
 
         @Override
+        public E get(String label) {
+            return get(ZNodeLabel.Component.of(label));
+        }
+        
+        @Override
         public E get(ZNodeLabel.Component label) {
             return children.get(label);
         }
@@ -177,7 +185,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         public String toString() {
             return Objects.toStringHelper(this)
                     .add("path", path())
-                    .add("children", children())
+                    .add("children", children.keySet())
                     .toString();
         }
     }
@@ -240,7 +248,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         public String toString() {
             return Objects.toStringHelper(this)
                     .add("path", path())
-                    .add("children", children())
+                    .add("children", children.keySet())
                     .add("value", get())
                     .toString();
         }
@@ -455,7 +463,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .add("root", root())
+                .addValue(Iterators.toString(iterator()))
                 .toString();
     }
 }

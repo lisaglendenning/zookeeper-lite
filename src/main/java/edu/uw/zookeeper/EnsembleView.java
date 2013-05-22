@@ -3,52 +3,46 @@ package edu.uw.zookeeper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.Collection;
 import java.util.List;
-import com.google.common.base.Function;
+import java.util.concurrent.ConcurrentSkipListSet;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ForwardingSortedSet;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
+import edu.uw.zookeeper.data.Serializers;
 import edu.uw.zookeeper.data.Serializes;
 
-public class EnsembleView implements ServerView, Iterable<ServerQuorumView> {
+public class EnsembleView<E extends ServerView> extends ForwardingSortedSet<E> {
 
     public static final char TOKEN_SEP = ',';
     public static final char TOKEN_START = '[';
     public static final char TOKEN_END = ']';
 
-    public static final Optional<ServerQuorumView> LEADER_NONE = Optional
-            .<ServerQuorumView> absent();
-    
     protected static final Joiner JOINER = Joiner.on(TOKEN_SEP);
     protected static final Splitter SPLITTER = Splitter.on(TOKEN_SEP).trimResults();
-    
-    public static enum ServerQuorumViewToString implements Function<ServerQuorumView, String> {
-        TO_STRING;
-        
-        @Override
-        public String apply(ServerQuorumView e) {
-            return ServerQuorumView.toString(e);
-        }
-    }
 
     @Serializes(from=EnsembleView.class, to=String.class)
-    public static String toString(EnsembleView input) {
+    public static String toString(EnsembleView<?> input) {
         StringBuilder output = new StringBuilder();
         output.append(TOKEN_START);
-        JOINER.appendTo(output, Iterables.transform(input, ServerQuorumViewToString.TO_STRING));
+        JOINER.appendTo(output, Iterables.transform(input, Serializers.ToString.TO_STRING));
         output.append(TOKEN_END);
         return output.toString();
     }
 
     @Serializes(from=String.class, to=EnsembleView.class)
-    public static EnsembleView fromString(String input) {
-        List<ServerQuorumView> members = Lists.newArrayList();
+    public static EnsembleView<? extends ServerView.Address<?>> fromString(String input) {
+        return from(fromString(input, ServerAddressView.getDefaultType()));
+    }
+    
+    public static <E> List<E> fromString(String input, Class<E> type) {
+        List<E> members = Lists.newArrayList();
         input = input.trim();
         if (input.length() > 0) {
             if (input.charAt(0) == TOKEN_START) {
@@ -57,69 +51,35 @@ public class EnsembleView implements ServerView, Iterable<ServerQuorumView> {
             }
             String[] fields = Iterables.toArray(SPLITTER.split(input), String.class);
             for (String field : fields) {
-                ServerQuorumView member = ServerQuorumView.fromString(field);
+                E member = Serializers.getInstance().toClass(field, type);
                 members.add(member);
             }
         }
-        EnsembleView view = newInstance(members);
-        return view;
-    }
-
-    public static EnsembleView of(ServerQuorumView...members) {
-        return new EnsembleView(Arrays.asList(members));
-    }
-
-    public static EnsembleView newInstance() {
-        return new EnsembleView();
-    }
-
-    public static EnsembleView newInstance(Iterable<ServerQuorumView> members) {
-        return new EnsembleView(members);
-    }
-
-    protected final List<ServerQuorumView> members;
-
-    public EnsembleView() {
-        this(Collections.<ServerQuorumView>emptyList());
-    }
-
-    public EnsembleView(Iterable<ServerQuorumView> members) {
-        super();
-        this.members = Lists.newCopyOnWriteArrayList(members);
-    }
-
-    protected List<ServerQuorumView> delegate() {
         return members;
     }
 
+    public static <E extends ServerView> EnsembleView<E> empty() {
+        return from(ImmutableList.<E>of());
+    }
+
+    public static <E extends ServerView> EnsembleView<E> of(E...members) {
+        return from(Arrays.asList(members));
+    }
+
+    public static <E extends ServerView> EnsembleView<E> from(Collection<E> members) {
+        return new EnsembleView<E>(members);
+    }
+
+    protected final ConcurrentSkipListSet<E> members;
+
+    public EnsembleView(Collection<E> members) {
+        super();
+        this.members = new ConcurrentSkipListSet<E>(members);
+    }
+
     @Override
-    public Iterator<ServerQuorumView> iterator() {
-        return delegate().iterator();
-    }
-
-    public Optional<ServerQuorumView> getLeader() {
-        Optional<ServerQuorumView> leader = LEADER_NONE;
-        for (ServerQuorumView e: members) {
-            if (e.isLeading()) {
-                leader = Optional.of(e);
-                break;
-            }
-        }
-        return leader;
-    }
-
-    public void setLeader(Optional<ServerQuorumView> leader) {
-        for (ServerQuorumView e: members) {
-            if (e.isLeading()) {
-                if (! (leader.isPresent() && leader.get().equals(e))) {
-                    e.apply(QuorumRole.LOOKING);
-                }
-            } else {
-                if (leader.isPresent() && leader.get().equals(e)) {
-                    e.apply(QuorumRole.LEADING);
-                }
-            }
-        }
+    protected ConcurrentSkipListSet<E> delegate() {
+        return members;
     }
 
     @Override

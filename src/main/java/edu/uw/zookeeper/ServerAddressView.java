@@ -10,24 +10,28 @@ import edu.uw.zookeeper.util.Reference;
 public abstract class ServerAddressView {
 
     public static enum Type implements Reference<Class<? extends ServerView.Address<?>>> {
-        DEFAULT {
-            @SuppressWarnings("unchecked")
-            @Override
-            public Class<? extends ServerView.Address<?>> get() {
-                String className = System.getProperty(PROPERTY_SERVER_ADDRESS_VIEW_TYPE);
-                if (className == null) {
-                    return ServerInetAddressView.class;
-                } else {
-                    try {
-                        return (Class<? extends ServerView.Address<?>>) Class.forName(className);
-                    } catch (ClassNotFoundException e) {
-                        throw Throwables.propagate(e);
-                    }
-                }                
-            }
-        };
+        DEFAULT(ServerAddressView.class.getName(), ServerInetAddressView.class);
         
-        private final static String PROPERTY_SERVER_ADDRESS_VIEW_TYPE = ServerAddressView.class.getName();
+        private final Class<? extends ServerView.Address<?>> type;
+        
+        @SuppressWarnings("unchecked")
+        private Type(String property, Class<? extends ServerView.Address<?>> defaultType) {
+            String className = System.getProperty(property);
+            if (className == null) {
+                this.type = defaultType;
+            } else {
+                try {
+                    this.type = (Class<? extends ServerView.Address<?>>) Class.forName(className);
+                } catch (ClassNotFoundException e) {
+                    throw Throwables.propagate(e);
+                }
+            }                  
+        }
+        
+        @Override
+        public Class<? extends ServerView.Address<?>> get() {
+            return type;
+        }
     }
     
     public static Class<? extends ServerView.Address<?>> getDefaultType() {
@@ -36,32 +40,12 @@ public abstract class ServerAddressView {
 
     @Serializes(from=ServerView.Address.class, to=String.class)
     public static String toString(ServerView.Address<?> input) {
-        @SuppressWarnings("rawtypes")
-        Class<? extends ServerView.Address> type = input.getClass();
-        Serializers.Serializer method = Serializers.getInstance().find(type, type, String.class);
-        String output;
-        try {
-            output = (String) method.method().invoke(input);
-        } catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-        return output;
+        return Serializers.getInstance().toClass(input, String.class);
     }
 
     @Serializes(from=String.class, to=ServerView.Address.class)
     public static ServerView.Address<?> fromString(String input) {
-        return fromString(input, getDefaultType());
-    }
-    
-    public static ServerView.Address<?> fromString(String input, Class<? extends ServerView.Address<?>> type) {
-        ServerView.Address<?> view;
-        Serializers.Serializer method = Serializers.getInstance().find(type, String.class, type);
-        try {
-            view = (ServerView.Address<?>) method.method().invoke(null, input);
-        } catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-        return view;
+        return Serializers.getInstance().toClass(input, getDefaultType());
     }
     
     private ServerAddressView() {}

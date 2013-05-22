@@ -2,11 +2,15 @@ package edu.uw.zookeeper.data;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
+import java.lang.reflect.Member;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.zookeeper.CreateMode;
 
@@ -15,6 +19,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Reference;
@@ -30,101 +35,162 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
         
         public static class Builder {
 
-            public static Builder from(Object obj) {
-                Class<?> type;
-                if (obj instanceof Class) {
-                    type = (Class<?>) obj;
-                } else {
-                    type = obj.getClass();
-                }
-                String label = DEFAULT.getLabel();
-                LabelType labelType = DEFAULT.getLabelType();
-                CreateMode createMode = DEFAULT.getCreateMode();
-                List<Acls.Acl> acl = DEFAULT.getAcl();
-                ZNode annotation = type.getAnnotation(ZNode.class);
-                if (annotation != null) {
-                    createMode = annotation.createMode();
-                    acl = annotation.acl().asList();
-                    label = annotation.label();
-                    labelType = annotation.labelType();
+            public static Builder fromDefault() {
+                return fromSchema(DEFAULT);
+            }
 
-                    Label labelAnnotation = null;
-                    
-                    // Method label annotation overrides class and field
-                    for (Method m: type.getMethods()) {
-                        labelAnnotation = m.getAnnotation(Label.class);
+            public static Builder fromSchema(ZNodeSchema schema) {
+                return new Builder(schema.getLabel(), schema.getLabelType(), schema.getCreateMode(), schema.getAcl(), schema.getType());
+            }
+
+            public static Builder fromAnnotated(AnnotatedElement element) {
+                return fromAnnotated(element, element);
+            }
+
+            public static Builder fromAnnotated(AnnotatedElement element, Object type) {
+                ZNode annotation = element.getAnnotation(ZNode.class);
+                if (annotation == null) {
+                    return null;
+                }
+                return fromAnnotation(annotation, type);
+            }
+            
+            public static Builder fromAnnotation(ZNode annotation) {
+                return fromAnnotation(annotation, DEFAULT.getType());
+            }
+
+            public static Builder fromAnnotation(ZNode annotation, Object type) {
+                String label = annotation.label();
+                LabelType labelType = annotation.labelType();
+                CreateMode createMode = annotation.createMode();
+                List<Acls.Acl> acl = annotation.acl().asList();
+                return new Builder(label, labelType, createMode, acl, type);
+            }
+            
+            public static Builder fromClass(Object obj) {
+                Class<?> type = (obj instanceof Class) ? (Class<?>)obj : obj.getClass();
+                Builder builder = fromAnnotated(type, obj);
+                if (builder == null) {
+                    return null;
+                }
+                
+                Pair<Label, ? extends Member> memberLabel = null;
+                
+                // Method label annotation overrides class and field
+                Method[][] allMethods = {type.getDeclaredMethods(), type.getMethods()};
+                for (Method[] methods: allMethods) {
+                    if (memberLabel != null) {
+                        break;
+                    }
+                    for (Method m: methods) {
+                        Label labelAnnotation = m.getAnnotation(Label.class);
                         if (labelAnnotation != null) {
-                            labelType = labelAnnotation.type();
-                            try {
-                                label = (String) m.invoke(obj);
-                            } catch (Exception e) {
-                                throw Throwables.propagate(e);
-                            }
+                            memberLabel = Pair.create(labelAnnotation, m);
                             break;
                         }
                     }
-                    // Field Label annotation overrides class
-                    if (labelAnnotation == null) {
-                        for (Field f: type.getFields()) {
-                            labelAnnotation = f.getAnnotation(Label.class);
-                            if (labelAnnotation != null) {
-                                labelType = labelAnnotation.type();
-                                try {
-                                    label = f.get(obj).toString();
-                                } catch (IllegalAccessException e) {
-                                    throw Throwables.propagate(e);
-                                }
-                                break;
-                            }
-                        }
-                    }
                 }
-                return new Builder(label, labelType, createMode, acl, obj);
-            }
-
-            public static class ZNodeTraversal extends AbstractIterator<Pair<ZNodeLabel.Path, Builder>> {
-
-                protected final LinkedList<Pair<ZNodeLabel.Path, ? extends Object>> pending;
                 
-                public ZNodeTraversal(Object root) {
-                    this.pending = Lists.newLinkedList();
-                    pending.add(Pair.create(ZNodeLabel.Path.root(), root));
+                // Field Label annotation overrides class
+                Field[][] allFields = {type.getDeclaredFields(), type.getFields()};
+                for (Field[] fields: allFields) {
+                    if (memberLabel != null) {
+                        break;
+                    }
+                    for (Field f: fields) {
+                        Label labelAnnotation = f.getAnnotation(Label.class);
+                        if (labelAnnotation != null) {
+                            memberLabel = Pair.create(labelAnnotation, f);
+                            break;
+                        }
+                    }
                 }
 
-                @Override
-                protected Pair<ZNodeLabel.Path, Builder> computeNext() {
-                    if (! pending.isEmpty()) {
-                        Pair<ZNodeLabel.Path, ? extends Object> next = pending.pop();
-                        Class<?> type;
-                        if (next.second() instanceof Class) {
-                            type = (Class<?>) next.second();
-                        } else {
-                            type = next.second().getClass();
-                        }
-                        Builder builder = from(next.second());
-                        ZNodeLabel.Path parentPath = ZNodeLabel.Path.of(next.first(), ZNodeLabel.of(builder.getLabel()));
-                        for (Class<?> member: type.getClasses()) {
-                            ZNode annotation = type.getAnnotation(ZNode.class);
-                            if (annotation != null) {
-                                pending.push(Pair.create(parentPath, member));
-                            }
-                        }
-                        return Pair.create(next.first(), builder);
+                if (memberLabel != null) {
+                    builder.setLabelType(memberLabel.first().type());
+                    Member member = memberLabel.second();
+                    try {
+                        builder.setLabel(
+                                (member instanceof Method) 
+                                ? (String) ((Method)member).invoke(obj)
+                                : ((Field)member).get(obj).toString());
+                    } catch (Exception e) {
+                        throw Throwables.propagate(e);
                     }
-                    return endOfData();
                 }
+                
+                return builder;
+            }
+            
+            public static <T extends Member & AnnotatedElement> Builder fromAnnotatedMember(T member) {
+                Builder builder = fromAnnotated(member);
+                if (builder == null) {
+                    return null;
+                }
+                if (builder.getLabel().length() == 0) {
+                    builder.setLabel(member.getName());
+                }
+                return builder;
             }
             
             public static Iterator<Pair<ZNodeLabel.Path, Builder>> traverse(Object obj) {
                 return new ZNodeTraversal(obj);
             }
-            
-            public static Builder newInstance() {
-                return newInstance(DEFAULT);
-            }
 
-            public static Builder newInstance(ZNodeSchema schema) {
-                return new Builder(schema.getLabel(), schema.getLabelType(), schema.getCreateMode(), schema.getAcl(), schema.getType());
+            public static class ZNodeTraversal extends AbstractIterator<Pair<ZNodeLabel.Path, Builder>> {
+
+                protected final LinkedList<Pair<ZNodeLabel.Path, Builder>> pending;
+                
+                public ZNodeTraversal(Object root) {
+                    this.pending = Lists.newLinkedList();
+                    Builder builder = fromClass(root);
+                    if (builder != null) {
+                        pending.add(Pair.create(ZNodeLabel.Path.root(), builder));
+                    }
+                }
+
+                @Override
+                protected Pair<ZNodeLabel.Path, Builder> computeNext() {
+                    if (! pending.isEmpty()) {
+                        Pair<ZNodeLabel.Path, Builder> next = pending.pop();
+                        ZNodeLabel.Path path = next.first();
+                        Builder parent = next.second();
+                        if (parent.getLabel().length() > 0) {
+                            path = ZNodeLabel.Path.of(next.first(), ZNodeLabel.of(parent.getLabel()));
+                        }
+                        
+                        Object obj = parent.getType();
+                        Class<?> type = (obj instanceof Class) ? (Class<?>)obj : obj.getClass();
+                        
+                        Set<Field> fields = Sets.newHashSet(type.getDeclaredFields());
+                        fields.addAll(Arrays.asList(type.getFields()));
+                        for (Field f: fields) {
+                            Builder builder = fromAnnotatedMember(f);
+                            if (builder != null) {
+                                pending.push(Pair.create(path, builder));
+                            }
+                        }
+
+                        Set<Method> methods = Sets.newHashSet(type.getDeclaredMethods());
+                        methods.addAll(Arrays.asList(type.getMethods()));
+                        for (Method m: methods) {
+                            Builder builder = fromAnnotatedMember(m);
+                            if (builder != null) {
+                                pending.push(Pair.create(path, builder));
+                            }
+                        }
+                        
+                        for (Class<?> member: type.getClasses()) {
+                            Builder builder = fromClass(member);
+                            if (builder != null) {
+                                pending.push(Pair.create(path, builder));
+                            }
+                        }
+                        
+                        return next;
+                    }
+                    return endOfData();
+                }
             }
             
             protected static final ZNodeSchema DEFAULT = new ZNodeSchema("", LabelType.NONE, CreateMode.PERSISTENT, Acls.Definition.NONE.asList(), Void.class);
@@ -196,6 +262,17 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
             public ZNodeSchema build() {
                 return ZNodeSchema.newInstance(
                         getLabel(), getLabelType(), getCreateMode(), getAcl(), getType());
+            }
+
+            @Override
+            public String toString() {
+                return Objects.toStringHelper(this)
+                        .add("label", getLabel())
+                        .add("labelType", getLabelType())
+                        .add("createMode", getCreateMode())
+                        .add("acl", getAcl())
+                        .add("type", getType())
+                        .toString();
             }
         }
         
