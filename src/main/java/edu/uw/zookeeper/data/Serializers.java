@@ -90,7 +90,7 @@ public enum Serializers {
                 } else {
                     // ?
                 }
-                Serializer serializer = new Serializer(method, annotation, input, output);
+                Serializer serializer = new Serializer(method, input, output);
                 serializers.add(serializer);
             }
             return serializers;
@@ -113,27 +113,20 @@ public enum Serializers {
         }
         
         protected final Method method;
-        protected final Serializes annotation;
         protected final Class<?> inputType;
         protected final Class<?> outputType;
         
         public Serializer(
                 Method method,
-                Serializes annotation,
                 Class<?> inputType, 
                 Class<?> outputType) {
             this.method = method;
-            this.annotation = annotation;
             this.inputType = inputType;
             this.outputType = outputType;
         }
         
         public Method method() {
             return method;
-        }
-        
-        public Serializes annotation() {
-            return annotation;
         }
         
         public Class<?> inputType() {

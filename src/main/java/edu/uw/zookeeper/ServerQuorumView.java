@@ -84,6 +84,12 @@ public class ServerQuorumView<T extends SocketAddress>
         return Objects.toStringHelper(this)
                 .add("state", state()).add("address", get()).toString();
     }
+    
+    @Override
+    public int compareTo(ServerView obj) {
+        ServerQuorumView<?> other = (ServerQuorumView<?>)obj;
+        return toString(this).compareTo(toString(other));
+    }
 
     @Override
     public T get() {

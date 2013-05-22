@@ -1,27 +1,31 @@
 package edu.uw.zookeeper.server;
 
-
 import java.net.SocketAddress;
 import java.util.AbstractMap;
 import java.util.Map;
 
 import com.typesafe.config.Config;
+
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.ServerAddressView;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
+import edu.uw.zookeeper.netty.server.ServerModule;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.Arguments;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.Factories;
-import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.ServiceApplication;
 import edu.uw.zookeeper.util.ServiceMonitor;
-import edu.uw.zookeeper.util.Singleton;
 
-public abstract class ServerMain extends AbstractMain {
+public enum ServerApplicationModule implements ParameterizedFactory<AbstractMain, Application> {
+    INSTANCE;
+    
+    public static ServerApplicationModule getInstance() {
+        return INSTANCE;
+    }
 
     public static class ConfigurableServerAddressViewFactory implements DefaultsFactory<Configuration, ServerView.Address<?>> {
 
@@ -69,35 +73,23 @@ public abstract class ServerMain extends AbstractMain {
         }
     }
     
-    protected final Singleton<Application> application;
-    
-    protected ServerMain(Configuration configuration) {
-        super(configuration);
-        this.application = Factories.lazyFrom(new Factory<Application>() {
-            @Override
-            public Application get() {
-                ServiceMonitor monitor = serviceMonitor();
-                MonitorServiceFactory monitorsFactory = monitors(monitor);
-
-                ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(configuration());
-                ServerConnectionFactory serverConnections = monitorsFactory.apply(serverConnectionFactory().get(address.get()));
-                
-                SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(configuration());
-                ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
-                ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, executors.asScheduledExecutorServiceFactory().get(), configuration()));
-
-                final ServerExecutor serverExecutor = ServerExecutor.newInstance(executors.asListeningExecutorServiceFactory().get(), publisherFactory(), sessions);
-                final Server server = Server.newInstance(publisherFactory(), serverConnections, serverExecutor);
-                
-                return ServerMain.super.application();
-            }
-        });
-    }
-
     @Override
-    protected Application application() {
-        return application.get();
+    public Application get(AbstractMain main) {
+        ServiceMonitor monitor = main.serviceMonitor();
+        AbstractMain.MonitorServiceFactory monitorsFactory = AbstractMain.monitors(monitor);
+
+        ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(main.configuration());
+        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory> serverConnectionFactory = ServerModule.getInstance().get(main);
+        ServerConnectionFactory serverConnections = monitorsFactory.apply(serverConnectionFactory.get(address.get()));
+        
+        SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(main.configuration());
+        ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(main.publisherFactory().get(), policy);
+        ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, main.executors().asScheduledExecutorServiceFactory().get(), main.configuration()));
+
+        final ServerExecutor serverExecutor = ServerExecutor.newInstance(main.executors().asListeningExecutorServiceFactory().get(), main.publisherFactory(), sessions);
+        final Server server = Server.newInstance(main.publisherFactory(), serverConnections, serverExecutor);
+        
+        return ServiceApplication.newInstance(main.serviceMonitor());
     }
-    
-    protected abstract ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory> serverConnectionFactory();
+
 }

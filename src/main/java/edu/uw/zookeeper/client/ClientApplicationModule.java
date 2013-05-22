@@ -11,20 +11,25 @@ import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerQuorumView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.netty.client.ClientModule;
 import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.Arguments;
 import edu.uw.zookeeper.util.ConfigurableTime;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.ServiceApplication;
 import edu.uw.zookeeper.util.ServiceMonitor;
-import edu.uw.zookeeper.util.Singleton;
 import edu.uw.zookeeper.util.TimeValue;
 
-public abstract class ClientMain extends AbstractMain {
+public enum ClientApplicationModule implements ParameterizedFactory<AbstractMain, Application> {
+    INSTANCE;
+    
+    public static ClientApplicationModule getInstance() {
+        return INSTANCE;
+    }
 
     public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleQuorumView<?>> {
 
@@ -110,36 +115,23 @@ public abstract class ClientMain extends AbstractMain {
         }
     }
 
-    protected final Singleton<Application> application;
-    
-    protected ClientMain(Configuration configuration) {
-        super(configuration);
-        this.application = Factories.lazyFrom(new Factory<Application>() {
-            @Override
-            public Application get() {
-                ServiceMonitor monitor = serviceMonitor();
-                MonitorServiceFactory monitorsFactory = monitors(monitor);
-        
-                ClientConnectionFactory clientConnections = monitorsFactory.apply(clientConnectionFactory().get());
-
-                EnsembleQuorumView<?> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(configuration());
-                TimeValue timeOut = TimeoutFactory.newInstance().get(configuration());
-                ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
-                        publisherFactory(), timeOut, executors().asScheduledExecutorServiceFactory().get());
-                AssignXidProcessor xids = AssignXidProcessor.newInstance();
-                EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, publisherFactory(), codecFactory, xids, ensemble, timeOut);
-                monitorsFactory.apply(
-                        ClientProtocolConnectionService.newInstance(ensembleFactory));
-        
-                return ClientMain.super.application();
-            }
-        });
-    }
-
     @Override
-    protected Application application() {
-        return application.get();
+    public Application get(AbstractMain main) {
+        ServiceMonitor monitor = main.serviceMonitor();
+        AbstractMain.MonitorServiceFactory monitorsFactory = AbstractMain.monitors(monitor);
+
+        Factory<? extends ClientConnectionFactory> clientConnectionFactory = ClientModule.getInstance().get(main);
+        ClientConnectionFactory clientConnections = monitorsFactory.apply(clientConnectionFactory.get());
+
+        EnsembleQuorumView<?> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(main.configuration());
+        TimeValue timeOut = TimeoutFactory.newInstance().get(main.configuration());
+        ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
+                main.publisherFactory(), timeOut, main.executors().asScheduledExecutorServiceFactory().get());
+        AssignXidProcessor xids = AssignXidProcessor.newInstance();
+        EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, main.publisherFactory(), codecFactory, xids, ensemble, timeOut);
+        monitorsFactory.apply(
+                ClientProtocolConnectionService.newInstance(ensembleFactory));
+
+        return ServiceApplication.newInstance(main.serviceMonitor());
     }
-    
-    protected abstract Factory<? extends ClientConnectionFactory> clientConnectionFactory();
 }

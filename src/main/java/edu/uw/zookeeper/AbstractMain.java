@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.UncaughtExceptionHandlers;
+
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.ConfigurableMain;
 import edu.uw.zookeeper.util.Configuration;
@@ -31,7 +32,6 @@ import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.ServiceApplication;
 import edu.uw.zookeeper.util.ServiceMonitor;
 import edu.uw.zookeeper.util.Singleton;
 import edu.uw.zookeeper.util.TimeValue;
@@ -319,17 +319,22 @@ public abstract class AbstractMain implements Application {
     protected final Singleton<Configuration> configuration;
     protected final ListeningExecutorServiceFactory executors;
     protected final TimeValue shutdownTimeout;
+    protected final Singleton<Application> application;
 
-    protected AbstractMain(Configuration configuration) {
-        this(configuration, DEFAULT_SHUTDOWN_TIMEOUT);
-    }
-    
-    protected AbstractMain(Configuration configuration, TimeValue shutdownTimeout) {
+    protected AbstractMain(
+            final Configuration configuration, 
+            final ParameterizedFactory<AbstractMain, Application> applicationFactory) {
         this.configuration = Factories.holderOf(configuration);
         this.publisherFactory = EventBusPublisherFactory.getInstance();
         this.serviceMonitor = Factories.holderOf(ServiceMonitor.newInstance());
         this.executors = listeningExecutors(serviceMonitor.get());
-        this.shutdownTimeout = shutdownTimeout;
+        this.shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT;
+        this.application = Factories.lazyFrom(new Factory<Application>() {
+            @Override
+            public Application get() {
+                return applicationFactory.get(AbstractMain.this);
+            }
+        });
     }
     
     public Configuration configuration() {
@@ -366,8 +371,8 @@ public abstract class AbstractMain implements Application {
         application.run();
     }
 
-    protected Application application() {
-        return ServiceApplication.newInstance(serviceMonitor());
+    public Application application() {
+        return application.get();
     }
 
     public void shutdown() {

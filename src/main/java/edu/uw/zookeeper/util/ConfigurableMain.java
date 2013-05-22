@@ -60,10 +60,10 @@ public abstract class ConfigurableMain {
         }
     }
     
-    public static class DefaultApplicationFactory implements ParameterizedFactory<Configuration, Runnable> {
+    public static class ConfigurableApplicationFactory<T extends Runnable> implements ParameterizedFactory<Configuration, T> {
 
-        public static DefaultApplicationFactory newInstance(Class<? extends Runnable> applicationType) {
-            return new DefaultApplicationFactory(applicationType);
+        public static <T extends Runnable> ConfigurableApplicationFactory<T> newInstance(Class<? extends T> applicationType) {
+            return new ConfigurableApplicationFactory<T>(applicationType);
         }
         
         public static <T extends Runnable> T newApplication(Class<T> cls, Configuration configuration) {
@@ -74,14 +74,14 @@ public abstract class ConfigurableMain {
             }
         }
 
-        private final Class<? extends Runnable> applicationType;
+        private final Class<? extends T> applicationType;
         
-        private DefaultApplicationFactory(Class<? extends Runnable> applicationType) {
+        private ConfigurableApplicationFactory(Class<? extends T> applicationType) {
             this.applicationType = applicationType;
         }
         
         @Override
-        public Runnable get(Configuration value) {
+        public T get(Configuration value) {
             value.asArguments().setProgramName(applicationType.getName());
             return newApplication(applicationType, value);
         }

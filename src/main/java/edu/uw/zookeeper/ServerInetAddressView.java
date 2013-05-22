@@ -116,4 +116,10 @@ public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAdd
         ServerInetAddressView other = (ServerInetAddressView) obj;
         return Objects.equal(get(), other.get());
     }
+
+    @Override
+    public int compareTo(ServerView obj) {
+        ServerInetAddressView other = (ServerInetAddressView)obj;
+        return toString(this).compareTo(toString(other));
+    }
 }
