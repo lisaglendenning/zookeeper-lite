@@ -37,7 +37,7 @@ import edu.uw.zookeeper.util.Singleton;
 import edu.uw.zookeeper.util.TimeValue;
 
 
-public abstract class AbstractMain implements Application {
+public abstract class AbstractMain implements Application, RuntimeModule {
 
     public static enum EventBusPublisherFactory implements Factory<Publisher> {
         INSTANCE;
@@ -323,7 +323,7 @@ public abstract class AbstractMain implements Application {
 
     protected AbstractMain(
             final Configuration configuration, 
-            final ParameterizedFactory<AbstractMain, Application> applicationFactory) {
+            final ParameterizedFactory<RuntimeModule, Application> applicationFactory) {
         this.configuration = Factories.holderOf(configuration);
         this.publisherFactory = EventBusPublisherFactory.getInstance();
         this.serviceMonitor = Factories.holderOf(ServiceMonitor.newInstance());
@@ -337,22 +337,27 @@ public abstract class AbstractMain implements Application {
         });
     }
     
+    @Override
     public Configuration configuration() {
         return configuration.get();
     }
-    
+
+    @Override
     public Factory<ThreadFactory> threadFactory() {
         return PlatformThreadFactory.getInstance();
     }
-    
+
+    @Override
     public ServiceMonitor serviceMonitor() {
         return serviceMonitor.get();
     }
-    
+
+    @Override
     public Factory<Publisher> publisherFactory() {
         return publisherFactory;
     }
-    
+
+    @Override
     public ListeningExecutorServiceFactory executors() {
         return executors;
     }

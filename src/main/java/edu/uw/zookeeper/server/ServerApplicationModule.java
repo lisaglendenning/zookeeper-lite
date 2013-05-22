@@ -7,6 +7,7 @@ import java.util.Map;
 import com.typesafe.config.Config;
 
 import edu.uw.zookeeper.AbstractMain;
+import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerAddressView;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
@@ -20,7 +21,7 @@ import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.ServiceApplication;
 import edu.uw.zookeeper.util.ServiceMonitor;
 
-public enum ServerApplicationModule implements ParameterizedFactory<AbstractMain, Application> {
+public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModule, Application> {
     INSTANCE;
     
     public static ServerApplicationModule getInstance() {
@@ -74,22 +75,22 @@ public enum ServerApplicationModule implements ParameterizedFactory<AbstractMain
     }
     
     @Override
-    public Application get(AbstractMain main) {
-        ServiceMonitor monitor = main.serviceMonitor();
+    public Application get(RuntimeModule runtime) {
+        ServiceMonitor monitor = runtime.serviceMonitor();
         AbstractMain.MonitorServiceFactory monitorsFactory = AbstractMain.monitors(monitor);
 
-        ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(main.configuration());
-        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory> serverConnectionFactory = ServerModule.getInstance().get(main);
+        ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
+        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory> serverConnectionFactory = ServerModule.getInstance().get(runtime);
         ServerConnectionFactory serverConnections = monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         
-        SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(main.configuration());
-        ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(main.publisherFactory().get(), policy);
-        ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, main.executors().asScheduledExecutorServiceFactory().get(), main.configuration()));
+        SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(runtime.configuration());
+        ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(runtime.publisherFactory().get(), policy);
+        ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
 
-        final ServerExecutor serverExecutor = ServerExecutor.newInstance(main.executors().asListeningExecutorServiceFactory().get(), main.publisherFactory(), sessions);
-        final Server server = Server.newInstance(main.publisherFactory(), serverConnections, serverExecutor);
+        final ServerExecutor serverExecutor = ServerExecutor.newInstance(runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions);
+        final Server server = Server.newInstance(runtime.publisherFactory(), serverConnections, serverExecutor);
         
-        return ServiceApplication.newInstance(main.serviceMonitor());
+        return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
 
 }

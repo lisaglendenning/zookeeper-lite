@@ -5,12 +5,12 @@ import java.net.SocketAddress;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 
-import edu.uw.zookeeper.AbstractMain;
+import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.netty.ChannelConnection;
 import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 
-public enum ServerModule implements ParameterizedFactory<AbstractMain, ParameterizedFactory<SocketAddress, ? extends ChannelServerConnectionFactory>> {
+public enum ServerModule implements ParameterizedFactory<RuntimeModule, ParameterizedFactory<SocketAddress, ? extends ChannelServerConnectionFactory>> {
     INSTANCE;
     
     public static ServerModule getInstance() {
@@ -18,11 +18,11 @@ public enum ServerModule implements ParameterizedFactory<AbstractMain, Parameter
     }
     
     @Override
-    public ParameterizedFactory<SocketAddress, ? extends ChannelServerConnectionFactory> get(AbstractMain main) {
-        ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = ChannelConnection.PerConnectionPublisherFactory.newInstance(main.publisherFactory());
+    public ParameterizedFactory<SocketAddress, ? extends ChannelServerConnectionFactory> get(RuntimeModule runtime) {
+        ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = ChannelConnection.PerConnectionPublisherFactory.newInstance(runtime.publisherFactory());
         ParameterizedFactory<SocketAddress, ServerBootstrap> bootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
-                        NioServerBootstrapFactory.newInstance(main.threadFactory(), main.serviceMonitor()));
-        return ChannelServerConnectionFactory.ParameterizedServerFactoryBuilder.newInstance(main.publisherFactory(), connectionBuilder, bootstrapFactory);
+                        NioServerBootstrapFactory.newInstance(runtime.threadFactory(), runtime.serviceMonitor()));
+        return ChannelServerConnectionFactory.ParameterizedServerFactoryBuilder.newInstance(runtime.publisherFactory(), connectionBuilder, bootstrapFactory);
     }
 }
