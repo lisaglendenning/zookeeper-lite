@@ -218,6 +218,7 @@ public class ClientProtocolConnection
      * 
      * @throws RejectedExecutionException
      */
+    @Override
     public RequestFuture submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
         ProtocolState state = state();
         switch (state) {
