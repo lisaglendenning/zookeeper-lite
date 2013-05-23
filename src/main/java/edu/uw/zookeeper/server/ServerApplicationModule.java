@@ -79,15 +79,16 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         ServiceMonitor monitor = runtime.serviceMonitor();
         AbstractMain.MonitorServiceFactory monitorsFactory = AbstractMain.monitors(monitor);
 
-        ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
-        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory> serverConnectionFactory = ServerModule.getInstance().get(runtime);
-        ServerConnectionFactory serverConnections = monitorsFactory.apply(serverConnectionFactory.get(address.get()));
-        
         SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(runtime.configuration());
         ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(runtime.publisherFactory().get(), policy);
         ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
 
         final ServerExecutor serverExecutor = ServerExecutor.newInstance(runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions);
+
+        ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
+        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory> serverConnectionFactory = ServerModule.getInstance().get(runtime);
+        ServerConnectionFactory serverConnections = monitorsFactory.apply(serverConnectionFactory.get(address.get()));
+        
         final Server server = Server.newInstance(runtime.publisherFactory(), serverConnections, serverExecutor);
         
         return ServiceApplication.newInstance(runtime.serviceMonitor());

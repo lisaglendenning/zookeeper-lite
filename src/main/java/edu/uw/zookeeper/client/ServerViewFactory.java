@@ -2,6 +2,7 @@ package edu.uw.zookeeper.client;
 
 import java.net.SocketAddress;
 
+import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
@@ -18,32 +19,43 @@ import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.TimeValue;
 
-public class SingleAddressFactory implements DefaultsFactory<Session, ClientProtocolConnection> {
+public class ServerViewFactory implements DefaultsFactory<Session, ClientProtocolConnection> {
 
-    public static SingleAddressFactory newInstance(
+    public static ServerViewFactory newInstance(
             ClientConnectionFactory connections,
             Factory<Publisher> publishers,
             ParameterizedFactory<Connection, ? extends ClientCodecConnection> codecFactory,
             Processor<Operation.Request, Operation.SessionRequest> processor,
-            SocketAddress address,
+            ServerView.Address<? extends SocketAddress> server,
             TimeValue timeOut) {
         Factory<Connection> connectionFactory = FixedClientConnectionFactory.newInstance(
-                address, connections);
+                server.get(), connections);
         ZxidTracker.Decorator zxids = 
                 ZxidTracker.Decorator.newInstance(ClientCodecConnection.factory(connectionFactory, codecFactory));
         DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolConnection> delegate = 
                 ClientProtocolConnection.factory(processor, publishers, zxids, zxids.asTracker(), timeOut);
-        return new SingleAddressFactory(zxids, delegate);
+        return new ServerViewFactory(server, zxids, delegate);
     }
     
+    protected final ServerView.Address<? extends SocketAddress> server;
     protected final ZxidTracker.Decorator zxids;
     protected final DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolConnection> delegate;
 
-    protected SingleAddressFactory(
+    protected ServerViewFactory(
+            ServerView.Address<? extends SocketAddress> server,
             ZxidTracker.Decorator zxids,
             DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolConnection> delegate) {
         this.zxids = zxids;
         this.delegate = delegate;
+        this.server = server;
+    }
+    
+    public ServerView.Address<? extends SocketAddress> server() {
+        return server;
+    }
+    
+    public ZxidTracker zxids() {
+        return zxids.asTracker();
     }
 
     @Override
@@ -52,7 +64,7 @@ public class SingleAddressFactory implements DefaultsFactory<Session, ClientProt
     }
 
     @Override
-    public ClientProtocolConnection get(Session value) {
-        return delegate.get(OpCreateSession.Request.RenewRequest.factory(zxids.asTracker(), value));
+    public ClientProtocolConnection get(Session session) {
+        return delegate.get(OpCreateSession.Request.RenewRequest.factory(zxids(), session));
     }
 }

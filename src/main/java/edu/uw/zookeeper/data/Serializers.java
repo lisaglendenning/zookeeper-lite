@@ -17,16 +17,10 @@ public enum Serializers {
         return REGISTRY;
     }
 
-    @SuppressWarnings("unchecked")
     public <I,O> O toClass(I input, Class<O> outputType) {
         Class<?> inputType = input.getClass();
-        O output;
-        Serializers.Serializer method = find(outputType, inputType, outputType);
-        try {
-            output = (O) method.method().invoke(outputType, input);
-        } catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
+        Serializer method = find(outputType, inputType, outputType);
+        O output = method.invoke(outputType, input);
         return output;
     }
     
@@ -34,7 +28,9 @@ public enum Serializers {
         TO_STRING {
             @Override
             public String apply(Object input) {
-                return Serializers.getInstance().toClass(input, String.class);
+                Class<?> inputType = input.getClass();
+                Serializer serializer = Serializers.getInstance().find(inputType, inputType, String.class);
+                return serializer.invoke(inputType, input);
             }
         };
     }
@@ -135,6 +131,17 @@ public enum Serializers {
 
         public Class<?> outputType() {
             return outputType;
+        }
+        
+        @SuppressWarnings("unchecked")
+        public <O> O invoke(Object obj, Object...inputs) {
+            O output;
+            try {
+                output = (O) method().invoke(obj, inputs);
+            } catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+            return output;
         }
     }
 }

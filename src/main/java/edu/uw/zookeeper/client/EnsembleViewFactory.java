@@ -57,7 +57,7 @@ public class EnsembleViewFactory implements DefaultsFactory<ServerView.Address<?
     protected final Function<EnsembleView<? extends ServerView.Address<?>>, ServerView.Address<?>> selector;
     protected final EnsembleView<? extends ServerView.Address<?>> view;
     protected final TimeValue timeOut;
-    protected final Map<ServerView.Address<?>, SingleAddressFactory> factories;
+    protected final Map<ServerView.Address<?>, ServerViewFactory> factories;
     protected final Processor<Operation.Request, Operation.SessionRequest> processor;
     
     protected EnsembleViewFactory(
@@ -75,7 +75,11 @@ public class EnsembleViewFactory implements DefaultsFactory<ServerView.Address<?
         this.publishers = publishers;
         this.codecFactory = codecFactory;
         this.processor = processor;
-        this.factories = Collections.synchronizedMap(Maps.<ServerView.Address<?>, SingleAddressFactory>newHashMap());
+        this.factories = Collections.synchronizedMap(Maps.<ServerView.Address<?>, ServerViewFactory>newHashMap());
+    }
+    
+    public EnsembleView<? extends ServerView.Address<?>> view() {
+        return view;
     }
     
     @Override
@@ -85,9 +89,9 @@ public class EnsembleViewFactory implements DefaultsFactory<ServerView.Address<?
     
     @Override
     public synchronized ClientProtocolConnection get(ServerView.Address<?> server) {
-        SingleAddressFactory factory = factories.get(server);
+        ServerViewFactory factory = factories.get(server);
         if (factory == null) {
-            factory = SingleAddressFactory.newInstance(connections, publishers, codecFactory, processor, server.get(), timeOut);
+            factory = ServerViewFactory.newInstance(connections, publishers, codecFactory, processor, server, timeOut);
             factories.put(server, factory);
         }
         return factory.get();

@@ -1,19 +1,21 @@
 package edu.uw.zookeeper.client;
 
-import java.io.IOException;
-import java.util.concurrent.ExecutionException;
-
 import com.google.common.util.concurrent.AbstractIdleService;
+import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
+import edu.uw.zookeeper.protocol.client.ClientProtocolConnection.RequestFuture;
 import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Reference;
 
 /**
  * Wraps a lazily-instantiated ClientProtocolConnection in a Service.
  */
-public class ClientProtocolConnectionService extends AbstractIdleService implements Reference<ClientProtocolConnection> {
+public class ClientProtocolConnectionService extends AbstractIdleService 
+        implements Reference<ClientProtocolConnection>, ClientExecutor {
 
     public static ClientProtocolConnectionService newInstance(
             Factory<ClientProtocolConnection> clientFactory) {
@@ -28,12 +30,12 @@ public class ClientProtocolConnectionService extends AbstractIdleService impleme
     }
     
     @Override
-    protected void startUp() throws IOException {
+    protected void startUp() throws Exception {
         this.client.get().connect();
     }
 
     @Override
-    protected void shutDown() throws InterruptedException, ExecutionException {
+    protected void shutDown() throws Exception {
         if (this.client.has()) {
             ClientProtocolConnection client = this.client.get();
             switch (client.state()) {
@@ -59,5 +61,25 @@ public class ClientProtocolConnectionService extends AbstractIdleService impleme
         }
         
         return client.get();
+    }
+
+    @Override
+    public ListenableFuture<Operation.SessionResult> submit(Operation.Request request) {
+        return get().submit(request);
+    }
+
+    @Override
+    public void register(Object object) {
+        get().register(object);
+    }
+
+    @Override
+    public void unregister(Object object) {
+        get().unregister(object);
+    }
+
+    @Override
+    public RequestFuture submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
+        return get().submit(request, promise);
     }
 }

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
@@ -33,7 +32,7 @@ public class ClientProtocolConnectionsService extends AbstractIdleService implem
     }
     
     @Override
-    protected void startUp() throws IOException {
+    protected void startUp() throws Exception {
         for (ClientProtocolConnection client: clients) {
             switch (client.state()) {
             case ANONYMOUS:
@@ -46,7 +45,7 @@ public class ClientProtocolConnectionsService extends AbstractIdleService implem
     }
 
     @Override
-    protected void shutDown() throws InterruptedException, ExecutionException {
+    protected void shutDown() throws Exception {
         for (ClientProtocolConnection client: clients) {
             switch (client.state()) {
             case CONNECTING:

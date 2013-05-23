@@ -40,7 +40,7 @@ public abstract class ServerAddressView {
 
     @Serializes(from=ServerView.Address.class, to=String.class)
     public static String toString(ServerView.Address<?> input) {
-        return Serializers.getInstance().toClass(input, String.class);
+        return Serializers.ToString.TO_STRING.apply(input);
     }
 
     @Serializes(from=String.class, to=ServerView.Address.class)
