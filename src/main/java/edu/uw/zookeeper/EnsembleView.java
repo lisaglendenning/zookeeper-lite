@@ -29,13 +29,21 @@ public class EnsembleView<E extends ServerView> extends ForwardingSortedSet<E> {
 
     @Serializes(from=EnsembleView.class, to=String.class)
     public static String toString(Collection<? extends ServerView> input) {
+        return toString(input, false);
+    }
+    
+    public static String toString(Collection<? extends ServerView> input, boolean startAndEnd) {
         StringBuilder output = new StringBuilder();
-        output.append(TOKEN_START);
+        if (startAndEnd) {
+            output.append(TOKEN_START);
+        }
         JOINER.appendTo(output, Iterables.transform(input, Serializers.ToString.TO_STRING));
-        output.append(TOKEN_END);
+        if (startAndEnd) {
+            output.append(TOKEN_END);
+        }
         return output.toString();
     }
-
+    
     @Serializes(from=String.class, to=EnsembleView.class)
     public static EnsembleView<? extends ServerView.Address<?>> fromString(String input) {
         return from(fromString(input, ServerAddressView.getDefaultType()));

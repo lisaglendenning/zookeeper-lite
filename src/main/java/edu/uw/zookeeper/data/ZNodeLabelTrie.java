@@ -70,6 +70,8 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
 
         E remove(ZNodeLabel.Component label);
         
+        boolean isEmpty();
+        
         void clear(); 
     }
     
@@ -151,6 +153,11 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
             } else {
                 return child;
             }
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return children.isEmpty();
         }
         
         @SuppressWarnings("unchecked")
@@ -262,7 +269,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
 
         protected final LinkedList<E> pending;
         
-        public IterativeTraversal(E root) {
+        protected IterativeTraversal(E root) {
             this.pending = Lists.newLinkedList();
             pending.add(root);
         }
@@ -293,6 +300,10 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
     
     public static class PreOrderTraversal<E extends Node<E>> extends IterativeTraversal<E> {
 
+        public static <E extends Node<E>> PreOrderTraversal<E> from(E root) {
+            return new PreOrderTraversal<E>(root);
+        }
+        
         public PreOrderTraversal(E root) {
             super(root);
         }
@@ -319,6 +330,10 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
 
     public static class BreadthFirstTraversal<E extends Node<E>> extends IterativeTraversal<E> {
 
+        public static <E extends Node<E>> BreadthFirstTraversal<E> from(E root) {
+            return new BreadthFirstTraversal<E>(root);
+        }
+        
         public BreadthFirstTraversal(E root) {
             super(root);
         }
@@ -352,7 +367,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
     public E longestPrefix(ZNodeLabel.Path path) {
         E floor = root();
         for (ZNodeLabel.Component component: path) {
-            E next = floor.children().get(component);
+            E next = floor.get(component);
             if (next == null) {
                 break;
             } else {
@@ -371,7 +386,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         E parent = root();
         E next = parent;
         for (ZNodeLabel.Component component: path) {
-            next = parent.children().get(component);
+            next = parent.get(component);
             if (next == null) {
                 next = parent.put(component);
             }
@@ -421,7 +436,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
 
     @Override
     public boolean isEmpty() {
-        return root().children().isEmpty();
+        return root().isEmpty();
     }
 
     @Override

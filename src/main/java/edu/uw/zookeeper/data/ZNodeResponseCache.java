@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import org.apache.jute.Record;
+import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 
@@ -44,20 +44,23 @@ import edu.uw.zookeeper.util.SettableFuturePromise;
 
 /**
  * Only caches the results of operations submitted through this wrapper.
+ * 
+ * TODO: need to compare the zxids when creating/deleting nodes as well
+ * and create an event for tree structure changes (adds/deletes)
  */
-public class ZNodeResponseCache<E extends ZNodeResponseCache.ZNodeCache<E>> extends ForwardingEventful implements ClientExecutor {
+public class ZNodeResponseCache<E extends ZNodeResponseCache.NodeCache<E>> extends ForwardingEventful implements ClientExecutor {
 
     public static ZNodeResponseCache<SimpleZNodeCache> newInstance(
             Publisher publisher, ClientExecutor client) {
         return newInstance(publisher, client, SimpleZNodeCache.root());
     }
     
-    public static <E extends ZNodeResponseCache.ZNodeCache<E>> ZNodeResponseCache<E> newInstance(
+    public static <E extends ZNodeResponseCache.AbstractNodeCache<E>> ZNodeResponseCache<E> newInstance(
             Publisher publisher, ClientExecutor client, E root) {
         return newInstance(publisher, client, ZNodeLabelTrie.of(root));
     }
     
-    public static <E extends ZNodeResponseCache.ZNodeCache<E>> ZNodeResponseCache<E> newInstance(
+    public static <E extends ZNodeResponseCache.AbstractNodeCache<E>> ZNodeResponseCache<E> newInstance(
             Publisher publisher, ClientExecutor client, ZNodeLabelTrie<E> trie) {
         return new ZNodeResponseCache<E>(publisher, client, trie);
     }
@@ -164,16 +167,30 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.ZNodeCache<E>> exte
         }
     }
     
-    public abstract static class ZNodeCache<E extends ZNodeCache<E>> extends ZNodeLabelTrie.AbstractNode<E> {
+    public static interface NodeCache<E extends NodeCache<E>> extends ZNodeLabelTrie.Node<E> {
+
+        <T extends Records.View> StampedReference<? extends T> asView(View view);
+
+        <T extends Records.View> StampedReference<? extends T> update(View view, StampedReference<T> value);
+    }
+    
+    public abstract static class AbstractNodeCache<E extends AbstractNodeCache<E>> extends ZNodeLabelTrie.AbstractNode<E> implements NodeCache<E> {
 
         protected final Map<View, StampedReference.Updater<? extends Records.View>> views;
-        
-        protected ZNodeCache(
+
+        protected AbstractNodeCache(
                 Optional<ZNodeLabelTrie.Pointer<E>> parent) {
+            this(parent,
+                    Collections.synchronizedMap(Maps.<View, StampedReference.Updater<? extends Records.View>>newEnumMap(View.class)));
+        }
+        protected AbstractNodeCache(
+                Optional<ZNodeLabelTrie.Pointer<E>> parent,
+                Map<View, StampedReference.Updater<? extends Records.View>> views) {
             super(parent);
-            this.views = Collections.synchronizedMap(Maps.<View, StampedReference.Updater<? extends Records.View>>newEnumMap(View.class));
+            this.views = views;
         }
 
+        @Override
         @SuppressWarnings("unchecked")
         public <T extends Records.View> StampedReference<? extends T> asView(View view) {
             StampedReference.Updater<? extends Records.View> updater = views.get(view);
@@ -183,7 +200,8 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.ZNodeCache<E>> exte
                 return null;
             }
         }
-        
+
+        @Override
         @SuppressWarnings("unchecked")
         public <T extends Records.View> StampedReference<? extends T> update(View view, StampedReference<T> value) {
             StampedReference.Updater<T> updater = (StampedReference.Updater<T>) views.get(view);
@@ -200,14 +218,17 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.ZNodeCache<E>> exte
             }
             return updater.setIfGreater(value);
         }
-        
+
+        @Override
         public String toString() {
             return Objects.toStringHelper(this)
-                    .add("path", path()).add("views", views).toString();
+                    .add("path", path())
+                    .add("children", children.keySet())
+                    .add("views", views).toString();
         }
     }
     
-    public static class SimpleZNodeCache extends ZNodeCache<SimpleZNodeCache> {
+    public static class SimpleZNodeCache extends AbstractNodeCache<SimpleZNodeCache> {
 
         public static SimpleZNodeCache root() {
             return new SimpleZNodeCache(Optional.<Pointer<SimpleZNodeCache>>absent());
@@ -295,128 +316,162 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.ZNodeCache<E>> exte
     }
 
     protected boolean handleResult(Operation.SessionResult result) {
-        if (result.reply().reply() instanceof Operation.Error) {
-            // no updates to apply
-            return false;
-        }
-        Operation.Response response = (Operation.Response) (result.reply().reply());
+        boolean changed = false;
+        long zxid = result.reply().zxid();
+        Operation.Reply reply = result.reply().reply();
         Operation.Request request = result.request().request();
-        
-        boolean changed = true;
         switch (request.opcode()) {
         case CREATE:
         case CREATE2:
         {
-            Record responseRecord = ((Operation.RecordHolder<?>)response).asRecord();
-            E node = asTrie().put(((Records.PathHolder)responseRecord).getPath());
-            Long zxid = result.reply().zxid();
-            Records.CreateRecord record = (Records.CreateRecord)((Operation.RecordHolder<?>)request).asRecord();
-            StampedReference<Records.CreateRecord> stampedRequest = StampedReference.of(zxid, record);
-            update(node, stampedRequest);
-            if (responseRecord instanceof Records.StatRecord) {
-                StampedReference<Records.StatRecord> stampedResponse = StampedReference.of(zxid, (Records.StatRecord)responseRecord);
-                update(node, stampedResponse);
+            if (reply instanceof Operation.Response) {
+                Records.PathHolder responseRecord = (Records.PathHolder) ((Operation.RecordHolder<?>)reply).asRecord();
+                E node = asTrie().put(responseRecord.getPath());
+                Records.CreateRecord record = (Records.CreateRecord)((Operation.RecordHolder<?>)request).asRecord();
+                StampedReference<Records.CreateRecord> stampedRequest = StampedReference.of(zxid, record);
+                changed = changed | update(node, stampedRequest);
+                if (responseRecord instanceof Records.StatRecord) {
+                    StampedReference<Records.StatRecord> stampedResponse = StampedReference.of(zxid, (Records.StatRecord)responseRecord);
+                    changed = changed | update(node, stampedResponse);
+                }
             }
             break;
         }
         case DELETE:
         {
-            Records.PathRecord record = (Records.PathRecord)((Operation.RecordHolder<?>)request).asRecord();
-            asTrie().remove(record.getPath());
-            break;
+            if (reply instanceof Operation.Response) {
+                Records.PathRecord requestRecord = (Records.PathRecord)((Operation.RecordHolder<?>)request).asRecord();
+                asTrie().remove(requestRecord.getPath());
+                break;
+            }
         }
         case EXISTS:
         {
-            E node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
-            Long zxid = result.reply().zxid();
-            StampedReference<Records.StatRecord> stampedResponse = StampedReference.of(zxid, (Records.StatRecord)((Operation.RecordHolder<?>)response).asRecord());
-            update(node, stampedResponse);
+            Records.PathRecord requestRecord = (Records.PathRecord)((Operation.RecordHolder<?>)request).asRecord();
+            if (reply instanceof Operation.Response) {
+                E node = asTrie().put(requestRecord.getPath());
+                StampedReference<Records.StatRecord> stampedResponse = StampedReference.of(zxid, (Records.StatRecord)((Operation.RecordHolder<?>)reply).asRecord());
+                changed = changed | update(node, stampedResponse);
+            } else if (KeeperException.Code.NONODE == ((Operation.Error)reply).error()) {
+                E node = asTrie().remove(requestRecord.getPath());
+                changed = (node != null);
+            }
             break;
         }
         case GET_ACL:
         {
-            E node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
-            StampedReference<IGetACLResponse> stampedResponse = StampedReference.of(
-                    result.reply().zxid(), (IGetACLResponse)((Operation.RecordHolder<?>)response).asRecord());
-            update(node, stampedResponse);
+            Records.PathRecord requestRecord = (Records.PathRecord)((Operation.RecordHolder<?>)request).asRecord();
+            if (reply instanceof Operation.Response) {
+                E node = asTrie().put(requestRecord.getPath());
+                StampedReference<IGetACLResponse> stampedResponse = StampedReference.of(
+                        result.reply().zxid(), (IGetACLResponse)((Operation.RecordHolder<?>)reply).asRecord());
+                changed = changed | update(node, stampedResponse);
+            } else if (KeeperException.Code.NONODE == ((Operation.Error)reply).error()) {
+                E node = asTrie().remove(requestRecord.getPath());
+                changed = (node != null);
+            }
             break;
         }
         case GET_CHILDREN:
         case GET_CHILDREN2:        
         {
-            E node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
-            Records.ChildrenRecord responseRecord = (ChildrenRecord) ((Operation.RecordHolder<?>)response).asRecord();
-            for (String child: responseRecord.getChildren()) {
-                node.put(child);
-            }
-            if (responseRecord instanceof Records.StatRecord) {
-                Long zxid = result.reply().zxid();
-                StampedReference<Records.StatRecord> stampedResponse = StampedReference.of(zxid, (Records.StatRecord)responseRecord);
-                update(node, stampedResponse);
+            Records.PathRecord requestRecord = (Records.PathRecord)((Operation.RecordHolder<?>)request).asRecord();
+            if (reply instanceof Operation.Response) {
+                E node = asTrie().put(requestRecord.getPath());
+                Records.ChildrenRecord responseRecord = (ChildrenRecord) ((Operation.RecordHolder<?>)reply).asRecord();
+                for (String child: responseRecord.getChildren()) {
+                    node.put(child);
+                }
+                if (responseRecord instanceof Records.StatRecord) {
+                    StampedReference<Records.StatRecord> stampedResponse = StampedReference.of(zxid, (Records.StatRecord)responseRecord);
+                    changed = changed | update(node, stampedResponse);
+                }
+            } else if (KeeperException.Code.NONODE == ((Operation.Error)reply).error()) {
+                E node = asTrie().remove(requestRecord.getPath());
+                changed = (node != null);
             }
             break;
         }
         case GET_DATA:
         {
-            E node = asTrie().get(((Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord()).getPath());
-            StampedReference<IGetDataResponse> stampedResponse = StampedReference.of(
-                    result.reply().zxid(), (IGetDataResponse)((Operation.RecordHolder<?>)response).asRecord());
-            update(node, stampedResponse);
+            Records.PathRecord requestRecord = (Records.PathRecord)((Operation.RecordHolder<?>)request).asRecord();
+            if (reply instanceof Operation.Response) {
+                E node = asTrie().put(requestRecord.getPath());
+                StampedReference<IGetDataResponse> stampedResponse = StampedReference.of(
+                        result.reply().zxid(), (IGetDataResponse)((Operation.RecordHolder<?>)reply).asRecord());
+                changed = changed | update(node, stampedResponse);
+            } else if (KeeperException.Code.NONODE == ((Operation.Error)reply).error()) {
+                E node = asTrie().remove(requestRecord.getPath());
+                changed = (node != null);
+            }
             break;
         }
         case MULTI:
         {
-            int xid = result.request().xid();
-            long zxid = result.reply().zxid();
-            IMultiRequest requestRecord = (IMultiRequest) ((Operation.RecordHolder<?>)request).asRecord();
-            IMultiResponse responseRecord = (IMultiResponse) ((Operation.RecordHolder<?>)response).asRecord();
-            Iterator<MultiOpRequest> requests = requestRecord.iterator();
-            Iterator<MultiOpResponse> responses = responseRecord.iterator();
-            while (requests.hasNext()) {
-                checkArgument(responses.hasNext());
-                Operation.SessionResult nestedResult = OpSessionResult.of(
-                        SessionRequestWrapper.newInstance(xid, requests.next()), 
-                        SessionReplyWrapper.create(xid, zxid, responses.next()));
-                handleResult(nestedResult);
+            if (reply instanceof Operation.Response) {
+                int xid = result.request().xid();
+                IMultiRequest requestRecord = (IMultiRequest) ((Operation.RecordHolder<?>)request).asRecord();
+                IMultiResponse responseRecord = (IMultiResponse) ((Operation.RecordHolder<?>)reply).asRecord();
+                Iterator<MultiOpRequest> requests = requestRecord.iterator();
+                Iterator<MultiOpResponse> responses = responseRecord.iterator();
+                while (requests.hasNext()) {
+                    checkArgument(responses.hasNext());
+                    Operation.SessionResult nestedResult = OpSessionResult.of(
+                            SessionRequestWrapper.newInstance(xid, requests.next()), 
+                            SessionReplyWrapper.create(xid, zxid, responses.next()));
+                    changed = changed | handleResult(nestedResult);
+                }
+            } else {
+                // TODO
             }
             break;
         }
         case SET_ACL:
         {
             ISetACLRequest requestRecord = (ISetACLRequest) ((Operation.RecordHolder<?>)request).asRecord();
-            E node = asTrie().get(requestRecord.getPath());
-            Long zxid = result.reply().zxid();
-            update(node, StampedReference.of(zxid, requestRecord));
-            Records.StatRecord responseRecord = (Records.StatRecord) ((Operation.RecordHolder<?>)response).asRecord();
-            update(node, StampedReference.of(zxid, responseRecord));
+            if (reply instanceof Operation.Response) {
+                E node = asTrie().put(requestRecord.getPath());
+                changed = changed | update(node, StampedReference.of(zxid, requestRecord));
+                Records.StatRecord responseRecord = (Records.StatRecord) ((Operation.RecordHolder<?>)reply).asRecord();
+                changed = changed | update(node, StampedReference.of(zxid, responseRecord));
+            } else if (KeeperException.Code.NONODE == ((Operation.Error)reply).error()) {
+                E node = asTrie().remove(requestRecord.getPath());
+                changed = (node != null);
+            }
             break;
         }
         case SET_DATA:
         {
             ISetDataRequest requestRecord = (ISetDataRequest) ((Operation.RecordHolder<?>)request).asRecord();
-            E node = asTrie().get(requestRecord.getPath());
-            Long zxid = result.reply().zxid();
-            update(node, StampedReference.of(zxid, requestRecord));
-            Records.StatRecord responseRecord = (Records.StatRecord) ((Operation.RecordHolder<?>)response).asRecord();
-            update(node, StampedReference.of(zxid, responseRecord));
+            if (reply instanceof Operation.Response) {
+                E node = asTrie().put(requestRecord.getPath());
+                changed = changed | update(node, StampedReference.of(zxid, requestRecord));
+                Records.StatRecord responseRecord = (Records.StatRecord) ((Operation.RecordHolder<?>)reply).asRecord();
+                changed = changed | update(node, StampedReference.of(zxid, responseRecord));
+            } else if (KeeperException.Code.NONODE == ((Operation.Error)reply).error()) {
+                E node = asTrie().remove(requestRecord.getPath());
+                changed = (node != null);
+            }
             break;
         }
         default:
-            changed = false;
             break;
         }
         return changed;
     }
     
-    protected void update(E node, StampedReference<? extends Records.View> value) {
+    protected boolean update(E node, StampedReference<? extends Records.View> value) {
+        boolean changed = false;
         for (View view: View.values()) {
             if (view.type().isInstance(value.get())) {
                 StampedReference<? extends Records.View> prev = node.update(view, value);
                 ViewUpdate event = ViewUpdate.ifUpdated(view, prev, value);
                 if (event != null) {
+                    changed = true;
                     post(event);
                 }
             }
         }
+        return changed;
     }
 }

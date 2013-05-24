@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol;
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 
-public class Operation {
+public abstract class Operation {
 
     public static interface XidHeader {
         int xid();
@@ -48,5 +48,48 @@ public class Operation {
     public static interface SessionResult {
         SessionRequest request();
         SessionReply reply();
+    }
+    
+    public static Response unlessError(Reply reply) throws KeeperException {
+        return unlessError(reply, "Unexpected Error");
+    }
+
+    public static Response unlessError(Reply reply, String message) throws KeeperException {
+        if (reply instanceof Error) {
+            KeeperException.Code error = ((Error) reply).error();
+            throw KeeperException.create(error, message);
+        }
+        return (Response) reply;
+    }
+    
+    public static Error expectError(Reply reply, KeeperException.Code expected) throws KeeperException {
+        return expectError(reply, expected, "Expected Error " + expected.toString());
+    }
+    
+    public static Error expectError(Reply reply, KeeperException.Code expected, String message) throws KeeperException {
+        if (reply instanceof Error) {
+            Error errorReply = (Error) reply;
+            KeeperException.Code error = errorReply.error();
+            if (expected != error) {
+                throw KeeperException.create(error, message);
+            }
+            return errorReply;
+        } else {
+            throw new IllegalArgumentException("Unexpected Response " + reply.toString());
+        }
+    }
+
+    public static Reply maybeError(Reply reply, KeeperException.Code expected) throws KeeperException {
+        return maybeError(reply, expected, "Expected Error " + expected.toString());
+    }
+    
+    public static Reply maybeError(Reply reply, KeeperException.Code expected, String message) throws KeeperException {
+        if (reply instanceof Error) {
+            KeeperException.Code error = ((Error) reply).error();
+            if (expected != error) {
+                throw KeeperException.create(error, message);
+            }
+        }
+        return reply;
     }
 }

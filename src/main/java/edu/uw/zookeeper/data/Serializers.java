@@ -41,7 +41,7 @@ public enum Serializers {
                 if (serializer != null) {
                     return serializer.invoke(inputType, input);
                 } else {
-                    return input.toString();
+                    return String.valueOf(input);
                 }
             }
         };
