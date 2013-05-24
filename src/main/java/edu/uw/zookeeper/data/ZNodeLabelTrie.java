@@ -268,6 +268,27 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         }
         
         public abstract TraversalStrategy strategy();
+
+        @Override
+        protected E computeNext() {
+            E next = dequeue();
+            if (next != null) {
+                for (E child: childrenOf(next)) {
+                    enqueue(child);
+                }
+                return next;
+            } else {
+                return endOfData();
+            }
+        }
+        
+        protected Iterable<E> childrenOf(E node) {
+            return node.children().values();
+        }
+        
+        protected abstract E dequeue();
+        
+        protected abstract void enqueue(E node);
     }
     
     public static class PreOrderTraversal<E extends Node<E>> extends IterativeTraversal<E> {
@@ -277,19 +298,22 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         }
         
         @Override
-        protected E computeNext() {
-            if (! pending.isEmpty()) {
-                E next = pending.pop();
-                for (E child: next.children().values()) {
-                    pending.push(child);
-                }
-                return next;
-            }
-            return endOfData();
-        }
-
         public TraversalStrategy strategy() {
             return TraversalStrategy.PREORDER;
+        }
+
+        @Override
+        protected E dequeue() {
+            if (! pending.isEmpty()) {
+                return pending.pop();
+            } else {
+                return null;
+            }
+        }
+
+        @Override
+        protected void enqueue(E node) {
+            pending.push(node);
         }
     }
 
@@ -298,22 +322,20 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         public BreadthFirstTraversal(E root) {
             super(root);
         }
-        
-        @Override
-        protected E computeNext() {
-            E next = pending.poll();
-            if (next != null) {
-                for (E child: next.children().values()) {
-                    pending.add(child);
-                }
-                return next;
-            } else {
-                return endOfData();
-            }
-        }
 
+        @Override
         public TraversalStrategy strategy() {
             return TraversalStrategy.BREADTH_FIRST;
+        }
+
+        @Override
+        protected E dequeue() {
+            return pending.poll();
+        }
+
+        @Override
+        protected void enqueue(E node) {
+            pending.add(node);
         }
     }
     
