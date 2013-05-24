@@ -1,13 +1,18 @@
 package edu.uw.zookeeper.data;
 
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 
 public enum Serializers {
@@ -19,7 +24,10 @@ public enum Serializers {
 
     public <I,O> O toClass(I input, Class<O> outputType) {
         Class<?> inputType = input.getClass();
-        Serializer method = find(outputType, inputType, outputType);
+        Serializer method = find(inputType, outputType);
+        if (method == null) {
+            throw new IllegalArgumentException(String.format("Unable to serialize %s to %s", input, outputType));
+        }
         O output = method.invoke(outputType, input);
         return output;
     }
@@ -29,16 +37,24 @@ public enum Serializers {
             @Override
             public String apply(Object input) {
                 Class<?> inputType = input.getClass();
-                Serializer serializer = Serializers.getInstance().find(inputType, inputType, String.class);
-                return serializer.invoke(inputType, input);
+                Serializer serializer = Serializers.getInstance().find(inputType, String.class);
+                if (serializer != null) {
+                    return serializer.invoke(inputType, input);
+                } else {
+                    return input.toString();
+                }
             }
         };
     }
     
+    public static final Set<Class<?>> PRIMITIVE_TYPES = ImmutableSet.<Class<?>>of(String.class, byte[].class);
+    
     protected final ConcurrentMap<Class<?>, List<Serializer>> registry;
+    protected final ConcurrentMap<Class<?>, Set<Serializer>> byType;
     
     private Serializers() {
         this.registry = Maps.newConcurrentMap();
+        this.byType = Maps.newConcurrentMap();
     }
     
     public List<Serializer> add(Class<?> type) {
@@ -46,6 +62,23 @@ public enum Serializers {
         if (serializers == null) {
             serializers = Serializer.discover(type);
             registry.put(type, serializers);
+            
+            if (! serializers.isEmpty()) {
+                for (Serializer e: serializers) {
+                    Class<?>[] types = { e.inputType(), e.outputType() };
+                    for (Class<?> t: types) {
+                        if (PRIMITIVE_TYPES.contains(t)) {
+                            continue;
+                        }
+                        Set<Serializer> byTypeRegistry = byType.get(t);
+                        if (byTypeRegistry == null) {
+                            byType.putIfAbsent(t, Collections.synchronizedSet(Sets.<Serializer>newHashSet()));
+                            byTypeRegistry = byType.get(t);
+                        }
+                        byTypeRegistry.add(e);
+                    }
+                }
+            }
         }
         return serializers;
     }
@@ -60,11 +93,39 @@ public enum Serializers {
         return Serializer.find(serializers, inputType, outputType);
     }
     
+    public Serializer find(Class<?> inputType, Class<?> outputType) {
+        Serializer serializer = null;
+        Class<?>[] types = { inputType, outputType };
+        for (Class<?> t: types) {
+            if (PRIMITIVE_TYPES.contains(t)) {
+                continue;
+            }
+            serializer = find(t, inputType, outputType);
+            if (serializer != null) {
+                break;
+            }
+        }
+        if (serializer == null) {
+            for (Class<?> t: types) {
+                if (PRIMITIVE_TYPES.contains(t)) {
+                    continue;
+                }
+                if (byType.containsKey(t)) {
+                    serializer = Serializer.find(byType.get(t), inputType, outputType);
+                    if (serializer != null) {
+                        break;
+                    }
+                }
+            }
+        }
+        return serializer;
+    }
+    
     public static class Serializer {
 
         public static List<Serializer> discover(Class<?> type) {
             List<Serializer> serializers = Lists.newLinkedList();
-            for (Method method: type.getMethods()) {
+            for (Method method: type.getDeclaredMethods()) {
                 Serializes annotation = method.getAnnotation(Serializes.class);
                 if (annotation == null) {
                     continue;
@@ -76,15 +137,17 @@ public enum Serializers {
                         input = type;
                     } else if (parameterTypes.length == 1) {
                         input = parameterTypes[0];
-                    } else {
-                        // ?
                     }
+                }
+                if (input.equals(Void.class)) {
+                    throw new IllegalArgumentException(String.format("Unable to determine input type from %s", method));
                 }
                 Class<?> output = annotation.to();
                 if (output.equals(Void.class)) {
                     output = method.getReturnType();
-                } else {
-                    // ?
+                }
+                if (output.equals(Void.class)) {
+                    throw new IllegalArgumentException(String.format("Unable to determine output type from %s", method));
                 }
                 Serializer serializer = new Serializer(method, input, output);
                 serializers.add(serializer);
@@ -142,6 +205,30 @@ public enum Serializers {
                 throw Throwables.propagate(e);
             }
             return output;
+        }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).add("method", method).toString();
+        }
+        
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (! (obj instanceof Serializer)) {
+                return false;
+            }
+            Serializer other = (Serializer)obj;
+            return Objects.equal(method(), other.method())
+                    && Objects.equal(inputType(), other.outputType())
+                    && Objects.equal(outputType(), other.outputType());
+        }
+        
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(method(), inputType(), outputType());
         }
     }
 }

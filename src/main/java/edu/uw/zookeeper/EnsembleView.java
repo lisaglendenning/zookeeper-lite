@@ -28,7 +28,7 @@ public class EnsembleView<E extends ServerView> extends ForwardingSortedSet<E> {
     protected static final Splitter SPLITTER = Splitter.on(TOKEN_SEP).trimResults();
 
     @Serializes(from=EnsembleView.class, to=String.class)
-    public static String toString(EnsembleView<?> input) {
+    public static String toString(Collection<? extends ServerView> input) {
         StringBuilder output = new StringBuilder();
         output.append(TOKEN_START);
         JOINER.appendTo(output, Iterables.transform(input, Serializers.ToString.TO_STRING));
