@@ -45,11 +45,21 @@ import edu.uw.zookeeper.util.SettableFuturePromise;
 /**
  * Only caches the results of operations submitted through this wrapper.
  */
-public class ZNodeResponseCacheTrie<E extends ZNodeResponseCacheTrie.ZNodeCache<E>> extends ForwardingEventful implements ClientExecutor {
+public class ZNodeResponseCache<E extends ZNodeResponseCache.ZNodeCache<E>> extends ForwardingEventful implements ClientExecutor {
 
-    public static <E extends ZNodeResponseCacheTrie.ZNodeCache<E>> ZNodeResponseCacheTrie<E> newInstance(
+    public static ZNodeResponseCache<SimpleZNodeCache> newInstance(
+            Publisher publisher, ClientExecutor client) {
+        return newInstance(publisher, client, SimpleZNodeCache.root());
+    }
+    
+    public static <E extends ZNodeResponseCache.ZNodeCache<E>> ZNodeResponseCache<E> newInstance(
             Publisher publisher, ClientExecutor client, E root) {
-        return new ZNodeResponseCacheTrie<E>(publisher, client, root);
+        return newInstance(publisher, client, ZNodeLabelTrie.of(root));
+    }
+    
+    public static <E extends ZNodeResponseCache.ZNodeCache<E>> ZNodeResponseCache<E> newInstance(
+            Publisher publisher, ClientExecutor client, ZNodeLabelTrie<E> trie) {
+        return new ZNodeResponseCache<E>(publisher, client, trie);
     }
 
     public static enum View {
@@ -244,12 +254,11 @@ public class ZNodeResponseCacheTrie<E extends ZNodeResponseCacheTrie.ZNodeCache<
     protected final ZNodeLabelTrie<E> trie;
     protected final ClientExecutor client;
     
-    protected ZNodeResponseCacheTrie(
-            Publisher publisher, ClientExecutor client, E root) {
+    protected ZNodeResponseCache(
+            Publisher publisher, ClientExecutor client, ZNodeLabelTrie<E> trie) {
         super(publisher);
-        this.trie = ZNodeLabelTrie.of(root);
+        this.trie = trie;
         this.client = client;
-        client.register(this);
     }
     
     public ClientExecutor asClient() {
@@ -263,11 +272,13 @@ public class ZNodeResponseCacheTrie<E extends ZNodeResponseCacheTrie.ZNodeCache<
     @Override
     public void register(Object object) {
         asClient().register(object);
+        super.register(object);
     }
 
     @Override
     public void unregister(Object object) {
         asClient().unregister(object);
+        super.unregister(object);
     }
 
     @Override
