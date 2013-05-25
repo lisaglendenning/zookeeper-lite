@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.data;
+package edu.uw.zookeeper.client;
 
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -19,7 +19,14 @@ import com.google.common.base.Optional;
 import com.google.common.collect.Maps;
 
 import edu.uw.zookeeper.Event;
-import edu.uw.zookeeper.client.ClientExecutor;
+import edu.uw.zookeeper.data.StampedReference;
+import edu.uw.zookeeper.data.ZNodeLabel;
+import edu.uw.zookeeper.data.ZNodeLabelTrie;
+import edu.uw.zookeeper.data.StampedReference.Updater;
+import edu.uw.zookeeper.data.ZNodeLabel.Component;
+import edu.uw.zookeeper.data.ZNodeLabel.Path;
+import edu.uw.zookeeper.data.ZNodeLabelTrie.AbstractNode;
+import edu.uw.zookeeper.data.ZNodeLabelTrie.Node;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.SimplePointer;
 import edu.uw.zookeeper.protocol.OpSessionResult;
