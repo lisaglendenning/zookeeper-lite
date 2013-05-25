@@ -90,6 +90,11 @@ public class TreeFetcher implements Callable<List<WatchEvent>> {
         boolean getStat = operations.contains(OpCode.EXISTS) 
                 || operations.contains(OpCode.GET_CHILDREN2);
         
+        // sync first
+        Operation.Request request = Operations.Requests.sync().setPath(root).build();
+        Operation.unlessError(client.submit(request).get().reply().reply(), 
+                request.toString());
+        
         TreeFetcher.SubtreeWatcher watcher;
         if (watch) {
             watcher = new SubtreeWatcher(root);
@@ -129,7 +134,7 @@ public class TreeFetcher implements Callable<List<WatchEvent>> {
             if (! futures.isEmpty()) {
                 List<Operation.SessionResult> results = Futures.allAsList(futures).get();
                 for (Operation.SessionResult result: results) {
-                    Operation.Request request = result.request().request();
+                    request = result.request().request();
                     Operation.Reply reply = Operation.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
                     if (((OpCode.GET_CHILDREN == request.opcode())
                             || (OpCode.GET_CHILDREN2 == request.opcode()))
@@ -146,6 +151,11 @@ public class TreeFetcher implements Callable<List<WatchEvent>> {
         
         List<WatchEvent> events;
         if (watch) {
+            // sync to flush watches
+            request = Operations.Requests.sync().setPath(root).build();
+            Operation.unlessError(client.submit(request).get().reply().reply(), 
+                    request.toString());
+            
             client.unregister(watcher);
             events = Lists.newLinkedList();
             watcher.queue().drainTo(events);
