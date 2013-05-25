@@ -4,8 +4,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.google.common.base.Objects;
-
 import edu.uw.zookeeper.util.AbstractPair;
 import edu.uw.zookeeper.util.Reference;
 
@@ -47,7 +45,7 @@ public class StampedReference<T> extends AbstractPair<Long, T> implements Refere
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).addValue(reference).toString();
+            return reference.toString();
         }
     }
     
