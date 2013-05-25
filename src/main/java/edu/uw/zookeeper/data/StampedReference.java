@@ -4,6 +4,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.google.common.base.Objects;
+
 import edu.uw.zookeeper.util.AbstractPair;
 import edu.uw.zookeeper.util.Reference;
 
@@ -18,12 +20,12 @@ public class StampedReference<T> extends AbstractPair<Long, T> implements Refere
     }
 
     public static class Updater<T> implements Reference<StampedReference<? extends T>> {
-        protected final AtomicReference<StampedReference<? extends T>> reference;
-
         public static <T> Updater<T> newInstance(StampedReference<? extends T> value) {
             return new Updater<T>(value);
         }
-        
+
+        protected final AtomicReference<StampedReference<? extends T>> reference;
+
         protected Updater(StampedReference<? extends T> value) {
             this.reference = new AtomicReference<StampedReference<? extends T>>(checkNotNull(value));
         }
@@ -41,6 +43,11 @@ public class StampedReference<T> extends AbstractPair<Long, T> implements Refere
         @Override
         public StampedReference<? extends T> get() {
             return reference.get();
+        }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).addValue(reference).toString();
         }
     }
     

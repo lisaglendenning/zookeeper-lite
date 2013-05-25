@@ -15,6 +15,8 @@ import org.apache.zookeeper.KeeperException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.WatchEvent;
@@ -99,35 +101,45 @@ public class TreeFetcher implements Callable<List<WatchEvent>> {
         LinkedList<ZNodeLabel.Path> paths = Lists.newLinkedList();
         paths.add(root);
         while (! paths.isEmpty()) {
+            List<ListenableFuture<Operation.SessionResult>> futures = Lists.newLinkedList();
             ZNodeLabel.Path next = paths.poll();
-            Operations.Requests.Builder.GetChildren getChildrenBuilder = 
-                    Operations.Requests.getChildren().setPath(next).setWatch(watch);
-            if (getStat) {
-                getChildrenBuilder.setStat(true);
-            }
-            Operation.Request request = getChildrenBuilder.build();
-            Operation.SessionResult result = client.submit(request).get();
-            Operation.Reply reply = Operation.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
-            if (reply instanceof Operation.Response) {
-                Records.ChildrenRecord responseRecord = (ChildrenRecord) ((Operation.RecordHolder<?>)reply).asRecord();
-                for (String child: responseRecord.getChildren()) {
-                    paths.add(ZNodeLabel.Path.of(next, ZNodeLabel.Component.of(child)));
+            while (next != null) {
+                Operations.Requests.Builder.GetChildren getChildrenBuilder = 
+                        Operations.Requests.getChildren().setPath(next).setWatch(watch);
+                if (getStat) {
+                    getChildrenBuilder.setStat(true);
                 }
-                
+                futures.add(client.submit(getChildrenBuilder.build()));
+                    
                 if (getData) {
                     Operations.Requests.Builder.GetData getDataBuilder = 
                             Operations.Requests.getData().setPath(next).setWatch(watch);
-                    request = getDataBuilder.build();
-                    result = client.submit(request).get();
-                    reply = Operation.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
+                    futures.add(client.submit(getDataBuilder.build()));
                 }
-                
+                    
                 if (getAcl) {
                     Operations.Requests.Builder.GetAcl getAclBuilder = 
                             Operations.Requests.getAcl().setPath(next);
-                    request = getAclBuilder.build();
-                    result = client.submit(request).get();
-                    reply = Operation.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
+                    futures.add(client.submit(getAclBuilder.build()));
+                }
+                
+                next = paths.poll();
+            }
+            
+            if (! futures.isEmpty()) {
+                List<Operation.SessionResult> results = Futures.allAsList(futures).get();
+                for (Operation.SessionResult result: results) {
+                    Operation.Request request = result.request().request();
+                    Operation.Reply reply = Operation.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
+                    if (((OpCode.GET_CHILDREN == request.opcode())
+                            || (OpCode.GET_CHILDREN2 == request.opcode()))
+                            && !(reply instanceof Operation.Error)) {
+                        String path = ((Records.PathHolder) ((Operation.RecordHolder<?>)request).asRecord()).getPath();
+                        Records.ChildrenHolder responseRecord = (ChildrenRecord) ((Operation.RecordHolder<?>)reply).asRecord();
+                        for (String child: responseRecord.getChildren()) {
+                            paths.add(ZNodeLabel.Path.joined(path, child));
+                        }
+                    }
                 }
             }
         }

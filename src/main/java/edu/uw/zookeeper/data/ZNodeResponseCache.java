@@ -33,7 +33,6 @@ import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.ISetACLRequest;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.protocol.proto.Records.ChildrenRecord;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
 import edu.uw.zookeeper.util.ForwardingEventful;
@@ -44,6 +43,8 @@ import edu.uw.zookeeper.util.SettableFuturePromise;
 
 /**
  * Only caches the results of operations submitted through this wrapper.
+ * 
+ * TODO: create eventful and non-eventful versions
  * 
  * TODO: need to compare the zxids when creating/deleting nodes as well
  * and create an event for tree structure changes (adds/deletes)
@@ -340,14 +341,14 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.NodeCache<E>> exten
         case DELETE:
         {
             if (reply instanceof Operation.Response) {
-                Records.PathRecord requestRecord = (Records.PathRecord)((Operation.RecordHolder<?>)request).asRecord();
+                Records.PathHolder requestRecord = (Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord();
                 asTrie().remove(requestRecord.getPath());
                 break;
             }
         }
         case EXISTS:
         {
-            Records.PathRecord requestRecord = (Records.PathRecord)((Operation.RecordHolder<?>)request).asRecord();
+            Records.PathHolder requestRecord = (Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord();
             if (reply instanceof Operation.Response) {
                 E node = asTrie().put(requestRecord.getPath());
                 StampedReference<Records.StatRecord> stampedResponse = StampedReference.of(zxid, (Records.StatRecord)((Operation.RecordHolder<?>)reply).asRecord());
@@ -360,7 +361,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.NodeCache<E>> exten
         }
         case GET_ACL:
         {
-            Records.PathRecord requestRecord = (Records.PathRecord)((Operation.RecordHolder<?>)request).asRecord();
+            Records.PathHolder requestRecord = (Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord();
             if (reply instanceof Operation.Response) {
                 E node = asTrie().put(requestRecord.getPath());
                 StampedReference<IGetACLResponse> stampedResponse = StampedReference.of(
@@ -375,10 +376,10 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.NodeCache<E>> exten
         case GET_CHILDREN:
         case GET_CHILDREN2:        
         {
-            Records.PathRecord requestRecord = (Records.PathRecord)((Operation.RecordHolder<?>)request).asRecord();
+            Records.PathHolder requestRecord = (Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord();
             if (reply instanceof Operation.Response) {
                 E node = asTrie().put(requestRecord.getPath());
-                Records.ChildrenRecord responseRecord = (ChildrenRecord) ((Operation.RecordHolder<?>)reply).asRecord();
+                Records.ChildrenHolder responseRecord = (Records.ChildrenHolder) ((Operation.RecordHolder<?>)reply).asRecord();
                 for (String child: responseRecord.getChildren()) {
                     node.put(child);
                 }
@@ -394,7 +395,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.NodeCache<E>> exten
         }
         case GET_DATA:
         {
-            Records.PathRecord requestRecord = (Records.PathRecord)((Operation.RecordHolder<?>)request).asRecord();
+            Records.PathHolder requestRecord = (Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord();
             if (reply instanceof Operation.Response) {
                 E node = asTrie().put(requestRecord.getPath());
                 StampedReference<IGetDataResponse> stampedResponse = StampedReference.of(
@@ -432,7 +433,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.NodeCache<E>> exten
             if (reply instanceof Operation.Response) {
                 E node = asTrie().put(requestRecord.getPath());
                 changed = changed | update(node, StampedReference.of(zxid, requestRecord));
-                Records.StatRecord responseRecord = (Records.StatRecord) ((Operation.RecordHolder<?>)reply).asRecord();
+                Records.StatHolder responseRecord = (Records.StatHolder) ((Operation.RecordHolder<?>)reply).asRecord();
                 changed = changed | update(node, StampedReference.of(zxid, responseRecord));
             } else if (KeeperException.Code.NONODE == ((Operation.Error)reply).error()) {
                 E node = asTrie().remove(requestRecord.getPath());
@@ -446,7 +447,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.NodeCache<E>> exten
             if (reply instanceof Operation.Response) {
                 E node = asTrie().put(requestRecord.getPath());
                 changed = changed | update(node, StampedReference.of(zxid, requestRecord));
-                Records.StatRecord responseRecord = (Records.StatRecord) ((Operation.RecordHolder<?>)reply).asRecord();
+                Records.StatHolder responseRecord = (Records.StatHolder) ((Operation.RecordHolder<?>)reply).asRecord();
                 changed = changed | update(node, StampedReference.of(zxid, responseRecord));
             } else if (KeeperException.Code.NONODE == ((Operation.Error)reply).error()) {
                 E node = asTrie().remove(requestRecord.getPath());
