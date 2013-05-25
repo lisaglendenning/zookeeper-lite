@@ -92,7 +92,7 @@ public class TreeFetcher implements Callable<List<WatchEvent>> {
         
         // sync first
         Operation.Request request = Operations.Requests.sync().setPath(root).build();
-        Operation.unlessError(client.submit(request).get().reply().reply(), 
+        Operations.unlessError(client.submit(request).get().reply().reply(), 
                 request.toString());
         
         TreeFetcher.SubtreeWatcher watcher;
@@ -109,7 +109,7 @@ public class TreeFetcher implements Callable<List<WatchEvent>> {
             List<ListenableFuture<Operation.SessionResult>> futures = Lists.newLinkedList();
             ZNodeLabel.Path next = paths.poll();
             while (next != null) {
-                Operations.Requests.Builder.GetChildren getChildrenBuilder = 
+                Operations.Requests.GetChildren getChildrenBuilder = 
                         Operations.Requests.getChildren().setPath(next).setWatch(watch);
                 if (getStat) {
                     getChildrenBuilder.setStat(true);
@@ -117,13 +117,13 @@ public class TreeFetcher implements Callable<List<WatchEvent>> {
                 futures.add(client.submit(getChildrenBuilder.build()));
                     
                 if (getData) {
-                    Operations.Requests.Builder.GetData getDataBuilder = 
+                    Operations.Requests.GetData getDataBuilder = 
                             Operations.Requests.getData().setPath(next).setWatch(watch);
                     futures.add(client.submit(getDataBuilder.build()));
                 }
                     
                 if (getAcl) {
-                    Operations.Requests.Builder.GetAcl getAclBuilder = 
+                    Operations.Requests.GetAcl getAclBuilder = 
                             Operations.Requests.getAcl().setPath(next);
                     futures.add(client.submit(getAclBuilder.build()));
                 }
@@ -135,7 +135,7 @@ public class TreeFetcher implements Callable<List<WatchEvent>> {
                 List<Operation.SessionResult> results = Futures.allAsList(futures).get();
                 for (Operation.SessionResult result: results) {
                     request = result.request().request();
-                    Operation.Reply reply = Operation.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
+                    Operation.Reply reply = Operations.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
                     if (((OpCode.GET_CHILDREN == request.opcode())
                             || (OpCode.GET_CHILDREN2 == request.opcode()))
                             && !(reply instanceof Operation.Error)) {
@@ -153,7 +153,7 @@ public class TreeFetcher implements Callable<List<WatchEvent>> {
         if (watch) {
             // sync to flush watches
             request = Operations.Requests.sync().setPath(root).build();
-            Operation.unlessError(client.submit(request).get().reply().reply(), 
+            Operations.unlessError(client.submit(request).get().reply().reply(), 
                     request.toString());
             
             client.unregister(watcher);

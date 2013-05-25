@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.data;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
@@ -21,7 +22,15 @@ public enum Serializers {
     public static Serializers getInstance() {
         return REGISTRY;
     }
+    
+    public static interface ByteSerializer<T> {
+        byte[] toBytes(T input) throws IOException;
+    }
 
+    public static interface ByteDeserializer<T> {
+        <U extends T> U fromBytes(byte[] bytes, Class<U> type) throws IOException;
+    }
+    
     public <I,O> O toClass(I input, Class<O> outputType) {
         Class<?> inputType = input.getClass();
         Serializer method = find(inputType, outputType);

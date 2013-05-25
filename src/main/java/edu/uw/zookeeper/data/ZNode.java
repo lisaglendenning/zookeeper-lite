@@ -12,4 +12,5 @@ public @interface ZNode {
     Acls.Definition acl() default Acls.Definition.NONE;
     String label() default "";
     Schema.LabelType labelType() default Schema.LabelType.LABEL;
+    Class<?> type() default Void.class;
 }

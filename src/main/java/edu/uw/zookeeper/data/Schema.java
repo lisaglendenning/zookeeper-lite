@@ -44,34 +44,34 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
             }
 
             public static Builder fromAnnotated(AnnotatedElement element) {
-                return fromAnnotated(element, element);
-            }
-
-            public static Builder fromAnnotated(AnnotatedElement element, Object type) {
                 ZNode annotation = element.getAnnotation(ZNode.class);
                 if (annotation == null) {
                     return null;
                 }
-                return fromAnnotation(annotation, type);
+                Builder builder = fromAnnotation(annotation);
+                if (Void.class == builder.getType()) {
+                    builder.setType(element);
+                }
+                return builder;
             }
             
             public static Builder fromAnnotation(ZNode annotation) {
-                return fromAnnotation(annotation, DEFAULT.getType());
-            }
-
-            public static Builder fromAnnotation(ZNode annotation, Object type) {
                 String label = annotation.label();
                 LabelType labelType = annotation.labelType();
                 CreateMode createMode = annotation.createMode();
                 List<Acls.Acl> acl = annotation.acl().asList();
+                Object type = annotation.type();
                 return new Builder(label, labelType, createMode, acl, type);
             }
             
             public static Builder fromClass(Object obj) {
                 Class<?> type = (obj instanceof Class) ? (Class<?>)obj : obj.getClass();
-                Builder builder = fromAnnotated(type, obj);
+                Builder builder = fromAnnotated(type);
                 if (builder == null) {
                     return null;
+                }
+                if (type != obj) {
+                    builder.setType(obj);
                 }
                 
                 Pair<Label, ? extends Member> memberLabel = null;
@@ -260,7 +260,7 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
             }
             
             public ZNodeSchema build() {
-                return ZNodeSchema.newInstance(
+                return ZNodeSchema.of(
                         getLabel(), getLabelType(), getCreateMode(), getAcl(), getType());
             }
 
@@ -280,7 +280,7 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
             return Builder.DEFAULT;
         }
         
-        public static ZNodeSchema newInstance(
+        public static ZNodeSchema of(
                 String label,
                 LabelType labelType, 
                 CreateMode createMode,
@@ -420,6 +420,20 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
     
     public static Schema of(ZNodeSchema root) {
         return new Schema(SchemaNode.root(root));
+    }
+    
+    public static List<Acls.Acl> inheritedAcl(Schema.SchemaNode node) {
+        Iterator<Schema.SchemaNode> itr = ZNodeLabelTrie.parentIterator(node);
+        List<Acls.Acl> none = Acls.Definition.NONE.asList();
+        List<Acls.Acl> acl = none;
+        while (itr.hasNext()) {
+            Schema.SchemaNode next = itr.next();
+            acl = next.get().getAcl();
+            if (! none.equals(acl)) {
+                break;
+            }
+        }
+        return acl;
     }
     
     protected Schema(SchemaNode root) {

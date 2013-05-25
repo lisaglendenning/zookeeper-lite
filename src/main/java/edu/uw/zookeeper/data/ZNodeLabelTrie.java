@@ -6,8 +6,9 @@ import java.lang.reflect.Constructor;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
+import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
@@ -37,19 +38,76 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         ZNodeLabel.Component label();
     }
     
-    public static ZNodeLabel.Path pathOf(Optional<? extends Pointer<?>> pointer) {
-        if (! pointer.isPresent()) {
-            return ZNodeLabel.Path.root();
+    public static class ParentPointerIterator<E extends Node<E>> extends AbstractIterator<Pointer<E>> {
+
+        public static <E extends Node<E>> ParentPointerIterator<E> from(Optional<? extends Pointer<E>> child) {
+            return new ParentPointerIterator<E>(child);
         }
-        List<ZNodeLabel> components = Lists.newLinkedList();
-        Optional<? extends Pointer<?>> prev = pointer;
-        while (prev.isPresent()) {
-            Pointer<?> p = prev.get();
-            components.add(0, p.label());
-            prev = p.get().parent();
+        
+        protected Optional<? extends Pointer<E>> next;
+        
+        public ParentPointerIterator(Optional<? extends Pointer<E>> child) {
+            this.next = child;
         }
-        components.add(0, ZNodeLabel.Path.root());
+        
+        @Override
+        protected Pointer<E> computeNext() {
+            Optional<? extends Pointer<E>> next = this.next;
+            if (next.isPresent()) {
+                this.next = next.get().get().parent();
+                return next.get();
+            } else {
+                return endOfData();
+            }
+        }
+    }
+    
+    public static <E extends Node<E>> ParentPointerIterator<E> parentPointerIterator(Optional<? extends Pointer<E>> child) {
+        return ParentPointerIterator.from(child);
+    }
+
+    public static <E extends Node<E>> ZNodeLabel.Path pathOf(Optional<? extends Pointer<E>> pointer) {
+        Deque<ZNodeLabel> components = Lists.newLinkedList();
+        Iterator<Pointer<E>> itr = parentPointerIterator(pointer);
+        while (itr.hasNext()) {
+            Pointer<E> next = itr.next();
+            components.addFirst(next.label());
+        }
+        components.addFirst(ZNodeLabel.Path.root());
         return ZNodeLabel.Path.of(components.iterator());
+    }
+
+    public static class ParentIterator<E extends Node<E>> extends AbstractIterator<E> {
+
+        public static <E extends Node<E>> ParentIterator<E> from(E child) {
+            return new ParentIterator<E>(child);
+        }
+        
+        protected E next;
+        
+        public ParentIterator(E child) {
+            this.next = child;
+        }
+        
+        @Override
+        protected E computeNext() {
+            E next = this.next;
+            if (next != null) {
+                Optional<Pointer<E>> parent = next.parent();
+                if (parent.isPresent()) {
+                    this.next = parent.get().get();
+                } else {
+                    this.next = null;
+                }
+                return next;
+            } else {
+                return endOfData();
+            }
+        }
+    }
+    
+    public static <E extends Node<E>> ParentIterator<E> parentIterator(E child) {
+        return ParentIterator.from(child);
     }
 
     // TODO: add a bit that tells us whether the node has been deleted?
