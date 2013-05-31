@@ -5,20 +5,23 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.KeeperException.Code;
 
+import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.OpRecord;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.Operation.Error;
-import edu.uw.zookeeper.protocol.Operation.Reply;
-import edu.uw.zookeeper.protocol.Operation.Response;
 import edu.uw.zookeeper.protocol.proto.IDeleteRequest;
 import edu.uw.zookeeper.protocol.proto.IExistsRequest;
 import edu.uw.zookeeper.protocol.proto.IGetACLRequest;
@@ -29,6 +32,8 @@ import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.ISyncRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
+import edu.uw.zookeeper.util.Promise;
+import edu.uw.zookeeper.util.PromiseTask;
 
 public abstract class Operations {
 
@@ -543,6 +548,67 @@ public abstract class Operations {
             }
         }
         return reply;
+    }
+    
+    public static class OperationChain extends PromiseTask<Function<Operation.SessionResult, Operation.Request>, List<Operation.SessionResult>> implements FutureCallback<Operation.SessionResult> {
+
+        public static OperationChain of(
+                Function<Operation.SessionResult, Operation.Request> callback,
+                ClientExecutor client) {
+            Promise<List<Operation.SessionResult>> promise = newPromise();
+            return of(callback, client, promise);
+        }
+        
+        public static OperationChain of(
+                Function<Operation.SessionResult, Operation.Request> callback,
+                ClientExecutor client, 
+                Promise<List<Operation.SessionResult>> promise) {
+            return new OperationChain(callback, client, promise);
+        }
+        
+        protected final BlockingQueue<Operation.SessionResult> results;
+        protected final ClientExecutor client;
+        
+        protected OperationChain(
+                Function<Operation.SessionResult, Operation.Request> callback,
+                ClientExecutor client, 
+                Promise<List<Operation.SessionResult>> promise) {
+            super(callback, promise);
+            this.client = client;
+            this.results = new LinkedBlockingQueue<Operation.SessionResult>();
+        }
+        
+        public BlockingQueue<Operation.SessionResult> results() {
+            return results;
+        }
+        
+        public ClientExecutor client() {
+            return client;
+        }
+
+        @Override
+        public void onSuccess(Operation.SessionResult result) {
+            try {
+                results().put(result);
+            } catch (InterruptedException e) {
+                throw Throwables.propagate(e);
+            }
+            Operation.Request request = task().apply(result);
+            if (request != null) {
+                ListenableFuture<Operation.SessionResult> future = client().submit(request);
+                Futures.addCallback(future, this);
+            } else {
+                // done
+                List<Operation.SessionResult> results = Lists.newLinkedList();
+                this.results.drainTo(results);
+                set(results);
+            }
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+            setException(t);
+        }
     }
 
     private Operations() {}

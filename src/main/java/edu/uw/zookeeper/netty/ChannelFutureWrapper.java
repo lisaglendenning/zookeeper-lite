@@ -3,38 +3,52 @@ package edu.uw.zookeeper.netty;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 
-import com.google.common.util.concurrent.SettableFuture;
+import edu.uw.zookeeper.util.Promise;
+import edu.uw.zookeeper.util.PromiseTask;
 
-public class ChannelFutureWrapper<T> implements ChannelFutureListener {
+public class ChannelFutureWrapper<V> extends PromiseTask<ChannelFuture, V> implements ChannelFutureListener {
 
-    public static <T> ChannelFutureWrapper<T> create(ChannelFuture future,
-            T result) {
-        return new ChannelFutureWrapper<T>(future, result);
+    public static <V> ChannelFutureWrapper<V> of(
+            ChannelFuture future,
+            V result) {
+        Promise<V> promise = newPromise();
+        return of(future, result, promise);
     }
 
-    protected final T result;
-    protected final SettableFuture<T> promise;
+    public static <V> ChannelFutureWrapper<V> of(
+            ChannelFuture future,
+            V result,
+            Promise<V> promise) {
+        ChannelFutureWrapper<V> wrapper = new ChannelFutureWrapper<V>(future, result, promise);
+        future.addListener(wrapper);
+        return wrapper;
+    }
 
-    public ChannelFutureWrapper(ChannelFuture future, T result) {
+    protected final V result;
+    
+    protected ChannelFutureWrapper(ChannelFuture future, V result, Promise<V> promise) {
+        super(future, promise);
         this.result = result;
-        this.promise = SettableFuture.create();
-        future.addListener(this);
     }
-
-    public SettableFuture<T> promise() {
-        return promise;
+    
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning) {
+        if (task().cancel(mayInterruptIfRunning)) {
+            return super.cancel(mayInterruptIfRunning);
+        }
+        return false;
     }
-
+    
     @Override
     public void operationComplete(ChannelFuture future) {
         assert (future.isDone());
         if (future.isSuccess()) {
-            promise.set(result);
+            set(result);
         } else {
             if (future.isCancelled()) {
-                promise.cancel(true);
+                cancel(true);
             } else {
-                promise.setException(future.cause());
+                setException(future.cause());
             }
         }
     }

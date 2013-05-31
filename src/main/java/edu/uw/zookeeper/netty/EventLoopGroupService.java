@@ -3,6 +3,7 @@ package edu.uw.zookeeper.netty;
 import static com.google.common.base.Preconditions.*;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -13,10 +14,47 @@ import io.netty.channel.EventLoopGroup;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.AbstractIdleService;
 
+import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.ServiceMonitor;
 import edu.uw.zookeeper.util.Singleton;
 import edu.uw.zookeeper.util.TimeValue;
 
 public class EventLoopGroupService<T extends EventLoopGroup> extends AbstractIdleService implements Singleton<T> {
+
+    public static MonitoredEventLoopGroupFactory factory(
+                ParameterizedFactory<ThreadFactory, EventLoopGroup> eventLoopGroupFactory,
+                ServiceMonitor serviceMonitor) {
+        return MonitoredEventLoopGroupFactory.newInstance(eventLoopGroupFactory, serviceMonitor);
+    }
+    
+    public static class MonitoredEventLoopGroupFactory implements ParameterizedFactory<ThreadFactory, Factory<? extends EventLoopGroup>> {
+
+        public static MonitoredEventLoopGroupFactory newInstance(
+                ParameterizedFactory<ThreadFactory, EventLoopGroup> eventLoopGroupFactory,
+                ServiceMonitor serviceMonitor) {
+            return new MonitoredEventLoopGroupFactory(eventLoopGroupFactory, serviceMonitor);
+        }
+        
+        protected final ParameterizedFactory<ThreadFactory, EventLoopGroup> eventLoopGroupFactory;
+        protected final ServiceMonitor serviceMonitor;
+        
+        protected MonitoredEventLoopGroupFactory(
+                ParameterizedFactory<ThreadFactory, EventLoopGroup> eventLoopGroupFactory,
+                ServiceMonitor serviceMonitor) {
+            this.eventLoopGroupFactory = eventLoopGroupFactory;
+            this.serviceMonitor = serviceMonitor;
+        }
+        
+        @Override
+        public Singleton<? extends EventLoopGroup> get(ThreadFactory threadFactory) {
+            EventLoopGroup group = eventLoopGroupFactory.get(threadFactory);
+            EventLoopGroupService<?> groupService = EventLoopGroupService.newInstance(group);
+            serviceMonitor.add(groupService);
+            return groupService;
+        }
+    }
+    
     public static <T extends EventLoopGroup> EventLoopGroupService<T> newInstance(T group) {
         return new EventLoopGroupService<T>(group, Optional.<Executor>absent());
     }

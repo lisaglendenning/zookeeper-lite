@@ -12,7 +12,11 @@ import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerQuorumView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.Connection.CodecFactory;
+import edu.uw.zookeeper.netty.ChannelClientConnectionFactory;
 import edu.uw.zookeeper.netty.client.ClientModule;
+import edu.uw.zookeeper.protocol.CodecConnection;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.Arguments;
@@ -121,17 +125,19 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
         ServiceMonitor monitor = runtime.serviceMonitor();
         AbstractMain.MonitorServiceFactory monitorsFactory = AbstractMain.monitors(monitor);
 
-        Factory<? extends ClientConnectionFactory> clientConnectionFactory = ClientModule.getInstance().get(runtime);
-        ClientConnectionFactory clientConnections = monitorsFactory.apply(clientConnectionFactory.get());
+        TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
+        ParameterizedFactory<Connection<Message.ClientSessionMessage>, PingingClientCodecConnection> codecConnectionFactory = 
+                PingingClientCodecConnection.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
+        CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection> codecFactory = CodecConnection.factory(codecConnectionFactory);
+
+        ParameterizedFactory<CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection>, Factory<ChannelClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection>>> clientConnectionFactory = ClientModule.factory(runtime);
+        ClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection> clientConnections = monitorsFactory.apply(clientConnectionFactory.get(codecFactory).get());
 
         EnsembleQuorumView<?> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
-        TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
-        ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
-                runtime.publisherFactory(), timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
         AssignXidProcessor xids = AssignXidProcessor.newInstance();
-        EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, runtime.publisherFactory(), codecFactory, xids, ensemble, timeOut);
+        EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, xids, ensemble, timeOut);
         monitorsFactory.apply(
-                ClientProtocolConnectionService.newInstance(ensembleFactory));
+                ClientProtocolExecutorService.newInstance(ensembleFactory));
 
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }

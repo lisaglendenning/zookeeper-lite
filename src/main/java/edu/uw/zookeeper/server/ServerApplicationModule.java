@@ -11,8 +11,15 @@ import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerAddressView;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
+import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
+import edu.uw.zookeeper.net.Connection.CodecFactory;
+import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
 import edu.uw.zookeeper.netty.server.ServerModule;
+import edu.uw.zookeeper.protocol.CodecConnection;
+import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
+import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.Arguments;
 import edu.uw.zookeeper.util.Configuration;
@@ -85,9 +92,13 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
 
         final ServerExecutor serverExecutor = ServerExecutor.newInstance(runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions);
 
+        ParameterizedFactory<Connection<Message.ServerMessage>, ServerCodecConnection> codecConnectionFactory = 
+                ServerCodecConnection.factory(runtime.publisherFactory());
+        CodecFactory<Message.ServerMessage, Message.ClientMessage, ServerCodecConnection> codecFactory = CodecConnection.factory(codecConnectionFactory);
+        ParameterizedFactory<Connection.CodecFactory<Message.ServerMessage, Message.ClientMessage, ServerCodecConnection>, ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>>> connectionFactory = ServerModule.factory(runtime);
+        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>> serverConnectionFactory = connectionFactory.get(codecFactory);
         ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
-        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory> serverConnectionFactory = ServerModule.getInstance().get(runtime);
-        ServerConnectionFactory serverConnections = monitorsFactory.apply(serverConnectionFactory.get(address.get()));
+        ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         
         final Server server = Server.newInstance(runtime.publisherFactory(), serverConnections, serverExecutor);
         

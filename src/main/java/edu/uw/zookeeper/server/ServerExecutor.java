@@ -20,9 +20,13 @@ import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.event.SessionStateEvent;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Message.ClientMessage;
+import edu.uw.zookeeper.protocol.Message.ServerMessage;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Processor;
+import edu.uw.zookeeper.util.Promise;
+import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.Processors.*;
@@ -101,6 +105,12 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
         
         @Override
         public ListenableFutureTask<Message.ServerMessage> submit(Message.ClientMessage request) {
+            return submit(request, PromiseTask.<ServerMessage>newPromise());
+        }
+
+        @Override
+        public ListenableFutureTask<Message.ServerMessage> submit(ClientMessage request,
+                Promise<ServerMessage> promise) {
             return ListenableFutureTask.create(ClientMessageTask.newInstance(processor, request));
         }   
     }
@@ -155,11 +165,17 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
     
     @Override
     public ListenableFuture<Message.ServerMessage> submit(Message.ClientMessage request) {
+        return submit(request, PromiseTask.<ServerMessage>newPromise());
+    }
+    
+    @Override
+    public ListenableFuture<ServerMessage> submit(ClientMessage request,
+            Promise<ServerMessage> promise) {
         ListenableFutureTask<Message.ServerMessage> task = anonymousExecutor.submit(request);
         execute(task);
         return task;
     }
-    
+
     private void schedule() {
         if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
             executor.submit(this);

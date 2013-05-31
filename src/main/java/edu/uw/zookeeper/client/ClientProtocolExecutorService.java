@@ -4,28 +4,27 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
-import edu.uw.zookeeper.protocol.client.ClientProtocolConnection.RequestFuture;
+import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
 import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Reference;
 
 /**
- * Wraps a lazily-instantiated ClientProtocolConnection in a Service.
+ * Wraps a lazily-instantiated ClientProtocolExecutor in a Service.
  */
-public class ClientProtocolConnectionService extends AbstractIdleService 
-        implements Reference<ClientProtocolConnection>, ClientExecutor {
+public class ClientProtocolExecutorService extends AbstractIdleService 
+        implements Reference<ClientProtocolExecutor>, ClientExecutor {
 
-    public static ClientProtocolConnectionService newInstance(
-            Factory<ClientProtocolConnection> clientFactory) {
-        return new ClientProtocolConnectionService(clientFactory);
+    public static ClientProtocolExecutorService newInstance(
+            Factory<ClientProtocolExecutor> clientFactory) {
+        return new ClientProtocolExecutorService(clientFactory);
     }
     
-    protected final Factories.SynchronizedLazyHolder<ClientProtocolConnection> client;
+    protected final Factories.SynchronizedLazyHolder<ClientProtocolExecutor> client;
     
-    protected ClientProtocolConnectionService(
-            Factory<ClientProtocolConnection> clientFactory) {
+    protected ClientProtocolExecutorService(
+            Factory<ClientProtocolExecutor> clientFactory) {
         this.client = Factories.synchronizedLazyFrom(clientFactory);
     }
     
@@ -37,7 +36,7 @@ public class ClientProtocolConnectionService extends AbstractIdleService
     @Override
     protected void shutDown() throws Exception {
         if (this.client.has()) {
-            ClientProtocolConnection client = this.client.get();
+            ClientProtocolExecutor client = this.client.get();
             switch (client.state()) {
             case CONNECTING:
             case CONNECTED:
@@ -50,7 +49,7 @@ public class ClientProtocolConnectionService extends AbstractIdleService
     }
 
     @Override
-    public ClientProtocolConnection get() {
+    public ClientProtocolExecutor get() {
         State state = state();
         switch (state) {
         case STOPPING:
@@ -69,6 +68,11 @@ public class ClientProtocolConnectionService extends AbstractIdleService
     }
 
     @Override
+    public ListenableFuture<Operation.SessionResult> submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
+        return get().submit(request, promise);
+    }
+
+    @Override
     public void register(Object object) {
         get().register(object);
     }
@@ -76,10 +80,5 @@ public class ClientProtocolConnectionService extends AbstractIdleService
     @Override
     public void unregister(Object object) {
         get().unregister(object);
-    }
-
-    @Override
-    public RequestFuture submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
-        return get().submit(request, promise);
     }
 }

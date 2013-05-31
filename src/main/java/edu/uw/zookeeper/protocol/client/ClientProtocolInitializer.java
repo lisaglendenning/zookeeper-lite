@@ -1,33 +1,31 @@
 package edu.uw.zookeeper.protocol.client;
 
-import static com.google.common.base.Preconditions.*;
-
-import java.io.IOException;
 import java.util.concurrent.Callable;
 
 import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
-import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.net.ConnectionStateEvent;
+import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.OpCreateSession;
-import edu.uw.zookeeper.protocol.ProtocolState;
+import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Promise;
+import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ClientProtocolInitializer 
-        extends ForwardingListenableFuture<Session> 
+        extends PromiseTask<Factory<OpCreateSession.Request>, Session> 
         implements Callable<ListenableFuture<Session>>, 
             ListenableFuture<Session>, 
-            FutureCallback<OpCreateSession.Response> {
+            FutureCallback<Message.ClientSessionMessage> {
 
     public static ClientProtocolInitializer newInstance(
             ClientCodecConnection codecConnection,
@@ -38,53 +36,45 @@ public class ClientProtocolInitializer
 
     private final Logger logger = LoggerFactory
             .getLogger(ClientProtocolInitializer.class);
-    private final ClientCodecConnection codecConnection;
-    private final Promise<Session> promise;
-    private final Factory<OpCreateSession.Request> requests;
+    private final Connection<Message.ClientSessionMessage> connection;
+    private volatile ListenableFuture<Message.ClientSessionMessage> future;
 
     private ClientProtocolInitializer(
-            ClientCodecConnection codecConnection,
+            Connection<Message.ClientSessionMessage> connection,
             Factory<OpCreateSession.Request> requests,
             Promise<Session> promise) {
-        super();
-        this.codecConnection = codecConnection;
-        this.requests = requests;
-        this.promise = promise;
-    }
-    
-    @Override
-    protected Promise<Session> delegate() {
-        return promise;
-    }
-    
-    @Override
-    public ListenableFuture<Session> call() throws IOException {
-        checkState(! isDone());
-        checkState(codecConnection.asCodec().state() == ProtocolState.ANONYMOUS);
-        OpCreateSession.Request message = requests.get();
+        super(requests, promise);
+        this.connection = connection;
+        this.future = null;
         register();
-        try {
-            codecConnection.write(message);
-        } catch (Exception e) {
-            cancel(false);
-            Throwables.propagateIfInstanceOf(e, IOException.class);
-            throw Throwables.propagate(e);
+    }
+    
+    @Override
+    public synchronized ListenableFuture<Session> call() {
+        if (! isDone() && future == null) {
+            OpCreateSession.Request message = task().get();
+            try {
+                future = connection.write(message);
+            } catch (Throwable e) {
+                onFailure(e);
+            }
+            Futures.addCallback(future, this);
         }
         return this;
     }
 
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
+        unregister();
         if (! isDone()) {
-            unregister();
             return super.cancel(mayInterruptIfRunning);
         }
         return false;
     }
 
     @Subscribe
-    public void handleConnectionState(ConnectionStateEvent event) {
-        switch (event.event().to()) {
+    public void handleConnectionState(Automaton.Transition<Connection.State> event) {
+        switch (event.to()) {
         case CONNECTION_CLOSED:
             onFailure(new KeeperException.ConnectionLossException());
             break;
@@ -92,39 +82,40 @@ public class ClientProtocolInitializer
             break;
         }
     }
-    
+
     @Subscribe
-    @Override
-    public void onSuccess(OpCreateSession.Response result) {
+    public void handleCreateSessionResponse(OpCreateSession.Response result) {
+        unregister();
         if (result instanceof OpCreateSession.Response.Valid) {
             if (! isDone()) {
-                unregister();
                 Session session = result.toSession();
                 logger.info("Established Session: {}", session);
-                delegate().set(session);
+                set(session);
             }
         } else {
             onFailure(new KeeperException.SessionExpiredException());
         }
     }
+    
+    @Override
+    public void onSuccess(Message.ClientSessionMessage result) {
+    }
 
     @Override
     public void onFailure(Throwable t) {
+        unregister();
         if (! isDone()) {
-            unregister();
-            delegate().setException(t);
+            setException(t);
         }
     }
 
     private void register() {
-        codecConnection.register(this);
-        codecConnection.asConnection().register(this);
+        connection.register(this);
     }
 
     private void unregister() {
         try {
-            codecConnection.unregister(this);
-            codecConnection.asConnection().unregister(this);
+            connection.unregister(this);
         } catch (IllegalArgumentException e) {}
     } 
 }

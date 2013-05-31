@@ -11,4 +11,13 @@ public interface TaskExecutor<I,O> {
      * @throws RejectedExecutionException
      */
     ListenableFuture<O> submit(I request);
+
+    /**
+     * 
+     * @param request
+     * @param promise
+     * @return
+     * @throws RejectedExecutionException
+     */
+    ListenableFuture<O> submit(I request, Promise<O> promise);
 }

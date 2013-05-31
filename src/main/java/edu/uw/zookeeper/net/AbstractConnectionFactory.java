@@ -2,103 +2,94 @@ package edu.uw.zookeeper.net;
 
 import static com.google.common.base.Preconditions.*;
 
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Service;
-import com.google.common.util.concurrent.Service.State;
-
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ConnectionFactory;
+import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Publisher;
 
-public abstract class AbstractConnectionFactory extends AbstractIdleService
-        implements ConnectionFactory, Service {
+public abstract class AbstractConnectionFactory<I, C extends Connection<I>> extends AbstractIdleService
+        implements ConnectionFactory<I,C>, Service {
 
-    private final Logger logger = LoggerFactory
-            .getLogger(AbstractConnectionFactory.class);
+    public class RemoveConnectionOnClose {
+
+        protected final C connection;
+        
+        public RemoveConnectionOnClose(C connection) {
+            this.connection = connection;
+            connection.register(this);
+        }
+        
+        public void close() {
+            remove(connection);
+            try {
+                connection.unregister(this);
+            } catch (IllegalArgumentException e) {}
+        }
+
+        @Subscribe
+        public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
+            switch (event.to()) {
+            case CONNECTION_CLOSED:
+                close();
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    
+    private final Logger logger;
     private final Publisher publisher;
-    private final Set<Connection> connections;
 
     protected AbstractConnectionFactory(Publisher publisher) {
-        this(publisher, Collections.synchronizedSet(Sets.<Connection>newHashSet()));
-    }
-
-    protected AbstractConnectionFactory(
-            Publisher publisher,
-            Set<Connection> connections) {
         super();
         this.publisher = checkNotNull(publisher);
-        this.connections = checkNotNull(connections);
+        this.logger = LoggerFactory.getLogger(getClass());
     }
 
     protected Publisher publisher() {
         return publisher;
     }
 
-    protected Set<Connection> connections() {
-        return connections;
-    }
-    
     protected Logger logger() {
         return logger;
     }
 
-    @Override
-    public Iterator<Connection> iterator() {
-        return connections().iterator();
-    }
-
-    protected Connection add(Connection connection) {
-        checkState(state() == State.RUNNING);
-        logger().trace("Added Connection: {}", connection);
-        boolean added = connections().add(connection);
-        assert(added);
-        connection.register(this);
-        try {
-            post(NewConnectionEvent.create(connection));
-        } catch (Exception e) {
+    protected boolean add(C connection) {
+        new RemoveConnectionOnClose(connection);
+        State state = state();
+        if (state != State.RUNNING) {
             connection.close();
-            connections().remove(connection);
+            throw new IllegalStateException(state.toString());
         }
-        return connection;
+        post(connection);
+        logger().trace("Added Connection: {}", connection);
+        return true;
     }
-
+    
     @Override
     protected void startUp() throws Exception {
     }
 
     @Override
     protected void shutDown() throws Exception {
-        List<ListenableFuture<Connection>> futures = Lists.newArrayList();
-        for (Connection connection : this) {
+        List<ListenableFuture<Connection<I>>> futures = Lists.newArrayList();
+        for (Connection<I> connection : this) {
             futures.add(connection.close());
         }
-        ListenableFuture<List<Connection>> allFutures = Futures
+        ListenableFuture<List<Connection<I>>> allFutures = Futures
                 .allAsList(futures);
         allFutures.get();
-    }
-
-    @Subscribe
-    public void handleConnectionEvent(ConnectionStateEvent event) {
-        Connection connection = event.connection();
-        switch (event.event().to()) {
-        case CONNECTION_CLOSED:
-            connections().remove(connection);
-            break;
-        default:
-            break;
-        }
     }
 
     protected void post(Object event) {
@@ -114,4 +105,6 @@ public abstract class AbstractConnectionFactory extends AbstractIdleService
     public void unregister(Object object) {
         publisher().unregister(object);
     }
+
+    protected abstract boolean remove(C connection);
 }

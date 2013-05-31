@@ -12,5 +12,5 @@ import edu.uw.zookeeper.util.Eventful;
  * <li> NewConnectionEvent when a new Connection is added
  * </ul>
  */
-public interface ConnectionFactory extends Iterable<Connection>, Eventful, Service {
+public interface ConnectionFactory<I, C extends Connection<I>> extends Iterable<C>, Eventful, Service {
 }

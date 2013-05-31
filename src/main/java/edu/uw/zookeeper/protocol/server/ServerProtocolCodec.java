@@ -17,10 +17,16 @@ import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.SessionRequestDecoder;
 import edu.uw.zookeeper.util.Automaton;
+import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Stateful;
 
 public class ServerProtocolCodec extends ProtocolCodec<Message.ServerMessage, Message.ClientMessage> {
 
+    public static ServerProtocolCodec newInstance(
+            Publisher publisher) {
+        return newInstance(newAutomaton(publisher));
+    }
+    
     public static ServerProtocolCodec newInstance(
             Automaton<ProtocolState, Message> automaton) {
         ServerProtocolEncoder encoder = ServerProtocolEncoder.create(automaton);

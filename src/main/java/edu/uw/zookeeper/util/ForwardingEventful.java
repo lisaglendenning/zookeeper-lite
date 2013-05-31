@@ -25,4 +25,9 @@ public abstract class ForwardingEventful implements Eventful {
     public void unregister(Object handler) {
         publisher().unregister(handler);
     }
+    
+    @Override
+    public String toString() {
+        return publisher().toString();
+    }
 }

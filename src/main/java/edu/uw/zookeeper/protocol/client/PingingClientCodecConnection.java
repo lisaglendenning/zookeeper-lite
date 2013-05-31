@@ -2,45 +2,37 @@ package edu.uw.zookeeper.protocol.client;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.io.IOException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.net.ConnectionStateEvent;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Message.ClientSessionMessage;
 import edu.uw.zookeeper.protocol.OpCreateSession;
 import edu.uw.zookeeper.protocol.OpPing;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.SessionRequestWrapper;
-import edu.uw.zookeeper.util.AutomatonTransition;
-import edu.uw.zookeeper.util.EventfulAutomaton;
-import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.TimeValue;
 
 public class PingingClientCodecConnection extends ClientCodecConnection implements Runnable {
 
-    public static ParameterizedFactory<Connection, PingingClientCodecConnection> factory(
-            final Factory<Publisher> publisherFactory,
+    public static ParameterizedFactory<Connection<Message.ClientSessionMessage>, PingingClientCodecConnection> factory(
             final TimeValue defaultTimeOut,
             final ScheduledExecutorService executor) {
-        return new ParameterizedFactory<Connection, PingingClientCodecConnection>() {
+        return new ParameterizedFactory<Connection<Message.ClientSessionMessage>, PingingClientCodecConnection>() {
                     @Override
-                    public PingingClientCodecConnection get(Connection value) {
+                    public PingingClientCodecConnection get(Connection<Message.ClientSessionMessage> value) {
                         return PingingClientCodecConnection.newInstance(
-                                publisherFactory.get(),
                                 value,
                                 executor,
                                 defaultTimeOut);
@@ -49,24 +41,19 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     }
 
     public static PingingClientCodecConnection newInstance(
-            Publisher publisher,
-            Connection connection,
+            Connection<Message.ClientSessionMessage> connection,
             ScheduledExecutorService executor,
             TimeValue timeOut) {
-        EventfulAutomaton<ProtocolState, Message> automaton = EventfulAutomaton.createSynchronized(publisher, ProtocolState.ANONYMOUS);
-        ClientProtocolCodec codec = ClientProtocolCodec.newInstance(automaton);
-        PingingClientCodecConnection client = newInstance(publisher, codec, connection, executor, timeOut);
-        automaton.register(client);
-        return client;
+        ClientProtocolCodec codec = ClientProtocolCodec.newInstance(connection);
+        return newInstance(codec, connection, executor, timeOut);
     }
 
     protected static PingingClientCodecConnection newInstance(
-            Publisher publisher,
             ClientProtocolCodec codec,
-            Connection connection,
+            Connection<Message.ClientSessionMessage> connection,
             ScheduledExecutorService executor,
             TimeValue timeOut) {
-        return new PingingClientCodecConnection(publisher, codec, connection, executor, timeOut);
+        return new PingingClientCodecConnection(codec, connection, executor, timeOut);
     }
 
     private static enum PingingState {
@@ -79,8 +66,6 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     
     private static final TimeUnit TIME_UNIT = TimeUnit.MILLISECONDS;
 
-    private final Logger logger = LoggerFactory
-            .getLogger(PingingClientCodecConnection.class);
     private final ScheduledExecutorService executor;
     private final AtomicReference<TimeValue> timeOut;
     private final AtomicLong nextTimeOut;
@@ -89,12 +74,11 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     private final AtomicReference<PingingState> pingingState = new AtomicReference<PingingState>(PingingState.WAITING);
 
     private PingingClientCodecConnection(
-            Publisher publisher,
             ClientProtocolCodec codec,
-            Connection connection,
+            Connection<Message.ClientSessionMessage> connection,
             ScheduledExecutorService executor,
             TimeValue timeOut) {
-        super(publisher, codec, connection);
+        super(codec, connection);
         this.executor = checkNotNull(executor);
         this.timeOut = new AtomicReference<TimeValue>(checkNotNull(timeOut));
         this.nextTimeOut = new AtomicLong(now() + timeOut.value(TIME_UNIT));
@@ -126,7 +110,7 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
             // TODO: care if we were WAITING?
         }
         
-        switch (asCodec().state()) {
+        switch (codec().state()) {
         case ANONYMOUS:
         case CONNECTING:
             // try later
@@ -149,9 +133,6 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
 
         OpPing.OpPingRequest ping = OpPing.OpPingRequest.newInstance();
         try {
-            // FIXME: this violates our condition that write() not be called
-            // concurrently, but because pings aren't saved in the queue, it shouldn't matter,
-            // probably?
             write(SessionRequestWrapper.newInstance(ping.xid(), ping));
         } catch (Exception e) {
             stop();
@@ -176,20 +157,13 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     }
     
     @Override
-    protected void post(Object event) {
-        super.post(event);
-        
-        if (event instanceof OpCreateSession.Response) {
-            handleCreateSessionResponse((OpCreateSession.Response)event);
-        } else if (event instanceof Operation.SessionReply) {
-            Operation.SessionReply reply = (Operation.SessionReply)event;
-            if (reply.reply() instanceof OpPing.OpPingResponse) {
-                handlePingResponse((OpPing.OpPingResponse)reply.reply());
-            }
-        }
+    public ListenableFuture<ClientSessionMessage> write(Message.ClientSessionMessage message) {
+        touch();
+        return super.write(message);
     }
 
-    protected void handleCreateSessionResponse(OpCreateSession.Response message) {
+    @Subscribe
+    public void handleCreateSessionResponse(OpCreateSession.Response message) {
         if (message instanceof OpCreateSession.Response.Valid) {
             timeOut.set(message.toParameters().timeOut());
             schedule();
@@ -197,7 +171,14 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
             stop();
         }
     }
-    
+
+    @Subscribe
+    public void handleSessionReply(Operation.SessionReply message) {
+        if (message.reply() instanceof OpPing.OpPingResponse) {
+            handlePingResponse((OpPing.OpPingResponse)message.reply());
+        }
+    }
+
     protected void handlePingResponse(OpPing.OpPingResponse message) {
         if (logger.isTraceEnabled()) {
             // of course, this pong could be for an earlier ping,
@@ -208,30 +189,23 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
         }
     }
     
-    @Override
-    public void write(Message.ClientSessionMessage message) throws IOException {
-        touch();
-        super.write(message);
-    }
-    
     @Subscribe
     @Override
-    public void handleConnectionStateEvent(ConnectionStateEvent event) {
-        if (event.connection() == asConnection()) {
-            switch(event.event().to()) {
-            case CONNECTION_CLOSED:
-                stop();
-                break;
-            default:
-                break;
-            }
+    public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
+        switch (event.to()) {
+        case CONNECTION_CLOSED:
+            stop();
+            break;
+        default:
+            break;
         }
 
         super.handleConnectionStateEvent(event);
     }
 
     @Subscribe
-    public void handleProtocolState(AutomatonTransition<ProtocolState> event) {
+    @Override
+    public void handleProtocolStateEvent(Automaton.Transition<ProtocolState> event) {
         switch (event.to()) {
         case CONNECTED:
             schedule();
@@ -244,5 +218,7 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
         default:
             break;
         }
+        
+        super.handleProtocolStateEvent(event);
     }
 }

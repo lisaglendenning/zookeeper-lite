@@ -1,31 +1,32 @@
 package edu.uw.zookeeper.net;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-
 import java.net.SocketAddress;
+import java.util.concurrent.Executor;
 
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.util.Eventful;
+import edu.uw.zookeeper.protocol.Codec;
+import edu.uw.zookeeper.util.Pair;
+import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.Publisher;
 
 /**
  * Asynchronous communication channel.
  * 
  * Posts at least the following events:
  * <ul>
- * <li> ConnectionStateEvent when the Connection.State changes
- * <li> ConnectionBufferEvent when there are bytes to be read
+ * <li> Connection.State when the Connection.State changes
+ * <li> O when an O is received
  * </ul>
  * 
  * Currently there is only one implementation that is based on Netty 4.0.
  * 
  * @see edu.uw.zookeeper.netty
  */
-public interface Connection extends Eventful {
+public interface Connection<I> extends Publisher, Executor {
 
     public static enum State implements Function<State, Optional<State>> {
         CONNECTION_OPENING {
@@ -69,6 +70,8 @@ public interface Connection extends Eventful {
             }
         };
     }
+    
+    public static interface CodecFactory<I,O,C extends Connection<I>> extends ParameterizedFactory<Connection<I>,  Pair<C, ? extends Codec<? super I, Optional<? extends O>>>> {}
 
     /**
      * Get current Connection.State.
@@ -92,13 +95,6 @@ public interface Connection extends Eventful {
     SocketAddress remoteAddress();
 
     /**
-     * Get the ByteBufAllocator associated with this connection.
-     * 
-     * @return allocator
-     */
-    ByteBufAllocator allocator();
-    
-    /**
      * Trigger a read.
      * 
      * Triggers a ConnectionBufferEvent if there are bytes to be read.
@@ -106,19 +102,19 @@ public interface Connection extends Eventful {
     void read();
 
     /**
-     * Asynchronously send a Buf.
+     * Asynchronously send a message.
      * 
-     * @param buf Buf to send
-     * @return ListenableFuture that returns {@code buf}
+     * @param message I to send
+     * @return ListenableFuture that returns {@code message}
      */
-    ListenableFuture<ByteBuf> write(ByteBuf buf);
+    ListenableFuture<I> write(I message);
 
     /**
      * Asynchronously flush pending writes.
      * 
      * @return ListenableFuture that returns this
      */
-    ListenableFuture<Connection> flush();
+    ListenableFuture<Connection<I>> flush();
 
     /**
      * Transition Connection to CONNECTION_CLOSING.
@@ -127,5 +123,5 @@ public interface Connection extends Eventful {
      * 
      * @return ListenableFuture that returns this
      */
-    ListenableFuture<Connection> close();
+    ListenableFuture<Connection<I>> close();
 }

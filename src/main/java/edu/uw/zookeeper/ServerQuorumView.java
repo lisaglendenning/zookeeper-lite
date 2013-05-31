@@ -11,7 +11,7 @@ import com.google.common.collect.Iterables;
 import edu.uw.zookeeper.data.Serializes;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.SimpleAutomaton;
+import edu.uw.zookeeper.util.Automatons;
 
 public class ServerQuorumView<T extends SocketAddress> 
         extends Pair<ServerView.Address<T>,Automaton<QuorumRole, QuorumRole>> 
@@ -44,13 +44,13 @@ public class ServerQuorumView<T extends SocketAddress>
     
     public static <T extends SocketAddress> ServerQuorumView<T> of(
             ServerView.Address<T> address) {
-        return of(address, SimpleAutomaton.create(QuorumRole.class));
+        return of(address, Automatons.createSimple(QuorumRole.class));
     }
     
     public static <T extends SocketAddress> ServerQuorumView<T> of(
             ServerView.Address<T> address,
             QuorumRole state) {
-        return of(address, SimpleAutomaton.create(state));
+        return of(address, Automatons.createSimple(state));
     }
     
     public static <T extends SocketAddress> ServerQuorumView<T> of(

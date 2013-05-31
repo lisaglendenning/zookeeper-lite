@@ -7,7 +7,7 @@ import org.apache.zookeeper.Watcher.Event.KeeperState;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.Event;
+import edu.uw.zookeeper.util.Event;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 

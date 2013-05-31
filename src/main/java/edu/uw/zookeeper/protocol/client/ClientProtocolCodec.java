@@ -23,6 +23,7 @@ import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Pair;
+import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.Stateful;
 
@@ -34,24 +35,33 @@ import edu.uw.zookeeper.util.Stateful;
 public class ClientProtocolCodec
     extends ProtocolCodec<Message.ClientSessionMessage, Message.ServerSessionMessage> {
 
+    public static ClientProtocolCodec newInstance(
+            Publisher publisher) {
+        return newInstance(newAutomaton(publisher));
+    }
+    
     /**
      * 
      * @param automaton must be thread-safe
      */
     public static ClientProtocolCodec newInstance(
             Automaton<ProtocolState, Message> automaton) {
-        Pending pending = new Pending();
+        Pending pending = Pending.newInstance();
         ClientProtocolEncoder encoder = ClientProtocolEncoder.create(automaton);
         ClientProtocolDecoder decoder = ClientProtocolDecoder.create(automaton, pending);
         return new ClientProtocolCodec(automaton, encoder, decoder, pending);
     }
     
     public static class Pending implements Function<Integer, OpCode>, Reference<Queue<Pair<Integer, OpCode>>> {
+        public static Pending newInstance() {
+            return new Pending(new LinkedBlockingQueue<Pair<Integer, OpCode>>());
+        }
+        
         // must be thread-safe
         private final Queue<Pair<Integer, OpCode>> queue;
         
-        public Pending() {
-            this.queue = new LinkedBlockingQueue<Pair<Integer, OpCode>>();
+        public Pending(Queue<Pair<Integer, OpCode>> queue) {
+            this.queue = queue;
         }
 
         @Override

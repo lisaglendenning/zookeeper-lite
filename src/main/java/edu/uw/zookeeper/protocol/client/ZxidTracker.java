@@ -4,50 +4,75 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.common.eventbus.Subscribe;
 
+import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.util.AbstractPair;
+import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Reference;
 
 public class ZxidTracker implements Reference<Long>  {
+    
+    public static class ZxidListener<I, C extends Connection<I>> extends AbstractPair<ZxidTracker, C> {
 
-    public static class Decorator implements Factory<ClientCodecConnection> {
-        public static Decorator newInstance(
-                Factory<? extends ClientCodecConnection> delegate) {
-            return newInstance(delegate, ZxidTracker.create());
+        public static <I, C extends Connection<I>> ZxidListener<I,C> newInstance(
+                ZxidTracker tracker,
+                C connection) {
+            return new ZxidListener<I,C>(tracker, connection);
         }
         
-        public static Decorator newInstance(
-                Factory<? extends ClientCodecConnection> delegate,
-                ZxidTracker tracker) {
-            return new Decorator(delegate, tracker);
-        }
-        
-        private final ZxidTracker tracker;
-        private final Factory<? extends ClientCodecConnection> delegate;
-        
-        private Decorator(
-                Factory<? extends ClientCodecConnection> delegate,
-                ZxidTracker tracker) {
-            this.delegate = delegate;
-            this.tracker = tracker;
-        }
-        
-        public ZxidTracker asTracker() {
-            return tracker;
-        }
-        
-        @Override
-        public ClientCodecConnection get() {
-            ClientCodecConnection client = delegate.get();
-            // TODO: unregister when connection closes...
-            client.register(this);
-            return client;
+        public ZxidListener(ZxidTracker tracker, C connection) {
+            super(tracker, connection);
+            connection.register(this);
         }
         
         @Subscribe
-        public void handleMessage(Operation.SessionReply message) {
-            tracker.update(message.zxid());
+        public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
+            switch (event.to()) {
+            case CONNECTION_CLOSED:
+                try {
+                    second.unregister(this);
+                } catch (IllegalArgumentException e) {}
+                break;
+            default:
+                break;
+            }
         }
+
+        @Subscribe
+        public void handleSessionReply(Operation.SessionReply message) {
+            first.update(message.zxid());
+        }
+    }
+
+    public static class Decorator<I, C extends Connection<I>> 
+            extends Pair<ZxidTracker, Factory<C>> 
+            implements Factory<C> {
+        public static <I, C extends Connection<I>> Decorator<I,C> newInstance(
+                Factory<C> delegate) {
+            return newInstance(ZxidTracker.create(), delegate);
+        }
+        
+        public static <I, C extends Connection<I>> Decorator<I,C> newInstance(
+                ZxidTracker tracker,
+                Factory<C> delegate) {
+            return new Decorator<I,C>(tracker, delegate);
+        }
+        
+        public Decorator(
+                ZxidTracker tracker,
+                Factory<C> delegate) {
+            super(tracker, delegate);
+        }
+        
+        @Override
+        public C get() {
+            C connection = second().get();
+            ZxidListener.newInstance(first(), connection);
+            return connection;
+        }
+        
     }
     
     public static ZxidTracker create() {

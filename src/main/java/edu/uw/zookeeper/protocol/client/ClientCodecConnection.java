@@ -1,63 +1,36 @@
 package edu.uw.zookeeper.protocol.client;
 
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.protocol.CodecConnection;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.EventfulAutomaton;
-import edu.uw.zookeeper.util.Factories;
-import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Publisher;
 
-public class ClientCodecConnection extends CodecConnection<Message.ClientSessionMessage, Message.ServerSessionMessage, ClientProtocolCodec> {
+public class ClientCodecConnection extends ProtocolCodecConnection<Message.ClientSessionMessage, Message.ServerSessionMessage, ClientProtocolCodec> {
 
-    public static ParameterizedFactory<Connection, ClientCodecConnection> factory(
-            final Factory<Publisher> publisherFactory) {
-        return new ParameterizedFactory<Connection, ClientCodecConnection>() {
+    public static ParameterizedFactory<Connection<Message.ClientSessionMessage>, ClientCodecConnection> factory() {
+        return new ParameterizedFactory<Connection<Message.ClientSessionMessage>, ClientCodecConnection>() {
                     @Override
-                    public ClientCodecConnection get(Connection value) {
-                        return ClientCodecConnection.newInstance(publisherFactory.get(), value);
+                    public ClientCodecConnection get(Connection<Message.ClientSessionMessage> value) {
+                        return ClientCodecConnection.newInstance(value);
                     }
                 };
     }
 
-    public static <T extends ClientCodecConnection> Factory<T> factory(
-            final Factory<Connection> connectionFactory,
-            final ParameterizedFactory<Connection, ? extends T> clientFactory) {
-        return Factories.link(connectionFactory, clientFactory);
-    }
-
-    public static ClientCodecConnection newInstance(Publisher publisher,
-            Connection connection) {
-        Automaton<ProtocolState, Message> automaton = EventfulAutomaton.createSynchronized(publisher, ProtocolState.ANONYMOUS);
-        ClientProtocolCodec codec = ClientProtocolCodec.newInstance(automaton);
-        return newInstance(publisher, codec, connection);
+    public static ClientCodecConnection newInstance(
+            Connection<Message.ClientSessionMessage> connection) {
+        ClientProtocolCodec codec = ClientProtocolCodec.newInstance(connection);
+        return newInstance(codec, connection);
     }
     
-    public static ClientCodecConnection newInstance(Publisher publisher,
+    protected static ClientCodecConnection newInstance(
             ClientProtocolCodec codec,
-            Connection connection) {
-        return new ClientCodecConnection(publisher, codec, connection);
+            Connection<Message.ClientSessionMessage> connection) {
+        return new ClientCodecConnection(codec, connection);
     }
     
-    protected ClientCodecConnection(Publisher publisher,
-            ClientProtocolCodec codec, Connection connection) {
-        super(publisher, codec, connection);
-    }
-
-    @Override
-    protected void post(Object event) {
-        super.post(event);
-        
-        switch (asCodec().state()) {
-        case DISCONNECTED:
-        case ERROR:
-            asConnection().close();
-            break;
-        default:
-            break;
-        }
+    protected ClientCodecConnection(
+            ClientProtocolCodec codec, 
+            Connection<Message.ClientSessionMessage> connection) {
+        super(codec, connection);
     }
 }

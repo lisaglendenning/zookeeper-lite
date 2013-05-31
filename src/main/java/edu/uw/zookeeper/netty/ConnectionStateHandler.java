@@ -5,10 +5,9 @@ import org.slf4j.LoggerFactory;
 
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.EventfulAutomaton;
+import edu.uw.zookeeper.util.Automatons;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Stateful;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -23,19 +22,26 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
         return state;
     }
 
+    public static ConnectionStateHandler attach(Channel channel, Publisher publisher) {
+        ConnectionStateHandler handler = newInstance(publisher);
+        channel.pipeline().addLast(
+                ConnectionStateHandler.class.getName(), handler);
+        return handler;
+    }
+    
     public static ConnectionStateHandler newInstance(Publisher publisher) {
-        return newInstance(EventfulAutomaton.createSynchronized(publisher, Connection.State.class));
+        return newInstance(Automatons.createSynchronizedEventful(publisher, Automatons.createSimple(Connection.State.class)));
     }
     
     public static ConnectionStateHandler newInstance(Automaton<Connection.State, Connection.State> state) {
         return new ConnectionStateHandler(state);
     }
 
-    private final Logger logger = LoggerFactory
-            .getLogger(ConnectionStateHandler.class);
-    private final Automaton<Connection.State, Connection.State> automaton;
+    protected final Logger logger;
+    protected final Automaton<Connection.State, Connection.State> automaton;
 
     private ConnectionStateHandler(Automaton<Connection.State, Connection.State> automaton) {
+        this.logger = LoggerFactory.getLogger(getClass());
         this.automaton = automaton;
     }
 

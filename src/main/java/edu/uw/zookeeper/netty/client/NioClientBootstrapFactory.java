@@ -4,7 +4,7 @@ import java.util.concurrent.ThreadFactory;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
 import edu.uw.zookeeper.netty.DaemonThreadFactory;
-import edu.uw.zookeeper.netty.MonitoredEventLoopGroupFactory;
+import edu.uw.zookeeper.netty.EventLoopGroupService;
 import edu.uw.zookeeper.netty.SimpleBootstrapFactory;
 import edu.uw.zookeeper.netty.nio.NioChannelTypeFactory;
 import edu.uw.zookeeper.netty.nio.NioEventLoopGroupFactory;
@@ -19,7 +19,7 @@ public class NioClientBootstrapFactory implements Factory<Bootstrap> {
             Factory<ThreadFactory> threadFactory,
             ServiceMonitor serviceMonitor) {
         ThreadFactory threads = DaemonThreadFactory.getInstance().get(threadFactory.get());
-        Singleton<? extends EventLoopGroup> groupFactory = MonitoredEventLoopGroupFactory.newInstance(
+        Singleton<? extends EventLoopGroup> groupFactory = EventLoopGroupService.factory(
                 NioEventLoopGroupFactory.DEFAULT,
                 serviceMonitor).get(threads);
         return newInstance(groupFactory);

@@ -1,39 +1,37 @@
 package edu.uw.zookeeper.client;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AbstractIdleService;
 
-import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
+import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
 import edu.uw.zookeeper.util.Factory;
 
 /**
- * Wraps a ClientProtocolConnection Factory in a Service.
+ * Wraps a ClientProtocolExecutor Factory in a Service.
  */
-public class ClientProtocolConnectionsService extends AbstractIdleService implements Iterable<ClientProtocolConnection>, Factory<ClientProtocolConnection> {
+public class ClientProtocolExecutorsService extends AbstractIdleService implements Iterable<ClientProtocolExecutor>, Factory<ClientProtocolExecutor> {
 
-    public static ClientProtocolConnectionsService newInstance(
-            Factory<ClientProtocolConnection> clientFactory) {
-        return new ClientProtocolConnectionsService(clientFactory);
+    public static ClientProtocolExecutorsService newInstance(
+            Factory<ClientProtocolExecutor> clientFactory) {
+        return new ClientProtocolExecutorsService(clientFactory);
     }
     
-    protected final Factory<ClientProtocolConnection> clientFactory;
-    protected final List<ClientProtocolConnection> clients;
+    protected final Factory<ClientProtocolExecutor> clientFactory;
+    protected final List<ClientProtocolExecutor> clients;
     
-    protected ClientProtocolConnectionsService(
-            Factory<ClientProtocolConnection> clientFactory) {
+    protected ClientProtocolExecutorsService(
+            Factory<ClientProtocolExecutor> clientFactory) {
         this.clientFactory = clientFactory;
-        this.clients = Collections.synchronizedList(Lists.<ClientProtocolConnection>newLinkedList());
+        this.clients = Collections.synchronizedList(Lists.<ClientProtocolExecutor>newLinkedList());
     }
     
     @Override
     protected void startUp() throws Exception {
-        for (ClientProtocolConnection client: clients) {
+        for (ClientProtocolExecutor client: clients) {
             switch (client.state()) {
             case ANONYMOUS:
                 client.connect();
@@ -46,7 +44,7 @@ public class ClientProtocolConnectionsService extends AbstractIdleService implem
 
     @Override
     protected void shutDown() throws Exception {
-        for (ClientProtocolConnection client: clients) {
+        for (ClientProtocolExecutor client: clients) {
             switch (client.state()) {
             case CONNECTING:
             case CONNECTED:
@@ -59,7 +57,7 @@ public class ClientProtocolConnectionsService extends AbstractIdleService implem
     }
 
     @Override
-    public ClientProtocolConnection get() {
+    public ClientProtocolExecutor get() {
         State state = state();
         switch (state) {
         case STOPPING:
@@ -68,19 +66,15 @@ public class ClientProtocolConnectionsService extends AbstractIdleService implem
         default:
             break;
         }
-        ClientProtocolConnection client = clientFactory.get();
+        ClientProtocolExecutor client = clientFactory.get();
         // TODO: if shutdown gets called here, we'll miss this client...
         clients.add(client);
-        try {
-            client.connect();
-        } catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        client.connect();
         return client;
     }
 
     @Override
-    public Iterator<ClientProtocolConnection> iterator() {
+    public Iterator<ClientProtocolExecutor> iterator() {
         return clients.iterator();
     }
 }

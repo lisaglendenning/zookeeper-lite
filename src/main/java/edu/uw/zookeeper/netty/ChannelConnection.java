@@ -1,81 +1,142 @@
 package edu.uw.zookeeper.netty;
 
 import static com.google.common.base.Preconditions.*;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelPipeline;
-
 import java.net.SocketAddress;
+import java.util.concurrent.Executor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.net.ConnectionEvent;
-import edu.uw.zookeeper.net.ConnectionEventValue;
+import edu.uw.zookeeper.protocol.Codec;
+import edu.uw.zookeeper.protocol.Decoder;
+import edu.uw.zookeeper.protocol.Encoder;
 import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.ForwardingEventful;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.Processor;
+import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.Publisher;
+import edu.uw.zookeeper.util.PublisherActor;
 import edu.uw.zookeeper.util.Reference;
+import edu.uw.zookeeper.util.TaskMailbox;
 
-public class ChannelConnection extends ForwardingEventful implements
-        Connection, Publisher, Reference<Channel> {
+public class ChannelConnection<I> 
+        implements Connection<I>, Publisher, Reference<Channel>, Executor {
+    
+    public static <I,O, C extends Connection<I>> ChannelConnectionFactory<I,O,C> factory(
+            Factory<? extends Publisher> publisherFactory,
+            Connection.CodecFactory<I,O,C> codecFactory) {
+        return ChannelConnectionFactory.newInstance(publisherFactory, codecFactory);
+    }
 
-    public static class PerConnectionPublisherFactory implements ParameterizedFactory<Channel, ChannelConnection> {
+    public static class ChannelConnectionFactory<I,O, C extends Connection<I>> implements ParameterizedFactory<Channel, C> {
 
-        public static PerConnectionPublisherFactory newInstance(
-                Factory<Publisher> publisherFactory) {
-            return new PerConnectionPublisherFactory(publisherFactory);
+        public static <I,O, C extends Connection<I>> ChannelConnectionFactory<I,O,C> newInstance(
+                Factory<? extends Publisher> publisherFactory,
+                Connection.CodecFactory<I,O,C> codecFactory) {
+            return new ChannelConnectionFactory<I,O,C>(publisherFactory, codecFactory);
         }
         
-        private final Factory<Publisher> publisherFactory;
+        private final Factory<? extends Publisher> publisherFactory;
+        private final Connection.CodecFactory<I,O,C> codecFactory;
         
-        private PerConnectionPublisherFactory(
-                Factory<Publisher> publisherFactory) {
+        private ChannelConnectionFactory(
+                Factory<? extends Publisher> publisherFactory,
+                Connection.CodecFactory<I,O,C> codecFactory) {
             super();
             this.publisherFactory = publisherFactory;
+            this.codecFactory = codecFactory;
         }
 
         @Override
-        public ChannelConnection get(Channel channel) {
+        public C get(Channel channel) {
             Publisher publisher = publisherFactory.get();
-            return ChannelConnection.newInstance(publisher, channel);
+            ChannelConnection<I> channelConnection = ChannelConnection.newInstance(channel, publisher);
+            Pair<C, ? extends Codec<? super I, Optional<? extends O>>> codec = codecFactory.get(channelConnection);
+            attach(channel, codec.first(), codec.second(), codec.second());
+            return codec.first();
+        }
+    }
+
+    public class OutboundProcessor implements Processor<PromiseTask<I,I>, I> {
+        @Override
+        public I apply(PromiseTask<I, I> input) throws Exception {
+            Connection.State state = state();
+            switch (state) {
+            case CONNECTION_CLOSING:
+            case CONNECTION_CLOSED:
+                input.setException(new IllegalStateException(state.toString()));
+                break;
+            default:
+                break;
+            }
+            I task = input.task();
+            if (! input.isDone()) {
+                ChannelFuture future = get().write(input.task());
+                ChannelFutureWrapper.of(future, task, input);
+            }
+            return task;
+        }
+    }
+
+    public static <I,O> ChannelConnection<I> newInstance(
+            Channel channel, 
+            Publisher publisher, 
+            Encoder<? super I> encoder, 
+            Decoder<Optional<? extends O>> decoder) {
+        ChannelConnection<I> connection = newInstance(channel, publisher);
+        attach(connection.get(), connection, encoder, decoder);
+        return connection;
+    }
+    
+    protected static <I,O> Channel attach(
+            Channel channel, 
+            Publisher publisher,
+            Encoder<? super I> encoder, 
+            Decoder<Optional<? extends O>> decoder) {
+        InboundHandler.attach(channel, publisher, decoder);
+        OutboundHandler.attach(channel, encoder);
+        ConnectionStateHandler.attach(channel, publisher);
+        return channel;
+    }
+
+    protected static <I,O> ChannelConnection<I> newInstance(
+            Channel channel, 
+            Publisher publisher) {
+        return new ChannelConnection<I>(channel, publisher);
+    }
+    
+    protected final PublisherActor publisher;
+    protected final Logger logger;
+    protected final Channel channel;
+    protected final TaskMailbox.ActorTaskExecutor<I,I> outbound;
+
+    protected ChannelConnection(
+            Channel channel,
+            Publisher publisher) {
+        this.logger = LoggerFactory.getLogger(getClass());
+        this.channel = checkNotNull(channel);
+        this.publisher = PublisherActor.newInstance(publisher, this);
+        this.outbound = TaskMailbox.executor(TaskMailbox.actor(new OutboundProcessor(), this));
+    }
+    
+    @Override
+    public void execute(Runnable runnable) {
+        if (channel.isRegistered()) {
+            channel.eventLoop().execute(runnable);
+        } else {
+            executeNow(runnable);
         }
     }
     
-    public static ChannelConnection newInstance(
-            Publisher publisher, Channel channel) {
-        ChannelConnection connection = new ChannelConnection(publisher, channel);
-        initialize(connection);
-        return connection;
-    }
-    
-    private static ChannelConnection initialize(ChannelConnection connection) {
-        InboundHandler inbound = InboundHandler.newInstance(connection);
-        OutboundHandler outbound = OutboundHandler.newInstance();
-        ChannelPipeline pipeline = connection.get().pipeline();
-        pipeline.addFirst(InboundHandler.class.getName(), inbound);
-        pipeline.addLast(OutboundHandler.class.getName(), outbound);
-        ConnectionStateHandler stateHandler = ConnectionStateHandler
-                .newInstance(connection);
-        pipeline.addLast(
-                ConnectionStateHandler.class.getName(), stateHandler);
-        return connection;
-    }
-    
-    private final Logger logger = LoggerFactory
-            .getLogger(ChannelConnection.class);
-    private final Channel channel;
-
-    private ChannelConnection(
-            Publisher publisher, Channel channel) {
-        super(publisher);
-        this.channel = checkNotNull(channel);
+    protected synchronized void executeNow(Runnable runnable) {
+        runnable.run();
     }
 
     @Override
@@ -100,11 +161,6 @@ public class ChannelConnection extends ForwardingEventful implements
     }
 
     @Override
-    public ByteBufAllocator allocator() {
-        return get().alloc();
-    }
-    
-    @Override
     public void read() {
         get().read();
         // Note that this may result in multiple events for the same buffer
@@ -112,52 +168,45 @@ public class ChannelConnection extends ForwardingEventful implements
     }
 
     @Override
-    public ListenableFuture<ByteBuf> write(ByteBuf buf) {
-        State state = state();
-        switch (state) {
-        case CONNECTION_CLOSING:
-        case CONNECTION_CLOSED:
-            throw new IllegalStateException(state.toString());
-        default:
-            break;
-        }
-        ChannelFuture future = get().write(buf);
-        ChannelFutureWrapper<ByteBuf> wrapper = ChannelFutureWrapper.create(
-                future, buf);
-        return wrapper.promise();
+    public ListenableFuture<I> write(I message) {
+        return outbound.submit(message);
     }
 
     @Override
-    public ListenableFuture<Connection> flush() {
+    public ListenableFuture<Connection<I>> flush() {
         ChannelFuture future = get().flush();
-        ChannelFutureWrapper<Connection> wrapper = ChannelFutureWrapper
-                .create(future, (Connection) this);
-        return wrapper.promise();
+        ChannelFutureWrapper<Connection<I>> wrapper = ChannelFutureWrapper
+                .of(future, (Connection<I>) this);
+        return wrapper;
     }
 
     @Override
-    public ListenableFuture<Connection> close() {
+    public ListenableFuture<Connection<I>> close() {
         logger.debug("Closing: {}", this);
         ChannelFuture future = get().close();
-        ChannelFutureWrapper<Connection> wrapper = ChannelFutureWrapper
-                .create(future, (Connection) this);
-        return wrapper.promise();
+        ChannelFutureWrapper<Connection<I>> wrapper = ChannelFutureWrapper
+                .of(future, (Connection<I>) this);
+        return wrapper;
     }
 
     @Override
     public void post(Object event) {
-        if (!(event instanceof ConnectionEvent)) {
-            event = ConnectionEventValue.create(this, event);
-        }
-        if (logger.isTraceEnabled()) {
-            logger.trace("{}", event);
-        }
-        super.post(event);
+        publisher.post(event);
     }
 
     @Override
+    public void register(Object object) {
+        publisher.register(object);
+    }
+
+    @Override
+    public void unregister(Object object) {
+        publisher.unregister(object);
+    }
+    
+    @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("state", state())
+        return Objects.toStringHelper(this)
                 .add("channel", get()).toString();
     }
 }

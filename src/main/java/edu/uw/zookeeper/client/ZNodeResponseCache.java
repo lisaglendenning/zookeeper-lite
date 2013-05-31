@@ -17,24 +17,18 @@ import org.apache.zookeeper.data.Stat;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.Event;
+import edu.uw.zookeeper.util.Event;
 import edu.uw.zookeeper.data.StampedReference;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.data.ZNodeLabelTrie;
-import edu.uw.zookeeper.data.StampedReference.Updater;
-import edu.uw.zookeeper.data.ZNodeLabel.Component;
-import edu.uw.zookeeper.data.ZNodeLabel.Path;
-import edu.uw.zookeeper.data.ZNodeLabelTrie.AbstractNode;
-import edu.uw.zookeeper.data.ZNodeLabelTrie.Node;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.SimplePointer;
 import edu.uw.zookeeper.protocol.OpSessionResult;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionReplyWrapper;
 import edu.uw.zookeeper.protocol.SessionRequestWrapper;
-import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
-import edu.uw.zookeeper.protocol.client.ClientProtocolConnection.RequestFuture;
 import edu.uw.zookeeper.protocol.proto.IGetACLResponse;
 import edu.uw.zookeeper.protocol.proto.IGetDataResponse;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
@@ -350,12 +344,12 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.NodeCache<E>> imple
     }
 
     @Override
-    public ClientProtocolConnection.RequestFuture submit(Operation.Request request) {
+    public ListenableFuture<Operation.SessionResult> submit(Operation.Request request) {
         return client.submit(request, new PromiseWrapper());
     }
     
     @Override
-    public RequestFuture submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
+    public ListenableFuture<Operation.SessionResult> submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
         return client.submit(request, new PromiseWrapper(promise));
     }
 
