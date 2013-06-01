@@ -1,25 +1,23 @@
 package edu.uw.zookeeper.server;
 
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.common.base.Predicates;
-import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import edu.uw.zookeeper.ClientMessageExecutor;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.event.SessionStateEvent;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.util.AbstractActor;
+import edu.uw.zookeeper.util.Actor;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Processor;
@@ -29,7 +27,7 @@ import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.Processors.*;
 
-public class ServerExecutor implements ClientMessageExecutor, Executor, Callable<Object>, ParameterizedFactory<Long, ServerExecutor.PublishingSessionRequestExecutor> {
+public class ServerExecutor implements ClientMessageExecutor, Executor, ParameterizedFactory<Long, ServerExecutor.PublishingSessionRequestExecutor> {
 
     public interface PublishingSessionRequestExecutor extends SessionRequestExecutor, Publisher {}
     
@@ -49,16 +47,51 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
         return new ServerExecutor(executor, publisherFactory, sessions, zxids);
     }
 
-    public static enum State {
-        WAITING, SCHEDULED, TERMINATED;
+    public static class ClientMessageTask extends PromiseTask<ProcessorThunk<Message.ClientMessage, Message.ServerMessage>, Message.ServerMessage>
+            implements RunnableFuture<Message.ServerMessage> {
+        public static ClientMessageTask newInstance(
+                Processor<? super Message.ClientMessage, ? extends Message.ServerMessage> first,
+                Message.ClientMessage second) {
+            Promise<Message.ServerMessage> promise = newPromise();
+            return newInstance(first, second, promise);
+        }
+        
+        public static ClientMessageTask newInstance(
+                Processor<? super Message.ClientMessage, ? extends Message.ServerMessage> first,
+                Message.ClientMessage second,
+                Promise<Message.ServerMessage> promise) {
+            ProcessorThunk<Message.ClientMessage, Message.ServerMessage> task = ProcessorThunk.newInstance(first, second);
+            return new ClientMessageTask(task, promise);
+        }
+        
+        public ClientMessageTask(
+                ProcessorThunk<Message.ClientMessage, Message.ServerMessage> task,
+                Promise<Message.ServerMessage> promise) {
+            super(task, promise);
+        }
+        
+        @Override
+        public synchronized void run() {
+            if (! isDone()) {
+                Message.ServerMessage result;
+                try {
+                    result = task().call();
+                } catch (Exception e) {
+                    setException(e);
+                    return;
+                }
+                set(result);
+            }
+        }
     }
-
-    public static class ServerClientMessageExecutor implements ClientMessageExecutor {
+    
+    public static class ServerClientMessageExecutor extends AbstractActor<ClientMessageTask, Void> implements ClientMessageExecutor {
         
         public static ServerClientMessageExecutor newInstance(
                 Reference<Long> zxids,
-                SessionTable sessions) {
-            return newInstance(processor(zxids, sessions));
+                SessionTable sessions,
+                Executor executor) {
+            return newInstance(processor(zxids, sessions), executor);
         }
         
         public static Processor<Message.ClientMessage, Message.ServerMessage> processor(
@@ -77,39 +110,40 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
         }
 
         public static ServerClientMessageExecutor newInstance(
-                Processor<Message.ClientMessage, Message.ServerMessage> processor) {
-            return new ServerClientMessageExecutor(processor);
+                Processor<Message.ClientMessage, Message.ServerMessage> processor,
+                Executor executor) {
+            return new ServerClientMessageExecutor(
+                    processor, executor, AbstractActor.<ClientMessageTask>newQueue(), newState());
         }
-        
-        public static class ClientMessageTask extends ProcessorThunk<Message.ClientMessage, Message.ServerMessage> {
-            public static ClientMessageTask newInstance(
-                    Processor<? super Message.ClientMessage, ? extends Message.ServerMessage> first,
-                    Message.ClientMessage second) {
-                return new ClientMessageTask(first, second);
-            }
-            
-            public ClientMessageTask(
-                    Processor<? super Message.ClientMessage, ? extends Message.ServerMessage> first,
-                    Message.ClientMessage second) {
-                super(first, second);
-            }}
         
         protected final Processor<Message.ClientMessage, Message.ServerMessage> processor;
         
         protected ServerClientMessageExecutor(
-                Processor<Message.ClientMessage, Message.ServerMessage> processor) {
+                Processor<Message.ClientMessage, Message.ServerMessage> processor,
+                Executor executor, 
+                Queue<ClientMessageTask> mailbox,
+                AtomicReference<State> state) {
+            super(executor, mailbox, state);
             this.processor = processor;
         }
         
         @Override
-        public ListenableFutureTask<Message.ServerMessage> submit(Message.ClientMessage request) {
+        public ListenableFuture<Message.ServerMessage> submit(Message.ClientMessage request) {
             return submit(request, PromiseTask.<Message.ServerMessage>newPromise());
         }
 
         @Override
-        public ListenableFutureTask<Message.ServerMessage> submit(Message.ClientMessage request,
+        public ListenableFuture<Message.ServerMessage> submit(Message.ClientMessage request,
                 Promise<Message.ServerMessage> promise) {
-            return ListenableFutureTask.create(ClientMessageTask.newInstance(processor, request));
+            ClientMessageTask task = ClientMessageTask.newInstance(processor, request, promise);
+            send(task);
+            return task;
+        }
+
+        @Override
+        protected Void apply(ClientMessageTask input) throws Exception {
+            input.run();
+            return null;
         }   
     }
     
@@ -117,10 +151,9 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
     protected final Factory<Publisher> publisherFactory;
     protected final AssignZxidProcessor zxids;
     protected final ExpiringSessionManager sessions;
-    protected final BlockingQueue<Runnable> pending;
     protected final ConcurrentMap<Long, PublishingSessionRequestExecutor> executors;
     protected final ServerClientMessageExecutor anonymousExecutor;
-    protected final AtomicReference<State> state;
+    protected final Actor<Runnable> tasks;
     
     protected ServerExecutor(
             ListeningExecutorService executor,
@@ -131,11 +164,17 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
         this.publisherFactory = publisherFactory;
         this.zxids = zxids;
         this.sessions = sessions;
-        this.pending = new LinkedBlockingQueue<Runnable>();
         this.executors = Maps.newConcurrentMap();
-        this.anonymousExecutor = ServerClientMessageExecutor.newInstance(zxids, sessions);
-        this.state = new AtomicReference<State>(State.WAITING);
-        
+        this.tasks = AbstractActor.newInstance(
+                new Processor<Runnable, Void>() {
+                    @Override
+                    public Void apply(Runnable input) throws Exception {
+                        input.run();
+                        return null;
+                    }
+                }, executor);
+        this.anonymousExecutor = ServerClientMessageExecutor.newInstance(zxids, sessions, this);
+
         sessions.register(this);
     }
     
@@ -153,12 +192,7 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
 
     @Override
     public void execute(Runnable task) {
-        try {
-            pending.put(task);
-        } catch (InterruptedException e) {
-            throw new RejectedExecutionException(e);
-        }
-        schedule();
+        tasks.send(task);
     }
     
     @Override
@@ -169,52 +203,18 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
     @Override
     public ListenableFuture<Message.ServerMessage> submit(Message.ClientMessage request,
             Promise<Message.ServerMessage> promise) {
-        ListenableFutureTask<Message.ServerMessage> task = anonymousExecutor.submit(request);
-        execute(task);
-        return task;
-    }
-
-    private void schedule() {
-        if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
-            executor.submit(this);
-        }
-    }
-
-    /**
-     * This is where global ordering is imposed.
-     * 
-     * Where zxid should be assigned, and where externally-observable changes should be serialized.
-     */
-    @Override
-    public Void call() {
-        while (! pending.isEmpty()) {
-            next();
-        }
-        
-        state.compareAndSet(State.SCHEDULED, State.WAITING);
-        
-        return null;
-    }
-    
-    protected synchronized void next() {
-        Runnable next = pending.peek();
-        if (next != null) {
-            try {
-                next.run();
-            } catch (Exception e) {
-                throw Throwables.propagate(e);
-            }
-            pending.remove(next);
-        }        
+        return anonymousExecutor.submit(request);
     }
 
     @Override
     public PublishingSessionRequestExecutor get(Long sessionId) {
         PublishingSessionRequestExecutor executor = executors.get(sessionId);
         if (executor == null) {
-            executor = newSessionRequestExecutor(sessionId);
-            if (executors.putIfAbsent(sessionId, executor) != null) {
-                throw new AssertionError();
+            synchronized (this) {
+                executor = newSessionRequestExecutor(sessionId);
+                if (executors.put(sessionId, executor) != null) {
+                    throw new AssertionError();
+                }
             }
         }
         return executor;
