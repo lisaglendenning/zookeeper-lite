@@ -20,8 +20,6 @@ import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.event.SessionStateEvent;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.Message.ClientMessage;
-import edu.uw.zookeeper.protocol.Message.ServerMessage;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Processor;
@@ -105,12 +103,12 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
         
         @Override
         public ListenableFutureTask<Message.ServerMessage> submit(Message.ClientMessage request) {
-            return submit(request, PromiseTask.<ServerMessage>newPromise());
+            return submit(request, PromiseTask.<Message.ServerMessage>newPromise());
         }
 
         @Override
-        public ListenableFutureTask<Message.ServerMessage> submit(ClientMessage request,
-                Promise<ServerMessage> promise) {
+        public ListenableFutureTask<Message.ServerMessage> submit(Message.ClientMessage request,
+                Promise<Message.ServerMessage> promise) {
             return ListenableFutureTask.create(ClientMessageTask.newInstance(processor, request));
         }   
     }
@@ -165,12 +163,12 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Callable
     
     @Override
     public ListenableFuture<Message.ServerMessage> submit(Message.ClientMessage request) {
-        return submit(request, PromiseTask.<ServerMessage>newPromise());
+        return submit(request, PromiseTask.<Message.ServerMessage>newPromise());
     }
     
     @Override
-    public ListenableFuture<ServerMessage> submit(ClientMessage request,
-            Promise<ServerMessage> promise) {
+    public ListenableFuture<Message.ServerMessage> submit(Message.ClientMessage request,
+            Promise<Message.ServerMessage> promise) {
         ListenableFutureTask<Message.ServerMessage> task = anonymousExecutor.submit(request);
         execute(task);
         return task;

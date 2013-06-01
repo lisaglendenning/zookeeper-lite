@@ -11,7 +11,6 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
 import edu.uw.zookeeper.protocol.server.ServerProtocolExecutor;
 import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
@@ -20,30 +19,34 @@ public class Server {
     
     public static Server newInstance(
             final Factory<Publisher> publisherFactory,
-            final ServerConnectionFactory<Message.ServerMessage, ? extends Connection<Message.ServerMessage>> connections,
+            final ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> connections,
             final ServerExecutor serverExecutor) {
-        ParameterizedFactory<Connection<Message.ServerMessage>, ServerCodecConnection> codecFactory = ServerCodecConnection.factory(publisherFactory);
-        ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor> protocolFactory =
+        ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor> serverFactory =
                 new ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor>() {
                     @Override
                     public ServerProtocolExecutor get(
                             ServerCodecConnection value) {
-                        ServerProtocolExecutor server = ServerProtocolExecutor.newInstance(value, serverExecutor, serverExecutor, serverExecutor.executor());
+                        ServerProtocolExecutor server = ServerProtocolExecutor.newInstance(
+                                value, 
+                                serverExecutor, 
+                                serverExecutor, 
+                                serverExecutor);
                         return server;
                     }
                     
                 };
-        return new Server(publisherFactory, connections, serverExecutor, Factories.linkParameterized(codecFactory, protocolFactory));
+        return new Server(
+                publisherFactory, connections, serverFactory);
     }
     
     protected class ConnectionListener {
-        protected final Connection<Message.ServerMessage> connection;
+        protected final ServerCodecConnection connection;
         protected final ServerProtocolExecutor server;
         
-        public ConnectionListener(Connection<Message.ServerMessage> connection) {
+        public ConnectionListener(ServerCodecConnection connection) {
             this.connection = connection;
             this.server = serverFactory.get(connection);
-            if (servers.putIfAbsent(connection, server) != null) {
+            if (servers.put(connection, server) != null) {
                 throw new AssertionError();
             }
             
@@ -53,23 +56,23 @@ public class Server {
         @Subscribe
         public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
+                try {
+                    connection.unregister(this);
+                } catch (IllegalArgumentException e) {}
                 servers.remove(connection, server);
             }
         }
     }
 
     protected final ServerConnectionFactory<Message.ServerMessage, ? extends Connection<Message.ServerMessage>> connections;
-    protected final ServerExecutor serverExecutor;
-    protected final ParameterizedFactory<Connection<Message.ServerMessage>, ServerProtocolExecutor> serverFactory;
+    protected final ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor> serverFactory;
     protected final ConcurrentMap<Connection<Message.ServerMessage>, ServerProtocolExecutor> servers;
     
     protected Server(
-            final Factory<Publisher> publisherFactory,
-            final ServerConnectionFactory<Message.ServerMessage, ? extends Connection<Message.ServerMessage>> connections,
-            final ServerExecutor serverExecutor,
-            ParameterizedFactory<Connection<Message.ServerMessage>, ServerProtocolExecutor> serverFactory) {
+            Factory<Publisher> publisherFactory,
+            ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> connections,
+            ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor> serverFactory) {
         this.connections = connections;
-        this.serverExecutor = serverExecutor;
         this.serverFactory = serverFactory;
         this.servers = Maps.newConcurrentMap();
         
@@ -77,7 +80,7 @@ public class Server {
     }
     
     @Subscribe
-    public void handleNewConnection(Connection<Message.ServerMessage> event) {
+    public void handleNewConnection(ServerCodecConnection event) {
         new ConnectionListener(event);
     }
 }

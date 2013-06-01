@@ -42,18 +42,18 @@ public enum Serializers {
     }
     
     public static enum ToString implements Function<Object, String> {
-        TO_STRING {
-            @Override
-            public String apply(Object input) {
-                Class<?> inputType = input.getClass();
-                Serializer serializer = Serializers.getInstance().find(inputType, String.class);
-                if (serializer != null) {
-                    return serializer.invoke(inputType, input);
-                } else {
-                    return String.valueOf(input);
-                }
+        TO_STRING;
+        
+        @Override
+        public String apply(Object input) {
+            Class<?> inputType = input.getClass();
+            Serializer serializer = Serializers.getInstance().find(inputType, String.class);
+            if (serializer != null) {
+                return serializer.invoke(inputType, input);
+            } else {
+                return String.valueOf(input);
             }
-        };
+        }
     }
     
     public static final Set<Class<?>> PRIMITIVE_TYPES = ImmutableSet.<Class<?>>of(String.class, byte[].class);

@@ -4,13 +4,12 @@ import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ForwardingQueue;
 import com.google.common.util.concurrent.ListenableFuture;
 
-public class TaskMailbox<V, T extends Future<? extends V>> extends ForwardingQueue<T> {
+public class TaskMailbox<V, T extends Future<V>> extends ForwardingQueue<T> {
 
     public static <I,O> PromiseTaskProcessor<I,O> processor(
             Processor<I,O> delegate) {
@@ -18,14 +17,14 @@ public class TaskMailbox<V, T extends Future<? extends V>> extends ForwardingQue
     }
     
     public static <I,O,V> AbstractActor.SimpleActor<PromiseTask<I,V>, O> actor(
-            Processor<PromiseTask<I,V>, O> processor,
+            Processor<? super PromiseTask<I,V>, ? extends O> processor,
             Executor executor) {
         TaskMailbox<V, PromiseTask<I,V>> mailbox = newQueue();
         return AbstractActor.newInstance(
                 processor, 
                 executor, 
                 mailbox, 
-                new AtomicReference<Actor.State>(Actor.State.WAITING));
+                AbstractActor.newState());
     }
     
     public static <I,V> ActorTaskExecutor<I,V> executor(
@@ -106,11 +105,11 @@ public class TaskMailbox<V, T extends Future<? extends V>> extends ForwardingQue
         }
     }
 
-    public static <V, T extends Future<? extends V>> TaskMailbox<V,T> newQueue() {
+    public static <V, T extends Future<V>> TaskMailbox<V,T> newQueue() {
         return newInstance(AbstractActor.<T>newQueue());
     }
     
-    public static <V, T extends Future<? extends V>> TaskMailbox<V,T> newInstance(Queue<T> delegate) {
+    public static <V, T extends Future<V>> TaskMailbox<V,T> newInstance(Queue<T> delegate) {
         return new TaskMailbox<V,T>(delegate);
     }
     

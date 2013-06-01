@@ -12,8 +12,6 @@ import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.OpRecord;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.Operation.SessionReply;
-import edu.uw.zookeeper.protocol.Operation.SessionRequest;
 import edu.uw.zookeeper.protocol.SessionRequestWrapper;
 import edu.uw.zookeeper.util.ForwardingEventful;
 import edu.uw.zookeeper.util.Processor;
@@ -104,12 +102,12 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
     
     @Override
     public ListenableFuture<Operation.SessionReply> submit(Operation.SessionRequest request) {
-        return submit(request, PromiseTask.<SessionReply>newPromise());
+        return submit(request, PromiseTask.<Operation.SessionReply>newPromise());
     }
     
     @Override
-    public ListenableFuture<SessionReply> submit(SessionRequest request,
-            Promise<SessionReply> promise) {
+    public ListenableFuture<Operation.SessionReply> submit(Operation.SessionRequest request,
+            Promise<Operation.SessionReply> promise) {
         touch();
         if (logger.isDebugEnabled()) {
             logger.debug(String.format("0x%s: Submitting %s", Long.toHexString(sessionId), request));

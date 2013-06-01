@@ -13,8 +13,6 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-
 import edu.uw.zookeeper.ClientMessageExecutor;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionRequestExecutor;
@@ -32,7 +30,6 @@ import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.Stateful;
-import edu.uw.zookeeper.util.TaskMailbox;
 
 public class ServerProtocolExecutor 
         implements Stateful<ProtocolState>, Eventful, Reference<ServerCodecConnection> {
@@ -41,8 +38,9 @@ public class ServerProtocolExecutor
             ServerCodecConnection codecConnection,
             ClientMessageExecutor anonymousExecutor,
             ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
-            ListeningExecutorService executor) {
-        return new ServerProtocolExecutor(codecConnection, anonymousExecutor, sessionExecutors, executor);
+            Executor executor) {
+        return new ServerProtocolExecutor(
+                codecConnection, anonymousExecutor, sessionExecutors, executor);
     }
     
     public static class InboundMailbox extends ForwardingQueue<Message.ClientMessage> {
@@ -204,14 +202,21 @@ public class ServerProtocolExecutor
         }
     }
 
-    public static class SubmittedMailbox extends TaskMailbox<Message.ServerMessage, ListenableFuture<? extends Message.ServerMessage>> {
+    public static class SubmittedMailbox extends ForwardingQueue<ListenableFuture<? extends Message.ServerMessage>> {
 
         public static SubmittedMailbox newInstance() {
             return new SubmittedMailbox(AbstractActor.<ListenableFuture<? extends Message.ServerMessage>>newQueue());
         }
         
+        protected final Queue<ListenableFuture<? extends Message.ServerMessage>> delegate;
+        
         protected SubmittedMailbox(Queue<ListenableFuture<? extends Message.ServerMessage>> delegate) {
-            super(delegate);
+            this.delegate = delegate;
+        }
+        
+        @Override
+        protected Queue<ListenableFuture<? extends Message.ServerMessage>> delegate() {
+            return delegate;
         }
 
         @Override
@@ -236,6 +241,16 @@ public class ServerProtocolExecutor
         @Override
         public boolean isEmpty() {
             return peek() != null;
+        }
+
+        @Override
+        public void clear() {
+            ListenableFuture<? extends Message.ServerMessage> next;
+            while ((next = super.poll()) != null) {
+                if (! next.isDone()) {
+                    next.cancel(true);
+                }
+            }
         }
     }
     

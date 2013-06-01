@@ -64,7 +64,7 @@ public class ChannelConnection<I>
         }
     }
 
-    public class OutboundProcessor implements Processor<PromiseTask<I,I>, I> {
+    public class OutboundProcessor implements Processor<PromiseTask<I, I>, I> {
         @Override
         public I apply(PromiseTask<I, I> input) throws Exception {
             Connection.State state = state();

@@ -11,7 +11,7 @@ import com.google.common.base.Throwables;
 public abstract class AbstractActor<I,O> implements Actor<I> {
     
     public static <I,O> SimpleActor<I,O> newInstance(
-            Processor<I,O> processor, 
+            Processor<? super I, ? extends O> processor, 
             Executor executor) {
         Queue<I> queue = newQueue();
         return newInstance(
@@ -22,7 +22,7 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
     }
 
     public static <I,O> SimpleActor<I,O> newInstance(
-            Processor<I,O> processor, 
+            Processor<? super I, ? extends O> processor, 
             Executor executor, 
             Queue<I> mailbox,
             AtomicReference<State> state) {
@@ -118,7 +118,7 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
     public static class SimpleActor<I,O> extends AbstractActor<I,O> {
         
         public static <I,O> SimpleActor<I,O> newInstance(
-                Processor<I,O> processor, 
+                Processor<? super I, ? extends O> processor, 
                 Executor executor, 
                 Queue<I> mailbox,
                 AtomicReference<State> state) {
@@ -129,10 +129,10 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
                     state);
         }
         
-        protected final Processor<I,O> processor;
+        protected final Processor<? super I, ? extends O> processor;
         
         protected SimpleActor(
-                Processor<I, O> processor, 
+                Processor<? super I, ? extends O> processor, 
                 Executor executor,
                 Queue<I> mailbox,
                 AtomicReference<Actor.State> state) {
