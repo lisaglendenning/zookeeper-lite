@@ -18,7 +18,6 @@ import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
 import edu.uw.zookeeper.netty.server.ServerModule;
 import edu.uw.zookeeper.protocol.CodecConnection;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
 import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.Arguments;

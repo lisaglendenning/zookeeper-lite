@@ -21,6 +21,12 @@ public abstract class ServerModule {
         final ParameterizedFactory<SocketAddress, ServerBootstrap> bootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
                         NioServerBootstrapFactory.newInstance(runtime.threadFactory(), runtime.serviceMonitor()));
+        return factory(publisherFactory, bootstrapFactory);
+    }
+    
+    public static <I,O, C extends Connection<I>> ParameterizedFactory<Connection.CodecFactory<I,O,C>, ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<I,C>>> factory(
+            final Factory<Publisher> publisherFactory,
+            final ParameterizedFactory<SocketAddress, ServerBootstrap> bootstrapFactory) {
         return new ParameterizedFactory<Connection.CodecFactory<I,O,C>, ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<I,C>>>() {
             @Override
             public ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<I,C>> get(Connection.CodecFactory<I,O,C> value) {

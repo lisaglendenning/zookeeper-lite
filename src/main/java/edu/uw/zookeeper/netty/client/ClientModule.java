@@ -17,6 +17,12 @@ public abstract class ClientModule {
         final Factory<Publisher> publisherFactory = runtime.publisherFactory();
         final Factory<Bootstrap> bootstrapFactory = 
                 NioClientBootstrapFactory.newInstance(runtime.threadFactory(), runtime.serviceMonitor());
+        return factory(publisherFactory, bootstrapFactory);
+    }
+    
+    public static <I,O, C extends Connection<I>> ParameterizedFactory<Connection.CodecFactory<I,O,C>, Factory<ChannelClientConnectionFactory<I,C>>> factory(
+            final Factory<Publisher> publisherFactory,
+            final Factory<Bootstrap> bootstrapFactory) {
         return new ParameterizedFactory<Connection.CodecFactory<I,O,C>, Factory<ChannelClientConnectionFactory<I,C>>>() {
             @Override
             public Factory<ChannelClientConnectionFactory<I,C>> get(Connection.CodecFactory<I,O,C> value) {
