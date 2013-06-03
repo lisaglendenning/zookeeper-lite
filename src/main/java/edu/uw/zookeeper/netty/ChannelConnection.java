@@ -191,6 +191,7 @@ public class ChannelConnection<I>
 
     @Override
     public void post(Object event) {
+        logger.trace("{} ({})", event, this);
         publisher.post(event);
     }
 

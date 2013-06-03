@@ -89,9 +89,9 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     
     protected void schedule() {
         if (timeOut.get().value() != Session.Parameters.NEVER_TIMEOUT) {
-            // somewhat arbitrary, but better than just a fixed interval...
-            long tick = Math.max((nextTimeOut.get() - now()) / 2, 0);
             if (pingingState.compareAndSet(PingingState.WAITING, PingingState.SCHEDULED)) {
+                // somewhat arbitrary, but better than just a fixed interval...
+                long tick = Math.max((nextTimeOut.get() - now()) / 2, 0);
                 future.set(executor.schedule(this, tick, TIME_UNIT));
             }
         }
@@ -166,6 +166,7 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     public void handleCreateSessionResponse(OpCreateSession.Response message) {
         if (message instanceof OpCreateSession.Response.Valid) {
             timeOut.set(message.toParameters().timeOut());
+            touch();
             schedule();
         } else {
             stop();
@@ -174,8 +175,9 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
 
     @Subscribe
     public void handleSessionReply(Operation.SessionReply message) {
-        if (message.reply() instanceof OpPing.OpPingResponse) {
-            handlePingResponse((OpPing.OpPingResponse)message.reply());
+        Operation.Reply reply = message.reply();
+        if (reply instanceof OpPing.OpPingResponse) {
+            handlePingResponse((OpPing.OpPingResponse)reply);
         }
     }
 
@@ -205,10 +207,6 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     @Override
     public void handleProtocolStateEvent(Automaton.Transition<ProtocolState> event) {
         switch (event.to()) {
-        case CONNECTED:
-            schedule();
-            break;
-        case DISCONNECTING:
         case DISCONNECTED:
         case ERROR:
             stop();

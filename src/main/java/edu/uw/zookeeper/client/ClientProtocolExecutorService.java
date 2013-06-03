@@ -1,10 +1,13 @@
 package edu.uw.zookeeper.client;
 
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
+import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Promise;
@@ -30,7 +33,9 @@ public class ClientProtocolExecutorService extends AbstractIdleService
     
     @Override
     protected void startUp() throws Exception {
-        this.client.get().connect();
+        ClientProtocolExecutor client = this.client.get();
+        client.register(this);
+        client.connect();
     }
 
     @Override
@@ -80,5 +85,26 @@ public class ClientProtocolExecutorService extends AbstractIdleService
     @Override
     public void unregister(Object object) {
         get().unregister(object);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Subscribe
+    public void handleStateEvent(Automaton.Transition<?> event) {
+        if (event.type().isAssignableFrom(Connection.State.class)) {
+            handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
+        }
+    }
+    
+    public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
+        switch (event.to()) {
+        case CONNECTION_CLOSED:
+            try {
+                unregister(this);
+            } catch (IllegalArgumentException e) {}
+            stop();
+            break;
+        default:
+            break;
+        }
     }
 }

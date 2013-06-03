@@ -48,7 +48,7 @@ public class PublisherActor extends AbstractActor<Object, Void> implements Publi
     }
 
     @Override
-    protected Void apply(Object input) throws Exception {
+    protected Void apply(Object input) {
         get().post(input);
         return null;
     }
