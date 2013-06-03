@@ -97,7 +97,7 @@ public class InboundHandler<O> extends ChannelInboundByteHandlerAdapter {
             Optional<? extends O> output = decoder.decode(in);
             if (output.isPresent()) {
                 if (logger.isTraceEnabled()) {
-                    logger.trace("Read {} ({})", output.get(), this);
+                    logger.trace("Read {} ({})", output.get(), ctx.channel());
                 }
                 post(output.get());
             } else {

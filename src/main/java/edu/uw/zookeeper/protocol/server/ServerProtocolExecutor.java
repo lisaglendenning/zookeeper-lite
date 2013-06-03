@@ -165,9 +165,16 @@ public class ServerProtocolExecutor
             ServerProtocolExecutor.this.onFailure(t);
             stop();
         }
-        
+
+        @SuppressWarnings("unchecked")
         @Subscribe
-        public void handleConnectionState(Automaton.Transition<Connection.State> event) {
+        public void handleStateEvent(Automaton.Transition<?> event) {
+            if (event.type().isAssignableFrom(Connection.State.class)) {
+                handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
+            }
+        }
+        
+        public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
                 onFailure(new KeeperException.ConnectionLossException());
             }

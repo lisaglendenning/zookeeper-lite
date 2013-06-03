@@ -52,8 +52,15 @@ public class Server {
             
             connection.register(this);
         }
-        
+
+        @SuppressWarnings("unchecked")
         @Subscribe
+        public void handleStateEvent(Automaton.Transition<?> event) {
+            if (event.type().isAssignableFrom(Connection.State.class)) {
+                handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
+            }
+        }
+        
         public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
                 try {

@@ -1,5 +1,7 @@
 package edu.uw.zookeeper.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -49,14 +51,14 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
             Executor executor, 
             Queue<I> mailbox,
             AtomicReference<State> state) {
-        this.executor = executor;
-        this.mailbox = mailbox;
-        this.state = state;
+        this.executor = checkNotNull(executor);
+        this.mailbox = checkNotNull(mailbox);
+        this.state = checkNotNull(state);
     }
     
     @Override
     public void send(I message) {        
-        if (mailbox.offer(message)) {
+        if (mailbox.offer(checkNotNull(message))) {
             if (! schedule() && state() == State.TERMINATED) {
                 mailbox.remove(message);
                 throw new RejectedExecutionException();
@@ -137,7 +139,7 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
                 Queue<I> mailbox,
                 AtomicReference<Actor.State> state) {
             super(executor, mailbox, state);
-            this.processor = processor;
+            this.processor = checkNotNull(processor);
         }
 
         @Override

@@ -72,8 +72,15 @@ public class ClientProtocolInitializer
         return false;
     }
 
+    @SuppressWarnings("unchecked")
     @Subscribe
-    public void handleConnectionState(Automaton.Transition<Connection.State> event) {
+    public void handleStateEvent(Automaton.Transition<?> event) {
+        if (event.type().isAssignableFrom(Connection.State.class)) {
+            handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
+        }
+    }
+    
+    public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
         switch (event.to()) {
         case CONNECTION_CLOSED:
             onFailure(new KeeperException.ConnectionLossException());

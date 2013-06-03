@@ -78,7 +78,7 @@ public class ChannelConnection<I>
             }
             I task = input.task();
             if (! input.isDone()) {
-                ChannelFuture future = get().write(input.task());
+                ChannelFuture future = get().write(task);
                 ChannelFutureWrapper.of(future, task, input);
             }
             return task;

@@ -18,7 +18,16 @@ public abstract class ProtocolCodecConnection<I extends Message, O extends Messa
         register(this);
     }
 
+    @SuppressWarnings("unchecked")
     @Subscribe
+    public void handleStateEvent(Automaton.Transition<?> event) {
+        if (event.type().isAssignableFrom(Connection.State.class)) {
+            handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
+        } else if (event.type().isAssignableFrom(ProtocolState.class)) {
+            handleProtocolStateEvent((Automaton.Transition<ProtocolState>)event);
+        } 
+    }
+    
     public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
         switch (event.to()) {
         case CONNECTION_CLOSED:
@@ -31,7 +40,6 @@ public abstract class ProtocolCodecConnection<I extends Message, O extends Messa
         }
     }
     
-    @Subscribe
     public void handleProtocolStateEvent(Automaton.Transition<ProtocolState> event) {
         switch (event.to()) {
         case DISCONNECTED:

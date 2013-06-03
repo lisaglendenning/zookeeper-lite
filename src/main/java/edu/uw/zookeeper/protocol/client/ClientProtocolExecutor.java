@@ -194,8 +194,15 @@ public class ClientProtocolExecutor
                 // TODO: should this happen for non-opxid messages?
             }
         }
-        
+
+        @SuppressWarnings("unchecked")
         @Subscribe
+        public void handleStateEvent(Automaton.Transition<?> event) {
+            if (event.type().isAssignableFrom(Connection.State.class)) {
+                handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
+            }
+        }
+        
         public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
                 try {
@@ -285,8 +292,15 @@ public class ClientProtocolExecutor
 
         return outbound.submit(request, promise);
     }
-    
+
+    @SuppressWarnings("unchecked")
     @Subscribe
+    public void handleStateEvent(Automaton.Transition<?> event) {
+        if (event.type().isAssignableFrom(Connection.State.class)) {
+            handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
+        }
+    }
+    
     public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
         if (Connection.State.CONNECTION_CLOSED == event.to()) {
             try {

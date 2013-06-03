@@ -189,7 +189,6 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
         }
     }
     
-    @Subscribe
     @Override
     public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
         switch (event.to()) {
@@ -203,7 +202,6 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
         super.handleConnectionStateEvent(event);
     }
 
-    @Subscribe
     @Override
     public void handleProtocolStateEvent(Automaton.Transition<ProtocolState> event) {
         switch (event.to()) {

@@ -36,7 +36,14 @@ public abstract class AbstractConnectionFactory<I, C extends Connection<I>> exte
             } catch (IllegalArgumentException e) {}
         }
 
+        @SuppressWarnings("unchecked")
         @Subscribe
+        public void handleStateEvent(Automaton.Transition<?> event) {
+            if (event.type().isAssignableFrom(Connection.State.class)) {
+                handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
+            }
+        }
+        
         public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
             switch (event.to()) {
             case CONNECTION_CLOSED:
@@ -53,8 +60,8 @@ public abstract class AbstractConnectionFactory<I, C extends Connection<I>> exte
 
     protected AbstractConnectionFactory(Publisher publisher) {
         super();
-        this.publisher = checkNotNull(publisher);
         this.logger = LoggerFactory.getLogger(getClass());
+        this.publisher = checkNotNull(publisher);
     }
 
     protected Publisher publisher() {
