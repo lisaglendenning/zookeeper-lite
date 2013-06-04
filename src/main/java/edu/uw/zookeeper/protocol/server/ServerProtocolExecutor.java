@@ -282,22 +282,9 @@ public class ServerProtocolExecutor
             Futures.addCallback(message, this);
         }
         
-        @Subscribe
         @Override
         public void onSuccess(Message.ServerMessage result) {
-            try {
-                schedule();
-                if (result instanceof Operation.SessionReply
-                        && ((Operation.SessionReply)result).xid() == Records.OpCodeXid.NOTIFICATION.xid()) {
-                    // we want to flush completed messages to outbound
-                    // before queueing this notification
-                    // to maintain the expected ordering
-                    run();
-                    outbound.send(result);
-                } 
-            } catch (Throwable t) {
-                onFailure(t);
-            }
+            schedule();
         }
     
         @Override
@@ -316,6 +303,30 @@ public class ServerProtocolExecutor
             default:
                 break;
             }
+        }
+        
+        @Subscribe
+        public void handleSessionReply(Operation.SessionReply message) {
+            if (Records.OpCodeXid.NOTIFICATION.xid() == ((Operation.SessionReply)message).xid()) {
+                // we need to flush completed messages to outbound
+                // before queueing this message
+                // to maintain the expected ordering
+                try {
+                    flush(message);
+                } catch (Throwable t) {
+                    onFailure(t);
+                }
+            }
+        }
+        
+        protected synchronized void flush(Message.ServerMessage message) throws Exception {
+            runAll();
+            outbound.send(message);
+        }
+        
+        @Override
+        protected synchronized void runAll() throws Exception {
+            super.runAll();
         }
         
         @Override

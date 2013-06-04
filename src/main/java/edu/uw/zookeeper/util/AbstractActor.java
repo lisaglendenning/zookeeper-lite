@@ -75,24 +75,14 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
 
     @Override
     public void run() {
-        if (! state.compareAndSet(State.SCHEDULED, State.RUNNING)) {
-            return;
-        }
-        
-        I next;
-        while ((next = mailbox.poll()) != null) {
+        if (runEnter()) {
             try {
-                apply(next);
+                runAll();
             } catch (Throwable e) {
                 stop();
                 throw Throwables.propagate(e);
             }
-        }
-        
-        if (state.compareAndSet(State.RUNNING, State.WAITING)) {
-            if (! mailbox.isEmpty()) {
-                schedule();
-            }
+            runExit();
         }
     }
 
@@ -113,6 +103,25 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
             executor.execute(this);
         }
         return schedule;
+    }
+    
+    protected boolean runEnter() {
+        return state.compareAndSet(State.SCHEDULED, State.RUNNING);
+    }
+    
+    protected void runAll() throws Exception {
+        I next;
+        while ((next = mailbox.poll()) != null) {
+            apply(next);
+        }
+    }
+    
+    protected void runExit() {
+        if (state.compareAndSet(State.RUNNING, State.WAITING)) {
+            if (! mailbox.isEmpty()) {
+                schedule();
+            }
+        }
     }
     
     protected abstract O apply(I input) throws Exception;
