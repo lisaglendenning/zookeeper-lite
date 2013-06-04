@@ -207,14 +207,13 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Paramete
     }
 
     @Override
-    public PublishingSessionRequestExecutor get(Long sessionId) {
+    public synchronized PublishingSessionRequestExecutor get(Long sessionId) {
+        // TODO: check session is valid?
         PublishingSessionRequestExecutor executor = executors.get(sessionId);
         if (executor == null) {
-            synchronized (this) {
-                executor = newSessionRequestExecutor(sessionId);
-                if (executors.put(sessionId, executor) != null) {
-                    throw new AssertionError();
-                }
+            executor = newSessionRequestExecutor(sessionId);
+            if (executors.put(sessionId, executor) != null) {
+                throw new AssertionError();
             }
         }
         return executor;

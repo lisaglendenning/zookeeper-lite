@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Throwables;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import edu.uw.zookeeper.Session;
@@ -81,6 +82,8 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
         this.executor = executor;
         this.processor = processor;
         this.sessionId = sessionId;
+        
+        register(this);
     }
     
     public ServerExecutor executor() {
@@ -88,18 +91,10 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
     }
 
     @Override
-    public void post(Object event) {
-        if (event == Session.State.SESSION_EXPIRED) {
-            try {
-                submit(SessionRequestWrapper.newInstance(0, OpRecord.OpRequest.newInstance(OpCode.CLOSE_SESSION)));
-            } catch (Exception e) {
-                // TODO
-                Throwables.propagate(e);
-            }
-        }
-        super.post(event);
+    public void execute(Runnable runnable) {
+        executor().execute(runnable);
     }
-    
+
     @Override
     public ListenableFuture<Operation.SessionReply> submit(Operation.SessionRequest request) {
         return submit(request, PromiseTask.<Operation.SessionReply>newPromise());
@@ -116,13 +111,25 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
         execute(task);
         return task;
     }
+    
+    @Override
+    public void post(Object event) {
+        super.post(event);
+    }
+
+    @Subscribe
+    public void handleSessionStateEvent(Session.State event) {
+        if (Session.State.SESSION_EXPIRED == event) {
+            try {
+                submit(SessionRequestWrapper.newInstance(0, OpRecord.OpRequest.newInstance(OpCode.CLOSE_SESSION)));
+            } catch (Exception e) {
+                // TODO
+                throw Throwables.propagate(e);
+            }
+        }
+    }
 
     protected void touch() {
         executor().sessions().touch(sessionId);
-    }
-
-    @Override
-    public void execute(Runnable runnable) {
-        executor().execute(runnable);
     }
 }
