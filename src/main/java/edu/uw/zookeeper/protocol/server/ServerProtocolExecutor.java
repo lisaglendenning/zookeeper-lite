@@ -307,7 +307,7 @@ public class ServerProtocolExecutor
         
         @Subscribe
         public void handleSessionReply(Operation.SessionReply message) {
-            if (Records.OpCodeXid.NOTIFICATION.xid() == ((Operation.SessionReply)message).xid()) {
+            if (Records.OpCodeXid.NOTIFICATION.xid() == message.xid()) {
                 // we need to flush completed messages to outbound
                 // before queueing this message
                 // to maintain the expected ordering
