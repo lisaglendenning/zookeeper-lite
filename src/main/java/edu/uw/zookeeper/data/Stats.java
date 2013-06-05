@@ -9,12 +9,19 @@ import edu.uw.zookeeper.protocol.Records.ChildrenStatRecord;
 import edu.uw.zookeeper.protocol.Records.CreateStatHolder;
 import edu.uw.zookeeper.protocol.Records.DataStatHolder;
 import edu.uw.zookeeper.protocol.proto.IStat;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Singleton;
 
 
 
 public class Stats {
+
+    public static int VERSION_ANY = -1;
     
+    public static boolean compareVersion(int expected, int actual) {
+        return ((VERSION_ANY == expected) || (actual == expected));
+    }
+
     public static long getTime() {
         return System.currentTimeMillis();
     }
@@ -87,12 +94,20 @@ public class Stats {
         public long getEphemeralOwner() {
             return ephemeralOwner;
         }
+        
+        public boolean isEphemeral() {
+            return ephemeralOwnerNone() != getEphemeralOwner();
+        }
     }
     
     public static class DataStat implements Records.DataStatRecord {
 
-        public static DataStat newInstance(long zxid) {
-            return of(zxid, getTime(), initialVersion());
+        public static DataStat newInstance(long mzxid) {
+            return of(mzxid, getTime(), initialVersion());
+        }
+
+        public static DataStat newInstance(long mzxid, long mtime) {
+            return of(mzxid, mtime, initialVersion());
         }
         
         public static DataStat of(long mzxid, long mtime, int version) {
@@ -139,6 +154,18 @@ public class Stats {
         public void setVersion(int version) {
             this.version = version;
         }
+        
+        public boolean compareVersion(int version) {
+            return Stats.compareVersion(version, getVersion());
+        }
+
+        public int getAndIncrement(long mzxid, long mtime) {
+            int prev = this.version;
+            this.version = prev + 1;
+            this.mtime = mtime;
+            this.mzxid = mzxid;
+            return prev;
+        }
     }
     
     public static class ChildrenStat implements Records.ChildrenStatRecord {
@@ -151,33 +178,41 @@ public class Stats {
             return new ChildrenStat(pzxid, cversion);
         }
         
-        private long pzxid;
-        private int cversion;
+        private Pair<Integer, Long> version;
         
         public ChildrenStat(long pzxid, int cversion) {
             super();
-            this.pzxid = pzxid;
-            this.cversion = cversion;
+            this.version = Pair.create(cversion, pzxid);
         }
 
         @Override
         public int getCversion() {
-            return cversion;
+            return version.first();
         }
 
         @Override
         public long getPzxid() {
-            return pzxid;
+            return version.second();
         }
 
         @Override
         public void setCversion(int cversion) {
-            this.cversion = cversion;
+            this.version = Pair.create(cversion, version.second());
         }
 
         @Override
         public void setPzxid(long pzxid) {
-            this.pzxid = pzxid;
+            this.version = Pair.create(version.first(), pzxid);
+        }
+
+        public Pair<Integer, Long> getAndIncrement(long pzxid) {
+            return getAndSet(getCversion() + 1, pzxid);
+        }
+        
+        public Pair<Integer, Long> getAndSet(int cversion, long pzxid) {
+            Pair<Integer, Long> prev = this.version;
+            this.version = Pair.create(cversion, pzxid);
+            return prev;
         }
     }
     

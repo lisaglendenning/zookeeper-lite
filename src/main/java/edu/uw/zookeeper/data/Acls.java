@@ -48,10 +48,29 @@ public abstract class Acls {
         public int intValue() {
             return value;
         }
+        
+        public boolean memberOf(int flags) {
+            return 0 != (value & flags);
+        }
     }
     
     public static class PermissionSet extends ForwardingSet<Permission> {
 
+        public static PermissionSet valueOf(int flags) {
+            EnumSet<Permission> permissions;
+            if (flags == 0) {
+                permissions = EnumSet.of(Permission.NONE);
+            } else {
+                permissions = EnumSet.noneOf(Permission.class);
+                for (Permission p: Permission.values()) {
+                    if (p.memberOf(flags)) {
+                        permissions.add(p);
+                    }
+                }
+            }
+            return of(permissions);
+        }
+        
         public static PermissionSet of(Permission permission) {
             return of(EnumSet.of(permission));
         }
@@ -143,6 +162,18 @@ public abstract class Acls {
 
         public static Acl of(PermissionSet permissions, Id id) {
             return new Acl(permissions, id);
+        }
+        
+        public static Acl fromRecord(ACL record) {
+            return of(PermissionSet.valueOf(record.getPerms()), record.getId());
+        }
+
+        public static List<Acl> fromRecordList(List<ACL> records) {
+            List<Acl> acl = new ArrayList<Acl>(records.size());
+            for (ACL e: records) {
+                acl.add(fromRecord(e));
+            }
+            return acl;
         }
         
         public static List<ACL> asRecordList(List<Acl> acls) {
