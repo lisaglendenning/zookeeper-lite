@@ -1,5 +1,7 @@
 package edu.uw.zookeeper.client;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -18,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.WatchEvent;
@@ -53,8 +56,7 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         
         @Subscribe
         public void handleReply(Operation.SessionReply message) throws InterruptedException {
-            int xid = message.xid();
-            if (OpCodeXid.has(xid) && OpCodeXid.NOTIFICATION == OpCodeXid.of(xid)) {
+            if (OpCodeXid.NOTIFICATION.xid() == message.xid()) {
                 IWatcherEvent record = (IWatcherEvent) ((Operation.RecordHolder<?>)message.reply()).asRecord();
                 handleEvent(record);
             }
@@ -215,14 +217,13 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
             Queue<ZNodeLabel.Path> mailbox,
             AtomicReference<State> state) throws KeeperException, InterruptedException, ExecutionException {
         super(executor, mailbox, state);
-        this.parameters = parameters;
-        this.root = root;
-        this.client = client;
-        this.promise = promise;
-        this.pending = pending;
+        this.parameters = checkNotNull(parameters);
+        this.root = checkNotNull(root);
+        this.client = checkNotNull(client);
+        this.promise = checkNotNull(promise);
+        this.pending = checkNotNull(pending);
         
         if (parameters.watch()) {
-
             // sync first
             Operation.Request request = Operations.Requests.sync().setPath(root).build();
             Operations.unlessError(
@@ -349,7 +350,9 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
                     }
                 }
             } finally {
-                client.unregister(watcher);
+                if (watcher != null) {
+                    client.unregister(watcher);
+                }
             }
         }
         return stopped;
@@ -365,7 +368,7 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         
         public Builder() {
             this(ZNodeLabel.Path.root(), 
-                    null, null, EnumSet.noneOf(OpCode.class), false);
+                    null, MoreExecutors.sameThreadExecutor(), EnumSet.noneOf(OpCode.class), false);
         }
         
         public Builder(
