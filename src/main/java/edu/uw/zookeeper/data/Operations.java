@@ -93,13 +93,6 @@ public abstract class Operations {
                 this.path = checkNotNull(path);
                 return (C) this;
             }
-    
-            @Override
-            public T build() {
-                T record = OpRecord.OpRequest.newRecord(opcode);
-                ((Records.PathRecord)record).setPath(path.toString());
-                return record;
-            }
         }
 
         public static abstract class AbstractData<T extends Records.OperationRecord, C extends AbstractData<T,C>> extends AbstractPath<T,C> implements DataBuilder<T> {
@@ -229,6 +222,11 @@ public abstract class Operations {
         public static class GetAcl extends AbstractPath<IGetACLRequest, GetAcl> {
             public GetAcl() {
                 super(OpCode.GET_ACL);
+            }
+
+            @Override
+            public IGetACLRequest build() {
+                return new IGetACLRequest(getPath().toString());
             }
         }
         
@@ -389,6 +387,11 @@ public abstract class Operations {
         public static class Sync extends AbstractPath<ISyncRequest, Sync> {
             public Sync() {
                 super(OpCode.SYNC);
+            }
+
+            @Override
+            public ISyncRequest build() {
+                return new ISyncRequest(getPath().toString());
             }
         }
         
@@ -869,7 +872,7 @@ public abstract class Operations {
         }
         return reply;
     }
-    
+
     public static class OperationChain extends PromiseTask<Function<Operation.SessionResult, Operation.Request>, List<Operation.SessionResult>> implements FutureCallback<Operation.SessionResult> {
 
         public static OperationChain of(
