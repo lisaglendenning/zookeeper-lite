@@ -1,6 +1,5 @@
 package edu.uw.zookeeper.data;
 
-import static com.google.common.base.Preconditions.checkArgument;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
@@ -366,7 +365,16 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
         public static SchemaNode root(ZNodeSchema schema) {
             return new SchemaNode(Optional.<Pointer<SchemaNode>>absent(), schema);
         }
+
+        public static SchemaNode child(ZNodeLabel.Component label, SchemaNode parent) {
+            return child(label, parent, ZNodeSchema.getDefault());
+        }
         
+        public static SchemaNode child(ZNodeLabel.Component label, SchemaNode parent, ZNodeSchema schema) {
+            Pointer<SchemaNode> childPointer = SimplePointer.of(label, parent);
+            return new SchemaNode(Optional.of(childPointer), schema);
+        }
+
         protected final ZNodeSchema schema;
         
         protected SchemaNode(Optional<ZNodeLabelTrie.Pointer<SchemaNode>> parent, ZNodeSchema schema) {
@@ -379,33 +387,12 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
             return schema;
         }
         
-        public SchemaNode addSchema(ZNodeSchema schema) {
+        public SchemaNode put(ZNodeSchema schema) {
             return put(ZNodeLabel.Component.of(schema.getLabel()), schema);
         }
         
         public SchemaNode put(ZNodeLabel.Component label, ZNodeSchema schema) {
-            checkArgument(label != null);
-            SchemaNode child = children.get(label);
-            if (child != null) {
-                return child;
-            }
-            child = newChild(label, schema);
-            SchemaNode prevChild = children.putIfAbsent(label, child);
-            if (prevChild != null) {
-                return prevChild;
-            } else {
-                return child;
-            }
-        }
-        
-        @Override
-        protected SchemaNode newChild(ZNodeLabel.Component label) {
-            return newChild(label, ZNodeSchema.getDefault());
-        }
-
-        protected SchemaNode newChild(ZNodeLabel.Component label, ZNodeSchema schema) {
-            Pointer<SchemaNode> childPointer = SimplePointer.of(label, this);
-            return new SchemaNode(Optional.of(childPointer), schema);
+            return put(label, child(label, this, schema));
         }
 
         @Override
@@ -440,23 +427,15 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
         super(root);
     }
 
-    public SchemaNode addSchema(ZNodeSchema schema) {
+    public SchemaNode put(ZNodeSchema schema) {
         return put(ZNodeLabel.Path.of(schema.getLabel()), schema);
     }
     
     public SchemaNode put(ZNodeLabel.Path path, ZNodeSchema schema) {
-        ZNodeLabel parentLabel = path.head();
-        if (parentLabel == null) {
-            return root();
+        SchemaNode parent = get(path.head());
+        if (parent == null) {
+            throw new IllegalStateException();
         }
-        SchemaNode parent;
-        if (! (parentLabel instanceof ZNodeLabel.Path)) {
-            parent = root();
-        } else {
-            parent = put((ZNodeLabel.Path)parentLabel);
-        }
-        
-        SchemaNode next = parent.put(path.tail(), schema);
-        return next;
+        return parent.put(path.tail(), schema);
     }
 }

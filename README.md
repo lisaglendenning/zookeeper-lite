@@ -1,4 +1,4 @@
-A "lite" implementation of both the server and client ZooKeeper 3.4.5 protocol.
+A "lite" implementation of both the server and client ZooKeeper 3.5.0 protocol.
 
 See [zookeeper-proxy](http://github.com/lisaglendenning/zookeeper-proxy) for a simple application of this library.
 

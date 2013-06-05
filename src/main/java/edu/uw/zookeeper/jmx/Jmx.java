@@ -224,7 +224,7 @@ public abstract class Jmx {
                     ObjectName pattern = PathObjectName.of(ZNodeLabel.Path.of(patternOf(path.toString())));
                     Set<ObjectName> results = mbeans.queryNames(pattern, null);
                     if (results.size() > 0) {
-                        ZNodeLabelTrie.ValueNode<Set<ObjectName>> node = instance.put(path);
+                        ZNodeLabelTrie.ValueNode<Set<ObjectName>> node = instance.root().put(path);
                         for (ObjectName result: results) {
                             node.get().add(result);
                         }
@@ -232,7 +232,7 @@ public abstract class Jmx {
                 } else {
                     ObjectName result = PathObjectName.of(path);
                     if (mbeans.isRegistered(result)) {
-                        ZNodeLabelTrie.ValueNode<Set<ObjectName>> node = instance.put(path);
+                        ZNodeLabelTrie.ValueNode<Set<ObjectName>> node = instance.root().put(path);
                         node.get().add(result);
                     }
                 }

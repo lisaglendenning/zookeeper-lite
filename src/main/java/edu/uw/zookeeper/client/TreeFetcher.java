@@ -82,9 +82,9 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
     
         @Override
         public void handleEvent(IWatcherEvent record) throws InterruptedException {
-            ZNodeLabel.Path path = ZNodeLabel.Path.of(record.getPath());
-            if (root.prefixOf(path)) {
-                super.handleEvent(record);
+            WatchEvent event = WatchEvent.of(record);
+            if (root.prefixOf(event.path())) {
+                queue.put(event);
             }
         }
     }
@@ -143,7 +143,7 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         }
         
         @Override
-        protected Queue<ListenableFuture<SessionResult>> delegate() {
+        public Queue<ListenableFuture<SessionResult>> delegate() {
             return delegate;
         }
         
@@ -221,13 +221,14 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         this.promise = promise;
         this.pending = pending;
         
-        // sync first
-        Operation.Request request = Operations.Requests.sync().setPath(root).build();
-        Operations.unlessError(
-                client.submit(request).get().reply().reply(), 
-                request.toString());
-        
         if (parameters.watch()) {
+
+            // sync first
+            Operation.Request request = Operations.Requests.sync().setPath(root).build();
+            Operations.unlessError(
+                    client.submit(request).get().reply().reply(), 
+                    request.toString());
+            
             this.watcher = new SubtreeWatcher(root);
             client.register(watcher);
         } else {
@@ -253,17 +254,16 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         future.addListener(this, executor);
         
         if (parameters.getData()) {
-            Operations.Requests.GetData getDataBuilder = 
-                    Operations.Requests.getData().setPath(input).setWatch(parameters.watch());
-            future = client.submit(getDataBuilder.build());
+            future = client.submit(
+                    Operations.Requests.getData()
+                    .setPath(input).setWatch(parameters.watch()).build());
             pending.add(future);
             future.addListener(this, executor);
         }
             
         if (parameters.getAcl()) {
-            Operations.Requests.GetAcl getAclBuilder = 
-                    Operations.Requests.getAcl().setPath(input);
-            future = client.submit(getAclBuilder.build());
+            future = client.submit(Operations.Requests.getAcl()
+                    .setPath(input).build());
             pending.add(future);
             future.addListener(this, executor);
         }
@@ -314,7 +314,7 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
     @Override
     protected void runExit() {
         if (state.compareAndSet(State.RUNNING, State.WAITING)) {
-            if (! mailbox.isEmpty()) {
+            if (!mailbox.isEmpty() || !pending.isEmpty()) {
                 schedule();
             } else if (pending.delegate().isEmpty()) {
                 // We're done!
@@ -326,7 +326,10 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
     @Override
     public boolean stop() {
         boolean stopped = super.stop();
+        
         if (stopped) {
+            pending.clear();
+            
             try {
                 if (!promise.isDone()) {
                     try {

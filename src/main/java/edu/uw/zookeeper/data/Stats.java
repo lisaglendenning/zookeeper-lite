@@ -4,6 +4,10 @@ import org.apache.jute.InputArchive;
 import org.apache.zookeeper.data.Stat;
 
 import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.AclStatHolder;
+import edu.uw.zookeeper.protocol.Records.ChildrenStatRecord;
+import edu.uw.zookeeper.protocol.Records.CreateStatHolder;
+import edu.uw.zookeeper.protocol.Records.DataStatHolder;
 import edu.uw.zookeeper.protocol.proto.IStat;
 import edu.uw.zookeeper.util.Singleton;
 
@@ -176,6 +180,98 @@ public class Stats {
             this.pzxid = pzxid;
         }
     }
+    
+    public static class CompositeStatPersistedHolder implements Records.StatPersistedHolder {
+
+        private final Records.CreateStatHolder createStat;
+        private final Records.DataStatHolder dataStat;
+        private final Records.AclStatHolder aclStat;
+        private final Records.ChildrenStatRecord childrenStat;
+        
+        public CompositeStatPersistedHolder(
+                Records.CreateStatHolder createStat, 
+                Records.DataStatHolder dataStat, 
+                Records.AclStatHolder aclStat,
+                Records.ChildrenStatRecord childrenStat) {
+            this.createStat = createStat;
+            this.dataStat = dataStat;
+            this.aclStat = aclStat;
+            this.childrenStat = childrenStat;
+        }
+        
+        @Override
+        public long getCzxid() {
+            return createStat.getCzxid();
+        }
+
+        @Override
+        public long getCtime() {
+            return createStat.getCtime();
+        }
+
+        @Override
+        public long getEphemeralOwner() {
+            return createStat.getEphemeralOwner();
+        }
+
+        @Override
+        public long getMzxid() {
+            return dataStat.getMzxid();
+        }
+
+        @Override
+        public long getMtime() {
+            return dataStat.getMtime();
+        }
+
+        @Override
+        public int getVersion() {
+            return dataStat.getVersion();
+        }
+
+        @Override
+        public int getAversion() {
+            return aclStat.getAversion();
+        }
+
+        @Override
+        public int getCversion() {
+            return childrenStat.getCversion();
+        }
+
+        @Override
+        public long getPzxid() {
+            return childrenStat.getPzxid();
+        }
+    }
+    
+
+    public static class CompositeStatHolder extends CompositeStatPersistedHolder implements Records.StatHolderInterface {
+
+        private final int dataLength;
+        private final int numChildren;
+        
+        public CompositeStatHolder(CreateStatHolder createStat,
+                DataStatHolder dataStat, AclStatHolder aclStat,
+                ChildrenStatRecord childrenStat,
+                int dataLength,
+                int numChildren) {
+            super(createStat, dataStat, aclStat, childrenStat);
+            this.dataLength = dataLength;
+            this.numChildren = numChildren;
+        }
+
+        @Override
+        public int getDataLength() {
+            return dataLength;
+        }
+
+        @Override
+        public int getNumChildren() {
+            return numChildren;
+        }
+    }
+    
     
     public static class ImmutableStat extends IStat {
         
