@@ -1,23 +1,28 @@
 package edu.uw.zookeeper.data;
 
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import edu.uw.zookeeper.util.AbstractPair;
 
-public class Sequenced extends AbstractPair<String, Integer> implements Comparable<Sequenced> {
+public class Sequenced<T extends CharSequence & Comparable<? super T>> extends AbstractPair<T, Integer> implements Comparable<Sequenced<T>> {
 
     public static Integer sequenceOf(CharSequence input) {
         return Integer.valueOf(LABEL_PATTERN.matcher(input).group(2));
     }
+    
+    public static String toString(CharSequence prefix, int sequence) {
+        return prefix + String.format(Locale.ENGLISH, SEQUENCE_FORMAT, sequence);
+    }
 
-    public static Sequenced of(CharSequence input) {
+    public static Sequenced<String> of(CharSequence input) {
         Matcher m = LABEL_PATTERN.matcher(input);
         return of(m.group(1), Integer.valueOf(m.group(2)));
     }
     
-    public static Sequenced of(String prefix, Integer sequence) {
-        return new Sequenced(prefix, sequence);
+    public static <T extends CharSequence & Comparable<? super T>> Sequenced<T> of(T prefix, Integer sequence) {
+        return new Sequenced<T>(prefix, sequence);
     }
     
     public static String OVERFLOW_SEQUENCE = "-2147483647";
@@ -26,11 +31,11 @@ public class Sequenced extends AbstractPair<String, Integer> implements Comparab
     public static Pattern SEQUENCE_PATTERN = Pattern.compile(OVERFLOW_SEQUENCE + "|[0-9]{10}");
     public static Pattern LABEL_PATTERN = Pattern.compile("^(?<prefix>.+?)(?<sequence>" + SEQUENCE_PATTERN.pattern() + ")$");
     
-    protected Sequenced(String first, Integer second) {
+    protected Sequenced(T first, Integer second) {
         super(first, second);
     }
 
-    public String prefix() {
+    public T prefix() {
         return first;
     }
     
@@ -40,11 +45,11 @@ public class Sequenced extends AbstractPair<String, Integer> implements Comparab
     
     @Override
     public String toString() {
-        return prefix() + String.format(SEQUENCE_FORMAT, sequence());
+        return toString(prefix(), sequence());
     }
 
     @Override
-    public int compareTo(Sequenced other) {
+    public int compareTo(Sequenced<T> other) {
         int result = prefix().compareTo(other.prefix());
         if (result == 0) {
             result = sequence().compareTo(other.sequence());

@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.data;
 
 import java.util.List;
-import java.util.Locale;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -55,7 +54,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
 
                 CreateMode mode = CreateMode.fromFlag(record.getFlags());
                 if (mode.isSequential()) {
-                    path = Path.of(path.toString() + String.format(Locale.ENGLISH, "%010d", cversion.first()));
+                    path = Path.of(Sequenced.toString(path, cversion.first()));
                 } else {
                     if (trie.get(path) != null) {
                         throw new KeeperException.NodeExistsException(path.toString());
