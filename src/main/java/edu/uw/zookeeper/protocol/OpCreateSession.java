@@ -19,7 +19,6 @@ import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.Session.Parameters;
 import edu.uw.zookeeper.protocol.proto.IConnectRequest;
 import edu.uw.zookeeper.protocol.proto.IConnectResponse;
-import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.TimeValue;

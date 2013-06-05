@@ -4,6 +4,7 @@ import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 
 import edu.uw.zookeeper.protocol.OpCode;
+import edu.uw.zookeeper.protocol.Records;
 
 public enum IDeleteResponse implements Records.ResponseRecord, Records.MultiOpResponse {
     DELETE_RESPONSE;

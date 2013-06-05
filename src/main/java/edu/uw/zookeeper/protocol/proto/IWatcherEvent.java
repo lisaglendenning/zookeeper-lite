@@ -8,8 +8,9 @@ import org.apache.zookeeper.proto.WatcherEvent;
 
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.proto.Records.OpCodeXid;
-import edu.uw.zookeeper.protocol.proto.Records.ResponseRecord;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.OpCodeXid;
+import edu.uw.zookeeper.protocol.Records.ResponseRecord;
 
 public class IWatcherEvent extends WatcherEvent implements ResponseRecord, Records.PathRecord, Operation.XidHeader {
     public static final OpCodeXid OPCODE_XID = OpCodeXid.NOTIFICATION;

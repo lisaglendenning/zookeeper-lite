@@ -10,7 +10,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.MultiOpResponse;
 
 public class IMultiResponse implements Records.ResponseRecord, Iterable<MultiOpResponse> {
     public static final OpCode OPCODE = OpCode.MULTI;

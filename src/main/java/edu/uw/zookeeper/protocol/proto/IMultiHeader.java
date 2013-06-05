@@ -8,9 +8,9 @@ import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.proto.MultiHeader;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.HeaderRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Requests;
-import edu.uw.zookeeper.protocol.proto.Records.TaggedRecord;
+import edu.uw.zookeeper.protocol.Records.HeaderRecord;
+import edu.uw.zookeeper.protocol.Records.Requests;
+import edu.uw.zookeeper.protocol.Records.TaggedRecord;
 import edu.uw.zookeeper.util.Singleton;
 
 public class IMultiHeader extends MultiHeader implements TaggedRecord, HeaderRecord {

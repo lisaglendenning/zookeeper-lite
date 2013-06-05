@@ -15,7 +15,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.protocol.proto.IReplyHeader;
-import edu.uw.zookeeper.protocol.proto.Records;
 
 
 public class SessionReplyWrapper implements Operation.SessionReply {

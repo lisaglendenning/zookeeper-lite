@@ -7,10 +7,10 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.CreateResponse;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
-import edu.uw.zookeeper.protocol.proto.Records.PathRecord;
-import edu.uw.zookeeper.protocol.proto.Records.ResponseRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Responses;
+import edu.uw.zookeeper.protocol.Records.MultiOpResponse;
+import edu.uw.zookeeper.protocol.Records.PathRecord;
+import edu.uw.zookeeper.protocol.Records.ResponseRecord;
+import edu.uw.zookeeper.protocol.Records.Responses;
 
 public class ICreateResponse extends CreateResponse implements ResponseRecord, MultiOpResponse, PathRecord {
     public static final OpCode OPCODE = OpCode.CREATE;

@@ -9,9 +9,9 @@ import org.apache.zookeeper.proto.SetWatches;
 
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.proto.Records.OpCodeXid;
-import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Requests;
+import edu.uw.zookeeper.protocol.Records.OpCodeXid;
+import edu.uw.zookeeper.protocol.Records.RequestRecord;
+import edu.uw.zookeeper.protocol.Records.Requests;
 
 public class ISetWatchesRequest extends SetWatches implements RequestRecord, Operation.XidHeader {
     public static final OpCodeXid OPCODE_XID = OpCodeXid.SET_WATCHES;

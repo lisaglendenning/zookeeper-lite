@@ -7,10 +7,10 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.RequestHeader;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.HeaderRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Headers;
-import edu.uw.zookeeper.protocol.proto.Records.OperationRecord;
-import edu.uw.zookeeper.protocol.proto.Records.TaggedRecord;
+import edu.uw.zookeeper.protocol.Records.HeaderRecord;
+import edu.uw.zookeeper.protocol.Records.Headers;
+import edu.uw.zookeeper.protocol.Records.OperationRecord;
+import edu.uw.zookeeper.protocol.Records.TaggedRecord;
 
 public class IRequestHeader extends RequestHeader implements HeaderRecord, TaggedRecord, OperationRecord {
     

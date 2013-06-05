@@ -10,7 +10,6 @@ import java.io.InputStream;
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.protocol.proto.IRequestHeader;
-import edu.uw.zookeeper.protocol.proto.Records;
 
 
 public class SessionRequestWrapper implements Operation.SessionRequest {

@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.protocol.proto;
+package edu.uw.zookeeper.protocol;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -23,8 +23,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 
 import edu.uw.zookeeper.data.Serializes;
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.proto.*;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 
 
@@ -61,6 +60,65 @@ public class Records {
         void setPasswd(byte[] passwd);
     }
     
+    public static interface CreateStatHolder {
+        long getCzxid();
+        long getCtime();
+        long getEphemeralOwner();
+    }
+
+    public static interface CreateStatRecord extends CreateStatHolder {
+        void setCzxid(long czxid);
+        void setCtime(long ctime);
+        void setEphemeralOwner(long ephemeralOwner);
+    }
+
+    public static interface DataStatHolder {
+        long getMzxid();
+        long getMtime();
+        int getVersion();
+    }
+
+    public static interface DataStatRecord extends DataStatHolder {
+        void setMzxid(long mzxid);
+        void setMtime(long mtime);
+        void setVersion(int version);
+    }
+    
+    public static interface AclStatHolder {
+        int getAversion();
+    }
+    
+    public static interface AclStatRecord extends AclStatHolder {
+        void setAversion(int aversion);
+    }
+
+    public static interface ChildrenStatHolder {
+        int getCversion();
+        long getPzxid();
+    }
+    
+    public static interface ChildrenStatRecord extends ChildrenStatHolder {
+        // pzxid seems to be the zxid related to cversion
+        void setCversion(int cversion);
+        void setPzxid(long pzxid);
+    }
+    
+    public static interface StatPersistedHolder extends CreateStatHolder, DataStatHolder, AclStatHolder, ChildrenStatHolder {
+    }
+
+    public static interface StatPersistedRecord extends StatPersistedHolder, CreateStatRecord, DataStatRecord, AclStatRecord, ChildrenStatRecord {
+    }
+    
+    public static interface StatHolderInterface extends StatPersistedHolder {
+        int getDataLength();
+        int getNumChildren();
+    }
+
+    public static interface StatRecordInterface extends StatHolderInterface, StatPersistedRecord {
+        void setDataLength(int dataLength);
+        void setNumChildren(int numChildren);
+    }
+
     public static interface View {}
     
     public static interface PathHolder extends View {

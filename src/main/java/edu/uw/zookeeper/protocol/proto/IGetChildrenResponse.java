@@ -8,8 +8,9 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.GetChildrenResponse;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.ResponseRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Responses;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.ResponseRecord;
+import edu.uw.zookeeper.protocol.Records.Responses;
 
 public class IGetChildrenResponse extends GetChildrenResponse implements ResponseRecord, Records.ChildrenRecord {
     public static final OpCode OPCODE = OpCode.GET_CHILDREN;

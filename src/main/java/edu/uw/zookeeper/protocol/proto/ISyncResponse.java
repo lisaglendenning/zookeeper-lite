@@ -7,8 +7,9 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.SyncResponse;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.ResponseRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Responses;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.ResponseRecord;
+import edu.uw.zookeeper.protocol.Records.Responses;
 
 public class ISyncResponse extends SyncResponse implements ResponseRecord, Records.PathRecord {
     public static final OpCode OPCODE = OpCode.SYNC;

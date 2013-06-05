@@ -6,7 +6,6 @@ import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.protocol.proto.IPingRequest;
 import edu.uw.zookeeper.protocol.proto.IPingResponse;
-import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.TimeValue;
 
 public abstract class OpPing {

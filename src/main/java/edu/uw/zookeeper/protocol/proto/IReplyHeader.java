@@ -6,9 +6,9 @@ import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.ReplyHeader;
 
-import edu.uw.zookeeper.protocol.proto.Records.HeaderRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Headers;
-import edu.uw.zookeeper.protocol.proto.Records.TaggedRecord;
+import edu.uw.zookeeper.protocol.Records.HeaderRecord;
+import edu.uw.zookeeper.protocol.Records.Headers;
+import edu.uw.zookeeper.protocol.Records.TaggedRecord;
 
 public class IReplyHeader extends ReplyHeader implements TaggedRecord, HeaderRecord {
     

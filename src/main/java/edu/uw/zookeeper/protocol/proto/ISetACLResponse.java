@@ -8,8 +8,9 @@ import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.SetACLResponse;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.ResponseRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Responses;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.ResponseRecord;
+import edu.uw.zookeeper.protocol.Records.Responses;
 
 public class ISetACLResponse extends SetACLResponse implements ResponseRecord, Records.StatHolder {
     public static final OpCode OPCODE = OpCode.SET_ACL;

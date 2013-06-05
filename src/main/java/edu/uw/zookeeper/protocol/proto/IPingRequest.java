@@ -5,8 +5,8 @@ import org.apache.jute.OutputArchive;
 
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.proto.Records.OpCodeXid;
-import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
+import edu.uw.zookeeper.protocol.Records.OpCodeXid;
+import edu.uw.zookeeper.protocol.Records.RequestRecord;
 
 public enum IPingRequest implements RequestRecord, Operation.XidHeader {
     PING_REQUEST;

@@ -9,7 +9,7 @@ import org.apache.zookeeper.proto.ErrorResponse;
 
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.proto.Records;
+import edu.uw.zookeeper.protocol.Records;
 
 public class IErrorResponse extends ErrorResponse implements Records.MultiOpResponse, Operation.Error {
     public static final OpCode OPCODE = OpCode.ERROR;

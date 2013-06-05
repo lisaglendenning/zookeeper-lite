@@ -7,8 +7,9 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.ConnectRequest;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.ConnectRecord;
-import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.ConnectRecord;
+import edu.uw.zookeeper.protocol.Records.RequestRecord;
 
 public class IConnectRequest extends ConnectRequest implements RequestRecord, ConnectRecord {
     public static final OpCode OPCODE = OpCode.CREATE_SESSION;

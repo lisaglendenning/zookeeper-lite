@@ -7,8 +7,9 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.GetChildren2Request;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Requests;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.RequestRecord;
+import edu.uw.zookeeper.protocol.Records.Requests;
 
 public class IGetChildren2Request extends GetChildren2Request implements RequestRecord, Records.PathRecord, Records.WatchRecord {
     public static final OpCode OPCODE = OpCode.GET_CHILDREN2;

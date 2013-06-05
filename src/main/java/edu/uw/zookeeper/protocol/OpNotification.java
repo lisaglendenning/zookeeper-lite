@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.protocol;
 
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
-import edu.uw.zookeeper.protocol.proto.Records;
 
 
 public abstract class OpNotification {

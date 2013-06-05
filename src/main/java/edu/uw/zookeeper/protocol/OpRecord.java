@@ -15,7 +15,6 @@ import edu.uw.zookeeper.protocol.proto.IAuthRequest;
 import edu.uw.zookeeper.protocol.proto.IPingRequest;
 import edu.uw.zookeeper.protocol.proto.IPingResponse;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
-import edu.uw.zookeeper.protocol.proto.Records;
 
 // TODO: now that Records have embedded OpCode, can I get rid of this class?
 public abstract class OpRecord<T extends Records.OperationRecord>

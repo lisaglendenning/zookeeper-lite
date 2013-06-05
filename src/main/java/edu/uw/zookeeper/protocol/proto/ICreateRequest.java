@@ -9,10 +9,10 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.proto.CreateRequest;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.CreateRecord;
-import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
-import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Requests;
+import edu.uw.zookeeper.protocol.Records.CreateRecord;
+import edu.uw.zookeeper.protocol.Records.MultiOpRequest;
+import edu.uw.zookeeper.protocol.Records.RequestRecord;
+import edu.uw.zookeeper.protocol.Records.Requests;
 
 public class ICreateRequest extends CreateRequest implements RequestRecord, CreateRecord, MultiOpRequest {
     public static final OpCode OPCODE = OpCode.CREATE;

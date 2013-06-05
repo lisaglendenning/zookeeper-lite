@@ -4,6 +4,7 @@ import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 
 import edu.uw.zookeeper.protocol.OpCode;
+import edu.uw.zookeeper.protocol.Records;
 
 public enum ICheckVersionResponse implements Records.ResponseRecord, Records.MultiOpResponse {
     CHECK_VERSION_RESPONSE;

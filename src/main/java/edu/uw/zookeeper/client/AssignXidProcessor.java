@@ -2,8 +2,8 @@ package edu.uw.zookeeper.client;
 
 import edu.uw.zookeeper.protocol.OpRecord;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Records;
 import edu.uw.zookeeper.protocol.SessionRequestWrapper;
-import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Generator;
 import edu.uw.zookeeper.util.Processor;
 

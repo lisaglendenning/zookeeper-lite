@@ -7,9 +7,10 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.ExistsRequest;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.PathRecord;
-import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Requests;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.PathRecord;
+import edu.uw.zookeeper.protocol.Records.RequestRecord;
+import edu.uw.zookeeper.protocol.Records.Requests;
 
 public class IExistsRequest extends ExistsRequest implements RequestRecord, PathRecord, Records.WatchRecord {
     public static final OpCode OPCODE = OpCode.EXISTS;

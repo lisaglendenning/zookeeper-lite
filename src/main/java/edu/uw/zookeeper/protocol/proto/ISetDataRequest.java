@@ -7,9 +7,10 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.SetDataRequest;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
-import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Requests;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.MultiOpRequest;
+import edu.uw.zookeeper.protocol.Records.RequestRecord;
+import edu.uw.zookeeper.protocol.Records.Requests;
 
 public class ISetDataRequest extends SetDataRequest implements RequestRecord, Records.PathRecord, Records.DataRecord, Records.VersionRecord, MultiOpRequest {
     public static final OpCode OPCODE = OpCode.SET_DATA;

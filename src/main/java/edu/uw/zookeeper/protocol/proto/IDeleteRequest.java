@@ -7,10 +7,11 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.DeleteRequest;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
-import edu.uw.zookeeper.protocol.proto.Records.PathRecord;
-import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Requests;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.MultiOpRequest;
+import edu.uw.zookeeper.protocol.Records.PathRecord;
+import edu.uw.zookeeper.protocol.Records.RequestRecord;
+import edu.uw.zookeeper.protocol.Records.Requests;
 
 public class IDeleteRequest extends DeleteRequest implements RequestRecord, MultiOpRequest, PathRecord, Records.VersionRecord {
     public static final OpCode OPCODE = OpCode.DELETE;

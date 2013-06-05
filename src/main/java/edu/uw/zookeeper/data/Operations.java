@@ -12,7 +12,10 @@ import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -22,68 +25,60 @@ import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.OpRecord;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.proto.IDeleteRequest;
-import edu.uw.zookeeper.protocol.proto.IExistsRequest;
-import edu.uw.zookeeper.protocol.proto.IGetACLRequest;
-import edu.uw.zookeeper.protocol.proto.IGetDataRequest;
-import edu.uw.zookeeper.protocol.proto.IMultiRequest;
-import edu.uw.zookeeper.protocol.proto.ISetACLRequest;
-import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
-import edu.uw.zookeeper.protocol.proto.ISyncRequest;
-import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.proto.*;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.PromiseTask;
 
 public abstract class Operations {
 
-    public static abstract class Requests {
+    public static interface Builder<T extends Records.OperationRecord> {
+
+        OpCode getOpCode();
+        
+        T build();
+    }
     
-        public static interface Builder<T extends Records.RequestRecord> {
+    public static abstract class AbstractBuilder<T extends Records.OperationRecord> implements Builder<T> {
 
-            OpCode getOpCode();
-            
-            Builder<T> setOpCode(OpCode opcode);
-            
-            T build();
+        protected OpCode opcode;
+        
+        protected AbstractBuilder(OpCode opcode) {
+            this.opcode = opcode;
         }
         
-        public static abstract class AbstractBuilder<T extends Records.RequestRecord> implements Builder<T> {
-
-            protected OpCode opcode;
-            
-            protected AbstractBuilder(OpCode opcode) {
-                this.opcode = opcode;
-            }
-            
-            @Override
-            public OpCode getOpCode() {
-                return opcode;
-            }
-
-            @Override
-            public Builder<T> setOpCode(OpCode opcode) {
-                this.opcode = opcode;
-                return this;
-            }
+        @Override
+        public OpCode getOpCode() {
+            return opcode;
         }
+
+        protected Builder<T> setOpCode(OpCode opcode) {
+            this.opcode = opcode;
+            return this;
+        }
+    }
+    
+    public static interface Path<T extends Records.OperationRecord> extends Builder<T> {
+        ZNodeLabel.Path getPath();
+        Path<T> setPath(ZNodeLabel.Path path);
+    }
+
+    public static interface Data<T extends Records.OperationRecord> extends Builder<T> {
+        byte[] getData();
+        Data<T> setData(byte[] data);
+    }
+    
+    public static abstract class Requests {
         
-        public static interface Path<T extends Records.RequestRecord> extends Builder<T> {
-
-            ZNodeLabel.Path getPath();
-            
-            Path<T> setPath(ZNodeLabel.Path path);
-        }
-            
-        public static abstract class AbstractPath<T extends Records.RequestRecord, C extends AbstractPath<T,C>> extends AbstractBuilder<T> implements Path<T> {
-
+        public static abstract class AbstractPath<T extends Records.OperationRecord, C extends AbstractPath<T,C>> extends AbstractBuilder<T> implements Path<T> {
+    
             protected ZNodeLabel.Path path;
             
             protected AbstractPath(OpCode opcode) {
                 super(opcode);
                 this.path = ZNodeLabel.Path.root();
             }
-
+    
             @Override
             public ZNodeLabel.Path getPath() {
                 return path;
@@ -95,7 +90,7 @@ public abstract class Operations {
                 this.path = checkNotNull(path);
                 return (C) this;
             }
-
+    
             @Override
             public T build() {
                 T record = OpRecord.OpRequest.newRecord(opcode);
@@ -104,12 +99,7 @@ public abstract class Operations {
             }
         }
 
-        public static interface Data<T extends Records.RequestRecord> extends Path<T> {
-            byte[] getData();
-            Data<T> setData(byte[] data);
-        }
-        
-        public static abstract class AbstractData<T extends Records.RequestRecord, C extends AbstractData<T,C>> extends AbstractPath<T,C> implements Data<T> {
+        public static abstract class AbstractData<T extends Records.OperationRecord, C extends AbstractData<T,C>> extends AbstractPath<T,C> implements Data<T> {
             protected byte[] data;
             
             protected AbstractData(OpCode opcode) {
@@ -316,7 +306,7 @@ public abstract class Operations {
             }
 
             @Override
-            public Iterator<Builder<? extends MultiOpRequest>> iterator() {
+            public Iterator<Builder<? extends Records.MultiOpRequest>> iterator() {
                 return builders.iterator();
             }
             
@@ -399,7 +389,7 @@ public abstract class Operations {
             }
         }
         
-        public static class SerializedData<T extends Records.RequestRecord, C extends AbstractData<T,C>, V> extends AbstractBuilder<T> implements Data<T> {
+        public static class SerializedData<T extends Records.RequestRecord, C extends AbstractData<T,C>, V> extends AbstractBuilder<T> implements Path<T>, Data<T> {
 
             public static <T extends Records.RequestRecord, C extends AbstractData<T,C>, V> SerializedData<T,C,V> of (C delegate, Serializers.ByteSerializer<? super V> serializer, V input) {
                 return new SerializedData<T,C,V>(delegate, serializer, input);
@@ -611,5 +601,328 @@ public abstract class Operations {
         }
     }
 
+    public static abstract class Responses {
+
+        public static abstract class AbstractStat<T extends Records.ResponseRecord> extends AbstractBuilder<T> {
+
+            protected Records.StatHolderInterface stat;
+            
+            public AbstractStat(OpCode opcode) {
+                super(opcode);
+                this.stat = null;
+            }
+            
+            public Records.StatHolderInterface getStat() {
+                return stat;
+            }
+            
+            public AbstractStat<T> setStat(Records.StatHolderInterface stat) {
+                this.stat = stat;
+                return this;
+            }
+            
+            @Override
+            public T build() {
+                T record = OpRecord.OpResponse.newRecord(getOpCode());
+                if (record instanceof Records.StatRecord) {
+                    ((Records.StatRecord)record).setStat(Stats.asStat(getStat()));
+                }
+                return record;
+            }
+        }
+        
+        public static class Create extends AbstractStat<Records.ResponseRecord> {
+
+            protected ZNodeLabel.Path path;
+            
+            public Create() {
+                super(OpCode.CREATE);
+                this.path = ZNodeLabel.Path.root();
+            }
+            
+            public ZNodeLabel.Path getPath() {
+                return path;
+            }
+            
+            public Create setPath(ZNodeLabel.Path path) {
+                this.path = path;
+                return this;
+            }
+
+            @Override
+            public Create setStat(Records.StatHolderInterface stat) {
+                setOpCode((stat != null) ? OpCode.CREATE2 : OpCode.CREATE);
+                super.setStat(stat);
+                return this;
+            }
+            
+            @Override
+            public Records.ResponseRecord build() {
+                Records.ResponseRecord record = super.build();
+                ((Records.PathRecord)record).setPath(getPath().toString());
+                return record;
+            }
+        }
+        
+        public static enum Delete implements Builder<IDeleteResponse> {
+            INSTANCE;
+
+            @Override
+            public OpCode getOpCode() {
+                return OpCode.DELETE;
+            }
+
+            @Override
+            public IDeleteResponse build() {
+                return IDeleteResponse.getInstance();
+            }
+        }
+
+        public static class Exists extends AbstractStat<IExistsResponse> {
+
+            public Exists() {
+                super(OpCode.EXISTS);
+            }
+            
+            @Override
+            public Exists setStat(Records.StatHolderInterface stat) {
+                super.setStat(stat);
+                return this;
+            }
+            
+            @Override
+            public IExistsResponse build() {
+                return new IExistsResponse(Stats.asStat(getStat()));
+            }
+        }
+
+        public static class GetAcl extends AbstractStat<IGetACLResponse> {
+
+            protected List<Acls.Acl> acl;
+            
+            public GetAcl() {
+                super(OpCode.GET_ACL);
+                this.acl = ImmutableList.of();
+            }
+
+            @Override
+            public GetAcl setStat(Records.StatHolderInterface stat) {
+                super.setStat(stat);
+                return this;
+            }
+            
+            public List<Acls.Acl> getAcl() {
+                return acl;
+            }
+            
+            public GetAcl setAcl(List<Acls.Acl> acl) {
+                this.acl = acl;
+                return this;
+            }
+            
+            @Override
+            public IGetACLResponse build() {
+                IGetACLResponse record = super.build();
+                record.setAcl(Acls.Acl.asRecordList(getAcl()));
+                return record;
+            }
+        }
+        
+        public static class GetChildren extends AbstractStat<Records.ResponseRecord> {
+
+            protected Iterable<ZNodeLabel.Component> children;
+            
+            public GetChildren() {
+                super(OpCode.GET_CHILDREN);
+                this.children = ImmutableList.of();
+            }
+
+            @Override
+            public GetChildren setStat(Records.StatHolderInterface stat) {
+                setOpCode((stat != null) ? OpCode.GET_CHILDREN2 : OpCode.GET_CHILDREN);
+                super.setStat(stat);
+                return this;
+            }
+            
+            public Iterable<ZNodeLabel.Component> getChildren() {
+                return children;
+            }
+            
+            public GetChildren setChildren(Iterable<ZNodeLabel.Component> children) {
+                this.children = children;
+                return this;
+            }
+            
+            @Override
+            public Records.ResponseRecord build() {
+                Records.ResponseRecord record = super.build();
+                ((Records.ChildrenRecord)record).setChildren(ImmutableList.copyOf(Iterables.transform(getChildren(), Functions.toStringFunction())));
+                return record;
+            }
+        }
+        
+        public static class GetData extends AbstractStat<IGetDataResponse> implements Data<IGetDataResponse>{
+
+            protected byte[] data;
+            
+            public GetData() {
+                super(OpCode.GET_DATA);
+                this.data = new byte[0];
+                this.stat = Stats.ImmutableStat.uninitialized();
+            }
+
+            @Override
+            public byte[] getData() {
+                return data;
+            }
+
+            @Override
+            public GetData setData(byte[] data) {
+                this.data = data;
+                return this;
+            }
+
+            @Override
+            public GetData setStat(Records.StatHolderInterface stat) {
+                super.setStat(stat);
+                return this;
+            }
+
+            @Override
+            public IGetDataResponse build() {
+                return new IGetDataResponse(getData(), Stats.asStat(getStat()));
+            }
+        }
+
+        public static class Multi extends AbstractBuilder<IMultiResponse> implements Iterable<Builder<? extends Records.MultiOpResponse>> {
+
+            protected List<Builder<? extends Records.MultiOpResponse>> builders;
+            
+            protected Multi() {
+                super(OpCode.MULTI);
+                this.builders = Lists.newArrayList();
+            }
+            
+            public Multi add(Builder<? extends Records.MultiOpResponse> builder) {
+                builders.add(builder);
+                return this;
+            }
+
+            @Override
+            public Iterator<Builder<? extends Records.MultiOpResponse>> iterator() {
+                return builders.iterator();
+            }
+            
+            @Override
+            public IMultiResponse build() {
+                IMultiResponse record = new IMultiResponse();
+                for (Builder<? extends Records.MultiOpResponse> builder: builders) {
+                    record.add(builder.build());
+                }
+                return record;
+            }
+        }
+
+        public static class SetAcl extends AbstractStat<ISetACLResponse> {
+
+            public SetAcl() {
+                super(OpCode.SET_ACL);
+            }
+            
+            @Override
+            public SetAcl setStat(Records.StatHolderInterface stat) {
+                super.setStat(stat);
+                return this;
+            }
+            
+            @Override
+            public ISetACLResponse build() {
+                return new ISetACLResponse(Stats.asStat(getStat()));
+            }
+        }
+
+        public static class SetData extends AbstractStat<ISetDataResponse> {
+
+            public SetData() {
+                super(OpCode.SET_DATA);
+            }
+            
+            @Override
+            public SetData setStat(Records.StatHolderInterface stat) {
+                super.setStat(stat);
+                return this;
+            }
+            
+            @Override
+            public ISetDataResponse build() {
+                return new ISetDataResponse(Stats.asStat(getStat()));
+            }
+        }
+
+        public static class Sync extends AbstractBuilder<ISyncResponse> {
+
+            protected ZNodeLabel.Path path;
+            
+            public Sync() {
+                super(OpCode.SYNC);
+                this.path = ZNodeLabel.Path.root();
+            }
+            
+            public ZNodeLabel.Path getPath() {
+                return path;
+            }
+            
+            public Sync setPath(ZNodeLabel.Path path) {
+                this.path = path;
+                return this;
+            }
+
+            @Override
+            public ISyncResponse build() {
+                return new ISyncResponse(getPath().toString());
+            }
+        }
+        
+        public static Create create() {
+            return new Create();
+        }
+        
+        public static Delete delete() {
+            return Delete.INSTANCE;
+        }
+
+        public static Exists exists() {
+            return new Exists();
+        }
+
+        public static GetAcl getAcl() {
+            return new GetAcl();
+        }
+
+        public static GetChildren getChildren() {
+            return new GetChildren();
+        }
+
+        public static GetData getData() {
+            return new GetData();
+        }
+        
+        public static Multi multi() {
+            return new Multi();
+        }
+        
+        public static SetAcl setAcl() {
+            return new SetAcl();
+        }
+        
+        public static SetData setData() {
+            return new SetData();
+        }
+        
+        public static Sync sync() {
+            return new Sync();
+        }
+    }
+    
     private Operations() {}
 }

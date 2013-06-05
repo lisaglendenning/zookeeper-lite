@@ -7,8 +7,9 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.GetACLRequest;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.proto.Records.Requests;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.RequestRecord;
+import edu.uw.zookeeper.protocol.Records.Requests;
 
 public class IGetACLRequest extends GetACLRequest implements RequestRecord, Records.PathRecord {
     public static final OpCode OPCODE = OpCode.GET_ACL;

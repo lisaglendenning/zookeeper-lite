@@ -4,7 +4,7 @@ import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.RequestRecord;
+import edu.uw.zookeeper.protocol.Records.RequestRecord;
 
 public enum IDisconnectRequest implements RequestRecord {
     INSTANCE;

@@ -11,7 +11,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
+import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Records.MultiOpRequest;
 
 public class IMultiRequest implements Records.RequestRecord, Iterable<MultiOpRequest> {
     public static final OpCode OPCODE = OpCode.MULTI;
