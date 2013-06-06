@@ -10,6 +10,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 import org.apache.zookeeper.CreateMode;
 
@@ -20,6 +21,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
+import edu.uw.zookeeper.data.ZNodeLabel.Component;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Reference;
 
@@ -378,8 +380,13 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
         protected final ZNodeSchema schema;
         
         protected SchemaNode(Optional<ZNodeLabelTrie.Pointer<SchemaNode>> parent, ZNodeSchema schema) {
-            super(parent);
+            super(parent, new ConcurrentSkipListMap<ZNodeLabel.Component, SchemaNode>());
             this.schema = schema;
+        }
+
+        @Override
+        protected ConcurrentSkipListMap<ZNodeLabel.Component, SchemaNode> delegate() {
+            return (ConcurrentSkipListMap<Component, SchemaNode>) children;
         }
         
         @Override
@@ -387,12 +394,13 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
             return schema;
         }
         
-        public SchemaNode put(ZNodeSchema schema) {
-            return put(ZNodeLabel.Component.of(schema.getLabel()), schema);
+        public SchemaNode add(ZNodeSchema schema) {
+            return add(ZNodeLabel.Component.of(schema.getLabel()), schema);
         }
         
-        public SchemaNode put(ZNodeLabel.Component label, ZNodeSchema schema) {
-            return put(label, child(label, this, schema));
+        public SchemaNode add(ZNodeLabel.Component label, ZNodeSchema schema) {
+            delegate().putIfAbsent(label, child(label, this, schema));
+            return get(label);
         }
 
         @Override
@@ -427,15 +435,15 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
         super(root);
     }
 
-    public SchemaNode put(ZNodeSchema schema) {
-        return put(ZNodeLabel.Path.of(schema.getLabel()), schema);
+    public SchemaNode add(ZNodeSchema schema) {
+        return add(ZNodeLabel.Path.of(schema.getLabel()), schema);
     }
     
-    public SchemaNode put(ZNodeLabel.Path path, ZNodeSchema schema) {
+    public SchemaNode add(ZNodeLabel.Path path, ZNodeSchema schema) {
         SchemaNode parent = get(path.head());
         if (parent == null) {
             throw new IllegalStateException();
         }
-        return parent.put(path.tail(), schema);
+        return parent.add(path.tail(), schema);
     }
 }

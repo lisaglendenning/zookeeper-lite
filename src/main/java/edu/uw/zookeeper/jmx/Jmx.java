@@ -170,22 +170,22 @@ public abstract class Jmx {
         
         private ServerSchema(Key rootKey) {
             this.trie = ZNodeLabelTrie.of(ZNodeLabelTrie.SimpleNode.root());
-            ZNodeLabelTrie.SimpleNode root = this.trie.root().put(rootKey.value());
+            ZNodeLabelTrie.SimpleNode root = this.trie.root().add(rootKey.value());
             
             switch (rootKey) {
             case STANDALONE_SERVER:
             {
-                root.put(Key.IN_MEMORY_DATA_TREE.value());
+                root.add(Key.IN_MEMORY_DATA_TREE.value());
                 break;
             }
             case REPLICATED_SERVER:
             {
-                ZNodeLabelTrie.SimpleNode replica = root.put(Key.REPLICA.value());
+                ZNodeLabelTrie.SimpleNode replica = root.add(Key.REPLICA.value());
                 Key[] roles = { Key.FOLLOWER, Key.LEADER, Key.LEADER_ELECTION };
                 for (Key k: roles) {
-                    ZNodeLabelTrie.SimpleNode role = replica.put(k.value());
+                    ZNodeLabelTrie.SimpleNode role = replica.add(k.value());
                     if (k != Key.LEADER_ELECTION) {
-                        role.put(Key.IN_MEMORY_DATA_TREE.value());
+                        role.add(Key.IN_MEMORY_DATA_TREE.value());
                     }
                 }
                 break;
@@ -224,7 +224,7 @@ public abstract class Jmx {
                     ObjectName pattern = PathObjectName.of(ZNodeLabel.Path.of(patternOf(path.toString())));
                     Set<ObjectName> results = mbeans.queryNames(pattern, null);
                     if (results.size() > 0) {
-                        ZNodeLabelTrie.ValueNode<Set<ObjectName>> node = instance.root().put(path);
+                        ZNodeLabelTrie.ValueNode<Set<ObjectName>> node = instance.root().add(path);
                         for (ObjectName result: results) {
                             node.get().add(result);
                         }
@@ -232,7 +232,7 @@ public abstract class Jmx {
                 } else {
                     ObjectName result = PathObjectName.of(path);
                     if (mbeans.isRegistered(result)) {
-                        ZNodeLabelTrie.ValueNode<Set<ObjectName>> node = instance.root().put(path);
+                        ZNodeLabelTrie.ValueNode<Set<ObjectName>> node = instance.root().add(path);
                         node.get().add(result);
                     }
                 }

@@ -1,12 +1,14 @@
 package edu.uw.zookeeper.data;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
+import edu.uw.zookeeper.data.ZNodeLabel.Component;
 import edu.uw.zookeeper.data.ZNodeLabel.Path;
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Records;
@@ -64,7 +66,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 Stats.ChildrenStat childrenStat = Stats.ChildrenStat.newInstance(header.zxid());
                 ZNodeState state = ZNodeState.newInstance(createStat, data, acl, childrenStat);
                 
-                ZNodeStateNode node = parent.put(path.tail(), state);
+                ZNodeStateNode node = parent.add(path.tail(), state);
                 Operations.Responses.Create builder = 
                         Operations.Responses.create().setPath(path);
                 if (OpCode.CREATE2 == record.opcode()) {
@@ -328,16 +330,22 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         protected final ZNodeState state;
         
         protected ZNodeStateNode(Optional<Pointer<ZNodeStateNode>> parent, ZNodeState state) {
-            super(parent);
+            super(parent, new ConcurrentSkipListMap<ZNodeLabel.Component, ZNodeStateNode>());
             this.state = state;
+        }
+
+        @Override
+        protected ConcurrentSkipListMap<ZNodeLabel.Component, ZNodeStateNode> delegate() {
+            return (ConcurrentSkipListMap<Component, ZNodeStateNode>) children;
         }
         
         public ZNodeState state() {
             return state;
         }
         
-        public ZNodeStateNode put(ZNodeLabel.Component label, ZNodeState state) {
-            return put(label, child(label, this, state));
+        public ZNodeStateNode add(ZNodeLabel.Component label, ZNodeState state) {
+            delegate().putIfAbsent(label, child(label, this, state));
+            return get(label);
         }
         
         public IStat asStat() {
