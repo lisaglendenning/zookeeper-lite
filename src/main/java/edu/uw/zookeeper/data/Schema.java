@@ -134,30 +134,54 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
                 return builder;
             }
             
-            public static Iterator<Pair<ZNodeLabel.Path, Builder>> traverse(Object obj) {
+            public static Iterator<ZNodeTraversal.Element> traverse(Object obj) {
                 return new ZNodeTraversal(obj);
             }
 
-            public static class ZNodeTraversal extends AbstractIterator<Pair<ZNodeLabel.Path, Builder>> {
+            public static class ZNodeTraversal extends AbstractIterator<ZNodeTraversal.Element> {
 
-                protected final LinkedList<Pair<ZNodeLabel.Path, Builder>> pending;
+                public static class Element {
+                    private final ZNodeLabel.Path path;
+                    private final Builder builder;
+                    private final Object element;
+                    
+                    public Element(ZNodeLabel.Path path, Builder builder, Object element) {
+                        this.path = path;
+                        this.builder = builder;
+                        this.element = element;
+                    }
+
+                    public ZNodeLabel.Path getPath() {
+                        return path;
+                    }
+
+                    public Builder getBuilder() {
+                        return builder;
+                    }
+
+                    public Object getElement() {
+                        return element;
+                    }
+                }
+                
+                protected final LinkedList<Element> pending;
                 
                 public ZNodeTraversal(Object root) {
                     this.pending = Lists.newLinkedList();
                     Builder builder = fromClass(root);
                     if (builder != null) {
-                        pending.add(Pair.create(ZNodeLabel.Path.root(), builder));
+                        pending.add(new Element(ZNodeLabel.Path.root(), builder, root));
                     }
                 }
 
                 @Override
-                protected Pair<ZNodeLabel.Path, Builder> computeNext() {
+                protected Element computeNext() {
                     if (! pending.isEmpty()) {
-                        Pair<ZNodeLabel.Path, Builder> next = pending.pop();
-                        ZNodeLabel.Path path = next.first();
-                        Builder parent = next.second();
+                        Element next = pending.pop();
+                        ZNodeLabel.Path path = next.path;
+                        Builder parent = next.builder;
                         if (parent.getLabel().length() > 0) {
-                            path = ZNodeLabel.Path.of(next.first(), ZNodeLabel.of(parent.getLabel()));
+                            path = ZNodeLabel.Path.of(path, ZNodeLabel.of(parent.getLabel()));
                         }
                         
                         Object obj = parent.getType();
@@ -168,7 +192,7 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
                         for (Field f: fields) {
                             Builder builder = fromAnnotatedMember(f);
                             if (builder != null) {
-                                pending.push(Pair.create(path, builder));
+                                pending.push(new Element(path, builder, f));
                             }
                         }
 
@@ -177,14 +201,14 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
                         for (Method m: methods) {
                             Builder builder = fromAnnotatedMember(m);
                             if (builder != null) {
-                                pending.push(Pair.create(path, builder));
+                                pending.push(new Element(path, builder, m));
                             }
                         }
                         
-                        for (Class<?> member: type.getClasses()) {
-                            Builder builder = fromClass(member);
+                        for (Class<?> c: type.getClasses()) {
+                            Builder builder = fromClass(c);
                             if (builder != null) {
-                                pending.push(Pair.create(path, builder));
+                                pending.push(new Element(path, builder, c));
                             }
                         }
                         

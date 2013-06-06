@@ -18,6 +18,9 @@ public class Sequenced<T extends CharSequence & Comparable<? super T>> extends A
 
     public static Sequenced<String> of(CharSequence input) {
         Matcher m = LABEL_PATTERN.matcher(input);
+        if (! m.matches()) {
+            throw new IllegalArgumentException(String.valueOf(input));
+        }
         return of(m.group(1), Integer.valueOf(m.group(2)));
     }
     
@@ -25,11 +28,10 @@ public class Sequenced<T extends CharSequence & Comparable<? super T>> extends A
         return new Sequenced<T>(prefix, sequence);
     }
     
-    public static String OVERFLOW_SEQUENCE = "-2147483647";
-
-    public static String SEQUENCE_FORMAT = "%010d";
-    public static Pattern SEQUENCE_PATTERN = Pattern.compile(OVERFLOW_SEQUENCE + "|[0-9]{10}");
-    public static Pattern LABEL_PATTERN = Pattern.compile("^(.+?)(" + SEQUENCE_PATTERN.pattern() + ")$");
+    public static final String OVERFLOW_SEQUENCE = "-2147483647";
+    public static final String SEQUENCE_FORMAT = "%010d";
+    public static final Pattern SEQUENCE_PATTERN = Pattern.compile(OVERFLOW_SEQUENCE + "|[0-9]{10}");
+    public static final Pattern LABEL_PATTERN = Pattern.compile("^(.+?)(" + SEQUENCE_PATTERN.pattern() + ")$");
     
     protected Sequenced(T first, Integer second) {
         super(first, second);
