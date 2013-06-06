@@ -4,10 +4,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -16,81 +14,22 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.collect.ForwardingQueue;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.data.Operations;
-import edu.uw.zookeeper.data.WatchEvent;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.Records;
 import edu.uw.zookeeper.protocol.Operation.SessionResult;
 import edu.uw.zookeeper.protocol.Records.ChildrenRecord;
-import edu.uw.zookeeper.protocol.Records.OpCodeXid;
-import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 import edu.uw.zookeeper.util.AbstractActor;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
     
-    public static class QueueWatcher {
-    
-        protected final BlockingQueue<WatchEvent> queue;
-    
-        public QueueWatcher() {
-            this(new LinkedBlockingQueue<WatchEvent>());
-        }
-        
-        public QueueWatcher(BlockingQueue<WatchEvent> queue) {
-            this.queue = queue;
-        }
-        
-        public BlockingQueue<WatchEvent> queue() {
-            return queue;
-        }
-        
-        @Subscribe
-        public void handleReply(Operation.SessionReply message) throws InterruptedException {
-            if (OpCodeXid.NOTIFICATION.xid() == message.xid()) {
-                IWatcherEvent record = (IWatcherEvent) ((Operation.RecordHolder<?>)message.reply()).asRecord();
-                handleEvent(record);
-            }
-        }
-        
-        public void handleEvent(IWatcherEvent record) throws InterruptedException {
-            WatchEvent event = WatchEvent.of(record);
-            queue.put(event);
-        }
-    }
-
-    public static class SubtreeWatcher extends TreeFetcher.QueueWatcher {
-    
-        protected final ZNodeLabel.Path root;
-    
-        public SubtreeWatcher(ZNodeLabel.Path root) {
-            super();
-            this.root = root;
-        }
-        
-        public SubtreeWatcher(ZNodeLabel.Path root, BlockingQueue<WatchEvent> queue) {
-            super(queue);
-            this.root = root;
-        }
-    
-        @Override
-        public void handleEvent(IWatcherEvent record) throws InterruptedException {
-            WatchEvent event = WatchEvent.of(record);
-            if (root.prefixOf(event.path())) {
-                queue.put(event);
-            }
-        }
-    }
-
     public static class Parameters {
         
         public static Parameters of(Set<OpCode> operations, boolean watch) {
@@ -188,7 +127,7 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
             ZNodeLabel.Path root,
             ClientExecutor client,
             Executor executor) throws KeeperException, InterruptedException, ExecutionException {
-        Promise<List<WatchEvent>> promise = SettableFuturePromise.create();
+        Promise<Void> promise = SettableFuturePromise.create();
         return new TreeFetcher(
                 parameters, 
                 root, 
@@ -203,15 +142,14 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
     protected final ClientExecutor client;
     protected final Parameters parameters;
     protected final ZNodeLabel.Path root;
-    protected final Promise<List<WatchEvent>> promise;
+    protected final Promise<Void> promise;
     protected final Pending pending;
-    protected final TreeFetcher.SubtreeWatcher watcher;
     
     protected TreeFetcher(
             Parameters parameters,
             ZNodeLabel.Path root,
             ClientExecutor client,
-            Promise<List<WatchEvent>> promise,
+            Promise<Void> promise,
             Pending pending,
             Executor executor, 
             Queue<ZNodeLabel.Path> mailbox,
@@ -223,23 +161,10 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         this.promise = checkNotNull(promise);
         this.pending = checkNotNull(pending);
         
-        if (parameters.watch()) {
-            // sync first
-            Operation.Request request = Operations.Requests.sync().setPath(root).build();
-            Operations.unlessError(
-                    client.submit(request).get().reply().reply(), 
-                    request.toString());
-            
-            this.watcher = new SubtreeWatcher(root);
-            client.register(watcher);
-        } else {
-            this.watcher = null;
-        }
-        
         send(root);
     }
-    
-    public ListenableFuture<List<WatchEvent>> future() {
+
+    public ListenableFuture<Void> future() {
         return promise;
     }
 
@@ -330,29 +255,9 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         
         if (stopped) {
             pending.clear();
-            
-            try {
-                if (!promise.isDone()) {
-                    try {
-                        List<WatchEvent> events = ImmutableList.of();
-                        if (watcher != null) {
-                            // sync to flush watches
-                            Operation.Request request = Operations.Requests.sync().setPath(root).build();
-                            Operations.unlessError(
-                                    client.submit(request).get().reply().reply(), 
-                                    request.toString());
-                            events = Lists.newLinkedList();
-                            watcher.queue().drainTo(events);
-                        }
-                        promise.set(events);
-                    } catch (Exception e) {
-                        promise.setException(e);
-                    }
-                }
-            } finally {
-                if (watcher != null) {
-                    client.unregister(watcher);
-                }
+
+            if (!promise.isDone()) {
+                promise.set(null);
             }
         }
         return stopped;

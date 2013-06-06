@@ -275,8 +275,8 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
 
         @Override
         protected SimpleNode newChild(Component label) {
-            Pointer<SimpleNode> childPointer = SimplePointer.of(label, this);
-            return new SimpleNode(Optional.of(childPointer));
+            Pointer<SimpleNode> pointer = SimplePointer.of(label, this);
+            return new SimpleNode(Optional.of(pointer));
         }
     }
 

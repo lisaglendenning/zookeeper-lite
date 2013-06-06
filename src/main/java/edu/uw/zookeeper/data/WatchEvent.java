@@ -13,13 +13,13 @@ import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 
 @Event
 public class WatchEvent implements Operation.RecordHolder<IWatcherEvent> {
-    
+
     public static WatchEvent of(WatcherEvent message) {
         return new WatchEvent(EventType.fromInt(message.getType()), 
                 KeeperState.fromInt(message.getState()),
                 ZNodeLabel.Path.of(message.getPath()));
     }
-    
+
     public static WatchEvent of(EventType eventType, KeeperState keeperState, ZNodeLabel.Path path) {
         return new WatchEvent(eventType, keeperState, path);
     }
