@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Iterables;
 
-import edu.uw.zookeeper.EnsembleQuorumView;
-import edu.uw.zookeeper.QuorumRole;
+import edu.uw.zookeeper.EnsembleRoleView;
+import edu.uw.zookeeper.EnsembleRole;
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.ServerQuorumView;
+import edu.uw.zookeeper.ServerRoleView;
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.data.ZNodeLabelTrie;
@@ -76,22 +76,22 @@ public abstract class ServerViewJmxQuery {
         return null;
     }
     
-    public static EnsembleQuorumView<InetSocketAddress, ServerInetAddressView> ensembleViewOf(MBeanServerConnection mbeans) throws IOException {
+    public static EnsembleRoleView<InetSocketAddress, ServerInetAddressView> ensembleViewOf(MBeanServerConnection mbeans) throws IOException {
         Jmx.ServerSchema schema = Jmx.ServerSchema.REPLICATED_SERVER;
         ZNodeLabelTrie<ZNodeLabelTrie.ValueNode<Set<ObjectName>>> objectNames = schema.instantiate(mbeans);
         if (objectNames == null || objectNames.isEmpty()) {
             return null;
         }
 
-        Map<QuorumRole, ZNodeLabel.Path> roles = 
+        Map<EnsembleRole, ZNodeLabel.Path> roles = 
                 ImmutableMap.of(
-                        QuorumRole.LOOKING,
+                        EnsembleRole.LOOKING,
                         schema.pathOf(Jmx.Key.LEADER_ELECTION),
-                        QuorumRole.LEADING,
+                        EnsembleRole.LEADING,
                         schema.pathOf(Jmx.Key.LEADER),
-                        QuorumRole.FOLLOWING,
+                        EnsembleRole.FOLLOWING,
                         schema.pathOf(Jmx.Key.FOLLOWER));
-        List<ServerQuorumView<InetSocketAddress, ServerInetAddressView>> servers = Lists.newLinkedList();
+        List<ServerRoleView<InetSocketAddress, ServerInetAddressView>> servers = Lists.newLinkedList();
         for (ObjectName name: objectNames.get(schema.pathOf(Jmx.Key.REPLICA)).get()) {
             String address;
             try {
@@ -100,8 +100,8 @@ public abstract class ServerViewJmxQuery {
                 throw Throwables.propagate(e);
             }
             ServerInetAddressView addressView = ServerInetAddressView.fromString(address);
-            QuorumRole role = QuorumRole.UNKNOWN;
-            for (Map.Entry<QuorumRole, ZNodeLabel.Path> entry: roles.entrySet()) {
+            EnsembleRole role = EnsembleRole.UNKNOWN;
+            for (Map.Entry<EnsembleRole, ZNodeLabel.Path> entry: roles.entrySet()) {
                 ZNodeLabelTrie.ValueNode<Set<ObjectName>> node = objectNames.get(entry.getValue());
                 if (node != null) {
                     ObjectName nodeName = Iterables.getOnlyElement(node.get());
@@ -111,10 +111,10 @@ public abstract class ServerViewJmxQuery {
                     }
                 }
             }
-            ServerQuorumView<InetSocketAddress, ServerInetAddressView> quorumView = ServerQuorumView.of(addressView, role);
+            ServerRoleView<InetSocketAddress, ServerInetAddressView> quorumView = ServerRoleView.of(addressView, role);
             servers.add(quorumView);
         }
-        return EnsembleQuorumView.fromQuorum(servers);
+        return EnsembleRoleView.fromRoles(servers);
     }
     
     private ServerViewJmxQuery() {}
@@ -129,7 +129,7 @@ public abstract class ServerViewJmxQuery {
             if (addressView != null) {
                 System.out.println(addressView);
             }
-            EnsembleQuorumView<InetSocketAddress, ServerInetAddressView> ensembleView = ensembleViewOf(mbeans);
+            EnsembleRoleView<InetSocketAddress, ServerInetAddressView> ensembleView = ensembleViewOf(mbeans);
             if (ensembleView != null) {
                 System.out.println(ensembleView);
             }

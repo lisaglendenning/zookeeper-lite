@@ -13,8 +13,8 @@ import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Automatons;
 
-public class ServerQuorumView<T extends SocketAddress, C extends ServerView.Address<T>> 
-        extends Pair<C,Automaton<QuorumRole, QuorumRole>> 
+public class ServerRoleView<T extends SocketAddress, C extends ServerView.Address<T>> 
+        extends Pair<C,Automaton<EnsembleRole, EnsembleRole>> 
         implements ServerView.Quorum, ServerView.Address<T> {
 
     public static final char SEP = ';';
@@ -22,61 +22,61 @@ public class ServerQuorumView<T extends SocketAddress, C extends ServerView.Addr
     protected static Joiner JOINER = Joiner.on(SEP);
     protected static Splitter SPLITTER = Splitter.on(SEP).trimResults().limit(2);
 
-    @Serializes(from=ServerQuorumView.class, to=String.class)
-    public static String toString(ServerQuorumView<?,?> input) {
+    @Serializes(from=ServerRoleView.class, to=String.class)
+    public static String toString(ServerRoleView<?,?> input) {
         String addressStr = ServerAddressView.toString(input.first());
         String output = addressStr;
-        QuorumRole state = input.state();
-        if (state != QuorumRole.UNKNOWN) {
+        EnsembleRole state = input.state();
+        if (state != EnsembleRole.UNKNOWN) {
             output = JOINER.join(addressStr, state.name());
         }
         return output;
     }
 
-    @Serializes(from=String.class, to=ServerQuorumView.class)
-    public static ServerQuorumView<?,?> fromString(String input) {
+    @Serializes(from=String.class, to=ServerRoleView.class)
+    public static ServerRoleView<?,?> fromString(String input) {
         String[] fields = Iterables.toArray(SPLITTER.split(input), String.class);
         ServerView.Address<?> address = ServerAddressView.fromString(input);
-        QuorumRole state = (fields.length > 1) ? QuorumRole.valueOf(fields[1])
-                : QuorumRole.UNKNOWN;
+        EnsembleRole state = (fields.length > 1) ? EnsembleRole.valueOf(fields[1])
+                : EnsembleRole.UNKNOWN;
         return of(address, state);
     }
     
-    public static <T extends SocketAddress, C extends ServerView.Address<T>> ServerQuorumView<T,C> of(
+    public static <T extends SocketAddress, C extends ServerView.Address<T>> ServerRoleView<T,C> of(
             C address) {
-        return of(address, Automatons.createSimple(QuorumRole.class));
+        return of(address, Automatons.createSimple(EnsembleRole.class));
     }
     
-    public static <T extends SocketAddress, C extends ServerView.Address<T>> ServerQuorumView<T,C> of(
+    public static <T extends SocketAddress, C extends ServerView.Address<T>> ServerRoleView<T,C> of(
             C address,
-            QuorumRole state) {
+            EnsembleRole state) {
         return of(address, Automatons.createSimple(state));
     }
     
-    public static <T extends SocketAddress, C extends ServerView.Address<T>> ServerQuorumView<T,C> of(
+    public static <T extends SocketAddress, C extends ServerView.Address<T>> ServerRoleView<T,C> of(
             C address,
-            Automaton<QuorumRole, QuorumRole> automaton) {
-        return new ServerQuorumView<T,C>(address, automaton);
+            Automaton<EnsembleRole, EnsembleRole> automaton) {
+        return new ServerRoleView<T,C>(address, automaton);
     }
 
-    public ServerQuorumView(
+    public ServerRoleView(
             C address,
-            Automaton<QuorumRole, QuorumRole> automaton) {
+            Automaton<EnsembleRole, EnsembleRole> automaton) {
         super(address, automaton);
     }
 
     @Override
-    public Optional<QuorumRole> apply(QuorumRole input) {
+    public Optional<EnsembleRole> apply(EnsembleRole input) {
         return second().apply(input);
     }
 
     @Override
-    public QuorumRole state() {
+    public EnsembleRole state() {
         return second().state();
     }
 
     public boolean isLeading() {
-        return state() == QuorumRole.LEADING;
+        return state() == EnsembleRole.LEADING;
     }
 
     @Override
@@ -87,7 +87,7 @@ public class ServerQuorumView<T extends SocketAddress, C extends ServerView.Addr
     
     @Override
     public int compareTo(ServerView obj) {
-        ServerQuorumView<?,?> other = (ServerQuorumView<?,?>)obj;
+        ServerRoleView<?,?> other = (ServerRoleView<?,?>)obj;
         return toString(this).compareTo(toString(other));
     }
 

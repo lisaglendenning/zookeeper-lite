@@ -31,6 +31,8 @@ public enum Serializers {
         <U extends T> U fromBytes(byte[] bytes, Class<U> type) throws IOException;
     }
     
+    public static interface ByteCodec<T> extends ByteSerializer<T>, ByteDeserializer<T> {}
+    
     public <I,O> O toClass(I input, Class<O> outputType) {
         Class<?> inputType = input.getClass();
         Serializer method = find(inputType, outputType);

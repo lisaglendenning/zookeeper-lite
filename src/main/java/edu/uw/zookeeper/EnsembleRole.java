@@ -3,10 +3,10 @@ package edu.uw.zookeeper;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 
-public enum QuorumRole implements Function<QuorumRole, Optional<QuorumRole>> {
+public enum EnsembleRole implements Function<EnsembleRole, Optional<EnsembleRole>> {
     UNKNOWN {
         @Override
-        public Optional<QuorumRole> apply(QuorumRole input) {
+        public Optional<EnsembleRole> apply(EnsembleRole input) {
             switch (input) {
             case UNKNOWN:
                 return Optional.absent();
@@ -16,7 +16,7 @@ public enum QuorumRole implements Function<QuorumRole, Optional<QuorumRole>> {
         }},
     LOOKING {
         @Override
-        public Optional<QuorumRole> apply(QuorumRole input) {
+        public Optional<EnsembleRole> apply(EnsembleRole input) {
             switch (input) {
             case LOOKING:
                 return Optional.absent();
@@ -29,7 +29,7 @@ public enum QuorumRole implements Function<QuorumRole, Optional<QuorumRole>> {
         }},
     FOLLOWING {
         @Override
-        public Optional<QuorumRole> apply(QuorumRole input) {
+        public Optional<EnsembleRole> apply(EnsembleRole input) {
             switch (input) {
             case FOLLOWING:
                 return Optional.absent();
@@ -42,7 +42,7 @@ public enum QuorumRole implements Function<QuorumRole, Optional<QuorumRole>> {
         }},
     LEADING {
         @Override
-        public Optional<QuorumRole> apply(QuorumRole input) {
+        public Optional<EnsembleRole> apply(EnsembleRole input) {
             switch (input) {
             case LEADING:
                 return Optional.absent();
@@ -55,7 +55,7 @@ public enum QuorumRole implements Function<QuorumRole, Optional<QuorumRole>> {
         }},
     OBSERVING {
         @Override
-        public Optional<QuorumRole> apply(QuorumRole input) {
+        public Optional<EnsembleRole> apply(EnsembleRole input) {
             switch (input) {
             case OBSERVING:
                 return Optional.absent();

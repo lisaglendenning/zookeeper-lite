@@ -7,10 +7,10 @@ import java.util.Map;
 
 import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
-import edu.uw.zookeeper.EnsembleQuorumView;
+import edu.uw.zookeeper.EnsembleRoleView;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.ServerQuorumView;
+import edu.uw.zookeeper.ServerRoleView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.Connection.CodecFactory;
@@ -37,7 +37,7 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
         return INSTANCE;
     }
 
-    public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleQuorumView<InetSocketAddress, ServerInetAddressView>> {
+    public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleRoleView<InetSocketAddress, ServerInetAddressView>> {
 
         public static ConfigurableEnsembleViewFactory newInstance() {
             return new ConfigurableEnsembleViewFactory("");
@@ -57,14 +57,14 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
         
         @SuppressWarnings("unchecked")
         @Override
-        public EnsembleQuorumView<InetSocketAddress, ServerInetAddressView> get() {
-            return EnsembleQuorumView.ofQuorum(
-                    ServerQuorumView.of(ServerInetAddressView.of(
+        public EnsembleRoleView<InetSocketAddress, ServerInetAddressView> get() {
+            return EnsembleRoleView.ofRoles(
+                    ServerRoleView.of(ServerInetAddressView.of(
                     DEFAULT_ADDRESS, DEFAULT_PORT)));
         }
 
         @Override
-        public EnsembleQuorumView<InetSocketAddress, ServerInetAddressView> get(Configuration value) {
+        public EnsembleRoleView<InetSocketAddress, ServerInetAddressView> get(Configuration value) {
             Arguments arguments = value.asArguments();
             if (! arguments.has(ARG)) {
                 arguments.add(arguments.newOption(ARG, "Ensemble"));
@@ -75,7 +75,7 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
             Config config = value.withArguments(configPath, args);
             if (config.hasPath(CONFIG_KEY)) {
                 String input = config.getString(CONFIG_KEY);
-                return EnsembleQuorumView.fromStringQuorum(input);
+                return EnsembleRoleView.fromStringRoles(input);
             } else {
                 return get();
             }
@@ -134,7 +134,7 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
         ParameterizedFactory<CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection>, Factory<ChannelClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection>>> clientConnectionFactory = ClientModule.factory(runtime);
         ClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection> clientConnections = monitorsFactory.apply(clientConnectionFactory.get(codecFactory).get());
 
-        EnsembleQuorumView<InetSocketAddress, ServerInetAddressView> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
+        EnsembleRoleView<InetSocketAddress, ServerInetAddressView> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
         AssignXidProcessor xids = AssignXidProcessor.newInstance();
         EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, xids, ensemble, timeOut);
         monitorsFactory.apply(
