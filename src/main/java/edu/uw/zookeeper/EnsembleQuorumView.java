@@ -8,33 +8,33 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import edu.uw.zookeeper.data.Serializes;
 
-public class EnsembleQuorumView<T extends SocketAddress> extends EnsembleView<ServerQuorumView<T>> {
+public class EnsembleQuorumView<T extends SocketAddress, C extends ServerView.Address<T>> extends EnsembleView<ServerQuorumView<T,C>> {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Serializes(from=String.class, to=EnsembleQuorumView.class)
-    public static <T extends SocketAddress> EnsembleQuorumView<T> fromStringQuorum(String input) {
+    public static <T extends SocketAddress, C extends ServerView.Address<T>> EnsembleQuorumView<T,C> fromStringQuorum(String input) {
         List<ServerQuorumView> members = fromString(input, ServerQuorumView.class);
         return new EnsembleQuorumView(members);
     }
 
-    public static <T extends SocketAddress> EnsembleQuorumView<T> emptyQuorum() {
-        return fromQuorum(ImmutableList.<ServerQuorumView<T>>of());
+    public static <T extends SocketAddress, C extends ServerView.Address<T>> EnsembleQuorumView<T,C> emptyQuorum() {
+        return fromQuorum(ImmutableList.<ServerQuorumView<T,C>>of());
     }
 
-    public static <T extends SocketAddress> EnsembleQuorumView<T> ofQuorum(ServerQuorumView<T>...members) {
+    public static <T extends SocketAddress, C extends ServerView.Address<T>> EnsembleQuorumView<T,C> ofQuorum(ServerQuorumView<T,C>...members) {
         return fromQuorum(Arrays.asList(members));
     }
 
-    public static <T extends SocketAddress> EnsembleQuorumView<T> fromQuorum(Collection<ServerQuorumView<T>> members) {
-        return new EnsembleQuorumView<T>(members);
+    public static <T extends SocketAddress, C extends ServerView.Address<T>> EnsembleQuorumView<T,C> fromQuorum(Collection<ServerQuorumView<T,C>> members) {
+        return new EnsembleQuorumView<T,C>(members);
     }
 
-    public EnsembleQuorumView(Collection<ServerQuorumView<T>> members) {
+    public EnsembleQuorumView(Collection<ServerQuorumView<T,C>> members) {
         super(members);
     }
 
-    public Optional<ServerQuorumView<T>> getLeader() {
-        for (ServerQuorumView<T> e: members) {
+    public Optional<ServerQuorumView<T,C>> getLeader() {
+        for (ServerQuorumView<T,C> e: members) {
             if (e.isLeading()) {
                 return Optional.of(e);
             }
@@ -42,8 +42,8 @@ public class EnsembleQuorumView<T extends SocketAddress> extends EnsembleView<Se
         return Optional.absent();
     }
 
-    public void setLeader(Optional<ServerQuorumView<T>> leader) {
-        for (ServerQuorumView<?> e: members) {
+    public void setLeader(Optional<ServerQuorumView<T,C>> leader) {
+        for (ServerQuorumView<T,C> e: members) {
             if (e.isLeading()) {
                 if (! (leader.isPresent() && leader.get().equals(e))) {
                     e.apply(QuorumRole.LOOKING);
@@ -54,5 +54,14 @@ public class EnsembleQuorumView<T extends SocketAddress> extends EnsembleView<Se
                 }
             }
         }
+    }
+    
+    public ServerQuorumView<T,C> get(T address) {
+        for (ServerQuorumView<T,C> e: this) {
+            if (e.get().equals(address)) {
+                return e;
+            }
+        }
+        return null;
     }
 }

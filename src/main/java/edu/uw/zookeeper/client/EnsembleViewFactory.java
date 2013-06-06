@@ -26,7 +26,8 @@ public class EnsembleViewFactory implements DefaultsFactory<ServerView.Address<?
     public static <C extends ClientCodecConnection> EnsembleViewFactory newInstance(
             ClientConnectionFactory<Message.ClientSessionMessage, C> connections,
             Processor<Operation.Request, Operation.SessionRequest> processor,
-            EnsembleView<? extends ServerView.Address<?>> view, TimeValue timeOut) {
+            EnsembleView<? extends ServerView.Address<?>> view, 
+            TimeValue timeOut) {
         return new EnsembleViewFactory(connections, processor, view, timeOut, SelectServer.RANDOM);
     }
     

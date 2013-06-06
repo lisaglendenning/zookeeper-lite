@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.client;
 
 
+import java.net.InetSocketAddress;
 import java.util.AbstractMap;
 import java.util.Map;
 
@@ -36,7 +37,7 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
         return INSTANCE;
     }
 
-    public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleQuorumView<?>> {
+    public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleQuorumView<InetSocketAddress, ServerInetAddressView>> {
 
         public static ConfigurableEnsembleViewFactory newInstance() {
             return new ConfigurableEnsembleViewFactory("");
@@ -56,14 +57,14 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
         
         @SuppressWarnings("unchecked")
         @Override
-        public EnsembleQuorumView<?> get() {
+        public EnsembleQuorumView<InetSocketAddress, ServerInetAddressView> get() {
             return EnsembleQuorumView.ofQuorum(
                     ServerQuorumView.of(ServerInetAddressView.of(
                     DEFAULT_ADDRESS, DEFAULT_PORT)));
         }
 
         @Override
-        public EnsembleQuorumView<?> get(Configuration value) {
+        public EnsembleQuorumView<InetSocketAddress, ServerInetAddressView> get(Configuration value) {
             Arguments arguments = value.asArguments();
             if (! arguments.has(ARG)) {
                 arguments.add(arguments.newOption(ARG, "Ensemble"));
@@ -133,7 +134,7 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
         ParameterizedFactory<CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection>, Factory<ChannelClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection>>> clientConnectionFactory = ClientModule.factory(runtime);
         ClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection> clientConnections = monitorsFactory.apply(clientConnectionFactory.get(codecFactory).get());
 
-        EnsembleQuorumView<?> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
+        EnsembleQuorumView<InetSocketAddress, ServerInetAddressView> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
         AssignXidProcessor xids = AssignXidProcessor.newInstance();
         EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, xids, ensemble, timeOut);
         monitorsFactory.apply(

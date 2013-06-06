@@ -13,8 +13,8 @@ import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Automatons;
 
-public class ServerQuorumView<T extends SocketAddress> 
-        extends Pair<ServerView.Address<T>,Automaton<QuorumRole, QuorumRole>> 
+public class ServerQuorumView<T extends SocketAddress, C extends ServerView.Address<T>> 
+        extends Pair<C,Automaton<QuorumRole, QuorumRole>> 
         implements ServerView.Quorum, ServerView.Address<T> {
 
     public static final char SEP = ';';
@@ -23,7 +23,7 @@ public class ServerQuorumView<T extends SocketAddress>
     protected static Splitter SPLITTER = Splitter.on(SEP).trimResults().limit(2);
 
     @Serializes(from=ServerQuorumView.class, to=String.class)
-    public static String toString(ServerQuorumView<?> input) {
+    public static String toString(ServerQuorumView<?,?> input) {
         String addressStr = ServerAddressView.toString(input.first());
         String output = addressStr;
         QuorumRole state = input.state();
@@ -34,7 +34,7 @@ public class ServerQuorumView<T extends SocketAddress>
     }
 
     @Serializes(from=String.class, to=ServerQuorumView.class)
-    public static ServerQuorumView<?> fromString(String input) {
+    public static ServerQuorumView<?,?> fromString(String input) {
         String[] fields = Iterables.toArray(SPLITTER.split(input), String.class);
         ServerView.Address<?> address = ServerAddressView.fromString(input);
         QuorumRole state = (fields.length > 1) ? QuorumRole.valueOf(fields[1])
@@ -42,25 +42,25 @@ public class ServerQuorumView<T extends SocketAddress>
         return of(address, state);
     }
     
-    public static <T extends SocketAddress> ServerQuorumView<T> of(
-            ServerView.Address<T> address) {
+    public static <T extends SocketAddress, C extends ServerView.Address<T>> ServerQuorumView<T,C> of(
+            C address) {
         return of(address, Automatons.createSimple(QuorumRole.class));
     }
     
-    public static <T extends SocketAddress> ServerQuorumView<T> of(
-            ServerView.Address<T> address,
+    public static <T extends SocketAddress, C extends ServerView.Address<T>> ServerQuorumView<T,C> of(
+            C address,
             QuorumRole state) {
         return of(address, Automatons.createSimple(state));
     }
     
-    public static <T extends SocketAddress> ServerQuorumView<T> of(
-            ServerView.Address<T> address,
+    public static <T extends SocketAddress, C extends ServerView.Address<T>> ServerQuorumView<T,C> of(
+            C address,
             Automaton<QuorumRole, QuorumRole> automaton) {
-        return new ServerQuorumView<T>(address, automaton);
+        return new ServerQuorumView<T,C>(address, automaton);
     }
 
     public ServerQuorumView(
-            ServerView.Address<T> address,
+            C address,
             Automaton<QuorumRole, QuorumRole> automaton) {
         super(address, automaton);
     }
@@ -87,7 +87,7 @@ public class ServerQuorumView<T extends SocketAddress>
     
     @Override
     public int compareTo(ServerView obj) {
-        ServerQuorumView<?> other = (ServerQuorumView<?>)obj;
+        ServerQuorumView<?,?> other = (ServerQuorumView<?,?>)obj;
         return toString(this).compareTo(toString(other));
     }
 

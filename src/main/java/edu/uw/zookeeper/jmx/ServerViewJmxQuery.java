@@ -31,7 +31,7 @@ public abstract class ServerViewJmxQuery {
     public static final String CLIENT_PORT_ATTRIBUTE = "ClientPort";
     public static final String QUORUM_ADDRESS_ATTRIBUTE = "QuorumAddress";
     
-    public static ServerView.Address<InetSocketAddress> addressViewOf(MBeanServerConnection mbeans) throws IOException {
+    public static ServerInetAddressView addressViewOf(MBeanServerConnection mbeans) throws IOException {
         for (Jmx.ServerSchema schema: Jmx.ServerSchema.values()) {
             ZNodeLabelTrie<ZNodeLabelTrie.ValueNode<Set<ObjectName>>> objectNames = schema.instantiate(mbeans);
             if (objectNames == null || objectNames.isEmpty()) {
@@ -76,7 +76,7 @@ public abstract class ServerViewJmxQuery {
         return null;
     }
     
-    public static EnsembleQuorumView<InetSocketAddress> ensembleViewOf(MBeanServerConnection mbeans) throws IOException {
+    public static EnsembleQuorumView<InetSocketAddress, ServerInetAddressView> ensembleViewOf(MBeanServerConnection mbeans) throws IOException {
         Jmx.ServerSchema schema = Jmx.ServerSchema.REPLICATED_SERVER;
         ZNodeLabelTrie<ZNodeLabelTrie.ValueNode<Set<ObjectName>>> objectNames = schema.instantiate(mbeans);
         if (objectNames == null || objectNames.isEmpty()) {
@@ -91,7 +91,7 @@ public abstract class ServerViewJmxQuery {
                         schema.pathOf(Jmx.Key.LEADER),
                         QuorumRole.FOLLOWING,
                         schema.pathOf(Jmx.Key.FOLLOWER));
-        List<ServerQuorumView<InetSocketAddress>> servers = Lists.newLinkedList();
+        List<ServerQuorumView<InetSocketAddress, ServerInetAddressView>> servers = Lists.newLinkedList();
         for (ObjectName name: objectNames.get(schema.pathOf(Jmx.Key.REPLICA)).get()) {
             String address;
             try {
@@ -111,7 +111,7 @@ public abstract class ServerViewJmxQuery {
                     }
                 }
             }
-            ServerQuorumView<InetSocketAddress> quorumView = ServerQuorumView.of(addressView, role);
+            ServerQuorumView<InetSocketAddress, ServerInetAddressView> quorumView = ServerQuorumView.of(addressView, role);
             servers.add(quorumView);
         }
         return EnsembleQuorumView.fromQuorum(servers);
@@ -129,7 +129,7 @@ public abstract class ServerViewJmxQuery {
             if (addressView != null) {
                 System.out.println(addressView);
             }
-            EnsembleQuorumView<InetSocketAddress> ensembleView = ensembleViewOf(mbeans);
+            EnsembleQuorumView<InetSocketAddress, ServerInetAddressView> ensembleView = ensembleViewOf(mbeans);
             if (ensembleView != null) {
                 System.out.println(ensembleView);
             }

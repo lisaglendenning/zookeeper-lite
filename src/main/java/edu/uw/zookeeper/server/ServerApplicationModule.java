@@ -34,7 +34,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         return INSTANCE;
     }
 
-    public static class ConfigurableServerAddressViewFactory implements DefaultsFactory<Configuration, ServerView.Address<?>> {
+    public static class ConfigurableServerAddressViewFactory implements DefaultsFactory<Configuration, ServerInetAddressView> {
 
         public static ConfigurableServerAddressViewFactory newInstance() {
             return newInstance("");
@@ -62,7 +62,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         }
 
         @Override
-        public ServerView.Address<?> get(Configuration value) {
+        public ServerInetAddressView get(Configuration value) {
             Arguments arguments = value.asArguments();
             if (! arguments.has(ARG)) {
                 arguments.add(arguments.newOption(ARG, "Address"));
@@ -73,7 +73,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
             Config config = value.withArguments(configPath, args);
             if (config.hasPath(CONFIG_KEY)) {
             String input = config.getString(CONFIG_KEY);
-                return ServerAddressView.fromString(input);
+                return ServerInetAddressView.fromString(input);
             } else {
                 return get();
             }
