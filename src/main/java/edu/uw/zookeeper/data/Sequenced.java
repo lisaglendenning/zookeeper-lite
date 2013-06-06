@@ -29,7 +29,7 @@ public class Sequenced<T extends CharSequence & Comparable<? super T>> extends A
 
     public static String SEQUENCE_FORMAT = "%010d";
     public static Pattern SEQUENCE_PATTERN = Pattern.compile(OVERFLOW_SEQUENCE + "|[0-9]{10}");
-    public static Pattern LABEL_PATTERN = Pattern.compile("^(?<prefix>.+?)(?<sequence>" + SEQUENCE_PATTERN.pattern() + ")$");
+    public static Pattern LABEL_PATTERN = Pattern.compile("^(?<prefix>.+)(?<sequence>" + SEQUENCE_PATTERN.pattern() + ")$");
     
     protected Sequenced(T first, Integer second) {
         super(first, second);
