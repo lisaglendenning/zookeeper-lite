@@ -30,13 +30,10 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
         
         // TODO: watches
-        public Records.ResponseRecord apply(Records.RequestRecord request) throws KeeperException {
-            long session = 0;
-            long zxid = 0;
-            long time = Stats.getTime();
-            
+        public Records.ResponseRecord apply(TxnRequest request) throws KeeperException {
+            TxnRequest.Header header = request.header();
             Records.ResponseRecord response;
-            switch (request.opcode()) {
+            switch (request.record().opcode()) {
             case CREATE:
             case CREATE2:
             {
@@ -50,7 +47,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 if (parent.state().getCreateStat().isEphemeral()) {
                     throw new KeeperException.NoChildrenForEphemeralsException(parentPath.toString());
                 }
-                Pair<Integer, Long> cversion = parent.state().getChildrenStat().getAndIncrement(zxid);
+                Pair<Integer, Long> cversion = parent.state().getChildrenStat().getAndIncrement(header.zxid());
 
                 CreateMode mode = CreateMode.fromFlag(record.getFlags());
                 if (mode.isSequential()) {
@@ -60,17 +57,17 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                         throw new KeeperException.NodeExistsException(path.toString());
                     }
                 }
-                long ephemeralOwner = mode.isEphemeral() ? session : Stats.CreateStat.ephemeralOwnerNone();
-                Stats.CreateStat createStat = Stats.CreateStat.of(zxid, time, ephemeralOwner);
-                ZNodeData data = ZNodeData.newInstance(Stats.DataStat.newInstance(zxid, time), record.getData());
+                long ephemeralOwner = mode.isEphemeral() ? header.session() : Stats.CreateStat.ephemeralOwnerNone();
+                Stats.CreateStat createStat = Stats.CreateStat.of(header.zxid(), header.time(), ephemeralOwner);
+                ZNodeData data = ZNodeData.newInstance(Stats.DataStat.newInstance(header.zxid(), header.time()), record.getData());
                 ZNodeAcl acl = ZNodeAcl.newInstance(Acls.Acl.fromRecordList(record.getAcl()));
-                Stats.ChildrenStat childrenStat = Stats.ChildrenStat.newInstance(zxid);
+                Stats.ChildrenStat childrenStat = Stats.ChildrenStat.newInstance(header.zxid());
                 ZNodeState state = ZNodeState.newInstance(createStat, data, acl, childrenStat);
                 
                 ZNodeStateNode node = parent.put(path.tail(), state);
                 Operations.Responses.Create builder = 
                         Operations.Responses.create().setPath(path);
-                if (OpCode.CREATE2 == request.opcode()) {
+                if (OpCode.CREATE2 == record.opcode()) {
                     builder.setStat(node.asStat());
                 }
                 response = builder.build();
@@ -121,7 +118,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
                     throw new KeeperException.BadVersionException(path.toString());
                 }
-                node.state().getData().getStat().getAndIncrement(zxid, time);
+                node.state().getData().getStat().getAndIncrement(header.zxid(), header.time());
                 node.state().getData().setData(record.getData());
                 response = Operations.Responses.setData().setStat(node.asStat()).build();
                 break;
@@ -162,7 +159,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 }
                 Operations.Responses.GetChildren builder = Operations.Responses.getChildren();
                 builder.setChildren(ImmutableList.copyOf(node.keySet()));
-                if (OpCode.GET_CHILDREN2 == request.opcode()) {
+                if (OpCode.GET_CHILDREN2 == request.record().opcode()) {
                     builder.setStat(node.asStat());
                 }
                 response = builder.build();
