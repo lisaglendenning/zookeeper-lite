@@ -147,7 +147,11 @@ public class ChannelConnection<I>
     @Override
     public State state() {
         ConnectionStateHandler stateHandler = get().pipeline().get(ConnectionStateHandler.class);
-        return stateHandler.state();
+        if (stateHandler != null) {
+            return stateHandler.state();
+        } else {
+            return State.CONNECTION_CLOSED;
+        }
     }
 
     @Override

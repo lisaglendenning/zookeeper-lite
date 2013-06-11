@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -51,7 +52,13 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
                 }
                 Builder builder = fromAnnotation(annotation);
                 if (Void.class == builder.getType()) {
-                    builder.setType(element);
+                    if (element instanceof Field) {
+                        builder.setType(((Field) element).getType());
+                    } else if (element instanceof Method) {
+                        builder.setType(((Method) element).getReturnType());
+                    } else {
+                        builder.setType(element);
+                    }
                 }
                 return builder;
             }
@@ -418,6 +425,20 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
             return schema;
         }
         
+        public SchemaNode match(ZNodeLabel.Component label) {
+            SchemaNode child = get(label);
+            if (child == null) {
+                String labelString = label.toString();
+                for (Map.Entry<ZNodeLabel.Component, Schema.SchemaNode> entry: entrySet()) {
+                    if (labelString.matches(entry.getKey().toString())) {
+                        child = entry.getValue();
+                        break;
+                    }
+                }
+            }
+            return child;
+        }
+        
         public SchemaNode add(ZNodeSchema schema) {
             return add(ZNodeLabel.Component.of(schema.getLabel()), schema);
         }
@@ -457,6 +478,17 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
     
     protected Schema(SchemaNode root) {
         super(root);
+    }
+
+    public SchemaNode match(ZNodeLabel.Path path) {
+        SchemaNode next = root();
+        for (ZNodeLabel.Component component: path) {
+            next = next.match(component);
+            if (next == null) {
+                break;
+            }
+        }
+        return next;
     }
 
     public SchemaNode add(ZNodeSchema schema) {

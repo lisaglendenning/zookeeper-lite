@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+
+import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
@@ -22,7 +24,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.util.Event;
 import edu.uw.zookeeper.data.StampedReference;
 import edu.uw.zookeeper.data.ZNodeLabel;
-import edu.uw.zookeeper.data.ZNodeLabel.Component;
 import edu.uw.zookeeper.data.ZNodeLabelTrie;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.SimplePointer;
@@ -33,12 +34,14 @@ import edu.uw.zookeeper.protocol.SessionReplyWrapper;
 import edu.uw.zookeeper.protocol.SessionRequestWrapper;
 import edu.uw.zookeeper.protocol.Records.MultiOpRequest;
 import edu.uw.zookeeper.protocol.Records.MultiOpResponse;
+import edu.uw.zookeeper.protocol.client.ZxidTracker;
 import edu.uw.zookeeper.protocol.proto.IGetACLResponse;
 import edu.uw.zookeeper.protocol.proto.IGetDataResponse;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.ISetACLRequest;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
+import edu.uw.zookeeper.util.AbstractPair;
 import edu.uw.zookeeper.util.ForwardingPromise;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Publisher;
@@ -46,8 +49,6 @@ import edu.uw.zookeeper.util.SettableFuturePromise;
 
 /**
  * Only caches the results of operations submitted through this wrapper.
- * 
- * TODO: create an event for tree structure changes (adds/deletes)
  */
 public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E>> implements ClientExecutor {
 
@@ -186,15 +187,39 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         }
     }
     
+    @Event
+    public static class NodeUpdate extends AbstractPair<NodeUpdate.UpdateType, StampedReference<ZNodeLabel.Path>> {
+
+        public static NodeUpdate of(UpdateType type, StampedReference<ZNodeLabel.Path> path) {
+            return new NodeUpdate(type, path);
+        }
+        
+        public static enum UpdateType {
+            NODE_ADDED, NODE_REMOVED;
+        }
+        
+        public NodeUpdate(UpdateType type, StampedReference<ZNodeLabel.Path> path) {
+            super(type, path);
+        }        
+        
+        public UpdateType type() {
+            return first;
+        }
+        
+        public StampedReference<ZNodeLabel.Path> path() {
+            return second;
+        }
+    }
+    
     public static interface NodeCache<E extends NodeCache<E>> extends ZNodeLabelTrie.Node<E> {
 
         Long stamp();
         
         Long touch(Long zxid);
         
-        <T extends Records.View> StampedReference<? extends T> asView(View view);
+        <T extends Records.View> StampedReference<T> asView(View view);
 
-        <T extends Records.View> StampedReference<? extends T> update(View view, StampedReference<T> value);
+        <T extends Records.View> StampedReference<T> update(View view, StampedReference<T> value);
     }
     
     public abstract static class AbstractNodeCache<E extends AbstractNodeCache<E>> extends ZNodeLabelTrie.DefaultsNode<E> implements NodeCache<E> {
@@ -235,10 +260,10 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
 
         @Override
         @SuppressWarnings("unchecked")
-        public <T extends Records.View> StampedReference<? extends T> asView(View view) {
+        public <T extends Records.View> StampedReference<T> asView(View view) {
             StampedReference.Updater<? extends Records.View> updater = views.get(view);
             if (updater != null) {
-                return (StampedReference<? extends T>) updater.get();
+                return (StampedReference<T>) updater.get();
             } else {
                 return null;
             }
@@ -246,16 +271,15 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
 
         @Override
         @SuppressWarnings("unchecked")
-        public <T extends Records.View> StampedReference<? extends T> update(View view, StampedReference<T> value) {
+        public <T extends Records.View> StampedReference<T> update(View view, StampedReference<T> value) {
             StampedReference.Updater<T> updater = (StampedReference.Updater<T>) views.get(view);
             if (updater == null) {
                 synchronized (views) {
-                    if (! views.containsKey(view)) {
-                        updater = StampedReference.Updater.<T>newInstance(value);
-                        StampedReference.Updater<? extends Records.View> prev = (StampedReference.Updater<T>) views.put(view, updater);
-                        assert (prev == null);
-                    } else {
+                    if (views.containsKey(view)) {
                         updater = (StampedReference.Updater<T>) views.get(view);
+                    } else {
+                        updater = StampedReference.Updater.<T>newInstance(value);
+                        views.put(view, updater);
                     }
                 }
             }
@@ -265,10 +289,19 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         
         @Override
         public String toString() {
+            Map<View, String> viewStr = Maps.newHashMap();
+            for (Map.Entry<View, StampedReference.Updater<? extends Records.View>> entry: views.entrySet()) {
+                viewStr.put(
+                        entry.getKey(), 
+                        String.format("(%s, %s)", 
+                                entry.getValue().get().stamp(), 
+                                Records.toString((Record) entry.getValue().get().get())));
+            }
             return Objects.toStringHelper(this)
                     .add("path", path())
-                    .add("children", children.keySet())
-                    .add("views", views).toString();
+                    .add("children", keySet())
+                    .add("stamp", stamp())
+                    .add("views", viewStr).toString();
         }
     }
     
@@ -284,7 +317,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         }
 
         @Override
-        protected SimpleZNodeCache newChild(Component label) {
+        protected SimpleZNodeCache newChild(ZNodeLabel.Component label) {
             Pointer<SimpleZNodeCache> pointer = SimplePointer.of(label, this);
             return new SimpleZNodeCache(Optional.of(pointer));
         }
@@ -317,6 +350,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         }
     }
     
+    protected final ZxidTracker lastZxid;
     protected final ZNodeLabelTrie<E> trie;
     protected final ClientExecutor client;
     
@@ -324,24 +358,25 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
             ClientExecutor client, ZNodeLabelTrie<E> trie) {
         this.trie = trie;
         this.client = client;
+        this.lastZxid = ZxidTracker.create();
     }
     
-    public ClientExecutor asClient() {
+    public ClientExecutor client() {
         return client;
     }
     
-    public ZNodeLabelTrie<E> asTrie() {
+    public ZNodeLabelTrie<E> trie() {
         return trie;
     }
 
     @Override
     public void register(Object object) {
-        asClient().register(object);
+        client().register(object);
     }
 
     @Override
     public void unregister(Object object) {
-        asClient().unregister(object);
+        client().unregister(object);
     }
 
     @Override
@@ -353,15 +388,19 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
     public ListenableFuture<Operation.SessionResult> submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
         return client.submit(request, new PromiseWrapper(promise));
     }
-
-    protected boolean handleResult(Operation.SessionResult result) {
-        boolean changed = false;
+    
+    public E get(ZNodeLabel.Path path) {
+        return trie().get(path);
+    }
+    
+    public void handleResult(Operation.SessionResult result) {
         Long zxid = result.reply().zxid();
+        lastZxid.update(zxid);
         Operation.Reply reply = result.reply().reply();
         Operation.Request request = result.request().request();
         
         if (reply instanceof Operation.Error 
-                && (KeeperException.Code.NODEEXISTS == ((Operation.Error)reply).error())) {
+                && (KeeperException.Code.NONODE == ((Operation.Error)reply).error())) {
             ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathHolder) ((Operation.RecordHolder<?>)request).asRecord()).getPath());
             switch (request.opcode()) {
             case CREATE:
@@ -376,12 +415,8 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
             case SET_ACL:
             case SET_DATA:
             {
-                E node = asTrie().get(path);
-                if (node != null && node.stamp().compareTo(zxid) < 0) {
-                    node = asTrie().remove(path);
-                    changed = changed | (node != null);
-                }
-                return changed;
+                remove(path, zxid);
+                return;
             }
             default:
                 break;
@@ -397,19 +432,17 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         {
             if (reply instanceof Operation.Response) {
                 Records.PathHolder responseRecord = (Records.PathHolder) ((Operation.RecordHolder<?>)reply).asRecord();
-                E node = asTrie().root().add(responseRecord.getPath());
-                changed = changed | (node.touch(zxid).longValue() == 0);
+                E node = add(ZNodeLabel.Path.of(responseRecord.getPath()), zxid);
                 Records.CreateRecord record = (Records.CreateRecord)((Operation.RecordHolder<?>)request).asRecord();
                 StampedReference<Records.CreateRecord> stampedRequest = StampedReference.of(zxid, record);
-                changed = changed | update(node, stampedRequest);
+                update(node, stampedRequest);
                 if (responseRecord instanceof Records.StatRecord) {
                     StampedReference<Records.StatRecord> stampedResponse = StampedReference.of(zxid, (Records.StatRecord)responseRecord);
-                    changed = changed | update(node, stampedResponse);
+                    update(node, stampedResponse);
                 }
             } else if (KeeperException.Code.NODEEXISTS == ((Operation.Error)reply).error()) {
                 Records.PathHolder requestRecord = (Records.PathHolder) ((Operation.RecordHolder<?>)request).asRecord();
-                E node = asTrie().root().add(requestRecord.getPath());
-                changed = changed | (node.touch(zxid).longValue() == 0);
+                add(ZNodeLabel.Path.of(requestRecord.getPath()), zxid);
             }
             break;
         }
@@ -418,12 +451,8 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
             if (reply instanceof Operation.Response 
                     || (KeeperException.Code.NONODE == ((Operation.Error)reply).error())) {
                 Records.PathHolder requestRecord = (Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord();
-                String path = requestRecord.getPath();
-                E node = asTrie().get(path);
-                if (node != null && node.stamp().compareTo(zxid) < 0) {
-                    node = asTrie().remove(path);
-                    changed = changed | (node != null);
-                }
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(requestRecord.getPath());
+                remove(path, zxid);
                 break;
             }
         }
@@ -431,10 +460,9 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         {
             Records.PathHolder requestRecord = (Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord();
             if (reply instanceof Operation.Response) {
-                E node = asTrie().root().add(requestRecord.getPath());
-                changed = changed | (node.touch(zxid).longValue() == 0);
+                E node = add(ZNodeLabel.Path.of(requestRecord.getPath()), zxid);
                 StampedReference<Records.StatRecord> stampedResponse = StampedReference.of(zxid, (Records.StatRecord)((Operation.RecordHolder<?>)reply).asRecord());
-                changed = changed | update(node, stampedResponse);
+                update(node, stampedResponse);
             }
             break;
         }
@@ -442,11 +470,10 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         {
             Records.PathHolder requestRecord = (Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord();
             if (reply instanceof Operation.Response) {
-                E node = asTrie().root().add(requestRecord.getPath());
-                changed = changed | (node.touch(zxid).longValue() == 0);
+                E node = add(ZNodeLabel.Path.of(requestRecord.getPath()), zxid);
                 StampedReference<IGetACLResponse> stampedResponse = StampedReference.of(
                         result.reply().zxid(), (IGetACLResponse)((Operation.RecordHolder<?>)reply).asRecord());
-                changed = changed | update(node, stampedResponse);
+                update(node, stampedResponse);
             }
             break;
         }
@@ -455,16 +482,25 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         {
             Records.PathHolder requestRecord = (Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord();
             if (reply instanceof Operation.Response) {
-                E node = asTrie().root().add(requestRecord.getPath());
-                changed = changed | (node.touch(zxid).longValue() == 0);
+                E node = add(ZNodeLabel.Path.of(requestRecord.getPath()), zxid);
                 Records.ChildrenHolder responseRecord = (Records.ChildrenHolder) ((Operation.RecordHolder<?>)reply).asRecord();
-                for (String component: responseRecord.getChildren()) {
+                List<String> children = responseRecord.getChildren();
+                for (String component: children) {
                     E child = node.add(component);
-                    changed = changed | (child.touch(zxid).longValue() == 0);
+                    if (child.touch(zxid).longValue() == 0L) {
+                        post(NodeUpdate.of(
+                                NodeUpdate.UpdateType.NODE_ADDED, 
+                                StampedReference.of(zxid, child.path())));
+                    }
+                }
+                for (Map.Entry<ZNodeLabel.Component, E> entry: node.entrySet()) {
+                    if (! children.contains(entry.getKey().toString())) {
+                        remove(entry.getValue().path(), zxid);
+                    }
                 }
                 if (responseRecord instanceof Records.StatRecord) {
                     StampedReference<Records.StatRecord> stampedResponse = StampedReference.of(zxid, (Records.StatRecord)responseRecord);
-                    changed = changed | update(node, stampedResponse);
+                    update(node, stampedResponse);
                 }
             }
             break;
@@ -473,11 +509,10 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         {
             Records.PathHolder requestRecord = (Records.PathHolder)((Operation.RecordHolder<?>)request).asRecord();
             if (reply instanceof Operation.Response) {
-                E node = asTrie().root().add(requestRecord.getPath());
-                changed = changed | (node.touch(zxid).longValue() == 0);
+                E node = add(ZNodeLabel.Path.of(requestRecord.getPath()), zxid);
                 StampedReference<IGetDataResponse> stampedResponse = StampedReference.of(
                         result.reply().zxid(), (IGetDataResponse)((Operation.RecordHolder<?>)reply).asRecord());
-                changed = changed | update(node, stampedResponse);
+                update(node, stampedResponse);
             }
             break;
         }
@@ -494,7 +529,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
                     Operation.SessionResult nestedResult = OpSessionResult.of(
                             SessionRequestWrapper.newInstance(xid, requests.next()), 
                             SessionReplyWrapper.create(xid, zxid, responses.next()));
-                    changed = changed | handleResult(nestedResult);
+                    handleResult(nestedResult);
                 }
             } else {
                 // TODO
@@ -505,10 +540,10 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         {
             ISetACLRequest requestRecord = (ISetACLRequest) ((Operation.RecordHolder<?>)request).asRecord();
             if (reply instanceof Operation.Response) {
-                E node = asTrie().root().add(requestRecord.getPath());
-                changed = changed | update(node, StampedReference.of(zxid, requestRecord));
+                E node = add(ZNodeLabel.Path.of(requestRecord.getPath()), zxid);
+                update(node, StampedReference.of(zxid, requestRecord));
                 Records.StatHolder responseRecord = (Records.StatHolder) ((Operation.RecordHolder<?>)reply).asRecord();
-                changed = changed | update(node, StampedReference.of(zxid, responseRecord));
+                update(node, StampedReference.of(zxid, responseRecord));
             }
             break;
         }
@@ -516,17 +551,16 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         {
             ISetDataRequest requestRecord = (ISetDataRequest) ((Operation.RecordHolder<?>)request).asRecord();
             if (reply instanceof Operation.Response) {
-                E node = asTrie().root().add(requestRecord.getPath());
-                changed = changed | update(node, StampedReference.of(zxid, requestRecord));
+                E node = add(ZNodeLabel.Path.of(requestRecord.getPath()), zxid);
+                update(node, StampedReference.of(zxid, requestRecord));
                 Records.StatHolder responseRecord = (Records.StatHolder) ((Operation.RecordHolder<?>)reply).asRecord();
-                changed = changed | update(node, StampedReference.of(zxid, responseRecord));
+                update(node, StampedReference.of(zxid, responseRecord));
             }
             break;
         }
         default:
             break;
         }
-        return changed;
     }
     
     protected boolean update(E node, StampedReference<? extends Records.View> value) {
@@ -544,8 +578,49 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         return changed;
     }
 
+    protected E add(ZNodeLabel.Path path, Long zxid) {
+        E parent = trie().root();
+        E next = parent;
+        parent.touch(zxid);
+        for (ZNodeLabel.Component e: path) {
+            next = parent.get(e);
+            if (next == null) {
+                next = parent.add(e);
+                if (next.touch(zxid).longValue() == 0L) {
+                    post(NodeUpdate.of(
+                            NodeUpdate.UpdateType.NODE_ADDED, 
+                            StampedReference.of(zxid, next.path())));
+                }
+            } else {
+                next.touch(zxid);
+            }
+            parent = next;
+        }
+        return next;
+    }
+
+    protected E remove(ZNodeLabel.Path path, Long zxid) {
+        E node = get(path);
+        if (node != null && node.stamp().compareTo(zxid) <= 0) {
+            node = trie().remove(path);
+            if (node != null) {
+                post(NodeUpdate.of(
+                        NodeUpdate.UpdateType.NODE_REMOVED, 
+                        StampedReference.of(zxid, path)));
+            }
+        } else {
+            node = null;
+        }
+        return node;
+    }
+
     protected void post(Object object) {
         // nothing
+    }
+    
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).addValue(trie().toString()).toString();
     }
     
     public static class ZNodeEventfulResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E>> extends ZNodeResponseCache<E> {

@@ -197,7 +197,7 @@ public abstract class Operations {
 
             protected boolean watch;
             
-            protected Exists() {
+            public Exists() {
                 super(OpCode.EXISTS);
                 this.watch = false;
             }
@@ -296,7 +296,7 @@ public abstract class Operations {
 
             protected List<Builder<? extends Records.MultiOpRequest>> builders;
             
-            protected Multi() {
+            public Multi() {
                 super(OpCode.MULTI);
                 this.builders = Lists.newArrayList();
             }
@@ -426,11 +426,14 @@ public abstract class Operations {
 
             @Override
             public T build() {
-                try {
-                    return delegate().setData(serializer().toBytes(input())).build();
-                } catch (IOException e) {
-                    throw Throwables.propagate(e);
+                if (input() != null) {
+                    try {
+                        delegate().setData(serializer().toBytes(input()));
+                    } catch (IOException e) {
+                        throw Throwables.propagate(e);
+                    }
                 }
+                return delegate().build();
             }
 
             @Override
@@ -509,7 +512,7 @@ public abstract class Operations {
     
             protected Records.StatHolderInterface stat;
             
-            public AbstractStat(OpCode opcode) {
+            protected AbstractStat(OpCode opcode) {
                 super(opcode);
                 this.stat = null;
             }
@@ -702,7 +705,7 @@ public abstract class Operations {
     
             protected List<Builder<? extends Records.MultiOpResponse>> builders;
             
-            protected Multi() {
+            public Multi() {
                 super(OpCode.MULTI);
                 this.builders = Lists.newArrayList();
             }

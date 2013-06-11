@@ -69,11 +69,27 @@ public class ClientProtocolExecutorService extends AbstractIdleService
 
     @Override
     public ListenableFuture<Operation.SessionResult> submit(Operation.Request request) {
+        State state = state();
+        switch (state) {
+        case NEW:
+        case TERMINATED:
+            throw new IllegalStateException(state.toString());
+        default:
+            break;
+        }
         return get().submit(request);
     }
 
     @Override
     public ListenableFuture<Operation.SessionResult> submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
+        State state = state();
+        switch (state) {
+        case NEW:
+        case TERMINATED:
+            throw new IllegalStateException(state.toString());
+        default:
+            break;
+        }
         return get().submit(request, promise);
     }
 

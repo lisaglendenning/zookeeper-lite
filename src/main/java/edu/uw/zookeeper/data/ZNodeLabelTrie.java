@@ -223,7 +223,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         public String toString() {
             return Objects.toStringHelper(this)
                     .add("path", path())
-                    .add("children", children.keySet())
+                    .add("children", keySet())
                     .toString();
         }
     }
@@ -249,8 +249,8 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
                     next = parent.get(e);
                     if (next == null) {
                         next = parent.add(e);
-                        parent = next;
                     }
+                    parent = next;
                 }
                 return next;
             } else {

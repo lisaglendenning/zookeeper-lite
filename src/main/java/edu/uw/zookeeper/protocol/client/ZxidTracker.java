@@ -102,12 +102,14 @@ public class ZxidTracker implements Reference<Long>  {
     }
     
     public boolean update(Long zxid) {
-        // Possibly lossy attempt to update of last zxid seen
-        // done this way to ensure that we don't accidentally overwrite
-        // a higher zxid
         Long prevZxid = lastZxid.get();
         if (prevZxid.compareTo(zxid) < 0) {
-            return lastZxid.compareAndSet(prevZxid, zxid);
+            if (lastZxid.compareAndSet(prevZxid, zxid)) {
+                return true;
+            } else {
+                // try again
+                return update(zxid);
+            }
         } else {
             return false;
         }

@@ -5,6 +5,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import org.apache.zookeeper.Watcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Lists;
@@ -100,9 +102,11 @@ public class WatchPromiseTrie implements Reference<ZNodeLabelTrie<WatchPromiseTr
         }        
     }
 
+    protected final Logger logger;
     protected final ZNodeLabelTrie<WatchPromiseNode> trie;
     
     protected WatchPromiseTrie() {
+        this.logger = LoggerFactory.getLogger(getClass());
         this.trie = ZNodeLabelTrie.of(WatchPromiseNode.root());
     }
     
@@ -115,7 +119,10 @@ public class WatchPromiseTrie implements Reference<ZNodeLabelTrie<WatchPromiseTr
     public void handleEvent(WatchEvent event) {
         WatchPromiseNode node = get().get(event.path());
         if (node != null) {
-            node.notify(event);
+            List<Promise<WatchEvent>> watches = node.notify(event);
+            if (watches.isEmpty()) {
+                logger.debug("No watches registered for event {}", event);
+            }
         }
     }
 }

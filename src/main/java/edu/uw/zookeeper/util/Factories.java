@@ -56,6 +56,45 @@ public abstract class Factories {
         return LinkedDefaultsFactory.newInstance(head, tail);
     }
     
+    public static class Holder<T> implements Reference<T> {
+        
+        public static <T> Holder<T> of(T instance) {
+            return new Holder<T>(instance);
+        }
+        
+        private final T instance;
+        
+        @Override
+        public T get() {
+            return instance;
+        }
+        
+        public Holder(T instance) {
+            this.instance = instance;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(get());
+        }
+        
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if ((obj == null) || (obj.getClass() != getClass())) {
+                return false;
+            }
+            return Objects.equal(get(), ((Holder<?>)obj).get());
+        }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).addValue(get()).toString();
+        }
+    }
+    
     public static class HolderFactory<T> implements Singleton<T> {
 
         public static <T> HolderFactory<T> newInstance(Factory<T> delegate) {

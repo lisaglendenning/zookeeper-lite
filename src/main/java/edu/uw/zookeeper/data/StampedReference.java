@@ -17,19 +17,19 @@ public class StampedReference<T> extends AbstractPair<Long, T> implements Refere
         return new StampedReference<T>(stamp, value);
     }
 
-    public static class Updater<T> implements Reference<StampedReference<? extends T>> {
-        public static <T> Updater<T> newInstance(StampedReference<? extends T> value) {
+    public static class Updater<T> implements Reference<StampedReference<T>> {
+        public static <T> Updater<T> newInstance(StampedReference<T> value) {
             return new Updater<T>(value);
         }
 
-        protected final AtomicReference<StampedReference<? extends T>> reference;
+        protected final AtomicReference<StampedReference<T>> reference;
 
-        protected Updater(StampedReference<? extends T> value) {
-            this.reference = new AtomicReference<StampedReference<? extends T>>(checkNotNull(value));
+        protected Updater(StampedReference<T> value) {
+            this.reference = new AtomicReference<StampedReference<T>>(checkNotNull(value));
         }
         
-        public StampedReference<? extends T> setIfGreater(StampedReference<? extends T> value) {
-            StampedReference<? extends T> current = reference.get();
+        public StampedReference<T> setIfGreater(StampedReference<T> value) {
+            StampedReference<T> current = reference.get();
             if (current.stamp() < checkNotNull(value).stamp()) {
                 if (! reference.compareAndSet(current, value)) {
                     return setIfGreater(value);
@@ -39,7 +39,7 @@ public class StampedReference<T> extends AbstractPair<Long, T> implements Refere
         }
         
         @Override
-        public StampedReference<? extends T> get() {
+        public StampedReference<T> get() {
             return reference.get();
         }
         
