@@ -2,6 +2,8 @@ package edu.uw.zookeeper.data;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -9,7 +11,6 @@ import java.util.concurrent.ConcurrentMap;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -51,7 +52,7 @@ public enum Serializers {
             Class<?> inputType = input.getClass();
             Serializer serializer = Serializers.getInstance().find(inputType, String.class);
             if (serializer != null) {
-                return serializer.invoke(inputType, input);
+                return serializer.invoke(input);
             } else {
                 return String.valueOf(input);
             }
@@ -209,18 +210,32 @@ public enum Serializers {
         
         @SuppressWarnings("unchecked")
         public <O> O invoke(Object obj, Object...inputs) {
+            Object invObj = obj;
+            Object[] invInputs = inputs;
+            if (Modifier.isStatic(method().getModifiers()) && (! (obj instanceof Class<?>))) {
+                invObj = obj.getClass();
+                invInputs = new Object[inputs.length + 1];
+                invInputs[0] = obj;
+                for (int i=0; i<inputs.length; ++i) {
+                    invInputs[i+1] = inputs[i];
+                }
+            }
             O output;
             try {
-                output = (O) method().invoke(obj, inputs);
+                output = (O) method().invoke(invObj, invInputs);
             } catch (Exception e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(String.format("Unable to invoke %s on %s %s", method(), invObj, Arrays.toString(invInputs)), e);
             }
             return output;
         }
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).add("method", method).toString();
+            return Objects.toStringHelper(this)
+                    .add("method", method())
+                    .add("inputType", inputType())
+                    .add("outputType", outputType())
+                    .toString();
         }
         
         @Override

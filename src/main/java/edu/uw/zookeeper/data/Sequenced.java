@@ -16,6 +16,7 @@ public class Sequenced<T extends CharSequence & Comparable<? super T>> extends A
         return prefix + String.format(Locale.ENGLISH, SEQUENCE_FORMAT, sequence);
     }
 
+    @Serializes(from=String.class, to=Sequenced.class)
     public static Sequenced<String> of(CharSequence input) {
         Matcher m = LABEL_PATTERN.matcher(input);
         if (! m.matches()) {
@@ -44,7 +45,8 @@ public class Sequenced<T extends CharSequence & Comparable<? super T>> extends A
     public Integer sequence() {
         return second;
     }
-    
+
+    @Serializes(from=Sequenced.class, to=String.class)
     @Override
     public String toString() {
         return toString(prefix(), sequence());
