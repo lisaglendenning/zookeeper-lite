@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
@@ -110,7 +109,7 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         
         @Override
         public boolean isEmpty() {
-            return peek() != null;
+            return peek() == null;
         }
         
         @Override
@@ -126,8 +125,8 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
             Parameters parameters,
             ZNodeLabel.Path root,
             ClientExecutor client,
-            Executor executor) throws KeeperException, InterruptedException, ExecutionException {
-        Promise<Void> promise = SettableFuturePromise.create();
+            Executor executor) {
+        Promise<ZNodeLabel.Path> promise = SettableFuturePromise.create();
         return new TreeFetcher(
                 parameters, 
                 root, 
@@ -142,18 +141,18 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
     protected final ClientExecutor client;
     protected final Parameters parameters;
     protected final ZNodeLabel.Path root;
-    protected final Promise<Void> promise;
+    protected final Promise<ZNodeLabel.Path> promise;
     protected final Pending pending;
     
     protected TreeFetcher(
             Parameters parameters,
             ZNodeLabel.Path root,
             ClientExecutor client,
-            Promise<Void> promise,
+            Promise<ZNodeLabel.Path> promise,
             Pending pending,
             Executor executor, 
             Queue<ZNodeLabel.Path> mailbox,
-            AtomicReference<State> state) throws KeeperException, InterruptedException, ExecutionException {
+            AtomicReference<State> state) {
         super(executor, mailbox, state);
         this.parameters = checkNotNull(parameters);
         this.root = checkNotNull(root);
@@ -164,7 +163,7 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         send(root);
     }
 
-    public ListenableFuture<Void> future() {
+    public ListenableFuture<ZNodeLabel.Path> future() {
         return promise;
     }
 
@@ -257,7 +256,7 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
             pending.clear();
 
             if (!promise.isDone()) {
-                promise.set(null);
+                promise.set(root);
             }
         }
         return stopped;
@@ -265,6 +264,10 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
     
     public static class Builder {
 
+        public static Builder create() {
+            return new Builder();
+        }
+        
         protected volatile ZNodeLabel.Path root;
         protected volatile ClientExecutor client;
         protected volatile Executor executor;
@@ -378,7 +381,7 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
             return this;
         }
         
-        public TreeFetcher build() throws Exception {
+        public TreeFetcher build() {
             Parameters parameters = Parameters.of(operations, watch);
             return TreeFetcher.newInstance(parameters, root, client, executor);
         }

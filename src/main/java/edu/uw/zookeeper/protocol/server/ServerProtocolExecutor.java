@@ -86,7 +86,7 @@ public class ServerProtocolExecutor
         
         @Override
         public boolean isEmpty() {
-            return peek() != null;
+            return peek() == null;
         }
     }
 
@@ -247,7 +247,7 @@ public class ServerProtocolExecutor
         
         @Override
         public boolean isEmpty() {
-            return peek() != null;
+            return peek() == null;
         }
 
         @Override

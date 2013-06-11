@@ -22,6 +22,7 @@ import edu.uw.zookeeper.data.ZNodeLabelTrie;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.Records;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
+import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 
 public class Materializer extends ZNodeResponseCache<Materializer.MaterializedNode> {
@@ -29,8 +30,9 @@ public class Materializer extends ZNodeResponseCache<Materializer.MaterializedNo
     public static Materializer newInstance(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
+            Publisher publisher,
             ClientExecutor client) {
-        return new Materializer(schema, codec, client);
+        return new Materializer(schema, codec, publisher, client);
     }
     
     public static class MaterializedNode extends ZNodeResponseCache.AbstractNodeCache<MaterializedNode> implements Reference<StampedReference<? extends Object>> {
@@ -220,8 +222,9 @@ public class Materializer extends ZNodeResponseCache<Materializer.MaterializedNo
     public Materializer(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
+            Publisher publisher,
             ClientExecutor client) {
-        super(client, ZNodeLabelTrie.of(MaterializedNode.root(schema, codec)));
+        super(publisher, client, ZNodeLabelTrie.of(MaterializedNode.root(schema, codec)));
         this.schema = schema;
         this.codec = codec;
     }

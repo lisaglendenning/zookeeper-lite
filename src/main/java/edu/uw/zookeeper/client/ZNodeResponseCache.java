@@ -53,33 +53,18 @@ import edu.uw.zookeeper.util.SettableFuturePromise;
 public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E>> implements ClientExecutor {
 
     public static ZNodeResponseCache<SimpleZNodeCache> newInstance(
-            ClientExecutor client) {
-        return newInstance(client, SimpleZNodeCache.root());
-    }
-    
-    public static <E extends ZNodeResponseCache.AbstractNodeCache<E>> ZNodeResponseCache<E> newInstance(
-            ClientExecutor client, E root) {
-        return newInstance(client, ZNodeLabelTrie.of(root));
-    }
-    
-    public static <E extends ZNodeResponseCache.AbstractNodeCache<E>> ZNodeResponseCache<E> newInstance(
-            ClientExecutor client, ZNodeLabelTrie<E> trie) {
-        return new ZNodeResponseCache<E>(client, trie);
-    }
-
-    public static ZNodeEventfulResponseCache<SimpleZNodeCache> newEventful(
             Publisher publisher, ClientExecutor client) {
-        return newEventful(publisher, client, SimpleZNodeCache.root());
+        return newInstance(publisher, client, SimpleZNodeCache.root());
     }
     
-    public static <E extends ZNodeResponseCache.AbstractNodeCache<E>> ZNodeEventfulResponseCache<E> newEventful(
+    public static <E extends ZNodeResponseCache.AbstractNodeCache<E>> ZNodeResponseCache<E> newInstance(
             Publisher publisher, ClientExecutor client, E root) {
-        return newEventful(publisher, client, ZNodeLabelTrie.of(root));
+        return newInstance(publisher, client, ZNodeLabelTrie.of(root));
     }
     
-    public static <E extends ZNodeResponseCache.AbstractNodeCache<E>> ZNodeEventfulResponseCache<E> newEventful(
+    public static <E extends ZNodeResponseCache.AbstractNodeCache<E>> ZNodeResponseCache<E> newInstance(
             Publisher publisher, ClientExecutor client, ZNodeLabelTrie<E> trie) {
-        return new ZNodeEventfulResponseCache<E>(publisher, client, trie);
+        return new ZNodeResponseCache<E>(publisher, client, trie);
     }
 
     public static enum View {
@@ -353,12 +338,14 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
     protected final ZxidTracker lastZxid;
     protected final ZNodeLabelTrie<E> trie;
     protected final ClientExecutor client;
+    protected final Publisher publisher;
     
     protected ZNodeResponseCache(
-            ClientExecutor client, ZNodeLabelTrie<E> trie) {
+            Publisher publisher, ClientExecutor client, ZNodeLabelTrie<E> trie) {
         this.trie = trie;
         this.client = client;
         this.lastZxid = ZxidTracker.create();
+        this.publisher = publisher;
     }
     
     public ClientExecutor client() {
@@ -372,11 +359,15 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
     @Override
     public void register(Object object) {
         client().register(object);
+        publisher.register(object);
     }
 
     @Override
     public void unregister(Object object) {
         client().unregister(object);
+        try {
+            publisher.unregister(object);
+        } catch (IllegalArgumentException e) {}
     }
 
     @Override
@@ -615,39 +606,11 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
     }
 
     protected void post(Object object) {
-        // nothing
+        publisher.post(object);
     }
     
     @Override
     public String toString() {
         return Objects.toStringHelper(this).addValue(trie().toString()).toString();
-    }
-    
-    public static class ZNodeEventfulResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E>> extends ZNodeResponseCache<E> {
-
-        protected final Publisher publisher;
-        
-        protected ZNodeEventfulResponseCache(
-                Publisher publisher, ClientExecutor client, ZNodeLabelTrie<E> trie) {
-            super(client, trie);
-            this.publisher = publisher;
-        }
-
-        @Override
-        public void register(Object object) {
-            super.register(object);
-            publisher.register(object);
-        }
-
-        @Override
-        public void unregister(Object object) {
-            super.unregister(object);
-            publisher.unregister(object);
-        }
-        
-        @Override
-        protected void post(Object object) {
-            publisher.post(object);
-        }
     }
 }
