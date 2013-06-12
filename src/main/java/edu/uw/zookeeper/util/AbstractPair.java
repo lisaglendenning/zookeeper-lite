@@ -20,10 +20,7 @@ public abstract class AbstractPair<U,V> {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
-                .add("first", first)
-                .add("second", second)
-                .toString();
+        return String.format("(%s, %s)", first, second);
     }
 
     @Override
