@@ -32,18 +32,23 @@ public class Frame extends AbstractPair<IntHeader, ByteBuf> implements Encodable
     public static Frame of(IntHeader header, ByteBuf buffer) {
         return new Frame(header, buffer);
     }
+    
+    public static class FramedEncoder<T> implements Encoder<T> {
 
-    public static class FramedEncoder implements Encoder<Encodable> {
-
-        public static FramedEncoder create() {
-            return new FramedEncoder();
+        public static <T> FramedEncoder<T> create(Encoder<T> messageEncoder) {
+            return new FramedEncoder<T>(messageEncoder);
         }
         
-        public FramedEncoder() {}
+        protected final Encoder<T> messageEncoder;
+        
+        public FramedEncoder(Encoder<T> messageEncoder) {
+            this.messageEncoder = messageEncoder;
+        }
 
         @Override
-        public ByteBuf encode(Encodable input, ByteBufAllocator output) throws IOException {
-            Frame frame = Frame.fromEncodable(input, output);
+        public ByteBuf encode(T input, ByteBufAllocator output) throws IOException {
+            ByteBuf encoded = messageEncoder.encode(input, output);
+            Frame frame = Frame.fromBuffer(encoded);
             return frame.encode(output);
         }
     }

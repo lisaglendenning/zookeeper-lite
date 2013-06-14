@@ -12,6 +12,7 @@ import com.google.common.collect.Range;
 
 import edu.uw.zookeeper.protocol.Decoder;
 import edu.uw.zookeeper.protocol.Encodable;
+import edu.uw.zookeeper.protocol.EncodableEncoder;
 import edu.uw.zookeeper.protocol.Encoder;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.Frame;
@@ -59,7 +60,7 @@ public class ServerProtocolCodec extends ProtocolCodec<Message.ServerMessage, Me
         private ServerProtocolEncoder(
                 Stateful<ProtocolState> stateful) {
             this.stateful = stateful;
-            this.frameEncoder = Frame.FramedEncoder.create();
+            this.frameEncoder = Frame.FramedEncoder.create(EncodableEncoder.getInstance());
         }
 
         @Override

@@ -11,6 +11,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import edu.uw.zookeeper.protocol.Decoder;
 import edu.uw.zookeeper.protocol.Encodable;
+import edu.uw.zookeeper.protocol.EncodableEncoder;
 import edu.uw.zookeeper.protocol.Encoder;
 import edu.uw.zookeeper.protocol.Frame;
 import edu.uw.zookeeper.protocol.Message;
@@ -148,7 +149,7 @@ public class ClientProtocolCodec
         private ClientProtocolEncoder(
                 Stateful<ProtocolState> stateful) {
             this.stateful = stateful;
-            this.frameEncoder = Frame.FramedEncoder.create();
+            this.frameEncoder = Frame.FramedEncoder.create(EncodableEncoder.getInstance());
         }
     
         @Override
