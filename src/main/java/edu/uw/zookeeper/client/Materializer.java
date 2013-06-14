@@ -136,13 +136,15 @@ public class Materializer extends ZNodeResponseCache<Materializer.MaterializedNo
         }
     }
     
-    public class Operator {
+    public static class Operator implements Reference<Materializer> {
         
-        public class Submitter<C extends Operations.Builder<? extends Records.RequestRecord>> implements Reference<C> {
+        public static class Submitter<C extends Operations.Builder<? extends Records.RequestRecord>> implements Reference<C> {
             protected final C builder;
+            protected final ClientExecutor client;
             
-            public Submitter(C builder) {
+            public Submitter(C builder, ClientExecutor client) {
                 this.builder = builder;
+                this.client = client;
             }
             
             @Override
@@ -151,8 +153,19 @@ public class Materializer extends ZNodeResponseCache<Materializer.MaterializedNo
             }
             
             public ListenableFuture<Operation.SessionResult> submit() {
-                return Materializer.this.submit(builder.build());
+                return client.submit(builder.build());
             }
+        }
+        
+        protected final Materializer materializer;
+        
+        public Operator(Materializer materializer) {
+            this.materializer = materializer;
+        }
+
+        @Override
+        public Materializer get() {
+            return materializer;
         }
 
         public Submitter<Operations.Requests.SerializedData<Records.CreateRecord, Operations.Requests.Create, Object>> create(ZNodeLabel.Path path) {
@@ -160,59 +173,67 @@ public class Materializer extends ZNodeResponseCache<Materializer.MaterializedNo
         }
         
         public Submitter<Operations.Requests.SerializedData<Records.CreateRecord, Operations.Requests.Create, Object>> create(ZNodeLabel.Path path, Object data) {
-            Schema.SchemaNode node = schema().match(path);
+            Schema.SchemaNode node = get().schema().match(path);
             Operations.Requests.Create create = Operations.Requests.create().setPath(path);
             if (node != null) {
                 create.setMode(node.get().getCreateMode()).setAcl(Schema.inheritedAcl(node));
             }
             return new Submitter<Operations.Requests.SerializedData<Records.CreateRecord, Operations.Requests.Create, Object>>(
-                    Operations.Requests.serialized(create, codec(), data));
+                    Operations.Requests.serialized(create, get().codec(), data), get());
         }
         
         public Submitter<Operations.Requests.Delete> delete(ZNodeLabel.Path path) {
             return new Submitter<Operations.Requests.Delete>(
-                    Operations.Requests.delete().setPath(path));
+                    Operations.Requests.delete().setPath(path), get());
         }
 
         public Submitter<Operations.Requests.Exists> exists(ZNodeLabel.Path path) {
+            return exists(path, false);
+        }
+
+        public Submitter<Operations.Requests.Exists> exists(ZNodeLabel.Path path, boolean watch) {
             return new Submitter<Operations.Requests.Exists>(
-                    Operations.Requests.exists().setPath(path));
+                    Operations.Requests.exists().setPath(path).setWatch(watch), get());
         }
 
         public Submitter<Operations.Requests.GetAcl> getAcl(ZNodeLabel.Path path) {
             return new Submitter<Operations.Requests.GetAcl>(
-                    Operations.Requests.getAcl().setPath(path));
+                    Operations.Requests.getAcl().setPath(path), get());
         }
         
         public Submitter<Operations.Requests.GetChildren> getChildren(ZNodeLabel.Path path) {
             return new Submitter<Operations.Requests.GetChildren>(
-                    Operations.Requests.getChildren().setPath(path));
+                    Operations.Requests.getChildren().setPath(path), get());
         }
 
         public Submitter<Operations.Requests.GetData> getData(ZNodeLabel.Path path) {
+            return getData(path, false);
+        }
+
+        public Submitter<Operations.Requests.GetData> getData(ZNodeLabel.Path path, boolean watch) {
             return new Submitter<Operations.Requests.GetData>(
-                    Operations.Requests.getData().setPath(path));
+                    Operations.Requests.getData().setPath(path).setWatch(watch), get());
         }
         
         public Submitter<Operations.Requests.Multi> multi() {
             return new Submitter<Operations.Requests.Multi>(
-                    Operations.Requests.multi());
+                    Operations.Requests.multi(), get());
         }
 
         public Submitter<Operations.Requests.SetAcl> setAcl(ZNodeLabel.Path path) {
             return new Submitter<Operations.Requests.SetAcl>(
-                    Operations.Requests.setAcl().setPath(path));
+                    Operations.Requests.setAcl().setPath(path), get());
         }
 
         public Submitter<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, Object>> setData(ZNodeLabel.Path path, Object data) {
             Operations.Requests.SetData setData = Operations.Requests.setData().setPath(path);
             return new Submitter<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, Object>>(
-                    Operations.Requests.serialized(setData, codec(), data));
+                    Operations.Requests.serialized(setData, get().codec(), data), get());
         }
         
         public Submitter<Operations.Requests.Sync> sync(ZNodeLabel.Path path) {
             return new Submitter<Operations.Requests.Sync>(
-                    Operations.Requests.sync().setPath(path));
+                    Operations.Requests.sync().setPath(path), get());
         }
     }
     
@@ -238,6 +259,6 @@ public class Materializer extends ZNodeResponseCache<Materializer.MaterializedNo
     }
     
     public Operator operator() {
-        return new Operator();
+        return new Operator(this);
     }
 }

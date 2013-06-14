@@ -1,26 +1,28 @@
 package edu.uw.zookeeper.server;
 
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 
+import edu.uw.zookeeper.ClientMessageExecutor;
+import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
 import edu.uw.zookeeper.protocol.server.ServerProtocolExecutor;
 import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Publisher;
 
-public class Server {
+public class ServerConnectionListener {
     
-    public static Server newInstance(
-            final Factory<Publisher> publisherFactory,
+    public static ServerConnectionListener newInstance(
             final ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> connections,
-            final ServerExecutor serverExecutor) {
+            final ClientMessageExecutor anonymousExecutor,
+            final ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
+            final Executor executor) {
         ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor> serverFactory =
                 new ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor>() {
                     @Override
@@ -28,15 +30,14 @@ public class Server {
                             ServerCodecConnection value) {
                         ServerProtocolExecutor server = ServerProtocolExecutor.newInstance(
                                 value, 
-                                serverExecutor, 
-                                serverExecutor, 
-                                serverExecutor);
+                                anonymousExecutor, 
+                                sessionExecutors, 
+                                executor);
                         return server;
                     }
                     
                 };
-        return new Server(
-                publisherFactory, connections, serverFactory);
+        return new ServerConnectionListener(connections, serverFactory);
     }
     
     protected class ConnectionListener {
@@ -53,15 +54,8 @@ public class Server {
             connection.register(this);
         }
 
-        @SuppressWarnings("unchecked")
         @Subscribe
         public void handleStateEvent(Automaton.Transition<?> event) {
-            if (event.type().isAssignableFrom(Connection.State.class)) {
-                handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
-            }
-        }
-        
-        public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
                 try {
                     connection.unregister(this);
@@ -75,8 +69,7 @@ public class Server {
     protected final ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor> serverFactory;
     protected final ConcurrentMap<Connection<Message.ServerMessage>, ServerProtocolExecutor> servers;
     
-    protected Server(
-            Factory<Publisher> publisherFactory,
+    protected ServerConnectionListener(
             ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> connections,
             ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor> serverFactory) {
         this.connections = connections;

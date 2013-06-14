@@ -29,6 +29,10 @@ public class ClientProtocolExecutorsService extends AbstractIdleService implemen
         this.clients = Collections.synchronizedList(Lists.<ClientProtocolExecutor>newLinkedList());
     }
     
+    public Factory<ClientProtocolExecutor> factory() {
+        return clientFactory;
+    }
+    
     @Override
     protected void startUp() throws Exception {
         for (ClientProtocolExecutor client: clients) {

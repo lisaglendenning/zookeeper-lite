@@ -45,6 +45,7 @@ import edu.uw.zookeeper.util.AbstractPair;
 import edu.uw.zookeeper.util.ForwardingPromise;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Publisher;
+import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
 /**
@@ -96,6 +97,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
     public static class ViewUpdate {
         
         public static ViewUpdate ifUpdated(
+                ZNodeLabel.Path path,
                 View view, 
                 StampedReference<? extends Records.View> previousValue, 
                 StampedReference<? extends Records.View> updatedValue) {
@@ -136,27 +138,35 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
                 throw new AssertionError();
             }
             
-            return of(view, previousValue, updatedValue);
+            return of(path, view, previousValue, updatedValue);
         }
         
         public static ViewUpdate of(
+                ZNodeLabel.Path path,
                 View view, 
                 StampedReference<? extends Records.View> previousValue, 
                 StampedReference<? extends Records.View> updatedValue) {
-            return new ViewUpdate(view, previousValue, updatedValue);
+            return new ViewUpdate(path, view, previousValue, updatedValue);
         }
         
+        private final ZNodeLabel.Path path;
         private final View view;
         private final StampedReference<? extends Records.View> previousValue;
         private final StampedReference<? extends Records.View> updatedValue;
         
         public ViewUpdate(
+                ZNodeLabel.Path path,
                 View view, 
                 StampedReference<? extends Records.View> previousValue, 
                 StampedReference<? extends Records.View> updatedValue) {
+            this.path = path;
             this.view = view;
             this.previousValue = previousValue;
             this.updatedValue = updatedValue;
+        }
+        
+        public ZNodeLabel.Path path() {
+            return path;
         }
         
         public View view() {
@@ -346,6 +356,10 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         this.client = client;
         this.lastZxid = ZxidTracker.create();
         this.publisher = publisher;
+    }
+    
+    public Reference<Long> lastZxid() {
+        return lastZxid;
     }
     
     public ClientExecutor client() {
@@ -559,7 +573,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         for (View view: View.values()) {
             if (view.type().isInstance(value.get())) {
                 StampedReference<? extends Records.View> prev = node.update(view, value);
-                ViewUpdate event = ViewUpdate.ifUpdated(view, prev, value);
+                ViewUpdate event = ViewUpdate.ifUpdated(node.path(), view, prev, value);
                 if (event != null) {
                     changed = true;
                     post(event);

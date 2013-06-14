@@ -27,6 +27,7 @@ import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Promise;
+import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.Stateful;
@@ -40,6 +41,7 @@ import edu.uw.zookeeper.util.TimeValue;
  */
 public class ClientProtocolExecutor
         implements ClientExecutor,
+        Publisher,
         Stateful<ProtocolState>, 
         Reference<ClientCodecConnection> {
     
@@ -319,5 +321,10 @@ public class ClientProtocolExecutor
     @Override
     public void unregister(Object object) {
         get().unregister(object);
+    }
+
+    @Override
+    public void post(Object object) {
+        get().post(object);
     }
 }

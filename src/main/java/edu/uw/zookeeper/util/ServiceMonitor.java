@@ -190,7 +190,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         return this.stopOnTerminate;
     }
 
-    public boolean stopOnTerminate(boolean value) {
+    public synchronized boolean stopOnTerminate(boolean value) {
         boolean prev = this.stopOnTerminate;
         this.stopOnTerminate = value;
         return prev;
@@ -207,11 +207,12 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     }
 
     public void add(Service service) {
-        checkNotNull(service);
         checkState(isAddable(), state());
-        services.add(service);
-        listen(service);
-        notifyChange();
+        if (! services.contains(service)) {
+            services.add(checkNotNull(service));
+            listen(service);
+            notifyChange();
+        }
     }
 
     public boolean remove(Service service) {
@@ -224,6 +225,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     @Override
     protected void startUp() throws Exception {
+        logger.info("Starting up");
         try {
             startServices();
             listen(this);
@@ -235,6 +237,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     @Override
     protected void shutDown() throws Exception {
+        logger.info("Shutting down");
         stopServices();
     }
 
@@ -259,7 +262,11 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             case NEW:
                 // there may be dependencies between services
                 // so don't start them concurrently
-                service.startAndWait();
+                try {
+                    service.start().get();
+                } catch (Throwable t) {
+                    throw new ServiceException(service, t);
+                }
                 break;
             // it's possible that a service failed before we
             // started monitoring it
@@ -281,7 +288,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             case RUNNING:
             case STOPPING:
                 try {
-                    service.stopAndWait();
+                    service.stop().get();
                 } catch (Throwable t) {
                     logger.error("Error stopping Service {}", service, t);
                     // only keep the first error?

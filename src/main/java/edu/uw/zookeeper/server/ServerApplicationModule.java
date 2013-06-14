@@ -99,7 +99,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
         ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         
-        final Server server = Server.newInstance(runtime.publisherFactory(), serverConnections, serverExecutor);
+        final ServerConnectionListener server = ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
         
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
