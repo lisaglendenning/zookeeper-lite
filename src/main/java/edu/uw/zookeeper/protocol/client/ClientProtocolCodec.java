@@ -9,7 +9,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-
 import edu.uw.zookeeper.protocol.Decoder;
 import edu.uw.zookeeper.protocol.Encodable;
 import edu.uw.zookeeper.protocol.Encoder;
@@ -149,7 +148,7 @@ public class ClientProtocolCodec
         private ClientProtocolEncoder(
                 Stateful<ProtocolState> stateful) {
             this.stateful = stateful;
-            this.frameEncoder = Frame.FrameEncoder.Singleton.getInstance();
+            this.frameEncoder = Frame.FramedEncoder.create();
         }
     
         @Override
@@ -193,7 +192,8 @@ public class ClientProtocolCodec
                 Stateful<ProtocolState> stateful,
                 Function<Integer, OpCode> xidToOpCode) {
             this.stateful = stateful;
-            this.sessionDecoder = Frame.FrameDecoder.create( 
+            this.sessionDecoder = Frame.FramedDecoder.create(
+                    Frame.FrameDecoder.getDefault(),
                     SessionReplyDecoder.create(stateful, xidToOpCode));
         }
 

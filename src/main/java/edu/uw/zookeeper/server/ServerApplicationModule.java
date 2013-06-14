@@ -8,14 +8,12 @@ import com.typesafe.config.Config;
 
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.RuntimeModule;
-import edu.uw.zookeeper.ServerAddressView;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.net.Connection.CodecFactory;
-import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
-import edu.uw.zookeeper.netty.server.ServerModule;
+import edu.uw.zookeeper.netty.server.NettyServerModule;
 import edu.uw.zookeeper.protocol.CodecConnection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
@@ -94,8 +92,8 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         ParameterizedFactory<Connection<Message.ServerMessage>, ServerCodecConnection> codecConnectionFactory = 
                 ServerCodecConnection.factory(runtime.publisherFactory());
         CodecFactory<Message.ServerMessage, Message.ClientMessage, ServerCodecConnection> codecFactory = CodecConnection.factory(codecConnectionFactory);
-        ParameterizedFactory<Connection.CodecFactory<Message.ServerMessage, Message.ClientMessage, ServerCodecConnection>, ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>>> connectionFactory = ServerModule.factory(runtime);
-        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>> serverConnectionFactory = connectionFactory.get(codecFactory);
+        NettyServerModule nettyServer = NettyServerModule.newInstance(runtime);
+        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>> serverConnectionFactory = nettyServer.get(codecFactory);
         ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
         ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         

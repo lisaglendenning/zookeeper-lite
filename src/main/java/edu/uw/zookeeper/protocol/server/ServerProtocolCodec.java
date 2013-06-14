@@ -5,7 +5,10 @@ import io.netty.buffer.ByteBufAllocator;
 
 import java.io.IOException;
 
+import org.apache.jute.BinaryInputArchive;
+
 import com.google.common.base.Optional;
+import com.google.common.collect.Range;
 
 import edu.uw.zookeeper.protocol.Decoder;
 import edu.uw.zookeeper.protocol.Encodable;
@@ -56,7 +59,7 @@ public class ServerProtocolCodec extends ProtocolCodec<Message.ServerMessage, Me
         private ServerProtocolEncoder(
                 Stateful<ProtocolState> stateful) {
             this.stateful = stateful;
-            this.frameEncoder = Frame.FrameEncoder.Singleton.getInstance();
+            this.frameEncoder = Frame.FramedEncoder.create();
         }
 
         @Override
@@ -107,7 +110,8 @@ public class ServerProtocolCodec extends ProtocolCodec<Message.ServerMessage, Me
         private ServerProtocolDecoder(
                 Stateful<ProtocolState> stateful) {
             this.stateful = stateful;
-            this.sessionDecoder = Frame.FrameDecoder.create( 
+            this.sessionDecoder = Frame.FramedDecoder.create(
+                    Frame.FrameDecoder.create(Range.closed(Integer.valueOf(0), Integer.valueOf(BinaryInputArchive.maxBuffer))),
                     SessionRequestDecoder.create(stateful));
         }
 
