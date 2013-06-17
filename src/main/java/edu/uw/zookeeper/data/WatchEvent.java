@@ -1,20 +1,18 @@
 
 package edu.uw.zookeeper.data;
 
-import org.apache.zookeeper.proto.WatcherEvent;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
 
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.util.Event;
-import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 
 @Event
-public class WatchEvent implements Operation.RecordHolder<IWatcherEvent> {
+public class WatchEvent {
 
-    public static WatchEvent of(WatcherEvent message) {
+    public static WatchEvent of(IWatcherEvent message) {
         return new WatchEvent(EventType.fromInt(message.getType()), 
                 KeeperState.fromInt(message.getState()),
                 ZNodeLabel.Path.of(message.getPath()));
@@ -46,8 +44,7 @@ public class WatchEvent implements Operation.RecordHolder<IWatcherEvent> {
         return path;
     }
 
-    @Override
-    public IWatcherEvent asRecord() {
+    public IWatcherEvent toRecord() {
         return new IWatcherEvent(type().getIntValue(), 
                 state().getIntValue(), 
                 path().toString());

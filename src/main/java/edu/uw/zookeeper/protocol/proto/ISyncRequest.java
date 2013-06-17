@@ -1,39 +1,26 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.SyncRequest;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.Records.Requests;
+import edu.uw.zookeeper.protocol.Operation;
 
-public class ISyncRequest extends SyncRequest implements RequestRecord, Records.PathRecord {
-    public static final OpCode OPCODE = OpCode.SYNC;
+@Operational(opcode=OpCode.SYNC)
+public class ISyncRequest extends IOperationalRecord<SyncRequest> implements Operation.Request, Records.PathHolder {
     
     public ISyncRequest() {
-        super();
+        this(new SyncRequest());
     }
-
+    
     public ISyncRequest(String path) {
-        super(path);
+        this(new SyncRequest(path));
+    }
+
+    public ISyncRequest(SyncRequest record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
-    }
-
-    @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Requests.TAG);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Requests.TAG);
+    public String getPath() {
+        return get().getPath();
     }
 }

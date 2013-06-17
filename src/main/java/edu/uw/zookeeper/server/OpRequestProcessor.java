@@ -5,10 +5,10 @@ import java.util.Set;
 
 import com.google.common.base.Predicate;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.OpRecord;
-import edu.uw.zookeeper.protocol.OpCreateSession;
+import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Processor;
 
 public class OpRequestProcessor implements
@@ -90,13 +90,13 @@ public class OpRequestProcessor implements
         Operation.Response reply;
         switch (opcode) {
         case CREATE_SESSION:
-            reply = OpCreateSession.Response.Invalid.newInstance();
+            reply = ConnectMessage.Response.Invalid.newInstance();
             break;
         case RECONFIG:
-            reply = OpRecord.OpResponse.newInstance(OpCode.GET_DATA);
+            reply = Records.Responses.getInstance().get(OpCode.GET_DATA);
             break;
         default:
-            reply = OpRecord.OpResponse.newInstance(opcode);
+            reply = Records.Responses.getInstance().get(opcode);
             break;
         }
         return reply;

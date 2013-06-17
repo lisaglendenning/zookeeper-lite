@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.protocol.server;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 
 import java.io.IOException;
 
@@ -10,6 +9,7 @@ import org.apache.jute.BinaryInputArchive;
 import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 
+import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Decoder;
 import edu.uw.zookeeper.protocol.Encodable;
 import edu.uw.zookeeper.protocol.EncodableEncoder;
@@ -19,13 +19,13 @@ import edu.uw.zookeeper.protocol.Frame;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.SessionRequestDecoder;
+import edu.uw.zookeeper.protocol.SessionRequestMessage;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Stateful;
 
 public class ServerProtocolCodec extends ProtocolCodec<Message.ServerMessage, Message.ClientMessage> {
-
+    
     public static ServerProtocolCodec newInstance(
             Publisher publisher) {
         return newInstance(newAutomaton(publisher));
@@ -33,16 +33,12 @@ public class ServerProtocolCodec extends ProtocolCodec<Message.ServerMessage, Me
     
     public static ServerProtocolCodec newInstance(
             Automaton<ProtocolState, Message> automaton) {
-        ServerProtocolEncoder encoder = ServerProtocolEncoder.create(automaton);
-        ServerProtocolDecoder decoder = ServerProtocolDecoder.create(automaton);
-        return new ServerProtocolCodec(automaton, encoder, decoder);
+        return new ServerProtocolCodec(automaton);
     }
     
-    private ServerProtocolCodec(
-            Automaton<ProtocolState, Message> automaton,
-            Encoder<Message.ServerMessage> encoder,
-            Decoder<Optional<? extends Message.ClientMessage>> decoder) {
-        super(automaton, encoder, decoder);
+    protected ServerProtocolCodec(
+            Automaton<ProtocolState, Message> automaton) {
+        super(automaton, ServerProtocolEncoder.create(automaton), ServerProtocolDecoder.create(automaton));
     }
     
     public static class ServerProtocolEncoder implements 
@@ -69,15 +65,14 @@ public class ServerProtocolCodec extends ProtocolCodec<Message.ServerMessage, Me
         }
         
         @Override
-        public ByteBuf encode(Message.ServerMessage input, ByteBufAllocator output) throws IOException {
-            ByteBuf out;
+        public void encode(Message.ServerMessage input, ByteBuf output) throws IOException {
             ProtocolState state = state();
             if (input instanceof Message.ServerSessionMessage) {
                 switch (state) {
                 case CONNECTING:
                 case CONNECTED:
                 case DISCONNECTING:
-                    out = frameEncoder.encode(input, output);
+                    frameEncoder.encode(input, output);
                     break;
                 default:
                     throw new IllegalStateException(state.toString());
@@ -86,19 +81,18 @@ public class ServerProtocolCodec extends ProtocolCodec<Message.ServerMessage, Me
                 switch (state) {
                 case ANONYMOUS:
                 case CONNECTING:
-                    out = input.encode(output);
+                    input.encode(output);
                     break;
                 default:
                     throw new IllegalStateException(state.toString());
                 }
             }
-            return out;
         }
     }
 
     public static class ServerProtocolDecoder implements 
             Stateful<ProtocolState>,
-            Decoder<Optional<? extends Message.ClientMessage>> {
+            Decoder<Optional<Message.ClientMessage>> {
     
         public static ServerProtocolDecoder create(
                 Stateful<ProtocolState> stateful) {
@@ -122,24 +116,63 @@ public class ServerProtocolCodec extends ProtocolCodec<Message.ServerMessage, Me
         }
         
         @Override
-        public Optional<? extends Message.ClientMessage> decode(ByteBuf input) throws IOException {
-            Optional<? extends Message.ClientMessage> out;
+        public Optional<Message.ClientMessage> decode(ByteBuf input) throws IOException {
+            Message.ClientMessage out = null;
             ProtocolState state = state();
             switch (state) {
             case ANONYMOUS:
-                out = FourLetterRequest.decode(input);
-                if (! out.isPresent()) {
-                    out = sessionDecoder.decode(input);
+                out = FourLetterRequest.decode(input).orNull();
+                if (out == null) {
+                    out = sessionDecoder.decode(input).orNull();
                 }
                 break;
             case CONNECTING:
             case CONNECTED:
-                out = sessionDecoder.decode(input);
+                out = sessionDecoder.decode(input).orNull();
                 break;
             default:
                 throw new IllegalStateException(state.toString());
             }
-            return out;
+            return Optional.fromNullable(out);
+        }
+    }
+
+    public static class SessionRequestDecoder implements
+            Stateful<ProtocolState>, Decoder<Message.ClientSessionMessage> {
+
+        public static SessionRequestDecoder create(
+                Stateful<ProtocolState> stateful) {
+            return new SessionRequestDecoder(stateful);
+        }
+
+        private final Stateful<ProtocolState> stateful;
+
+        private SessionRequestDecoder(Stateful<ProtocolState> stateful) {
+            this.stateful = stateful;
+        }
+
+        @Override
+        public ProtocolState state() {
+            return stateful.state();
+        }
+
+        @Override
+        public Message.ClientSessionMessage decode(ByteBuf input)
+                throws IOException {
+            ProtocolState state = state();
+            Message.ClientSessionMessage output;
+            switch (state) {
+            case ANONYMOUS:
+                output = ConnectMessage.Request.decode(input);
+                break;
+            case CONNECTING:
+            case CONNECTED:
+                output = SessionRequestMessage.decode(input);
+                break;
+            default:
+                throw new IllegalStateException(state.toString());
+            }
+            return output;
         }
     }
 }

@@ -1,21 +1,14 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.proto.ErrorResponse;
 
-import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.Records;
 
-public class IErrorResponse extends ErrorResponse implements Records.MultiOpResponse, Operation.Error {
-    public static final OpCode OPCODE = OpCode.ERROR;
-    
+@Operational(opcode=OpCode.ERROR)
+public class IErrorResponse extends IOperationalRecord<ErrorResponse> implements Operation.Response, Records.MultiOpResponse, Operation.Error {
     public IErrorResponse() {
-        super();
+        this(new ErrorResponse());
     }
     
     public IErrorResponse(KeeperException.Code err) {
@@ -23,26 +16,19 @@ public class IErrorResponse extends ErrorResponse implements Records.MultiOpResp
     }
 
     public IErrorResponse(int err) {
-        super(err);
+        this(new ErrorResponse(err));
+    }
+
+    public IErrorResponse(ErrorResponse record) {
+        super(record);
     }
 
     @Override
     public KeeperException.Code error() {
         return KeeperException.Code.get(getErr());
     }
-
-    @Override
-    public OpCode opcode() {
-        return OPCODE;
-    }
-
-    @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Records.Responses.TAG);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Records.Responses.TAG);
+    
+    public int getErr() {
+        return get().getErr();
     }
 }

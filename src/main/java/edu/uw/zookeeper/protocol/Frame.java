@@ -3,7 +3,6 @@ package edu.uw.zookeeper.protocol;
 import static com.google.common.base.Preconditions.*;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 
 import java.io.IOException;
@@ -17,12 +16,7 @@ import com.google.common.collect.Range;
 import edu.uw.zookeeper.util.AbstractPair;
 
 
-public class Frame extends AbstractPair<IntHeader, ByteBuf> implements Encodable {
-
-    public static Frame fromEncodable(Encodable input, ByteBufAllocator output) throws IOException {
-        ByteBuf buffer = input.encode(output);
-        return fromBuffer(buffer);
-    }
+public class Frame extends AbstractPair<IntHeader, ByteBuf> {
     
     public static Frame fromBuffer(ByteBuf buffer) {
         int length = buffer.readableBytes();
@@ -46,10 +40,17 @@ public class Frame extends AbstractPair<IntHeader, ByteBuf> implements Encodable
         }
 
         @Override
-        public ByteBuf encode(T input, ByteBufAllocator output) throws IOException {
-            ByteBuf encoded = messageEncoder.encode(input, output);
-            Frame frame = Frame.fromBuffer(encoded);
-            return frame.encode(output);
+        public void encode(T input, ByteBuf output) throws IOException {
+            int beginIndex = output.writerIndex();
+            output.writerIndex(beginIndex + IntHeader.length());
+            messageEncoder.encode(input, output);
+            int endIndex = output.writerIndex();
+            int length = endIndex - beginIndex;
+            checkState(length >= 0);
+            output.writerIndex(beginIndex);
+            IntHeader header = IntHeader.of(length);
+            header.encode(output);
+            output.writerIndex(endIndex);
         }
     }
 
@@ -159,11 +160,5 @@ public class Frame extends AbstractPair<IntHeader, ByteBuf> implements Encodable
     
     public int length() {
         return header().intValue();
-    }
-
-    @Override
-    public ByteBuf encode(ByteBufAllocator output) throws IOException {
-        checkArgument(header().intValue() == buffer().readableBytes());
-        return Buffers.composite(output, header().encode(output), buffer());
     }
 }

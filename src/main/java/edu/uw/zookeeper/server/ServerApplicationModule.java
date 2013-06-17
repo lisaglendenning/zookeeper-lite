@@ -12,7 +12,6 @@ import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
-import edu.uw.zookeeper.net.Connection.CodecFactory;
 import edu.uw.zookeeper.netty.server.NettyServerModule;
 import edu.uw.zookeeper.protocol.CodecConnection;
 import edu.uw.zookeeper.protocol.Message;
@@ -83,17 +82,18 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         ServiceMonitor monitor = runtime.serviceMonitor();
         AbstractMain.MonitorServiceFactory monitorsFactory = AbstractMain.monitors(monitor);
 
+        NettyServerModule nettyServer = NettyServerModule.newInstance(runtime);
+
         SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(runtime.configuration());
         ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(runtime.publisherFactory().get(), policy);
         ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
 
         final ServerExecutor serverExecutor = ServerExecutor.newInstance(runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions);
 
-        ParameterizedFactory<Connection<Message.ServerMessage>, ServerCodecConnection> codecConnectionFactory = 
-                ServerCodecConnection.factory(runtime.publisherFactory());
-        CodecFactory<Message.ServerMessage, Message.ClientMessage, ServerCodecConnection> codecFactory = CodecConnection.factory(codecConnectionFactory);
-        NettyServerModule nettyServer = NettyServerModule.newInstance(runtime);
-        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>> serverConnectionFactory = nettyServer.get(codecFactory);
+        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>> serverConnectionFactory = 
+                nettyServer.get(
+                        ServerCodecConnection.codecFactory(),
+                        ServerCodecConnection.factory());
         ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
         ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         

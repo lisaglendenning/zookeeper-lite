@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.protocol;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -16,8 +15,9 @@ public class IntHeader implements Encodable {
         if (input.readableBytes() >= IntHeader.length()) {
             int value = input.readInt();
             return Optional.of(IntHeader.of(value));
+        } else {
+            return Optional.absent();
         }
-        return Optional.absent();
     }
 
     private static final int LENGTH = 4;
@@ -37,10 +37,8 @@ public class IntHeader implements Encodable {
     }
 
     @Override
-    public ByteBuf encode(ByteBufAllocator output) {
-        ByteBuf out = output.buffer(length(), length());
-        out.writeInt(intValue());
-        return out;
+    public void encode(ByteBuf output) {
+        output.writeInt(intValue());
     }
     
     @Override

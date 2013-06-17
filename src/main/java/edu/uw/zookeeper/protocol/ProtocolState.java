@@ -3,13 +3,15 @@ package edu.uw.zookeeper.protocol;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 
+import edu.uw.zookeeper.protocol.proto.OpCode;
+
 
 public enum ProtocolState implements Function<Message, Optional<ProtocolState>> {
 
     ANONYMOUS {
         @Override
         public Optional<ProtocolState> apply(Message input) {
-            if (input instanceof OpCreateSession.Request) {
+            if (input instanceof ConnectMessage.Request) {
                 return Optional.of(CONNECTING);
             } else if (input instanceof FourLetterRequest || input instanceof FourLetterResponse) {
                 // no-op
@@ -22,13 +24,13 @@ public enum ProtocolState implements Function<Message, Optional<ProtocolState>> 
     CONNECTING {
         @Override
         public Optional<ProtocolState> apply(Message input) {
-            if (input instanceof OpCreateSession.Response) {
-                if (input instanceof OpCreateSession.Response.Valid) {
+            if (input instanceof ConnectMessage.Response) {
+                if (input instanceof ConnectMessage.Response.Valid) {
                     return Optional.of(CONNECTED);
                 } else {
                     return Optional.of(ERROR);
                 }
-            } else if (input instanceof Operation.SessionRequest || input instanceof FourLetterResponse){
+            } else if (input instanceof Operation.SessionRequest || input instanceof FourLetterResponse) {
                 // no-op                   
             } else {
                 throw new IllegalArgumentException(input.toString());
@@ -56,9 +58,9 @@ public enum ProtocolState implements Function<Message, Optional<ProtocolState>> 
         @Override
         public Optional<ProtocolState> apply(Message input) {
             if (input instanceof Operation.SessionReply) {
-                Operation.Reply reply = ((Operation.SessionReply)input).reply();
-                if (reply instanceof Operation.Response) {
-                    if (((Operation.Response)reply).opcode() == OpCode.CLOSE_SESSION) {
+                Operation.Response reply = ((Operation.SessionReply)input).reply();
+                if (! (reply instanceof Operation.Error)) {
+                    if (reply.opcode() == OpCode.CLOSE_SESSION) {
                         return Optional.of(DISCONNECTED);
                     }
                 }

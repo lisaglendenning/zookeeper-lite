@@ -9,8 +9,10 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.DefaultChannelGroup;
 
 import java.net.SocketAddress;
+
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.util.Factory;
@@ -94,42 +96,35 @@ public class ChannelServerConnectionFactory<I, C extends Connection<I>>
                     serverBootstrapFactory.get(address));
         }
     }
-    
+
     public static <I, C extends Connection<I>> ChannelServerConnectionFactory<I,C> newInstance(
             Publisher publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             ServerBootstrap bootstrap) {
+        ChannelGroup channels = new DefaultChannelGroup(ChannelServerConnectionFactory.class.getSimpleName(), bootstrap.childGroup().next());
+        return newInstance(
+                publisher, 
+                connectionFactory,
+                channels,
+                bootstrap);
+    }
+    
+    public static <I, C extends Connection<I>> ChannelServerConnectionFactory<I,C> newInstance(
+            Publisher publisher,
+            ParameterizedFactory<Channel, C> connectionFactory,
+            ChannelGroup channels,
+            ServerBootstrap bootstrap) {
         return new ChannelServerConnectionFactory<I,C>(
                 publisher, 
                 connectionFactory,
-                ChannelGroupFactory.getInstance().get(ChannelServerConnectionFactory.class.getSimpleName()),
+                channels,
                 bootstrap);
     }
 
-    @ChannelHandler.Sharable
-    protected class ChildInitializer extends ChannelInitializer<Channel> {
-        
-        public ChildInitializer() {
-        }
+    protected final ServerBootstrap bootstrap;
+    protected volatile ServerChannel serverChannel;
 
-        @Override
-        public void initChannel(Channel channel) throws Exception {
-            newChannel(channel);
-        }
-    }
-    
-    protected class CloseListener implements ChannelFutureListener {
-        // called when serverChannel closes
-        @Override
-        public void operationComplete(ChannelFuture future) throws Exception {
-            ChannelServerConnectionFactory.this.stop();
-        }
-    }
-
-    private final ServerBootstrap bootstrap;
-    private ServerChannel serverChannel;
-
-    private ChannelServerConnectionFactory(
+    protected ChannelServerConnectionFactory(
             Publisher publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             ChannelGroup group,
@@ -149,25 +144,48 @@ public class ChannelServerConnectionFactory<I, C extends Connection<I>>
 
     @Override
     public SocketAddress listenAddress() {
+        // unfortunately we can't just ask the bootstrap for our address...
         SocketAddress listenAddress = null;
-        if (serverChannel() != null) {
-            listenAddress = serverChannel().localAddress();
+        if (serverChannel != null) {
+            listenAddress = serverChannel.localAddress();
         }
         return listenAddress;
     }
 
     @Override
-    protected synchronized void startUp() throws Exception {
+    protected void startUp() throws Exception {
         assert (serverChannel == null);
         serverChannel = (ServerChannel) serverBootstrap().bind().sync().channel();
-        logger().info("Listening on {}", serverChannel.localAddress());
+        logger.info("Listening on {}", serverChannel.localAddress());
         serverChannel.closeFuture().addListener(new CloseListener());
         super.startUp();
     }
 
     @Override
     protected void shutDown() throws Exception {
-        serverChannel().close().await();
+        if (serverChannel != null) {
+            serverChannel.close().await();
+        }
         super.shutDown();
+    }
+
+    @ChannelHandler.Sharable
+    protected class ChildInitializer extends ChannelInitializer<Channel> {
+        
+        public ChildInitializer() {
+        }
+    
+        @Override
+        public void initChannel(Channel channel) throws Exception {
+            newChannel(channel);
+        }
+    }
+
+    protected class CloseListener implements ChannelFutureListener {
+        // called when serverChannel closes
+        @Override
+        public void operationComplete(ChannelFuture future) throws Exception {
+            ChannelServerConnectionFactory.this.stop();
+        }
     }
 }

@@ -1,40 +1,26 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.ExistsResponse;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.ResponseRecord;
-import edu.uw.zookeeper.protocol.Records.Responses;
+import edu.uw.zookeeper.protocol.Operation;
+@Operational(opcode=OpCode.EXISTS)
+public class IExistsResponse extends IOperationalRecord<ExistsResponse> implements Operation.Response, Records.StatHolder {
 
-public class IExistsResponse extends ExistsResponse implements ResponseRecord, Records.StatRecord {
-    public static final OpCode OPCODE = OpCode.EXISTS;
-    
     public IExistsResponse() {
-        super();
+        this(new ExistsResponse());
     }
-
+    
     public IExistsResponse(Stat stat) {
-        super(stat);
+        this(new ExistsResponse(stat));
+    }
+
+    public IExistsResponse(ExistsResponse record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
-    }
-
-    @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Responses.TAG);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Responses.TAG);
+    public Stat getStat() {
+        return get().getStat();
     }
 }

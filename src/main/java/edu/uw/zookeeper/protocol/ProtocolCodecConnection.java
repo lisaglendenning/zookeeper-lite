@@ -1,8 +1,6 @@
 package edu.uw.zookeeper.protocol;
 
 import com.google.common.eventbus.Subscribe;
-import com.google.common.util.concurrent.MoreExecutors;
-
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.CodecConnection;
 import edu.uw.zookeeper.protocol.Message;
@@ -44,14 +42,7 @@ public abstract class ProtocolCodecConnection<I extends Message, O extends Messa
         switch (event.to()) {
         case DISCONNECTED:
         case ERROR:
-            {
-                flush().addListener(new Runnable() {
-                    @Override
-                    public void run() {
-                        close();
-                    }
-                }, MoreExecutors.sameThreadExecutor());
-            }
+            close();
             break;
         default:
             break;

@@ -8,55 +8,43 @@ import org.slf4j.LoggerFactory;
 import edu.uw.zookeeper.protocol.Encoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandlerUtil;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelOutboundMessageHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.MessageToByteEncoder;
 
 /**
- * 
+ * TODO: check...
  * "One limitation to keep in mind is that it is not possible to detect the handled message type of you specify I while instance your class. Because of this Netty does not allow to do so and will throw an Exception if you try. For this cases you should handle the type detection by your self by override the acceptOutboundMessage(Object) method and use Object as type parameter."
  * 
  * @param <I>
  */
-public class OutboundHandler<I> extends ChannelOutboundMessageHandlerAdapter<Object> {
+public class OutboundHandler<I> extends MessageToByteEncoder<I> {
     
-    public static <I> OutboundHandler<I> attach(Channel channel, Encoder<? super I> encoder) {
-        OutboundHandler<I> handler = newInstance(encoder);
+    public static <I> OutboundHandler<I> attach(Channel channel, Class<I> type, Encoder<? super I> encoder) {
+        OutboundHandler<I> handler = newInstance(type, encoder);
         ChannelPipeline pipeline = channel.pipeline();
         pipeline.addLast(OutboundHandler.class.getName(), handler);
         return handler;
     }
 
-    public static <I> OutboundHandler<I> newInstance(Encoder<? super I> encoder) {
-        return new OutboundHandler<I>(encoder);
+    public static <I> OutboundHandler<I> newInstance(Class<I> type, Encoder<? super I> encoder) {
+        return new OutboundHandler<I>(type, encoder);
     }
 
     protected final Logger logger;
     protected final Encoder<? super I> encoder;
 
-    protected OutboundHandler(Encoder<? super I> encoder) {
-        super();
+    protected OutboundHandler(Class<I> type, Encoder<? super I> encoder) {
+        super(type, true);
         this.logger = LoggerFactory.getLogger(getClass());
         this.encoder = encoder;
     }
 
     @Override
-    public boolean acceptOutboundMessage(Object msg) throws Exception {
-        return true;
-    }
-    
-    @Override
-    public void flush(ChannelHandlerContext ctx, Object message) throws IOException {
+    protected void encode(ChannelHandlerContext ctx, I message, ByteBuf output) throws IOException {
         if (logger.isTraceEnabled()) {
             logger.trace("Encoding {} ({})", message, ctx.channel());
         }
-        @SuppressWarnings("unchecked")
-        ByteBuf output = encoder.encode((I) message, ctx.alloc());
-        
-        if (logger.isTraceEnabled()) {
-            logger.trace("Writing {} ({})", output, ctx.channel());
-        }
-        ChannelHandlerUtil.addToNextOutboundBuffer(ctx, output);
+        encoder.encode(message, output);
     }
 }

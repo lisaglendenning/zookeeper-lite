@@ -14,7 +14,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.OpCreateSession;
+import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Promise;
@@ -22,14 +22,14 @@ import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ClientProtocolInitializer 
-        extends PromiseTask<Factory<OpCreateSession.Request>, Session> 
+        extends PromiseTask<Factory<ConnectMessage.Request>, Session> 
         implements Callable<ListenableFuture<Session>>, 
             ListenableFuture<Session>, 
             FutureCallback<Message.ClientSessionMessage> {
 
     public static ClientProtocolInitializer newInstance(
             ClientCodecConnection codecConnection,
-            Factory<OpCreateSession.Request> factory) {
+            Factory<ConnectMessage.Request> factory) {
         return new ClientProtocolInitializer(
                 codecConnection, factory, SettableFuturePromise.<Session>create());
     }
@@ -41,7 +41,7 @@ public class ClientProtocolInitializer
 
     private ClientProtocolInitializer(
             Connection<Message.ClientSessionMessage> connection,
-            Factory<OpCreateSession.Request> requests,
+            Factory<ConnectMessage.Request> requests,
             Promise<Session> promise) {
         super(requests, promise);
         this.connection = connection;
@@ -52,7 +52,7 @@ public class ClientProtocolInitializer
     @Override
     public synchronized ListenableFuture<Session> call() {
         if (! isDone() && future == null) {
-            OpCreateSession.Request message = task().get();
+            ConnectMessage.Request message = task().get();
             try {
                 future = connection.write(message);
             } catch (Throwable e) {
@@ -91,9 +91,9 @@ public class ClientProtocolInitializer
     }
 
     @Subscribe
-    public void handleCreateSessionResponse(OpCreateSession.Response result) {
+    public void handleCreateSessionResponse(ConnectMessage.Response result) {
         unregister();
-        if (result instanceof OpCreateSession.Response.Valid) {
+        if (result instanceof ConnectMessage.Response.Valid) {
             if (! isDone()) {
                 Session session = result.toSession();
                 logger.info("Established Session: {}", session);

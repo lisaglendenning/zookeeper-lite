@@ -1,40 +1,27 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
 import java.util.List;
 
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.GetChildrenResponse;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.ResponseRecord;
-import edu.uw.zookeeper.protocol.Records.Responses;
+import edu.uw.zookeeper.protocol.Operation;
+@Operational(opcode=OpCode.GET_CHILDREN)
+public class IGetChildrenResponse extends IOperationalRecord<GetChildrenResponse> implements Operation.Response, Records.ChildrenHolder {
 
-public class IGetChildrenResponse extends GetChildrenResponse implements ResponseRecord, Records.ChildrenRecord {
-    public static final OpCode OPCODE = OpCode.GET_CHILDREN;
-    
     public IGetChildrenResponse() {
-        super();
+        this(new GetChildrenResponse());
     }
 
     public IGetChildrenResponse(List<String> children) {
-        super(children);
+        this(new GetChildrenResponse(children));
+    }
+
+    public IGetChildrenResponse(GetChildrenResponse record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
-    }
-
-    @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Responses.TAG);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Responses.TAG);
+    public List<String> getChildren() {
+        return get().getChildren();
     }
 }

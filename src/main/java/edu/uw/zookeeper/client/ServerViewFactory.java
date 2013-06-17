@@ -9,11 +9,12 @@ import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.OpCreateSession;
+import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientCodecConnection;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractPair;
 import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Factory;
@@ -32,7 +33,7 @@ public class ServerViewFactory implements DefaultsFactory<Session, ClientProtoco
                         server.get(), connections);
         ZxidTracker.Decorator<Message.ClientSessionMessage, C> zxids = 
                 ZxidTracker.Decorator.newInstance(connectionFactory);
-        DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolExecutor> delegate = 
+        DefaultsFactory<Factory<ConnectMessage.Request>, ClientProtocolExecutor> delegate = 
                 ClientProtocolExecutor.factory(processor, zxids, zxids.first(), timeOut);
         return new ServerViewFactory(server, zxids, delegate);
     }
@@ -61,12 +62,12 @@ public class ServerViewFactory implements DefaultsFactory<Session, ClientProtoco
     
     protected final ServerView.Address<? extends SocketAddress> server;
     protected final ZxidTracker.Decorator<Message.ClientSessionMessage, ? extends ClientCodecConnection> zxids;
-    protected final DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolExecutor> delegate;
+    protected final DefaultsFactory<Factory<ConnectMessage.Request>, ClientProtocolExecutor> delegate;
 
     protected ServerViewFactory(
             ServerView.Address<? extends SocketAddress> server,
             ZxidTracker.Decorator<Message.ClientSessionMessage, ? extends ClientCodecConnection> zxids,
-            DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolExecutor> delegate) {
+            DefaultsFactory<Factory<ConnectMessage.Request>, ClientProtocolExecutor> delegate) {
         this.zxids = zxids;
         this.delegate = delegate;
         this.server = server;
@@ -87,6 +88,6 @@ public class ServerViewFactory implements DefaultsFactory<Session, ClientProtoco
 
     @Override
     public ClientProtocolExecutor get(Session session) {
-        return delegate.get(OpCreateSession.Request.RenewRequest.factory(zxids(), session));
+        return delegate.get(ConnectMessage.Request.RenewRequest.factory(zxids(), session));
     }
 }

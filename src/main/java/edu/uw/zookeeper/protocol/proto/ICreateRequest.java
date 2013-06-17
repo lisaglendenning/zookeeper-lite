@@ -1,42 +1,44 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
 import java.util.List;
 
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.proto.CreateRequest;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records.CreateRecord;
-import edu.uw.zookeeper.protocol.Records.MultiOpRequest;
-import edu.uw.zookeeper.protocol.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.Records.Requests;
+import edu.uw.zookeeper.protocol.Operation;
 
-public class ICreateRequest extends CreateRequest implements RequestRecord, CreateRecord, MultiOpRequest {
-    public static final OpCode OPCODE = OpCode.CREATE;
-    
+@Operational(opcode=OpCode.CREATE)
+public class ICreateRequest extends IOperationalRecord<CreateRequest> implements Operation.Request, Records.CreateHolder, Records.MultiOpRequest {
+
     public ICreateRequest() {
-        super();
+        this(new CreateRequest());
     }
-
+    
     public ICreateRequest(String path, byte[] data, List<ACL> acl, int flags) {
-        super(path, data, acl, flags);
+        this(new CreateRequest(path, data, acl, flags));
+    }
+
+    public ICreateRequest(CreateRequest record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
+    public String getPath() {
+        return get().getPath();
     }
 
     @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Requests.TAG);
+    public byte[] getData() {
+        return get().getData();
     }
 
     @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Requests.TAG);
+    public List<ACL> getAcl() {
+        return get().getAcl();
+    }
+
+    @Override
+    public int getFlags() {
+        return get().getFlags();
     }
 }

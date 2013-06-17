@@ -1,41 +1,31 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.CheckVersionRequest;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.MultiOpRequest;
-import edu.uw.zookeeper.protocol.Records.PathRecord;
-import edu.uw.zookeeper.protocol.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.Records.Requests;
+import edu.uw.zookeeper.protocol.Operation;
 
-public class ICheckVersionRequest extends CheckVersionRequest implements RequestRecord, MultiOpRequest, PathRecord, Records.VersionRecord {
-    public static final OpCode OPCODE = OpCode.CHECK;
-    
+@Operational(opcode=OpCode.CHECK)
+public class ICheckVersionRequest extends IOperationalRecord<CheckVersionRequest> implements Operation.Request, Records.MultiOpRequest, Records.PathHolder, Records.VersionHolder {
+
     public ICheckVersionRequest() {
-        super();
+        this(new CheckVersionRequest());
     }
-
+    
     public ICheckVersionRequest(String path, int version) {
-        super(path, version);
+        this(new CheckVersionRequest(path, version));
+    }
+    
+    public ICheckVersionRequest(CheckVersionRequest record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
+    public int getVersion() {
+        return get().getVersion();
     }
 
     @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Requests.TAG);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Requests.TAG);
+    public String getPath() {
+        return get().getPath();
     }
 }

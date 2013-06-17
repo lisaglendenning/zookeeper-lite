@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.protocol;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 
 import java.io.IOException;
 
@@ -31,7 +30,7 @@ public class EncodableEncoder implements Encoder<Encodable> {
     public EncodableEncoder() {}
     
     @Override
-    public ByteBuf encode(Encodable input, ByteBufAllocator output) throws IOException {
-        return input.encode(output);
+    public void encode(Encodable input, ByteBuf output) throws IOException {
+        input.encode(output);
     }
 }

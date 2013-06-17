@@ -2,9 +2,6 @@ package edu.uw.zookeeper.protocol;
 
 import static com.google.common.base.Preconditions.*;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.Unpooled;
-
 import java.nio.charset.Charset;
 
 import com.google.common.base.Function;
@@ -121,8 +118,7 @@ public enum FourLetterRequest implements Message.ClientMessage {
     }
 
     @Override
-    public ByteBuf encode(ByteBufAllocator output) {
-        ByteBuf out = Unpooled.wrappedBuffer(bytes());
-        return out;
+    public void encode(ByteBuf output) {
+        output.writeBytes(bytes());
     }
 }

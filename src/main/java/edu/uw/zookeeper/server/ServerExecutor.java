@@ -98,7 +98,7 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Paramete
                 Reference<Long> zxids,
                 SessionTable sessions) {
             FilteringProcessor<Message.ClientMessage, Message.ServerMessage> createProcessor =
-                    OpCreateSessionProcessor.filtered(sessions, zxids);
+                    ConnectProcessor.filtered(sessions, zxids);
             FilteringProcessor<Message.ClientMessage, Message.ServerMessage> errorProcessor =
                     new FilteredProcessor<Message.ClientMessage, Message.ServerMessage>(
                             Predicates.alwaysTrue(),

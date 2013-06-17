@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.protocol;
+package edu.uw.zookeeper.protocol.proto;
 
 import static com.google.common.base.Preconditions.*;
 

@@ -2,28 +2,28 @@ package edu.uw.zookeeper.server;
 
 import org.apache.zookeeper.KeeperException;
 
-import edu.uw.zookeeper.protocol.OpError;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.proto.IErrorResponse;
 import edu.uw.zookeeper.util.Processor;
 
-public class OpErrorProcessor implements
-        Processor<Operation.Request, Operation.Reply> {
+public class RequestErrorProcessor implements
+        Processor<Operation.Request, Operation.Response> {
 
-    public static OpErrorProcessor newInstance(
+    public static RequestErrorProcessor newInstance(
             Processor<Operation.Request, Operation.Response> processor) {
-        return new OpErrorProcessor(processor);
+        return new RequestErrorProcessor(processor);
     }
 
     protected final Processor<Operation.Request, Operation.Response> processor;
 
-    protected OpErrorProcessor(
+    protected RequestErrorProcessor(
             Processor<Operation.Request, Operation.Response> processor) {
         this.processor = processor;
     }
 
     @Override
-    public Operation.Reply apply(Operation.Request request) throws Exception {
-        Operation.Reply reply;
+    public Operation.Response apply(Operation.Request request) throws Exception {
+        Operation.Response reply;
         try {
             reply = processor.apply(request);
         } catch (Exception e) {
@@ -36,7 +36,7 @@ public class OpErrorProcessor implements
             } else {
                 throw e;
             }
-            reply = OpError.create(code);
+            reply = new IErrorResponse(code);
         }
         return reply;
     }

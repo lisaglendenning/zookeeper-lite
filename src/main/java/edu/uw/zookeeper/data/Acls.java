@@ -15,8 +15,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractPair;
 import edu.uw.zookeeper.util.Reference;
 
@@ -158,7 +157,7 @@ public abstract class Acls {
         }
     }
     
-    public static class Acl extends AbstractPair<PermissionSet, Id> implements Operation.RecordHolder<ACL> {
+    public static class Acl extends AbstractPair<PermissionSet, Id> {
 
         public static Acl of(PermissionSet permissions, Id id) {
             return new Acl(permissions, id);
@@ -179,7 +178,7 @@ public abstract class Acls {
         public static List<ACL> asRecordList(List<Acl> acls) {
             List<ACL> records = new ArrayList<ACL>(acls.size());
             for (Acl acl: acls) {
-                records.add(acl.asRecord());
+                records.add(acl.toRecord());
             }
             return records;
         }
@@ -196,8 +195,7 @@ public abstract class Acls {
             return second;
         }
         
-        @Override
-        public ACL asRecord() {
+        public ACL toRecord() {
             return new ACL(permissions().intValue(), id());
         }
         
@@ -221,7 +219,7 @@ public abstract class Acls {
         private Definition(Acl acl) {
             this.acl = acl;
             this.asList = ImmutableList.of(acl);
-            this.asRecord = ImmutableList.of(acl.asRecord());
+            this.asRecord = ImmutableList.of(acl.toRecord());
         }
         
         @Override

@@ -2,6 +2,8 @@ package edu.uw.zookeeper.netty.server;
 
 import java.net.SocketAddress;
 
+import com.google.common.base.Optional;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 
@@ -9,7 +11,9 @@ import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.netty.ChannelConnection;
 import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
+import edu.uw.zookeeper.protocol.Codec;
 import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
 
@@ -40,9 +44,11 @@ public class NettyServerModule {
         this.bootstrapFactory = bootstrapFactory;
     }
     
-    public <I,O, C extends Connection<I>> ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<I,C>> get(Connection.CodecFactory<I,O,C> value) {
-        ParameterizedFactory<Channel, C> connectionFactory = 
-                ChannelConnection.factory(publisherFactory, value);
-        return ChannelServerConnectionFactory.parameterizedFactory(publisherFactory, connectionFactory, bootstrapFactory);
+    public <I, O, T extends Codec<I,Optional<O>>, C extends Connection<I>> ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<I,C>> get(
+            ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
+            ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
+        ParameterizedFactory<Channel, C> factory = 
+                ChannelConnection.factory(publisherFactory, codecFactory, connectionFactory);
+        return ChannelServerConnectionFactory.parameterizedFactory(publisherFactory, factory, bootstrapFactory);
     }
 }

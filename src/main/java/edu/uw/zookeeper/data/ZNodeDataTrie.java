@@ -5,16 +5,18 @@ import java.util.concurrent.ConcurrentSkipListMap;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.data.Stat;
+
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import edu.uw.zookeeper.data.ZNodeLabel.Component;
 import edu.uw.zookeeper.data.ZNodeLabel.Path;
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
+import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.ISetACLRequest;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
-import edu.uw.zookeeper.protocol.proto.IStat;
+import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Pair;
 
 public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> {
@@ -32,14 +34,14 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
         
         // TODO: watches
-        public Records.ResponseRecord apply(TxnRequest request) throws KeeperException {
+        public Operation.Response apply(TxnRequest request) throws KeeperException {
             TxnRequest.Header header = request.header();
-            Records.ResponseRecord response;
+            Operation.Response response;
             switch (request.record().opcode()) {
             case CREATE:
             case CREATE2:
             {
-                Records.CreateRecord record = (Records.CreateRecord) request;
+                Records.CreateHolder record = (Records.CreateHolder) request.record();
                 ZNodeLabel.Path path = ZNodeLabel.Path.of(record.getPath());
                 ZNodeLabel parentPath = path.head();
                 ZNodeStateNode parent = trie.get(parentPath);
@@ -69,7 +71,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 ZNodeStateNode node = parent.add(path.tail(), state);
                 Operations.Responses.Create builder = 
                         Operations.Responses.create().setPath(path);
-                if (OpCode.CREATE2 == record.opcode()) {
+                if (OpCode.CREATE2 == request.record().opcode()) {
                     builder.setStat(node.asStat());
                 }
                 response = builder.build();
@@ -77,7 +79,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case DELETE:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -91,7 +93,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case EXISTS:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -101,7 +103,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case GET_DATA:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -111,8 +113,8 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case SET_DATA:
             {
-                ISetDataRequest record = (ISetDataRequest)request;
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request).getPath());
+                ISetDataRequest record = (ISetDataRequest)request.record();
+                ZNodeLabel.Path path = Path.of(record.getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -127,7 +129,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case GET_ACL:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -137,8 +139,8 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case SET_ACL:
             {
-                ISetACLRequest record = (ISetACLRequest)request;
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request).getPath());
+                ISetACLRequest record = (ISetACLRequest)request.record();
+                ZNodeLabel.Path path = Path.of(record.getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -154,7 +156,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             case GET_CHILDREN:
             case GET_CHILDREN2:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -169,7 +171,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case SYNC:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -348,7 +350,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             return get(label);
         }
         
-        public IStat asStat() {
+        public Stat asStat() {
             int dataLength = state.getData().getDataLength();
             int numChildren = children.size();
             return Stats.ImmutableStat.copyOf(new Stats.CompositeStatHolder(state.getCreateStat(), state.getData().getStat(), state.getAcl(), state.getChildrenStat(), dataLength, numChildren));

@@ -10,10 +10,10 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.OpRecord;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.SessionRequestWrapper;
+import edu.uw.zookeeper.protocol.SessionRequestMessage;
+import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.ForwardingEventful;
 import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Promise;
@@ -44,12 +44,12 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
         @SuppressWarnings("unchecked")
         Processor<Operation.Request, Operation.Response> responseProcessor = FilteredProcessors
                 .newInstance(
-                        OpCloseSessionProcessor.filtered(sessionId, executor.sessions()),
+                        DisconnectProcessor.filtered(sessionId, executor.sessions()),
                         FilteredProcessor.newInstance(
                                 OpRequestProcessor.NotEqualsFilter
                                         .newInstance(OpCode.CLOSE_SESSION),
                                 OpRequestProcessor.newInstance()));
-        Processor<Operation.Request, Operation.Reply> replyProcessor = OpErrorProcessor.newInstance(responseProcessor);
+        Processor<Operation.Request, Operation.Response> replyProcessor = RequestErrorProcessor.newInstance(responseProcessor);
         Processor<Operation.SessionRequest, Operation.SessionReply> processor = SessionRequestProcessor.newInstance(replyProcessor, executor.zxids());
         return processor;
     }
@@ -121,7 +121,7 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
     public void handleSessionStateEvent(Session.State event) {
         if (Session.State.SESSION_EXPIRED == event) {
             try {
-                submit(SessionRequestWrapper.newInstance(0, OpRecord.OpRequest.newInstance(OpCode.CLOSE_SESSION)));
+                submit(SessionRequestMessage.newInstance(0, Records.Requests.getInstance().get(OpCode.CLOSE_SESSION)));
             } catch (Exception e) {
                 // TODO
                 throw Throwables.propagate(e);

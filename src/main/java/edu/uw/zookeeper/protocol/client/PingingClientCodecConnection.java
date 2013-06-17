@@ -15,45 +15,31 @@ import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Message.ClientSessionMessage;
-import edu.uw.zookeeper.protocol.OpCreateSession;
+import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.OpPing;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.SessionRequestWrapper;
+import edu.uw.zookeeper.protocol.SessionRequestMessage;
 import edu.uw.zookeeper.util.Automaton;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.TimeValue;
 
 public class PingingClientCodecConnection extends ClientCodecConnection implements Runnable {
 
-    public static ParameterizedFactory<Connection<Message.ClientSessionMessage>, PingingClientCodecConnection> factory(
+    public static ParameterizedFactory<Pair<Pair<Class<Message.ClientSessionMessage>, ClientProtocolCodec>, Connection<Message.ClientSessionMessage>>, PingingClientCodecConnection> factory(
             final TimeValue defaultTimeOut,
             final ScheduledExecutorService executor) {
-        return new ParameterizedFactory<Connection<Message.ClientSessionMessage>, PingingClientCodecConnection>() {
+        return new ParameterizedFactory<Pair<Pair<Class<Message.ClientSessionMessage>, ClientProtocolCodec>, Connection<Message.ClientSessionMessage>>, PingingClientCodecConnection>() {
                     @Override
-                    public PingingClientCodecConnection get(Connection<Message.ClientSessionMessage> value) {
-                        return PingingClientCodecConnection.newInstance(
-                                value,
+                    public PingingClientCodecConnection get(Pair<Pair<Class<Message.ClientSessionMessage>, ClientProtocolCodec>, Connection<Message.ClientSessionMessage>> value) {
+                        return new PingingClientCodecConnection(
+                                value.first().second(),
+                                value.second(),
                                 executor,
                                 defaultTimeOut);
                     }
                 };
-    }
-
-    public static PingingClientCodecConnection newInstance(
-            Connection<Message.ClientSessionMessage> connection,
-            ScheduledExecutorService executor,
-            TimeValue timeOut) {
-        ClientProtocolCodec codec = ClientProtocolCodec.newInstance(connection);
-        return newInstance(codec, connection, executor, timeOut);
-    }
-
-    protected static PingingClientCodecConnection newInstance(
-            ClientProtocolCodec codec,
-            Connection<Message.ClientSessionMessage> connection,
-            ScheduledExecutorService executor,
-            TimeValue timeOut) {
-        return new PingingClientCodecConnection(codec, connection, executor, timeOut);
     }
 
     private static enum PingingState {
@@ -69,11 +55,11 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     private final ScheduledExecutorService executor;
     private final AtomicReference<TimeValue> timeOut;
     private final AtomicLong nextTimeOut;
-    private final AtomicReference<OpPing.OpPingRequest> lastPing = new AtomicReference<OpPing.OpPingRequest>(null);
+    private final AtomicReference<OpPing.Request> lastPing = new AtomicReference<OpPing.Request>(null);
     private final AtomicReference<ScheduledFuture<?>> future = new AtomicReference<ScheduledFuture<?>>(null);
     private final AtomicReference<PingingState> pingingState = new AtomicReference<PingingState>(PingingState.WAITING);
 
-    private PingingClientCodecConnection(
+    protected PingingClientCodecConnection(
             ClientProtocolCodec codec,
             Connection<Message.ClientSessionMessage> connection,
             ScheduledExecutorService executor,
@@ -131,9 +117,9 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
             return;
         }
 
-        OpPing.OpPingRequest ping = OpPing.OpPingRequest.newInstance();
+        OpPing.Request ping = OpPing.Request.newInstance();
         try {
-            write(SessionRequestWrapper.newInstance(ping.xid(), ping));
+            write(SessionRequestMessage.newInstance(ping.xid(), ping));
         } catch (Exception e) {
             stop();
             return;
@@ -163,8 +149,8 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
     }
 
     @Subscribe
-    public void handleCreateSessionResponse(OpCreateSession.Response message) {
-        if (message instanceof OpCreateSession.Response.Valid) {
+    public void handleCreateSessionResponse(ConnectMessage.Response message) {
+        if (message instanceof ConnectMessage.Response.Valid) {
             timeOut.set(message.toParameters().timeOut());
             touch();
             schedule();
@@ -175,17 +161,16 @@ public class PingingClientCodecConnection extends ClientCodecConnection implemen
 
     @Subscribe
     public void handleSessionReply(Operation.SessionReply message) {
-        Operation.Reply reply = message.reply();
-        if (reply instanceof OpPing.OpPingResponse) {
-            handlePingResponse((OpPing.OpPingResponse)reply);
+        if (message.reply() instanceof OpPing.Response) {
+            handlePingResponse((OpPing.Response) message.reply());
         }
     }
 
-    protected void handlePingResponse(OpPing.OpPingResponse message) {
+    protected void handlePingResponse(OpPing.Response message) {
         if (logger.isTraceEnabled()) {
             // of course, this pong could be for an earlier ping,
             // so this time difference is not very accurate...
-            OpPing.OpPingRequest ping = lastPing.get();
+            OpPing.Request ping = lastPing.get();
             logger.trace(String.format("PONG %s: %s",
                     (ping == null) ? 0 : message.difference(ping), message));
         }

@@ -9,7 +9,7 @@ import edu.uw.zookeeper.util.Eventful;
  * 
  * Posts at least the following events:
  * <ul>
- * <li> NewConnectionEvent when a new Connection is added
+ * <li> C when a new C is added
  * </ul>
  */
 public interface ConnectionFactory<I, C extends Connection<I>> extends Iterable<C>, Eventful, Service {

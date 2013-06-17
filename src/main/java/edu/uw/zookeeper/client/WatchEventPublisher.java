@@ -5,8 +5,8 @@ import com.google.common.eventbus.Subscribe;
 import edu.uw.zookeeper.data.WatchEvent;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.Records.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
+import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.ForwardingEventful;
@@ -31,7 +31,7 @@ public class WatchEventPublisher extends ForwardingEventful {
     @Subscribe
     public void handleReply(Operation.SessionReply message) {
         if (OpCodeXid.NOTIFICATION.xid() == message.xid()) {
-            WatchEvent event = WatchEvent.of((IWatcherEvent) ((Operation.RecordHolder<?>)message.reply()).asRecord());
+            WatchEvent event = WatchEvent.of((IWatcherEvent) message.reply());
             post(event);
         }
     }        

@@ -20,56 +20,13 @@ import edu.uw.zookeeper.util.Publisher;
 public abstract class AbstractConnectionFactory<I, C extends Connection<I>> extends AbstractIdleService
         implements ConnectionFactory<I,C>, Service {
 
-    public class RemoveConnectionOnClose {
-
-        protected final C connection;
-        
-        public RemoveConnectionOnClose(C connection) {
-            this.connection = connection;
-            connection.register(this);
-        }
-        
-        public void close() {
-            remove(connection);
-            try {
-                connection.unregister(this);
-            } catch (IllegalArgumentException e) {}
-        }
-
-        @SuppressWarnings("unchecked")
-        @Subscribe
-        public void handleStateEvent(Automaton.Transition<?> event) {
-            if (event.type().isAssignableFrom(Connection.State.class)) {
-                handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
-            }
-        }
-        
-        public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
-            switch (event.to()) {
-            case CONNECTION_CLOSED:
-                close();
-                break;
-            default:
-                break;
-            }
-        }
-    }
-    
-    private final Logger logger;
-    private final Publisher publisher;
+    protected final Logger logger;
+    protected final Publisher publisher;
 
     protected AbstractConnectionFactory(Publisher publisher) {
         super();
         this.logger = LoggerFactory.getLogger(getClass());
         this.publisher = checkNotNull(publisher);
-    }
-
-    protected Publisher publisher() {
-        return publisher;
-    }
-
-    protected Logger logger() {
-        return logger;
     }
 
     protected boolean add(C connection) {
@@ -80,7 +37,7 @@ public abstract class AbstractConnectionFactory<I, C extends Connection<I>> exte
             throw new IllegalStateException(state.toString());
         }
         post(connection);
-        logger().trace("Added Connection: {}", connection);
+        logger.trace("Added Connection: {}", connection);
         return true;
     }
     
@@ -100,18 +57,53 @@ public abstract class AbstractConnectionFactory<I, C extends Connection<I>> exte
     }
 
     protected void post(Object event) {
-        publisher().post(event);
+        publisher.post(event);
     }
 
     @Override
     public void register(Object object) {
-        publisher().register(object);
+        publisher.register(object);
     }
 
     @Override
     public void unregister(Object object) {
-        publisher().unregister(object);
+        publisher.unregister(object);
     }
 
     protected abstract boolean remove(C connection);
+
+    protected class RemoveConnectionOnClose {
+    
+        protected final C connection;
+        
+        public RemoveConnectionOnClose(C connection) {
+            this.connection = connection;
+            connection.register(this);
+        }
+        
+        public void close() {
+            remove(connection);
+            try {
+                connection.unregister(this);
+            } catch (IllegalArgumentException e) {}
+        }
+    
+        @SuppressWarnings("unchecked")
+        @Subscribe
+        public void handleStateEvent(Automaton.Transition<?> event) {
+            if (event.type().isAssignableFrom(Connection.State.class)) {
+                handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
+            }
+        }
+        
+        public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
+            switch (event.to()) {
+            case CONNECTION_CLOSED:
+                close();
+                break;
+            default:
+                break;
+            }
+        }
+    }
 }

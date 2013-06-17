@@ -2,142 +2,103 @@ package edu.uw.zookeeper.protocol;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.jute.Record;
+
 import com.google.common.base.Objects;
 
+import edu.uw.zookeeper.protocol.proto.IOperationalXidRecord;
 import edu.uw.zookeeper.protocol.proto.IPingRequest;
 import edu.uw.zookeeper.protocol.proto.IPingResponse;
+import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.OpCodeXid;
+import edu.uw.zookeeper.protocol.proto.OperationalXid;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.TimeValue;
 
-public abstract class OpPing {
+@OperationalXid(xid=OpCodeXid.PING)
+public abstract class OpPing<T extends Record> extends IOperationalXidRecord<T> {
 
-    public static Records.OpCodeXid OPCODE_XID = Records.OpCodeXid.PING;
+    public static OpCodeXid OPCODE_XID = OpCodeXid.PING;
     
     public static TimeValue now() {
         return TimeValue.create(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
     }
     
-    public interface Timestamped {
-        TimeValue asTime();
+    protected final TimeValue time;
+
+    protected OpPing(T record) {
+        this(record, now());
     }
 
-    public static class OpPingRequest extends OpRecord.OpRequest<IPingRequest> implements Operation.Request, Operation.XidHeader, Timestamped {
+    protected OpPing(T record, TimeValue time) {
+        super(record);
+        this.time = time;
+    }
 
-        public static IPingRequest newRecord() {
-            return (IPingRequest) Records.Requests.getInstance().get(IPingRequest.OPCODE);
+    public TimeValue getTime() {
+        return time;
+    }
+
+    public TimeValue difference(OpPing<?> other) {
+        return getTime().difference(other.getTime());
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("record", get())
+                .add("time", getTime()).toString();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(get(), getTime());
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        OpPing<?> other = (OpPing<?>) obj;
+        return Objects.equal(get(), other.get()) 
+                && Objects.equal(getTime(), other.getTime());
+    }
+    
+    public static class Request extends OpPing<IPingRequest> implements Operation.Request {
+
+        public static IPingRequest getRecord() {
+            return (IPingRequest) Records.Requests.getInstance().get(OpCode.PING);
         }
         
-        public static OpPingRequest newInstance() {
-            return newInstance(newRecord());
+        public static Request newInstance() {
+            return new Request();
         }
 
-        public static OpPingRequest newInstance(IPingRequest record) {
-            return new OpPingRequest(record, now());
-        }
-
-        private final TimeValue time;
-
-        private OpPingRequest(IPingRequest record, TimeValue time) {
-            super(record);
-            this.time = time;
-        }
-        
-        @Override
-        public int xid() {
-            return asRecord().xid();
-        }
-
-        @Override
-        public TimeValue asTime() {
-            return time;
-        }
-
-        @Override
-        public String toString() {
-            return Objects.toStringHelper(this)
-                    .add("time", asTime()).toString();
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hashCode(asTime());
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null) {
-                return false;
-            }
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
-            OpPingRequest other = (OpPingRequest) obj;
-            return Objects.equal(asTime(), other.asTime());
+        private Request() {
+            super(getRecord());
         }
     }
 
-    public static class OpPingResponse extends OpRecord.OpResponse<IPingResponse> implements
-            Operation.Response, Operation.XidHeader, Timestamped {
+    public static class Response extends OpPing<IPingResponse> implements
+            Operation.Response {
         
-        public static IPingResponse newRecord() {
-            return (IPingResponse) Records.Responses.getInstance().get(IPingResponse.OPCODE);
-        }
-        
-        public static OpPingResponse newInstance() {
-            return newInstance(newRecord());
-        }
-
-        public static OpPingResponse newInstance(IPingResponse record) {
-            return new OpPingResponse(record, now());
-        }
-
-        private final TimeValue time;
-
-        private OpPingResponse(IPingResponse record, TimeValue time) {
-            super(record);
-            this.time = time;
+        public static IPingResponse getRecord() {
+            return (IPingResponse) Records.Responses.getInstance().get(OpCode.PING);
         }
         
-        public TimeValue difference(OpPingRequest request) {
-            return asTime().difference(request.asTime());
+        public static Response newInstance() {
+            return new Response();
         }
 
-        @Override
-        public int xid() {
-            return asRecord().xid();
-        }
-
-        @Override
-        public TimeValue asTime() {
-            return time;
-        }
-
-        @Override
-        public String toString() {
-            return Objects.toStringHelper(this)
-                    .add("time", asTime()).toString();
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hashCode(asTime());
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null) {
-                return false;
-            }
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
-            OpPingResponse other = (OpPingResponse) obj;
-            return Objects.equal(asTime(), other.asTime());
+        private Response() {
+            super(getRecord());
         }
     }
 }

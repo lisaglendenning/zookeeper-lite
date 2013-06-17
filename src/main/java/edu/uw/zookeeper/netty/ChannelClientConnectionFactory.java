@@ -8,6 +8,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.DefaultChannelGroup;
 
 import java.net.SocketAddress;
 import java.util.concurrent.ConcurrentMap;
@@ -26,7 +27,7 @@ public class ChannelClientConnectionFactory<I, C extends Connection<I>> extends 
         implements ClientConnectionFactory<I,C> {
     
     public static <I, C extends Connection<I>> ClientFactoryBuilder<I,C> factory(
-            final Factory<Publisher> publisherFactory,
+            Factory<Publisher> publisherFactory,
             ParameterizedFactory<Channel, C> connectionFactory,
             Factory<Bootstrap> bootstrapFactory) {
         return ClientFactoryBuilder.newInstance(
@@ -62,16 +63,57 @@ public class ChannelClientConnectionFactory<I, C extends Connection<I>> extends 
                     bootstrapFactory.get());
         }
     }
-    
+
     public static <I, C extends Connection<I>> ChannelClientConnectionFactory<I,C> newInstance(
             Publisher publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             Bootstrap bootstrap) {
+        ChannelGroup channels = new DefaultChannelGroup(ChannelClientConnectionFactory.class.getSimpleName(), bootstrap.group().next());
+        return newInstance(
+                publisher, 
+                connectionFactory,
+                channels,
+                bootstrap);
+    }
+    
+    public static <I, C extends Connection<I>> ChannelClientConnectionFactory<I,C> newInstance(
+            Publisher publisher,
+            ParameterizedFactory<Channel, C> connectionFactory,
+            ChannelGroup channels,
+            Bootstrap bootstrap) {
         return new ChannelClientConnectionFactory<I,C>(
                 publisher, 
                 connectionFactory,
-                ChannelGroupFactory.getInstance().get(ChannelClientConnectionFactory.class.getSimpleName()),
+                channels,
                 bootstrap);
+    }
+
+    protected final ChildInitializer initializer;
+    protected final Bootstrap bootstrap;
+
+    protected ChannelClientConnectionFactory(
+            Publisher publisher,
+            ParameterizedFactory<Channel, C> connectionFactory,
+            ChannelGroup channels,
+            Bootstrap bootstrap) {
+        super(publisher, connectionFactory, channels);
+        this.initializer = new ChildInitializer();
+        this.bootstrap = checkNotNull(bootstrap).handler(initializer);
+    }
+
+    @Override
+    public ListenableFuture<C> connect(SocketAddress remoteAddress) {
+        logger.debug("Connecting to {}", remoteAddress);
+        ChannelFuture channelFuture = bootstrap.connect(remoteAddress);
+        ConnectListener listener = new ConnectListener(channelFuture);
+        return listener;
+    }
+
+    @Override
+    protected void shutDown() throws Exception {
+        // TODO: cancel pending connections?
+        initializer.byChannel.clear();
+        super.shutDown();
     }
 
     @ChannelHandler.Sharable
@@ -82,16 +124,16 @@ public class ChannelClientConnectionFactory<I, C extends Connection<I>> extends 
         public ChildInitializer() {
             this.byChannel = Maps.newConcurrentMap();
         }
-
+    
         // This gets called before connect() completes
         @Override
         public void initChannel(Channel channel) throws Exception {
             byChannel.put(channel, newChannel(channel));
         }
     }
-    
-    protected class ConnectListener extends PromiseTask<ChannelFuture, C> implements ChannelFutureListener {
 
+    protected class ConnectListener extends PromiseTask<ChannelFuture, C> implements ChannelFutureListener {
+    
         public ConnectListener(ChannelFuture channelFuture) {
             this(channelFuture, PromiseTask.<C>newPromise());
         }
@@ -106,14 +148,14 @@ public class ChannelClientConnectionFactory<I, C extends Connection<I>> extends 
             task().cancel(mayInterruptIfRunning);
             return super.cancel(mayInterruptIfRunning);
         }
-
+    
         // called when connect() completes
         @Override
         public void operationComplete(ChannelFuture future) throws Exception {
             if (future.isSuccess()) {
                 Channel channel = future.channel();
                 try {
-                    C connection = initializer().byChannel.remove(channel);
+                    C connection = initializer.byChannel.remove(channel);
                     if (connection != null) {
                         set(connection);
                     } else {
@@ -130,41 +172,5 @@ public class ChannelClientConnectionFactory<I, C extends Connection<I>> extends 
                 }
             }
         }
-    }
-
-    private final ChildInitializer initializer;
-    private final Bootstrap bootstrap;
-
-    private ChannelClientConnectionFactory(
-            Publisher publisher,
-            ParameterizedFactory<Channel, C> connectionFactory,
-            ChannelGroup group,
-            Bootstrap bootstrap) {
-        super(publisher, connectionFactory, group);
-        this.initializer = new ChildInitializer();
-        this.bootstrap = checkNotNull(bootstrap).handler(initializer);
-    }
-    
-    protected ChildInitializer initializer() {
-        return initializer;
-    }
-
-    protected Bootstrap bootstrap() {
-        return bootstrap;
-    }
-
-    @Override
-    public ListenableFuture<C> connect(SocketAddress remoteAddress) {
-        logger().debug("Connecting to {}", remoteAddress);
-        ChannelFuture channelFuture = bootstrap().connect(remoteAddress);
-        ConnectListener listener = new ConnectListener(channelFuture);
-        return listener;
-    }
-
-    @Override
-    protected void shutDown() throws Exception {
-        // TODO: cancel pending connections?
-        initializer().byChannel.clear();
-        super.shutDown();
     }
 }

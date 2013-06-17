@@ -18,11 +18,10 @@ import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.ZNodeLabel;
-import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.Records;
 import edu.uw.zookeeper.protocol.Operation.SessionResult;
-import edu.uw.zookeeper.protocol.Records.ChildrenRecord;
+import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractActor;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.SettableFuturePromise;
@@ -221,12 +220,12 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
             }
             
             Operation.Request request = result.request().request();
-            Operation.Reply reply = Operations.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
+            Operation.Response reply = Operations.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
             if (((OpCode.GET_CHILDREN == request.opcode())
                     || (OpCode.GET_CHILDREN2 == request.opcode()))
                     && !(reply instanceof Operation.Error)) {
-                String path = ((Records.PathHolder) ((Operation.RecordHolder<?>)request).asRecord()).getPath();
-                Records.ChildrenHolder responseRecord = (ChildrenRecord) ((Operation.RecordHolder<?>)reply).asRecord();
+                String path = ((Records.PathHolder) request).getPath();
+                Records.ChildrenHolder responseRecord = (Records.ChildrenHolder) reply;
                 for (String child: responseRecord.getChildren()) {
                     send(ZNodeLabel.Path.joined(path, child));
                 }

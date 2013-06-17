@@ -1,32 +1,36 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
+import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.proto.ReplyHeader;
 
-import edu.uw.zookeeper.protocol.Records.HeaderRecord;
-import edu.uw.zookeeper.protocol.Records.Headers;
-import edu.uw.zookeeper.protocol.Records.TaggedRecord;
 
-public class IReplyHeader extends ReplyHeader implements TaggedRecord, HeaderRecord {
-    
+public class IReplyHeader extends IRecord<ReplyHeader> implements Records.HeaderRecord {
+
     public IReplyHeader() {
-        super();
+        this(new ReplyHeader());
+    }
+
+    public IReplyHeader(int xid, long zxid, KeeperException.Code code) {
+        this(xid, zxid, code.intValue());
     }
 
     public IReplyHeader(int xid, long zxid, int err) {
-        super(xid, zxid, err);
+        this(new ReplyHeader(xid, zxid, err));
     }
 
-    @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Headers.TAG); 
+    public IReplyHeader(ReplyHeader record) {
+        super(record);
     }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Headers.TAG);
+    
+    public int getXid() {
+        return get().getXid();
+    }
+    
+    public long getZxid() {
+        return get().getZxid();
+    }
+    
+    public int getErr() {
+        return get().getErr();
     }
 }

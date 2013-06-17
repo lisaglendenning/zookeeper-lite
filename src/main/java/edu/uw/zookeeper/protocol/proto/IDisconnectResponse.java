@@ -1,34 +1,11 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
+import edu.uw.zookeeper.protocol.Operation;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-
-public enum IDisconnectResponse implements Records.ResponseRecord {
-    DISCONNECT_RESPONSE;
-    
-    public static IDisconnectResponse getInstance() {
-        return DISCONNECT_RESPONSE;
+@Operational(opcode=OpCode.CLOSE_SESSION)
+@Shared
+public class IDisconnectResponse extends IOperationalRecord<EmptyRecord> implements Operation.Response {
+    public IDisconnectResponse() {
+        super(EmptyRecord.getInstance());
     }
-    
-    public static final OpCode OPCODE = OpCode.CLOSE_SESSION;
-    
-    @Override
-    public OpCode opcode() {
-        return OPCODE;
-    }
-
-    @Override
-    public void serialize(OutputArchive archive, String tag) {}
-
-    @Override
-    public void serialize(OutputArchive archive) {}
-    
-    @Override
-    public void deserialize(InputArchive archive, String tag) {}
-    
-    @Override
-    public void deserialize(InputArchive archive) {}
 }

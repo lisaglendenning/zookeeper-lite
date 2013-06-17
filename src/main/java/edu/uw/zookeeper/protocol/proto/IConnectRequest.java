@@ -1,40 +1,46 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.ConnectRequest;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.ConnectRecord;
-import edu.uw.zookeeper.protocol.Records.RequestRecord;
+import edu.uw.zookeeper.protocol.Operation;
 
-public class IConnectRequest extends ConnectRequest implements RequestRecord, ConnectRecord {
-    public static final OpCode OPCODE = OpCode.CREATE_SESSION;
-    
+@Operational(opcode=OpCode.CREATE_SESSION)
+public class IConnectRequest extends IOperationalRecord<ConnectRequest> implements Operation.Request, Records.ConnectHolder {
+
     public IConnectRequest() {
-        super();
+        this(new ConnectRequest());
     }
-
+    
     public IConnectRequest(int protocolVersion, long lastZxidSeen, int timeOut,
             long sessionId, byte[] passwd) {
-        super(protocolVersion, lastZxidSeen, timeOut, sessionId, passwd);
+        this(new ConnectRequest(protocolVersion, lastZxidSeen, timeOut, sessionId, passwd));
+    }
+
+    public IConnectRequest(ConnectRequest record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
+    public int getProtocolVersion() {
+        return get().getProtocolVersion();
     }
 
     @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Records.CONNECT_TAG);
+    public int getTimeOut() {
+        return get().getTimeOut();
     }
 
     @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Records.CONNECT_TAG);
+    public long getSessionId() {
+        return get().getSessionId();
+    }
+
+    @Override
+    public byte[] getPasswd() {
+        return get().getPasswd();
+    }
+    
+    public long getLastZxidSeen() {
+        return get().getLastZxidSeen();
     }
 }

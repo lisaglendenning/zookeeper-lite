@@ -1,40 +1,31 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.GetDataResponse;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.ResponseRecord;
-import edu.uw.zookeeper.protocol.Records.Responses;
-
-public class IGetDataResponse extends GetDataResponse implements ResponseRecord, Records.DataRecord, Records.StatRecord {
-    public static final OpCode OPCODE = OpCode.GET_DATA;
+import edu.uw.zookeeper.protocol.Operation;
+@Operational(opcode=OpCode.GET_DATA)
+public class IGetDataResponse extends IOperationalRecord<GetDataResponse> implements Operation.Response, Records.DataHolder, Records.StatHolder {
     
     public IGetDataResponse() {
-        super();
+        this(new GetDataResponse());
     }
-
+    
     public IGetDataResponse(byte[] data, Stat stat) {
-        super(data, stat);
+        this(new GetDataResponse(data, stat));
+    }
+
+    public IGetDataResponse(GetDataResponse record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
+    public Stat getStat() {
+        return get().getStat();
     }
 
     @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Responses.TAG);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Responses.TAG);
+    public byte[] getData() {
+        return get().getData();
     }
 }

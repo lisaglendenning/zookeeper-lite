@@ -1,41 +1,33 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
 import java.util.List;
 
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.GetChildren2Response;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.ResponseRecord;
-import edu.uw.zookeeper.protocol.Records.Responses;
+import edu.uw.zookeeper.protocol.Operation;
+@Operational(opcode=OpCode.GET_CHILDREN2)
+public class IGetChildren2Response extends IOperationalRecord<GetChildren2Response> implements Operation.Response, Records.ChildrenHolder, Records.StatHolder {
 
-public class IGetChildren2Response extends GetChildren2Response implements ResponseRecord, Records.ChildrenRecord, Records.StatRecord {
-    public static final OpCode OPCODE = OpCode.GET_CHILDREN2;
-    
     public IGetChildren2Response() {
-        super();
+        this(new GetChildren2Response());
     }
 
     public IGetChildren2Response(List<String> children, Stat stat) {
-        super(children, stat);
+        this(new GetChildren2Response(children, stat));
+    }
+
+    public IGetChildren2Response(GetChildren2Response record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
+    public Stat getStat() {
+        return get().getStat();
     }
 
     @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Responses.TAG);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Responses.TAG);
+    public List<String> getChildren() {
+        return get().getChildren();
     }
 }

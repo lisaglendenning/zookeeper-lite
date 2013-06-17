@@ -14,8 +14,7 @@ import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Codec;
-import edu.uw.zookeeper.protocol.Decoder;
-import edu.uw.zookeeper.protocol.Encoder;
+import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
@@ -29,90 +28,48 @@ import edu.uw.zookeeper.util.TaskMailbox;
 public class ChannelConnection<I> 
         implements Connection<I>, Publisher, Reference<Channel>, Executor {
     
-    public static <I,O, C extends Connection<I>> ChannelConnectionFactory<I,O,C> factory(
+    public static <I, O, T extends Codec<I,Optional<O>>, C extends Connection<I>> FromCodecFactory<I,O,T,C> factory(
             Factory<? extends Publisher> publisherFactory,
-            Connection.CodecFactory<I,O,C> codecFactory) {
-        return ChannelConnectionFactory.newInstance(publisherFactory, codecFactory);
+            ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
+            ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
+        return FromCodecFactory.newInstance(publisherFactory, codecFactory, connectionFactory);
     }
 
-    public static class ChannelConnectionFactory<I,O, C extends Connection<I>> implements ParameterizedFactory<Channel, C> {
+    public static class FromCodecFactory<I, O, T extends Codec<I,Optional<O>>, C extends Connection<I>> implements ParameterizedFactory<Channel, C> {
 
-        public static <I,O, C extends Connection<I>> ChannelConnectionFactory<I,O,C> newInstance(
+        public static <I, O, T extends Codec<I,Optional<O>>, C extends Connection<I>> FromCodecFactory<I,O,T,C> newInstance(
                 Factory<? extends Publisher> publisherFactory,
-                Connection.CodecFactory<I,O,C> codecFactory) {
-            return new ChannelConnectionFactory<I,O,C>(publisherFactory, codecFactory);
+                ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
+                ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
+            return new FromCodecFactory<I,O,T,C>(publisherFactory, codecFactory, connectionFactory);
         }
         
         private final Factory<? extends Publisher> publisherFactory;
-        private final Connection.CodecFactory<I,O,C> codecFactory;
+        private final ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory;
+        private final ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory;
         
-        private ChannelConnectionFactory(
+        private FromCodecFactory(
                 Factory<? extends Publisher> publisherFactory,
-                Connection.CodecFactory<I,O,C> codecFactory) {
+                ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
+                ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
             super();
             this.publisherFactory = publisherFactory;
             this.codecFactory = codecFactory;
+            this.connectionFactory = connectionFactory;
         }
 
         @Override
         public C get(Channel channel) {
             Publisher publisher = publisherFactory.get();
-            ChannelConnection<I> channelConnection = ChannelConnection.newInstance(channel, publisher);
-            Pair<C, ? extends Codec<? super I, Optional<? extends O>>> codec = codecFactory.get(channelConnection);
-            attach(channel, codec.first(), codec.second(), codec.second());
-            return codec.first();
+            ChannelConnection<I> connection = new ChannelConnection<I>(channel, publisher);
+            Pair<Class<I>,T> codec = codecFactory.get(connection);
+            connection.attach(codec.first(), codec.second());
+            return connectionFactory.get(Pair.<Pair<Class<I>, T>, Connection<I>>create(codec, connection));
         }
     }
 
-    public class OutboundProcessor implements Processor<PromiseTask<I, I>, I> {
-        @Override
-        public I apply(PromiseTask<I, I> input) throws Exception {
-            Connection.State state = state();
-            switch (state) {
-            case CONNECTION_CLOSING:
-            case CONNECTION_CLOSED:
-                input.setException(new IllegalStateException(state.toString()));
-                break;
-            default:
-                break;
-            }
-            I task = input.task();
-            if (! input.isDone()) {
-                ChannelFuture future = get().write(task);
-                ChannelFutureWrapper.of(future, task, input);
-            }
-            return task;
-        }
-    }
-
-    public static <I,O> ChannelConnection<I> newInstance(
-            Channel channel, 
-            Publisher publisher, 
-            Encoder<? super I> encoder, 
-            Decoder<Optional<? extends O>> decoder) {
-        ChannelConnection<I> connection = newInstance(channel, publisher);
-        attach(connection.get(), connection, encoder, decoder);
-        return connection;
-    }
-    
-    protected static <I,O> Channel attach(
-            Channel channel, 
-            Publisher publisher,
-            Encoder<? super I> encoder, 
-            Decoder<Optional<? extends O>> decoder) {
-        InboundHandler.attach(channel, publisher, decoder);
-        OutboundHandler.attach(channel, encoder);
-        ConnectionStateHandler.attach(channel, publisher);
-        return channel;
-    }
-
-    protected static <I,O> ChannelConnection<I> newInstance(
-            Channel channel, 
-            Publisher publisher) {
-        return new ChannelConnection<I>(channel, publisher);
-    }
-    
     protected final PublisherActor publisher;
+    protected final Automaton<Connection.State, Connection.State> state;
     protected final Logger logger;
     protected final Channel channel;
     protected final TaskMailbox.ActorTaskExecutor<I,I> outbound;
@@ -123,13 +80,23 @@ public class ChannelConnection<I>
         this.logger = LoggerFactory.getLogger(getClass());
         this.channel = checkNotNull(channel);
         this.publisher = PublisherActor.newInstance(publisher, this);
+        this.state = ConnectionStateHandler.newAutomaton(this);
         this.outbound = TaskMailbox.executor(TaskMailbox.actor(new OutboundProcessor(), this));
+    }
+    
+    protected <O> void attach(
+            Class<I> inputType,
+            Codec<I, Optional<O>> codec) {
+        OutboundHandler.attach(get(), inputType, codec);
+        ConnectionStateHandler.attach(get(), state);
+        DecoderHandler.attach(get(), codec);
+        InboundHandler.attach(get(), this);
     }
     
     @Override
     public void execute(Runnable runnable) {
-        if (channel.isRegistered()) {
-            channel.eventLoop().execute(runnable);
+        if (get().isRegistered()) {
+            get().eventLoop().execute(runnable);
         } else {
             executeNow(runnable);
         }
@@ -146,12 +113,7 @@ public class ChannelConnection<I>
 
     @Override
     public State state() {
-        ConnectionStateHandler stateHandler = get().pipeline().get(ConnectionStateHandler.class);
-        if (stateHandler != null) {
-            return stateHandler.state();
-        } else {
-            return State.CONNECTION_CLOSED;
-        }
+        return this.state.state();
     }
 
     @Override
@@ -167,8 +129,6 @@ public class ChannelConnection<I>
     @Override
     public void read() {
         get().read();
-        // Note that this may result in multiple events for the same buffer
-        get().pipeline().fireInboundBufferUpdated();
     }
 
     @Override
@@ -177,16 +137,10 @@ public class ChannelConnection<I>
     }
 
     @Override
-    public ListenableFuture<Connection<I>> flush() {
-        ChannelFuture future = get().flush();
-        ChannelFutureWrapper<Connection<I>> wrapper = ChannelFutureWrapper
-                .of(future, (Connection<I>) this);
-        return wrapper;
-    }
-
-    @Override
     public ListenableFuture<Connection<I>> close() {
-        logger.debug("Closing: {}", this);
+        if(state.apply(State.CONNECTION_CLOSING).orNull() == State.CONNECTION_CLOSING) {
+            logger.debug("Closing: {}", this);
+        }
         ChannelFuture future = get().close();
         ChannelFutureWrapper<Connection<I>> wrapper = ChannelFutureWrapper
                 .of(future, (Connection<I>) this);
@@ -213,5 +167,26 @@ public class ChannelConnection<I>
     public String toString() {
         return Objects.toStringHelper(this)
                 .add("channel", get()).toString();
+    }
+
+    protected class OutboundProcessor implements Processor<PromiseTask<I, I>, I> {
+        @Override
+        public I apply(PromiseTask<I, I> input) throws Exception {
+            Connection.State state = state();
+            switch (state) {
+            case CONNECTION_CLOSING:
+            case CONNECTION_CLOSED:
+                input.setException(new IllegalStateException(state.toString()));
+                break;
+            default:
+                break;
+            }
+            I task = input.task();
+            if (! input.isDone()) {
+                ChannelFuture future = get().write(task);
+                ChannelFutureWrapper.of(future, task, input);
+            }
+            return task;
+        }
     }
 }

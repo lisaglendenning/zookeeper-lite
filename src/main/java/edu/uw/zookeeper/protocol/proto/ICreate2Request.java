@@ -1,42 +1,44 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
 import java.util.List;
 
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.proto.Create2Request;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records.CreateRecord;
-import edu.uw.zookeeper.protocol.Records.MultiOpRequest;
-import edu.uw.zookeeper.protocol.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.Records.Requests;
+import edu.uw.zookeeper.protocol.Operation;
 
-public class ICreate2Request extends Create2Request implements RequestRecord, CreateRecord, MultiOpRequest {
-    public static final OpCode OPCODE = OpCode.CREATE2;
+@Operational(opcode=OpCode.CREATE2)
+public class ICreate2Request extends IOperationalRecord<Create2Request> implements Operation.Request, Records.CreateHolder, Records.MultiOpRequest {
 
     public ICreate2Request() {
-        super();
-    }
-
-    public ICreate2Request(String path, byte[] data, List<ACL> acl, int flags) {
-        super(path, data, acl, flags);
+        this(new Create2Request());
     }
     
-    @Override
-    public OpCode opcode() {
-        return OPCODE;
+    public ICreate2Request(String path, byte[] data, List<ACL> acl, int flags) {
+        this(new Create2Request(path, data, acl, flags));
+    }
+    
+    public ICreate2Request(Create2Request record) {
+        super(record);
     }
 
     @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Requests.TAG);
+    public String getPath() {
+        return get().getPath();
     }
 
     @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Requests.TAG);
+    public byte[] getData() {
+        return get().getData();
+    }
+
+    @Override
+    public List<ACL> getAcl() {
+        return get().getAcl();
+    }
+
+    @Override
+    public int getFlags() {
+        return get().getFlags();
     }
 }

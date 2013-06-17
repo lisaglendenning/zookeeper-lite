@@ -1,40 +1,36 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.SetDataRequest;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.MultiOpRequest;
-import edu.uw.zookeeper.protocol.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.Records.Requests;
+import edu.uw.zookeeper.protocol.Operation;
 
-public class ISetDataRequest extends SetDataRequest implements RequestRecord, Records.PathRecord, Records.DataRecord, Records.VersionRecord, MultiOpRequest {
-    public static final OpCode OPCODE = OpCode.SET_DATA;
+@Operational(opcode=OpCode.SET_DATA)
+public class ISetDataRequest extends IOperationalRecord<SetDataRequest> implements Operation.Request, Records.PathHolder, Records.DataHolder, Records.VersionHolder, Records.MultiOpRequest {
     
     public ISetDataRequest() {
-        super();
+        this(new SetDataRequest());
     }
-
+    
     public ISetDataRequest(String path, byte[] data, int version) {
-        super(path, data, version);
+        this(new SetDataRequest(path, data, version));
+    }
+
+    public ISetDataRequest(SetDataRequest record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
+    public int getVersion() {
+        return get().getVersion();
     }
 
     @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Requests.TAG);
+    public byte[] getData() {
+        return get().getData();
     }
 
     @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Requests.TAG);
+    public String getPath() {
+        return get().getPath();
     }
 }

@@ -1,39 +1,31 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.GetChildren2Request;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.Records.Requests;
+import edu.uw.zookeeper.protocol.Operation;
 
-public class IGetChildren2Request extends GetChildren2Request implements RequestRecord, Records.PathRecord, Records.WatchRecord {
-    public static final OpCode OPCODE = OpCode.GET_CHILDREN2;
+@Operational(opcode=OpCode.GET_CHILDREN2)
+public class IGetChildren2Request extends IOperationalRecord<GetChildren2Request> implements Operation.Request, Records.PathHolder, Records.WatchHolder {
     
     public IGetChildren2Request() {
-        super();
+        this(new GetChildren2Request());
     }
-
+    
     public IGetChildren2Request(String path, boolean watch) {
-        super(path, watch);
+        this(new GetChildren2Request(path, watch));
+    }
+
+    public IGetChildren2Request(GetChildren2Request record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
+    public boolean getWatch() {
+        return get().getWatch();
     }
 
     @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Requests.TAG);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Requests.TAG);
+    public String getPath() {
+        return get().getPath();
     }
 }

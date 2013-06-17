@@ -22,19 +22,19 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
         return state;
     }
 
-    public static ConnectionStateHandler attach(Channel channel, Publisher publisher) {
-        ConnectionStateHandler handler = newInstance(publisher);
+    public static ConnectionStateHandler attach(Channel channel, Automaton<Connection.State, Connection.State> state) {
+        ConnectionStateHandler handler = newInstance(state);
         channel.pipeline().addLast(
                 ConnectionStateHandler.class.getName(), handler);
         return handler;
     }
-    
-    public static ConnectionStateHandler newInstance(Publisher publisher) {
-        return newInstance(Automatons.createSynchronizedEventful(publisher, Automatons.createSimple(Connection.State.class)));
-    }
-    
+
     public static ConnectionStateHandler newInstance(Automaton<Connection.State, Connection.State> state) {
         return new ConnectionStateHandler(state);
+    }
+    
+    public static Automaton<Connection.State, Connection.State> newAutomaton(Publisher publisher) {
+        return Automatons.createSynchronizedEventful(publisher, Automatons.createSimple(Connection.State.CONNECTION_OPENING));
     }
 
     protected final Logger logger;
@@ -76,23 +76,20 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
         super.exceptionCaught(ctx, cause);
     }
 
+    /* Probably don't need this?
     @Override
-    public void inboundBufferUpdated(ChannelHandlerContext ctx)
+    public void messageReceived(ChannelHandlerContext ctx, MessageList<Object> msgs)
             throws Exception {
-        automaton.apply(Connection.State.CONNECTION_OPENED);
-        ctx.fireInboundBufferUpdated();
-    }
+        if (state() == Connection.State.CONNECTION_OPENING) {
+            automaton.apply(Connection.State.CONNECTION_OPENED);
+        }
+        super.messageReceived(ctx, msgs);
+    }*/
 
     @Override
     public void close(ChannelHandlerContext ctx, ChannelPromise future)
             throws Exception {
         automaton.apply(Connection.State.CONNECTION_CLOSING);
         super.close(ctx, future);
-    }
-
-    @Override
-    public void flush(ChannelHandlerContext ctx, ChannelPromise promise)
-            throws Exception {
-        ctx.flush(promise);
     }
 }

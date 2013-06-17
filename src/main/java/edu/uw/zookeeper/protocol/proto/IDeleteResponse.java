@@ -1,34 +1,11 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
+import edu.uw.zookeeper.protocol.Operation;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-
-public enum IDeleteResponse implements Records.ResponseRecord, Records.MultiOpResponse {
-    DELETE_RESPONSE;
-    
-    public static IDeleteResponse getInstance() {
-        return DELETE_RESPONSE;
+@Operational(opcode=OpCode.DELETE)
+@Shared
+public class IDeleteResponse extends IOperationalRecord<EmptyRecord> implements Operation.Response, Records.MultiOpResponse {
+    public IDeleteResponse() {
+        super(EmptyRecord.getInstance());
     }
-    
-    public static final OpCode OPCODE = OpCode.DELETE;
-    
-    @Override
-    public OpCode opcode() {
-        return OPCODE;
-    }
-
-    @Override
-    public void serialize(OutputArchive archive, String tag) {}
-
-    @Override
-    public void serialize(OutputArchive archive) {}
-    
-    @Override
-    public void deserialize(InputArchive archive, String tag) {}
-    
-    @Override
-    public void deserialize(InputArchive archive) {}
 }

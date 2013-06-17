@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.protocol;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 
 import java.io.IOException;
 
@@ -13,7 +12,7 @@ import edu.uw.zookeeper.util.Automatons;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Stateful;
 
-public class ProtocolCodec<I extends Message, O extends Message> implements Codec<I, Optional<? extends O>>, Stateful<ProtocolState> {
+public class ProtocolCodec<I extends Message, O extends Message> implements Codec<I, Optional<O>>, Stateful<ProtocolState> {
 
     public static Automaton<ProtocolState, Message> newAutomaton(Publisher publisher) {
         return Automatons.createSynchronizedEventful(publisher, 
@@ -22,12 +21,12 @@ public class ProtocolCodec<I extends Message, O extends Message> implements Code
     
     protected final Automaton<ProtocolState, Message> automaton;
     protected final Encoder<? super I> encoder;
-    protected final Decoder<Optional<? extends O>> decoder;
+    protected final Decoder<Optional<O>> decoder;
 
     protected ProtocolCodec(
             Automaton<ProtocolState, Message> automaton,
             Encoder<? super I> encoder,
-            Decoder<Optional<? extends O>> decoder) {
+            Decoder<Optional<O>> decoder) {
         this.automaton = automaton;
         this.encoder = encoder;
         this.decoder = decoder;
@@ -39,15 +38,14 @@ public class ProtocolCodec<I extends Message, O extends Message> implements Code
     }
 
     @Override
-    public ByteBuf encode(I input, ByteBufAllocator output) throws IOException {
-        ByteBuf out = encoder.encode(input, output);
+    public void encode(I input, ByteBuf output) throws IOException {
+        encoder.encode(input, output);
         automaton.apply(input);
-        return out;
     }
 
     @Override
-    public Optional<? extends O> decode(ByteBuf input) throws IOException {
-        Optional<? extends O> out =  decoder.decode(input);
+    public Optional<O> decode(ByteBuf input) throws IOException {
+        Optional<O> out =  decoder.decode(input);
         if (out.isPresent()) {
             automaton.apply(out.get());
         }

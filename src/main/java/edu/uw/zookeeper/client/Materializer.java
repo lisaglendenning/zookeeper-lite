@@ -20,8 +20,8 @@ import edu.uw.zookeeper.data.StampedReference;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.data.ZNodeLabelTrie;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.Records;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 
@@ -138,7 +138,7 @@ public class Materializer extends ZNodeResponseCache<Materializer.MaterializedNo
     
     public static class Operator implements Reference<Materializer> {
         
-        public static class Submitter<C extends Operations.Builder<? extends Records.RequestRecord>> implements Reference<C> {
+        public static class Submitter<C extends Operations.Builder<? extends Operation.Request>> implements Reference<C> {
             protected final C builder;
             protected final ClientExecutor client;
             
@@ -168,17 +168,17 @@ public class Materializer extends ZNodeResponseCache<Materializer.MaterializedNo
             return materializer;
         }
 
-        public Submitter<Operations.Requests.SerializedData<Records.CreateRecord, Operations.Requests.Create, Object>> create(ZNodeLabel.Path path) {
+        public Submitter<Operations.Requests.SerializedData<Operation.Request, Operations.Requests.Create, Object>> create(ZNodeLabel.Path path) {
             return create(path, null);
         }
         
-        public Submitter<Operations.Requests.SerializedData<Records.CreateRecord, Operations.Requests.Create, Object>> create(ZNodeLabel.Path path, Object data) {
+        public Submitter<Operations.Requests.SerializedData<Operation.Request, Operations.Requests.Create, Object>> create(ZNodeLabel.Path path, Object data) {
             Schema.SchemaNode node = get().schema().match(path);
             Operations.Requests.Create create = Operations.Requests.create().setPath(path);
             if (node != null) {
                 create.setMode(node.get().getCreateMode()).setAcl(Schema.inheritedAcl(node));
             }
-            return new Submitter<Operations.Requests.SerializedData<Records.CreateRecord, Operations.Requests.Create, Object>>(
+            return new Submitter<Operations.Requests.SerializedData<Operation.Request, Operations.Requests.Create, Object>>(
                     Operations.Requests.serialized(create, get().codec(), data), get());
         }
         

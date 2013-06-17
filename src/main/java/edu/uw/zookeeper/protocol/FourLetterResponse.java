@@ -3,8 +3,6 @@ package edu.uw.zookeeper.protocol;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.Unpooled;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
@@ -60,9 +58,8 @@ public class FourLetterResponse implements Message.ServerMessage {
     }
 
     @Override
-    public ByteBuf encode(ByteBufAllocator output) {
-        ByteBuf out = Unpooled.wrappedBuffer(byteValue());
-        return out;
+    public void encode(ByteBuf output) {
+        output.writeBytes(byteValue());
     }
     
     @Override

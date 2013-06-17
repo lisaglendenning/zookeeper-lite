@@ -3,6 +3,8 @@ package edu.uw.zookeeper.protocol;
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 
+import edu.uw.zookeeper.protocol.proto.OpCode;
+
 public abstract class Operation {
 
     public static interface XidHeader {
@@ -13,27 +15,18 @@ public abstract class Operation {
         long zxid();
     }
     
-    public static interface Action {
+    public static interface Action extends Record {
         OpCode opcode();
-    }
-    
-    public static interface RecordHolder<T extends Record> {
-        T asRecord();
     }
 
     public static interface Request extends Action {}
 
-    public static interface Reply {}
-
-    /**
-     * A reply indicating a successful operation.
-     */
-    public static interface Response extends Action, Reply {}
+    public static interface Response extends Action {}
 
     /**
      * A reply indicating an unsuccessful operation.
      */
-    public static interface Error extends Reply {
+    public static interface Error extends Response {
         KeeperException.Code error();
     }
     
@@ -42,7 +35,7 @@ public abstract class Operation {
     }
     
     public static interface SessionReply extends Message.ServerSessionMessage, XidHeader, ZxidHeader {
-        Reply reply();
+        Response reply();
     }
     
     public static interface SessionResult {

@@ -7,6 +7,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;

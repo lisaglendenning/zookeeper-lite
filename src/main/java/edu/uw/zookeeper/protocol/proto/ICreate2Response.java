@@ -1,41 +1,32 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.Create2Response;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records.MultiOpResponse;
-import edu.uw.zookeeper.protocol.Records.PathRecord;
-import edu.uw.zookeeper.protocol.Records.ResponseRecord;
-import edu.uw.zookeeper.protocol.Records.Responses;
+import edu.uw.zookeeper.protocol.Operation;
 
-public class ICreate2Response extends Create2Response implements ResponseRecord, MultiOpResponse, PathRecord {
-    public static final OpCode OPCODE = OpCode.CREATE2;
-    
+@Operational(opcode=OpCode.CREATE2)
+public class ICreate2Response extends IOperationalRecord<Create2Response> implements Operation.Response, Records.MultiOpResponse, Records.PathHolder, Records.StatHolder {
+
     public ICreate2Response() {
-        super();
-    }
-
-    public ICreate2Response(String path, Stat stat) {
-        super(path, stat);
+        this(new Create2Response());
     }
     
-    @Override
-    public OpCode opcode() {
-        return OPCODE;
+    public ICreate2Response(String path, Stat stat) {
+        this(new Create2Response(path, stat));
+    }
+        
+    public ICreate2Response(Create2Response record) {
+        super(record);
     }
 
     @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Responses.TAG);
+    public String getPath() {
+        return get().getPath();
     }
 
     @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Responses.TAG);
+    public Stat getStat() {
+        return get().getStat();
     }
 }

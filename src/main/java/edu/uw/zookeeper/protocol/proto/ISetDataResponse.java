@@ -1,41 +1,26 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.SetDataResponse;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.MultiOpResponse;
-import edu.uw.zookeeper.protocol.Records.ResponseRecord;
-import edu.uw.zookeeper.protocol.Records.Responses;
+import edu.uw.zookeeper.protocol.Operation;
+@Operational(opcode=OpCode.SET_DATA)
+public class ISetDataResponse extends IOperationalRecord<SetDataResponse> implements Operation.Response, Records.StatHolder, Records.MultiOpResponse {
 
-public class ISetDataResponse extends SetDataResponse implements ResponseRecord, Records.StatRecord, MultiOpResponse {
-    public static final OpCode OPCODE = OpCode.SET_DATA;
-    
     public ISetDataResponse() {
-        super();
+        this(new SetDataResponse());
     }
-
+    
     public ISetDataResponse(Stat stat) {
-        super(stat);
+        this(new SetDataResponse(stat));
+    }
+
+    public ISetDataResponse(SetDataResponse record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
-    }
-
-    @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Responses.TAG);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Responses.TAG);
+    public Stat getStat() {
+        return get().getStat();
     }
 }

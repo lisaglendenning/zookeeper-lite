@@ -2,35 +2,37 @@ package edu.uw.zookeeper.protocol;
 
 import static com.google.common.base.Preconditions.*;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.ByteBufOutputStream;
-
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.jute.BinaryInputArchive;
-import org.apache.jute.BinaryOutputArchive;
+import org.apache.jute.OutputArchive;
+import org.apache.jute.Record;
 
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.Session.Parameters;
+import edu.uw.zookeeper.protocol.proto.ByteBufInputArchive;
+import edu.uw.zookeeper.protocol.proto.ByteBufOutputArchive;
 import edu.uw.zookeeper.protocol.proto.IConnectRequest;
 import edu.uw.zookeeper.protocol.proto.IConnectResponse;
+import edu.uw.zookeeper.protocol.proto.IOperationalRecord;
+import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.Operational;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.TimeValue;
 
-public abstract class OpCreateSession<T extends Records.ConnectRecord>
-        extends OpRecord<T> {
+@Operational(opcode=OpCode.CREATE_SESSION)
+public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> extends IOperationalRecord<T>
+        implements Operation.Action, Message, Records.ConnectHolder {
 
     public static abstract class Request extends
-            OpCreateSession<IConnectRequest> implements
+            ConnectMessage<IConnectRequest> implements
             Operation.Request, Message.ClientSessionMessage {
 
-        public static abstract class RequestsFactory implements Factory<OpCreateSession.Request> {
+        public static abstract class RequestsFactory implements Factory<ConnectMessage.Request> {
             protected final Reference<Long> lastZxid;
         
             protected RequestsFactory(
@@ -39,24 +41,19 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
             }
         }
 
-        public static Request decode(InputStream input) throws IOException {
-            IConnectRequest record = Records.decode(newRecord(), input);
+        public static Request decode(ByteBuf input) throws IOException {
+            ByteBufInputArchive archive = new ByteBufInputArchive(input);
+            IConnectRequest record = new IConnectRequest();
+            record.deserialize(archive, Records.CONNECT_TAG);
             boolean readOnly = false;
             boolean wraps = false;
-            BinaryInputArchive bia = BinaryInputArchive.getArchive(input);
             try {
-                readOnly = bia.readBool("readOnly");
+                readOnly = archive.readBool("readOnly");
             } catch (IOException e) {
                 wraps = true;
             }
             Request out = Request.newInstance(record, readOnly, wraps);
             return out;
-        }
-        
-        public static IConnectRequest newRecord() {
-            IConnectRequest request = (IConnectRequest) Records.Requests.getInstance().get(OPCODE);
-            request.setProtocolVersion(Records.PROTOCOL_VERSION);
-            return request;
         }
 
         public static Request newInstance(IConnectRequest record, boolean readOnly,
@@ -70,6 +67,10 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
         
         protected Request(IConnectRequest record, boolean readOnly, boolean wraps) {
             super(record, readOnly, wraps);
+        }
+        
+        public long getLastZxidSeen() {
+            return get().getLastZxidSeen();
         }
         
         public static class NewRequest extends Request {
@@ -91,8 +92,8 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
                 }
             
                 @Override
-                public OpCreateSession.Request get() {
-                    return OpCreateSession.Request.NewRequest.newInstance(timeOut, lastZxid.get());
+                public ConnectMessage.Request get() {
+                    return ConnectMessage.Request.NewRequest.newInstance(timeOut, lastZxid.get());
                 }
             }
             
@@ -103,19 +104,20 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
             }
 
             public static IConnectRequest newRecord() {
-                return newRecord(0, 0L);
+                return toRecord(0, 0L);
             }
 
-            public static IConnectRequest newRecord(TimeValue timeOut, long lastZxid) {
-                return newRecord(timeOut.value(TIMEOUT_UNIT).intValue(), lastZxid);
+            public static IConnectRequest toRecord(TimeValue timeOut, long lastZxid) {
+                return toRecord(timeOut.value(TIMEOUT_UNIT).intValue(), lastZxid);
             }
 
-            public static IConnectRequest newRecord(int timeOutMillis, long lastZxid) {
-                IConnectRequest record = Request.newRecord();
-                record.setSessionId(Session.UNINITIALIZED_ID);
-                record.setTimeOut(timeOutMillis);
-                record.setPasswd(Parameters.NO_PASSWORD);
-                record.setLastZxidSeen(lastZxid);
+            public static IConnectRequest toRecord(int timeOutMillis, long lastZxid) {
+                IConnectRequest record = new IConnectRequest(
+                        Records.PROTOCOL_VERSION,
+                        lastZxid,
+                        timeOutMillis,
+                        Session.UNINITIALIZED_ID,
+                        Parameters.NO_PASSWORD);
                 return record;
             }
             
@@ -124,7 +126,7 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
             }
 
             public static Request newInstance(TimeValue timeOut, long lastZxid) {
-                return newInstance(newRecord(timeOut, lastZxid));
+                return newInstance(toRecord(timeOut, lastZxid));
             }
             
             public static Request newInstance(IConnectRequest record) {
@@ -164,8 +166,8 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
                 }
                 
                 @Override
-                public OpCreateSession.Request get() {
-                    return OpCreateSession.Request.RenewRequest.newInstance(session, lastZxid.get());
+                public ConnectMessage.Request get() {
+                    return ConnectMessage.Request.RenewRequest.newInstance(session, lastZxid.get());
                 }
             }
             
@@ -175,25 +177,26 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
                 return RenewSessionRequestsFactory.newInstance(lastZxid, session);
             }
 
-            public static IConnectRequest newRecord(Session session) {
-                return newRecord(session, 0L);
+            public static IConnectRequest toRecord(Session session) {
+                return toRecord(session, 0L);
             }
 
-            public static IConnectRequest newRecord(Session session, long lastZxid) {
-                IConnectRequest record = Request.newRecord();
-                record.setSessionId(session.id());
-                record.setTimeOut(session.parameters().timeOut().value(TIMEOUT_UNIT).intValue());
-                record.setPasswd(session.parameters().password());
-                record.setLastZxidSeen(lastZxid);
+            public static IConnectRequest toRecord(Session session, long lastZxid) {
+                IConnectRequest record = new IConnectRequest(
+                        Records.PROTOCOL_VERSION, 
+                        lastZxid,
+                        session.parameters().timeOut().value(TIMEOUT_UNIT).intValue(),
+                        session.id(),
+                        session.parameters().password());
                 return record;
             }
             
             public static RenewRequest newInstance(Session session) {
-                return newInstance(newRecord(session));
+                return newInstance(toRecord(session));
             }
 
             public static RenewRequest newInstance(Session session, long lastZxid) {
-                return newInstance(newRecord(session, lastZxid));
+                return newInstance(toRecord(session, lastZxid));
             }
 
             public static RenewRequest newInstance(IConnectRequest record) {
@@ -211,7 +214,7 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
     }
 
     public static abstract class Response extends
-            OpCreateSession<IConnectResponse> implements
+            ConnectMessage<IConnectResponse> implements
             Operation.Response, Message.ServerSessionMessage {
 
         public static Response newInstance(IConnectResponse record, boolean readOnly,
@@ -219,24 +222,19 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
             return Valid.newInstance(record, readOnly, wraps);
         }
 
-        public static Response decode(InputStream input) throws IOException {
-            IConnectResponse record = Records.decode(newRecord(), input);
+        public static Response decode(ByteBuf input) throws IOException {
+            ByteBufInputArchive archive = new ByteBufInputArchive(input);
+            IConnectResponse record = new IConnectResponse();
+            record.deserialize(archive, Records.CONNECT_TAG);
             boolean readOnly = false;
             boolean wraps = false;
-            BinaryInputArchive bia = BinaryInputArchive.getArchive(input);
             try {
-                readOnly = bia.readBool("readOnly");
+                readOnly = archive.readBool("readOnly");
             } catch (IOException e) {
                 wraps = true;
             }
             Response out = Response.newInstance(record, readOnly, wraps);
             return out;
-        }
-
-        public static IConnectResponse newRecord() {
-            IConnectResponse response = (IConnectResponse) Records.Responses.getInstance().get(OPCODE);
-            response.setProtocolVersion(Records.PROTOCOL_VERSION);
-            return response;
         }
 
         protected Response(IConnectResponse record) {
@@ -249,11 +247,12 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
 
         public static class Valid extends Response implements Operation.Response {
 
-            public static IConnectResponse newRecord(Session session) {
-                IConnectResponse record = newRecord();
-                record.setSessionId(session.id());
-                record.setTimeOut(session.parameters().timeOut().value(TIMEOUT_UNIT).intValue());
-                record.setPasswd(session.parameters().password());
+            public static IConnectResponse toRecord(Session session) {
+                IConnectResponse record = new IConnectResponse(
+                        Records.PROTOCOL_VERSION, 
+                        session.parameters().timeOut().value(TIMEOUT_UNIT).intValue(),
+                        session.id(),
+                        session.parameters().password());
                 return record;
             }
             
@@ -262,7 +261,7 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
             }
 
             public static Response newInstance(Session session, boolean readOnly, boolean wraps) {
-                return newInstance(newRecord(session), readOnly, wraps);
+                return newInstance(toRecord(session), readOnly, wraps);
             }
 
             public static Response newInstance(IConnectResponse record) {
@@ -285,13 +284,8 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
 
         public static class Invalid extends Response {
 
-            public static IConnectResponse newRecord() {
-                IConnectResponse record = Response.newRecord();
-                record.setSessionId(Session.UNINITIALIZED_ID);
-                record.setTimeOut(0);
-                record.setPasswd(Parameters.NO_PASSWORD);
-                return record;
-            }
+            protected final static IConnectResponse RECORD = 
+                    new IConnectResponse(Records.PROTOCOL_VERSION, 0, Session.UNINITIALIZED_ID, Parameters.NO_PASSWORD);
 
             public static Invalid newInstance() {
                 return newInstance(false, false);
@@ -302,7 +296,7 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
             }
 
             private Invalid(boolean readOnly, boolean wraps) {
-                super(newRecord(), readOnly, wraps);
+                super(RECORD, readOnly, wraps);
             }
             
             @Override
@@ -311,74 +305,82 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
             }
             
             @Override
-            public Session.Parameters toParameters(){
+            public Session.Parameters toParameters() {
                 return Session.Parameters.uninitialized();
             }
         }
     }
 
-    private static final OpCode OPCODE = OpCode.CREATE_SESSION;
-    private static final TimeUnit TIMEOUT_UNIT = TimeUnit.MILLISECONDS;
+    protected static final TimeUnit TIMEOUT_UNIT = TimeUnit.MILLISECONDS;
     
-    private final boolean readOnly;
-    private final boolean wraps;
+    protected final boolean readOnly;
+    protected final boolean wraps;
 
-    protected OpCreateSession(T record) {
+    protected ConnectMessage(T record) {
         this(record, false, false);
     }
 
-    protected OpCreateSession(T record, boolean readOnly, boolean wraps) {
+    protected ConnectMessage(T record, boolean readOnly, boolean wraps) {
         super(record);
         this.readOnly = readOnly;
         this.wraps = wraps;
     }
 
-    @Override
-    public OpCode opcode() {
-        return OPCODE;
-    }
-
-    public boolean readOnly() {
+    public boolean getReadOnly() {
         return readOnly;
     }
 
-    public boolean wraps() {
+    public boolean getWraps() {
         return wraps;
-    }
-
-    public Session toSession() {
-        return Session.create(asRecord().getSessionId(),
-                toParameters());
-    }
-    
-    public Session.Parameters toParameters() {
-        Records.ConnectRecord record = asRecord();
-        return Session.Parameters.create(record.getTimeOut(),
-                record.getPasswd());
     }
     
     @Override
-    public ByteBuf encode(ByteBufAllocator output) throws IOException {
-        ByteBuf out = checkNotNull(output).buffer();
-        OutputStream outs = new ByteBufOutputStream(out);
-        Records.encode(asRecord(), outs);
-        if (!wraps()) {
-            BinaryOutputArchive boa = BinaryOutputArchive.getArchive(outs);
-            boa.writeBool(readOnly(), "readOnly");
+    public int getProtocolVersion() {
+        return get().getProtocolVersion();
+    }
+
+    @Override
+    public int getTimeOut() {
+        return get().getTimeOut();
+    }
+
+    @Override
+    public long getSessionId() {
+        return get().getSessionId();
+    }
+
+    @Override
+    public byte[] getPasswd() {
+        return get().getPasswd();
+    }
+    
+    public Session toSession() {
+        return Session.create(getSessionId(), toParameters());
+    }
+    
+    public Session.Parameters toParameters() {
+        return Session.Parameters.create(getTimeOut(), getPasswd());
+    }
+    
+    @Override
+    public void serialize(OutputArchive archive, String tag) throws IOException {
+        get().serialize(archive, tag);
+        if (!getWraps()) {
+            archive.writeBool(getReadOnly(), "readOnly");
         }
-        return out;
+    }
+    
+    @Override
+    public void encode(ByteBuf output) throws IOException {
+        ByteBufOutputArchive archive = new ByteBufOutputArchive(output);
+        serialize(archive, Records.CONNECT_TAG);
     }
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("opcode", opcode())
-                .add("record", Records.toString(asRecord()))
-                .add("readOnly", readOnly()).add("wraps", wraps()).toString();
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(asRecord(), readOnly(), wraps());
+        return Objects.toStringHelper(this)
+                .add("record", get())
+                .add("readOnly", getReadOnly()).add("wraps", getWraps()).toString();
     }
 
     @Override
@@ -392,10 +394,14 @@ public abstract class OpCreateSession<T extends Records.ConnectRecord>
         if (getClass() != obj.getClass()) {
             return false;
         }
-        @SuppressWarnings("unchecked")
-        OpCreateSession<T> other = (OpCreateSession<T>) obj;
-        return Objects.equal(asRecord(), other.asRecord())
-                && Objects.equal(readOnly(), other.readOnly())
-                && Objects.equal(wraps(), other.wraps());
+        ConnectMessage<?> other = (ConnectMessage<?>) obj;
+        return Objects.equal(get(), other.get())
+                && Objects.equal(getReadOnly(), other.getReadOnly())
+                && Objects.equal(getWraps(), other.getWraps());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(get(), getReadOnly(), getWraps());
     }
 }

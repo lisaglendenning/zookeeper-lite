@@ -16,12 +16,12 @@ import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.OpCreateSession;
-import edu.uw.zookeeper.protocol.OpRecord;
+import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.OpSessionResult;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
+import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Factory;
@@ -54,7 +54,7 @@ public class ClientProtocolExecutor
                 processor, connections, lastZxid, timeOut);
     }
     
-    public static class ClientProtocolExecutorFactory implements DefaultsFactory<Factory<OpCreateSession.Request>, ClientProtocolExecutor> {
+    public static class ClientProtocolExecutorFactory implements DefaultsFactory<Factory<ConnectMessage.Request>, ClientProtocolExecutor> {
 
         public static ClientProtocolExecutorFactory newInstance(
                 Processor<Operation.Request, Operation.SessionRequest> processor,
@@ -63,25 +63,25 @@ public class ClientProtocolExecutor
                 TimeValue timeOut) {
             return newInstance(
                     processor, connections, 
-                    OpCreateSession.Request.NewRequest.factory(lastZxid, timeOut));
+                    ConnectMessage.Request.NewRequest.factory(lastZxid, timeOut));
         }
         
         public static ClientProtocolExecutorFactory newInstance(
                 Processor<Operation.Request, Operation.SessionRequest> processor,
                 Factory<? extends ClientCodecConnection> connections,
-                Factory<OpCreateSession.Request> requests) {
+                Factory<ConnectMessage.Request> requests) {
             return new ClientProtocolExecutorFactory(
                     processor, connections, requests); 
         }
         
         protected final Processor<Operation.Request, Operation.SessionRequest> processor;
-        protected final Factory<OpCreateSession.Request> requests;
+        protected final Factory<ConnectMessage.Request> requests;
         protected final Factory<? extends ClientCodecConnection> connections;
         
         protected ClientProtocolExecutorFactory(
                 Processor<Operation.Request, Operation.SessionRequest> processor,
                 Factory<? extends ClientCodecConnection> connections,
-                Factory<OpCreateSession.Request> requests) {
+                Factory<ConnectMessage.Request> requests) {
             this.processor = processor;
             this.connections = connections;
             this.requests = requests;
@@ -93,7 +93,7 @@ public class ClientProtocolExecutor
         }
 
         @Override
-        public ClientProtocolExecutor get(Factory<OpCreateSession.Request> requests) {
+        public ClientProtocolExecutor get(Factory<ConnectMessage.Request> requests) {
             return ClientProtocolExecutor.newInstance(
                     connections.get(), 
                     processor,
@@ -104,7 +104,7 @@ public class ClientProtocolExecutor
     public static ClientProtocolExecutor newInstance(
             ClientCodecConnection codecConnection,
             Processor<Operation.Request, Operation.SessionRequest> processor,
-            Factory<OpCreateSession.Request> requests) {
+            Factory<ConnectMessage.Request> requests) {
         return new ClientProtocolExecutor(
                 codecConnection,
                 processor,
@@ -269,7 +269,7 @@ public class ClientProtocolExecutor
     }
 
     public ListenableFuture<Operation.SessionResult> disconnect() {
-        return submit(OpRecord.OpRequest.newInstance(OpCode.CLOSE_SESSION));
+        return submit(Records.Requests.getInstance().get(OpCode.CLOSE_SESSION));
     }
 
     @Override

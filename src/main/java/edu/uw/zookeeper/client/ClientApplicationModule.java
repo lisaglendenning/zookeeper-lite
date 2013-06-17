@@ -12,10 +12,7 @@ import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerRoleView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
-import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.net.Connection.CodecFactory;
 import edu.uw.zookeeper.netty.client.NettyClientModule;
-import edu.uw.zookeeper.protocol.CodecConnection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
 import edu.uw.zookeeper.util.Application;
@@ -124,13 +121,14 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
         ServiceMonitor monitor = runtime.serviceMonitor();
         AbstractMain.MonitorServiceFactory monitorsFactory = AbstractMain.monitors(monitor);
 
-        TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
-        ParameterizedFactory<Connection<Message.ClientSessionMessage>, PingingClientCodecConnection> codecConnectionFactory = 
-                PingingClientCodecConnection.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
-        CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection> codecFactory = CodecConnection.factory(codecConnectionFactory);
-
         NettyClientModule clientModule = NettyClientModule.newInstance(runtime);
-        ClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection> clientConnections = monitorsFactory.apply(clientModule.get(codecFactory).get());
+
+        TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
+        ClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection> clientConnections = 
+                monitorsFactory.apply(
+                    clientModule.get(
+                            PingingClientCodecConnection.codecFactory(), 
+                            PingingClientCodecConnection.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get())).get());
 
         EnsembleRoleView<InetSocketAddress, ServerInetAddressView> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
         AssignXidProcessor xids = AssignXidProcessor.newInstance();

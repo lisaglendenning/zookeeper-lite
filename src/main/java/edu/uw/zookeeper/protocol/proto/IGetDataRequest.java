@@ -1,39 +1,31 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.GetDataRequest;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.Records.Requests;
+import edu.uw.zookeeper.protocol.Operation;
 
-public class IGetDataRequest extends GetDataRequest implements RequestRecord, Records.PathRecord, Records.WatchRecord {
-    public static final OpCode OPCODE = OpCode.GET_DATA;
-    
+@Operational(opcode=OpCode.GET_DATA)
+public class IGetDataRequest extends IOperationalRecord<GetDataRequest> implements Operation.Request, Records.PathHolder, Records.WatchHolder {
+
     public IGetDataRequest() {
-        super();
+        this(new GetDataRequest());
     }
 
     public IGetDataRequest(String path, boolean watch) {
-        super(path, watch);
+        this(new GetDataRequest(path, watch));
+    }
+
+    public IGetDataRequest(GetDataRequest record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
+    public boolean getWatch() {
+        return get().getWatch();
     }
 
     @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Requests.TAG);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Requests.TAG);
+    public String getPath() {
+        return get().getPath();
     }
 }

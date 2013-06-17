@@ -19,10 +19,10 @@ import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Message.ServerMessage;
-import edu.uw.zookeeper.protocol.OpCreateSession;
+import edu.uw.zookeeper.protocol.proto.OpCodeXid;
+import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.Records;
 import edu.uw.zookeeper.util.AbstractActor;
 import edu.uw.zookeeper.util.Actor;
 import edu.uw.zookeeper.util.Automaton;
@@ -73,7 +73,7 @@ public class ServerProtocolExecutor
         @Override
         public Message.ClientMessage poll() {
             Message.ClientMessage message =  throttled ? null : super.poll();
-            if (message instanceof OpCreateSession.Request) {
+            if (message instanceof ConnectMessage.Request) {
                 throttled = true;
             }
             return message;
@@ -133,8 +133,8 @@ public class ServerProtocolExecutor
 
         @Override
         public synchronized void onSuccess(Message.ServerMessage result) {
-            if (result instanceof OpCreateSession.Response.Valid) {
-                Long sessionId = ((OpCreateSession.Response.Valid)result).asRecord().getSessionId();
+            if (result instanceof ConnectMessage.Response.Valid) {
+                Long sessionId = ((ConnectMessage.Response.Valid)result).getSessionId();
                 sessionExecutor = sessionExecutors.get(sessionId);
                 sessionExecutor.register(submitted);
                 throttle(false);
@@ -202,7 +202,7 @@ public class ServerProtocolExecutor
                 onFailure(t);
                 return null;
             }
-            if (input instanceof OpCreateSession.Request) {
+            if (input instanceof ConnectMessage.Request) {
                 Futures.addCallback(future, this);
             }
             return null;
@@ -307,7 +307,7 @@ public class ServerProtocolExecutor
         
         @Subscribe
         public void handleSessionReply(Operation.SessionReply message) {
-            if (Records.OpCodeXid.NOTIFICATION.xid() == message.xid()) {
+            if (OpCodeXid.NOTIFICATION.xid() == message.xid()) {
                 // we need to flush completed messages to outbound
                 // before queueing this message
                 // to maintain the expected ordering

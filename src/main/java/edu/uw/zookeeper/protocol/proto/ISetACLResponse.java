@@ -1,40 +1,26 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.SetACLResponse;
 
-import edu.uw.zookeeper.protocol.OpCode;
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.ResponseRecord;
-import edu.uw.zookeeper.protocol.Records.Responses;
+import edu.uw.zookeeper.protocol.Operation;
+@Operational(opcode=OpCode.SET_ACL)
+public class ISetACLResponse extends IOperationalRecord<SetACLResponse> implements Operation.Response, Records.StatHolder {
 
-public class ISetACLResponse extends SetACLResponse implements ResponseRecord, Records.StatHolder {
-    public static final OpCode OPCODE = OpCode.SET_ACL;
-    
     public ISetACLResponse() {
-        super();
+        this(new SetACLResponse());
     }
 
     public ISetACLResponse(Stat stat) {
-        super(stat);
+        this(new SetACLResponse(stat));
+    }
+
+    public ISetACLResponse(SetACLResponse record) {
+        super(record);
     }
 
     @Override
-    public OpCode opcode() {
-        return OPCODE;
-    }
-
-    @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Responses.TAG);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Responses.TAG);
+    public Stat getStat() {
+        return get().getStat();
     }
 }

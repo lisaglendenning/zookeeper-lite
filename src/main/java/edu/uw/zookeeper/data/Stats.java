@@ -3,12 +3,12 @@ package edu.uw.zookeeper.data;
 import org.apache.jute.InputArchive;
 import org.apache.zookeeper.data.Stat;
 
-import edu.uw.zookeeper.protocol.Records;
-import edu.uw.zookeeper.protocol.Records.AclStatHolder;
-import edu.uw.zookeeper.protocol.Records.ChildrenStatRecord;
-import edu.uw.zookeeper.protocol.Records.CreateStatHolder;
-import edu.uw.zookeeper.protocol.Records.DataStatHolder;
 import edu.uw.zookeeper.protocol.proto.IStat;
+import edu.uw.zookeeper.protocol.proto.Records;
+import edu.uw.zookeeper.protocol.proto.Records.AclStatHolder;
+import edu.uw.zookeeper.protocol.proto.Records.ChildrenStatRecord;
+import edu.uw.zookeeper.protocol.proto.Records.CreateStatHolder;
+import edu.uw.zookeeper.protocol.proto.Records.DataStatHolder;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Singleton;
 
@@ -31,25 +31,21 @@ public class Stats {
     }
     
     public static Stat asStat(Records.StatHolderInterface source) {
-        if (source instanceof Stat) {
-            return (Stat)source;
+        if (source instanceof IStat) {
+            return ((IStat)source).get();
         }
-        return copy(source, new IStat());
-    }
-    
-    public static <T extends Records.StatRecordInterface> T copy(Records.StatHolderInterface source, T dest) {
-        dest.setAversion(source.getAversion());
-        dest.setCtime(source.getCtime());
-        dest.setCversion(source.getCversion());
-        dest.setCzxid(source.getCzxid());
-        dest.setDataLength(source.getDataLength());
-        dest.setEphemeralOwner(source.getEphemeralOwner());
-        dest.setMtime(source.getMtime());
-        dest.setMzxid(source.getMzxid());
-        dest.setNumChildren(source.getNumChildren());
-        dest.setPzxid(source.getPzxid());
-        dest.setVersion(source.getVersion());
-        return dest;
+        return new Stat(
+                source.getCzxid(),
+                source.getMzxid(),
+                source.getCtime(),
+                source.getMtime(),
+                source.getVersion(),
+                source.getCversion(),
+                source.getAversion(),
+                source.getEphemeralOwner(),
+                source.getDataLength(),
+                source.getNumChildren(),
+                source.getPzxid());
     }
     
     public static class CreateStat implements Records.CreateStatHolder {
@@ -308,7 +304,7 @@ public class Stats {
     }
     
     
-    public static class ImmutableStat extends IStat {
+    public static class ImmutableStat extends Stat implements Records.StatHolderInterface {
         
         public static ImmutableStat uninitialized() {
             return Holder.INSTANCE.get();

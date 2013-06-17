@@ -1,39 +1,33 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import java.io.IOException;
-
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.proto.AuthPacket;
 
-import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.Records.OpCodeXid;
-import edu.uw.zookeeper.protocol.Records.RequestRecord;
-import edu.uw.zookeeper.protocol.Records.Requests;
 
-public class IAuthRequest extends AuthPacket implements RequestRecord, Operation.XidHeader {
-    public static final OpCodeXid OPCODE_XID = OpCodeXid.AUTH;
-    public static final OpCode OPCODE = OPCODE_XID.opcode();
-    public static final int XID = OPCODE_XID.xid();
-           
-    @Override
-    public OpCode opcode() {
-        return OPCODE;
-    }
+@OperationalXid(xid=OpCodeXid.AUTH)
+public class IAuthRequest extends IOperationalXidRecord<AuthPacket> implements Operation.Request, Operation.XidHeader {
 
-    @Override
-    public int xid() {
-        return XID;
+    public IAuthRequest() {
+        this(new AuthPacket());
     }
     
-    @Override
-    public void serialize(OutputArchive archive) throws IOException {
-        serialize(archive, Requests.TAG);
+    public IAuthRequest(int type, String scheme, byte[] auth) {
+        this(new AuthPacket(type, scheme, auth));
+    }
+    
+    public IAuthRequest(AuthPacket record) {
+        super(record);
     }
 
-    @Override
-    public void deserialize(InputArchive archive) throws IOException {
-        deserialize(archive, Requests.TAG);
+    public int getType() {
+        return get().getType();
+    }
+
+    public String getScheme() {
+        return get().getScheme();
+    }
+
+    public byte[] getAuth() {
+        return get().getAuth();
     }
 }
