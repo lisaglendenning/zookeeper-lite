@@ -18,6 +18,7 @@ import com.google.common.collect.Lists;
 
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.*;
+import edu.uw.zookeeper.util.Singleton;
 
 public abstract class Operations {
 
@@ -67,6 +68,11 @@ public abstract class Operations {
                 super(opcode);
                 this.path = ZNodeLabel.Path.root();
             }
+
+            protected AbstractPath(OpCode opcode, ZNodeLabel.Path path) {
+                super(opcode);
+                this.path = path;
+            }
     
             @Override
             public ZNodeLabel.Path getPath() {
@@ -88,6 +94,11 @@ public abstract class Operations {
                 super(opcode);
                 this.data = new byte[0];
             }
+
+            protected AbstractData(OpCode opcode, ZNodeLabel.Path path, byte[] data) {
+                super(opcode, path);
+                this.data = data;
+            }
             
             @Override
             public byte[] getData() {
@@ -103,14 +114,35 @@ public abstract class Operations {
         }
         
         public static class Create extends AbstractData<Operation.Request, Create> {
-
+            
+            public static Create fromRecord(Operation.Request request) {
+                Records.CreateHolder record = (Records.CreateHolder) request;
+                OpCode opcode = request.opcode();
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(record.getPath());
+                byte[] data = record.getData();
+                CreateMode mode;
+                try {
+                    mode = CreateMode.fromFlag(record.getFlags());
+                } catch (KeeperException e) {
+                    throw new IllegalArgumentException(e);
+                }
+                List<Acls.Acl> acl = Acls.Acl.fromRecordList(record.getAcl());
+                return new Create(opcode, path, data, mode, acl);
+            }
+            
             protected CreateMode mode;
-            protected List<Acls.Acl> acls;
+            protected List<Acls.Acl> acl;
             
             public Create() {
                 super(OpCode.CREATE);
                 this.mode = CreateMode.PERSISTENT;
-                this.acls = Acls.Definition.ANYONE_ALL.asList();
+                this.acl = Acls.Definition.ANYONE_ALL.asList();
+            }
+
+            public Create(OpCode opcode, ZNodeLabel.Path path, byte[] data, CreateMode mode, List<Acls.Acl> acl) {
+                super(opcode);
+                this.mode = mode;
+                this.acl = acl;
             }
             
             public CreateMode getMode() {
@@ -135,11 +167,11 @@ public abstract class Operations {
             }
             
             public List<Acls.Acl> getAcl() {
-                return acls;
+                return acl;
             }
             
-            public Create setAcl(List<Acls.Acl> acls) {
-                this.acls = checkNotNull(acls);
+            public Create setAcl(List<Acls.Acl> acl) {
+                this.acl = checkNotNull(acl);
                 return this;
             }
             
@@ -153,6 +185,13 @@ public abstract class Operations {
         }
         
         public static class Delete extends AbstractPath<IDeleteRequest, Delete> {
+
+            public static Delete fromRecord(IDeleteRequest request) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                int version = request.getVersion();
+                return new Delete(path, version);
+            }
+            
             protected int version;
             
             public Delete() {
@@ -160,6 +199,11 @@ public abstract class Operations {
                 this.version = -1;
             }
 
+            public Delete(ZNodeLabel.Path path, int version) {
+                super(OpCode.DELETE, path);
+                this.version = version;
+            }
+            
             public int getVersion() {
                 return version;
             }
@@ -179,11 +223,22 @@ public abstract class Operations {
 
         public static class Exists extends AbstractPath<IExistsRequest, Exists> {
 
+            public static Exists fromRecord(IExistsRequest request) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                boolean watch = request.getWatch();
+                return new Exists(path, watch);
+            }
+            
             protected boolean watch;
             
             public Exists() {
                 super(OpCode.EXISTS);
                 this.watch = false;
+            }
+            
+            public Exists(ZNodeLabel.Path path, boolean watch) {
+                super(OpCode.EXISTS, path);
+                this.watch = watch;
             }
             
             public boolean getWatch() {
@@ -204,8 +259,18 @@ public abstract class Operations {
         }
         
         public static class GetAcl extends AbstractPath<IGetACLRequest, GetAcl> {
+
+            public static GetAcl fromRecord(IGetACLRequest request) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                return new GetAcl(path);
+            }
+            
             public GetAcl() {
                 super(OpCode.GET_ACL);
+            }
+
+            public GetAcl(ZNodeLabel.Path path) {
+                super(OpCode.GET_ACL, path);
             }
 
             @Override
@@ -216,6 +281,13 @@ public abstract class Operations {
         
         public static class GetChildren extends AbstractPath<Operation.Request, GetChildren> {
 
+            public static GetChildren fromRecord(Operation.Request request) {
+                OpCode opcode = request.opcode();
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathHolder)request).getPath());
+                boolean watch = ((Records.WatchHolder)request).getWatch();
+                return new GetChildren(opcode, path, watch);
+            }
+            
             protected boolean watch;
             
             public GetChildren() {
@@ -223,6 +295,11 @@ public abstract class Operations {
                 this.watch = false;
             }
 
+            public GetChildren(OpCode opcode, ZNodeLabel.Path path, boolean watch) {
+                super(opcode, path);
+                this.watch = watch;
+            }
+            
             public boolean getWatch() {
                 return watch;
             }
@@ -252,6 +329,12 @@ public abstract class Operations {
 
         public static class GetData extends AbstractPath<IGetDataRequest, GetData> {
 
+            public static GetData fromRecord(IGetDataRequest request) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                boolean watch = request.getWatch();
+                return new GetData(path, watch);
+            }
+            
             protected boolean watch;
             
             public GetData() {
@@ -259,6 +342,11 @@ public abstract class Operations {
                 this.watch = false;
             }
 
+            public GetData(ZNodeLabel.Path path, boolean watch) {
+                super(OpCode.GET_DATA, path);
+                this.watch = watch;
+            }
+            
             public boolean getWatch() {
                 return watch;
             }
@@ -276,30 +364,38 @@ public abstract class Operations {
             }
         }
         
-        public static class Multi extends AbstractBuilder<IMultiRequest> implements Iterable<Builder<? extends Records.MultiOpRequest>> {
+        public static class Multi extends AbstractBuilder<IMultiRequest> implements Iterable<AbstractBuilder<? extends Operation.Request>> {
 
-            protected List<Builder<? extends Records.MultiOpRequest>> builders;
+            public static Multi fromRecord(IMultiRequest request) {
+                Multi builder = new Multi();
+                for (Records.MultiOpRequest e: request){
+                    builder.add(Requests.fromRecord(e));
+                }
+                return builder;
+            }
+            
+            protected List<AbstractBuilder<? extends Operation.Request>> builders;
             
             public Multi() {
                 super(OpCode.MULTI);
                 this.builders = Lists.newArrayList();
             }
             
-            public Multi add(Builder<? extends Records.MultiOpRequest> builder) {
+            public Multi add(AbstractBuilder<? extends Operation.Request> builder) {
                 builders.add(builder);
                 return this;
             }
 
             @Override
-            public Iterator<Builder<? extends Records.MultiOpRequest>> iterator() {
+            public Iterator<AbstractBuilder<? extends Operation.Request>> iterator() {
                 return builders.iterator();
             }
             
             @Override
             public IMultiRequest build() {
                 IMultiRequest record = new IMultiRequest();
-                for (Builder<? extends Records.MultiOpRequest> builder: builders) {
-                    record.add(builder.build());
+                for (AbstractBuilder<? extends Operation.Request> e: builders) {
+                    record.add((Records.MultiOpRequest) e.build());
                 }
                 return record;
             }
@@ -307,13 +403,26 @@ public abstract class Operations {
 
         public static class SetAcl extends AbstractPath<ISetACLRequest, SetAcl> {
 
+            public static SetAcl fromRecord(ISetACLRequest request) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                int version = request.getVersion();
+                List<Acls.Acl> acl = Acls.Acl.fromRecordList(request.getAcl());
+                return new SetAcl(path, version, acl);
+            }
+            
             protected int version;
-            protected List<Acls.Acl> acls;
+            protected List<Acls.Acl> acl;
             
             public SetAcl() {
                 super(OpCode.SET_ACL);
                 this.version = -1;
-                this.acls = Acls.Definition.ANYONE_ALL.asList();
+                this.acl = Acls.Definition.ANYONE_ALL.asList();
+            }
+
+            public SetAcl(ZNodeLabel.Path path, int version, List<Acls.Acl> acl) {
+                super(OpCode.SET_ACL, path);
+                this.version = version;
+                this.acl = acl;
             }
             
             public int getVersion() {
@@ -326,11 +435,11 @@ public abstract class Operations {
             }
             
             public List<Acls.Acl> getAcl() {
-                return acls;
+                return acl;
             }
             
             public SetAcl setAcl(List<Acls.Acl> acls) {
-                this.acls = checkNotNull(acls);
+                this.acl = checkNotNull(acls);
                 return this;
             }
             
@@ -344,11 +453,23 @@ public abstract class Operations {
 
         public static class SetData extends AbstractData<ISetDataRequest, SetData> {
 
+            public static SetData fromRecord(ISetDataRequest request) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                byte[] data = request.getData();
+                int version = request.getVersion();
+                return new SetData(path, data, version);
+            }
+            
             protected int version;
             
             public SetData() {
                 super(OpCode.SET_DATA);
                 this.version = -1;
+            }
+
+            public SetData(ZNodeLabel.Path path, byte[] data, int version) {
+                super(OpCode.SET_DATA, path, data);
+                this.version = version;
             }
 
             public int getVersion() {
@@ -369,8 +490,18 @@ public abstract class Operations {
         }
         
         public static class Sync extends AbstractPath<ISyncRequest, Sync> {
+
+            public static Sync fromRecord(ISyncRequest request) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                return new Sync(path);
+            }
+            
             public Sync() {
                 super(OpCode.SYNC);
+            }
+
+            public Sync(ZNodeLabel.Path path) {
+                super(OpCode.SYNC, path);
             }
 
             @Override
@@ -443,6 +574,37 @@ public abstract class Operations {
             }
         }
         
+        public static AbstractBuilder<? extends Operation.Request> fromRecord(Operation.Request record) {
+            AbstractBuilder<? extends Operation.Request> builder = null;
+            switch (record.opcode()) {
+            case CREATE:
+            case CREATE2:
+                builder = Create.fromRecord(record);
+            case DELETE:
+                builder = Delete.fromRecord((IDeleteRequest) record);
+            case EXISTS:
+                builder = Exists.fromRecord((IExistsRequest) record);
+            case GET_ACL:
+                builder = GetAcl.fromRecord((IGetACLRequest) record);
+            case GET_CHILDREN:
+            case GET_CHILDREN2:
+                builder = GetChildren.fromRecord(record);
+            case GET_DATA:
+                builder = GetData.fromRecord((IGetDataRequest) record);
+            case MULTI:
+                builder = Multi.fromRecord((IMultiRequest) record);
+            case SET_ACL:
+                builder = SetAcl.fromRecord((ISetACLRequest) record);
+            case SET_DATA:
+                builder = SetData.fromRecord((ISetDataRequest) record);
+            case SYNC:
+                builder = Sync.fromRecord((ISyncRequest) record);
+            default:
+                break;
+            }
+            return builder;
+        }
+        
         public static Create create() {
             return new Create();
         }
@@ -501,6 +663,11 @@ public abstract class Operations {
                 this.stat = null;
             }
             
+            protected AbstractStat(OpCode opcode, Stat stat) {
+                super(opcode);
+                this.stat = stat;
+            }
+            
             public Stat getStat() {
                 return stat;
             }
@@ -513,12 +680,27 @@ public abstract class Operations {
         }
         
         public static class Create extends AbstractStat<Operation.Response, Create> implements PathBuilder<Operation.Response> {
-    
+
+            public static Create fromRecord(Operation.Response record) {
+                OpCode opcode = record.opcode();
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathHolder) record).getPath());
+                Stat stat = null;
+                if (record instanceof Records.StatHolder) {
+                    stat = ((Records.StatHolder) record).getStat();
+                }
+                return new Create(opcode, stat, path);
+            }
+            
             protected ZNodeLabel.Path path;
             
             public Create() {
                 super(OpCode.CREATE);
                 this.path = ZNodeLabel.Path.root();
+            }
+            
+            public Create(OpCode opcode, Stat stat, ZNodeLabel.Path path) {
+                super(opcode, stat);
+                this.path = path;
             }
             
             @Override
@@ -548,14 +730,27 @@ public abstract class Operations {
             }
         }
         
-        public static enum Delete implements Builder<IDeleteResponse> {
-            INSTANCE;
-    
-            @Override
-            public OpCode getOpCode() {
-                return OpCode.DELETE;
+        public static class Delete extends AbstractBuilder<IDeleteResponse> {
+
+            public static Delete getInstance() {
+                return Holder.INSTANCE.get();
             }
-    
+            
+            public static enum Holder implements Singleton<Delete> {
+                INSTANCE;
+
+                private final Delete instance = new Delete();
+                
+                @Override
+                public Delete get() {
+                    return instance;
+                }
+            }
+            
+            public Delete() {
+                super(OpCode.DELETE);
+            }
+
             @Override
             public IDeleteResponse build() {
                 return Records.create(IDeleteResponse.class);
@@ -563,9 +758,18 @@ public abstract class Operations {
         }
     
         public static class Exists extends AbstractStat<IExistsResponse, Exists> {
-    
+
+            public static Exists fromRecord(IExistsResponse record) {
+                Stat stat = record.getStat();
+                return new Exists(stat);
+            }
+            
             public Exists() {
                 super(OpCode.EXISTS);
+            }
+
+            public Exists(Stat stat) {
+                super(OpCode.EXISTS, stat);
             }
             
             @Override
@@ -575,12 +779,23 @@ public abstract class Operations {
         }
     
         public static class GetAcl extends AbstractStat<IGetACLResponse, GetAcl> {
-    
+
+            public static GetAcl fromRecord(IGetACLResponse record) {
+                Stat stat = record.getStat();
+                List<Acls.Acl> acl = Acls.Acl.fromRecordList(record.getAcl());
+                return new GetAcl(stat, acl);
+            }
+            
             protected List<Acls.Acl> acl;
             
             public GetAcl() {
                 super(OpCode.GET_ACL);
                 this.acl = ImmutableList.of();
+            }
+            
+            public GetAcl(Stat stat, List<Acls.Acl> acl) {
+                super(OpCode.GET_ACL, stat);
+                this.acl = acl;
             }
     
             public List<Acls.Acl> getAcl() {
@@ -599,12 +814,31 @@ public abstract class Operations {
         }
         
         public static class GetChildren extends AbstractStat<Operation.Response, GetChildren> {
-    
+
+            public static GetChildren fromRecord(Operation.Response record) {
+                OpCode opcode = record.opcode();
+                Stat stat = null;
+                if (record instanceof Records.StatHolder) {
+                    stat = ((Records.StatHolder) record).getStat();
+                }
+                List<String> childrenStr = ((Records.ChildrenHolder) record).getChildren();
+                List<ZNodeLabel.Component> children = Lists.newArrayListWithCapacity(childrenStr.size());
+                for (String e: childrenStr) {
+                    children.add(ZNodeLabel.Component.of(e));
+                }
+                return new GetChildren(opcode, stat, children);
+            }
+            
             protected Iterable<ZNodeLabel.Component> children;
             
             public GetChildren() {
                 super(OpCode.GET_CHILDREN);
                 this.children = ImmutableList.of();
+            }
+
+            public GetChildren(OpCode opcode, Stat stat, Iterable<ZNodeLabel.Component> children) {
+                super(opcode, stat);
+                this.children = children;
             }
     
             @Override
@@ -634,15 +868,25 @@ public abstract class Operations {
         }
         
         public static class GetData extends AbstractStat<IGetDataResponse, GetData> implements DataBuilder<IGetDataResponse> {
-    
+
+            public static GetData fromRecord(IGetDataResponse record) {
+                Stat stat = record.getStat();
+                byte[] data = record.getData();
+                return new GetData(stat, data);
+            }
+            
             protected byte[] data;
             
             public GetData() {
-                super(OpCode.GET_DATA);
+                super(OpCode.GET_DATA, Stats.ImmutableStat.uninitialized());
                 this.data = new byte[0];
-                this.stat = Stats.ImmutableStat.uninitialized();
             }
-    
+
+            public GetData(Stat stat, byte[] data) {
+                super(OpCode.GET_DATA, stat);
+                this.data = data;
+            }
+            
             @Override
             public byte[] getData() {
                 return data;
@@ -660,39 +904,56 @@ public abstract class Operations {
             }
         }
     
-        public static class Multi extends AbstractBuilder<IMultiResponse> implements Iterable<Builder<? extends Records.MultiOpResponse>> {
-    
-            protected List<Builder<? extends Records.MultiOpResponse>> builders;
+        public static class Multi extends AbstractBuilder<IMultiResponse> implements Iterable<Builder<? extends Operation.Response>> {
+
+            public static Multi fromRecord(IMultiResponse record) {
+                Multi builder = new Multi();
+                for (Records.MultiOpResponse e: record){
+                    builder.add(Responses.fromRecord(e));
+                }
+                return builder;
+            }
+            
+            protected List<Builder<? extends Operation.Response>> builders;
             
             public Multi() {
                 super(OpCode.MULTI);
                 this.builders = Lists.newArrayList();
             }
             
-            public Multi add(Builder<? extends Records.MultiOpResponse> builder) {
+            public Multi add(Builder<? extends Operation.Response> builder) {
                 builders.add(builder);
                 return this;
             }
     
             @Override
-            public Iterator<Builder<? extends Records.MultiOpResponse>> iterator() {
+            public Iterator<Builder<? extends Operation.Response>> iterator() {
                 return builders.iterator();
             }
             
             @Override
             public IMultiResponse build() {
                 IMultiResponse record = new IMultiResponse();
-                for (Builder<? extends Records.MultiOpResponse> builder: builders) {
-                    record.add(builder.build());
+                for (Builder<? extends Operation.Response> e: builders) {
+                    record.add((Records.MultiOpResponse) e.build());
                 }
                 return record;
             }
         }
     
         public static class SetAcl extends AbstractStat<ISetACLResponse, SetAcl> {
-    
+
+            public static SetAcl fromRecord(ISetACLResponse record) {
+                Stat stat = record.getStat();
+                return new SetAcl(stat);
+            }
+            
             public SetAcl() {
                 super(OpCode.SET_ACL);
+            }
+
+            public SetAcl(Stat stat) {
+                super(OpCode.SET_ACL, stat);
             }
             
             @Override
@@ -702,9 +963,18 @@ public abstract class Operations {
         }
     
         public static class SetData extends AbstractStat<ISetDataResponse, SetData> {
-    
+
+            public static SetData fromRecord(ISetDataResponse record) {
+                Stat stat = record.getStat();
+                return new SetData(stat);
+            }
+            
             public SetData() {
                 super(OpCode.SET_DATA);
+            }
+            
+            public SetData(Stat stat) {
+                super(OpCode.SET_DATA, stat);
             }
             
             @Override
@@ -714,12 +984,22 @@ public abstract class Operations {
         }
     
         public static class Sync extends AbstractBuilder<ISyncResponse> implements PathBuilder<ISyncResponse> {
-    
+
+            public static Sync fromRecord(ISyncResponse record) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(record.getPath());
+                return new Sync(path);
+            }
+            
             protected ZNodeLabel.Path path;
             
             public Sync() {
                 super(OpCode.SYNC);
                 this.path = ZNodeLabel.Path.root();
+            }
+
+            public Sync(ZNodeLabel.Path path) {
+                super(OpCode.SYNC);
+                this.path = path;
             }
 
             @Override
@@ -738,13 +1018,44 @@ public abstract class Operations {
                 return new ISyncResponse(getPath().toString());
             }
         }
+
+        public static AbstractBuilder<? extends Operation.Response> fromRecord(Operation.Response record) {
+            AbstractBuilder<? extends Operation.Response> builder = null;
+            switch (record.opcode()) {
+            case CREATE:
+            case CREATE2:
+                builder = Create.fromRecord(record);
+            case DELETE:
+                builder = Delete.getInstance();
+            case EXISTS:
+                builder = Exists.fromRecord((IExistsResponse) record);
+            case GET_ACL:
+                builder = GetAcl.fromRecord((IGetACLResponse) record);
+            case GET_CHILDREN:
+            case GET_CHILDREN2:
+                builder = GetChildren.fromRecord(record);
+            case GET_DATA:
+                builder = GetData.fromRecord((IGetDataResponse) record);
+            case MULTI:
+                builder = Multi.fromRecord((IMultiResponse) record);
+            case SET_ACL:
+                builder = SetAcl.fromRecord((ISetACLResponse) record);
+            case SET_DATA:
+                builder = SetData.fromRecord((ISetDataResponse) record);
+            case SYNC:
+                builder = Sync.fromRecord((ISyncResponse) record);
+            default:
+                break;
+            }
+            return builder;
+        }
         
         public static Create create() {
             return new Create();
         }
         
         public static Delete delete() {
-            return Delete.INSTANCE;
+            return Delete.getInstance();
         }
     
         public static Exists exists() {
