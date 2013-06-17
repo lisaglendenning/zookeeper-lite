@@ -42,5 +42,34 @@ public class FrameTest {
         encoder.encode(input, buf);
         String output = decoder.decode(buf).orNull();
         assertEquals(input, output);
+        assertEquals(0, buf.readableBytes());
+
+        encoder.encode(input, buf);
+        int readerIndex = buf.readerIndex();
+        int writerIndex = buf.writerIndex();
+        buf.writerIndex(buf.readerIndex());
+        output = decoder.decode(buf).orNull();
+        assertEquals(null, output);
+        assertEquals(readerIndex, buf.readerIndex());
+        
+        buf.writerIndex(buf.writerIndex() + 2);
+        output = decoder.decode(buf).orNull();
+        assertEquals(null, output);
+        assertEquals(readerIndex, buf.readerIndex());
+
+        buf.writerIndex(buf.writerIndex() + 2);
+        output = decoder.decode(buf).orNull();
+        assertEquals(null, output);
+        assertEquals(readerIndex, buf.readerIndex());
+
+        buf.writerIndex(buf.writerIndex() + 1);
+        output = decoder.decode(buf).orNull();
+        assertEquals(null, output);
+        assertEquals(readerIndex, buf.readerIndex());
+
+        buf.writerIndex(writerIndex);
+        output = decoder.decode(buf).orNull();
+        assertEquals(input, output);
+        assertEquals(0, buf.readableBytes());
     }
 }

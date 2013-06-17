@@ -86,7 +86,7 @@ public class Frame extends AbstractPair<IntHeader, ByteBuf> implements Encodable
                     }
                     if (input.readableBytes() >= length) {
                         ByteBuf buffer = (length > 0) 
-                                ? input.slice(input.readerIndex(), length)
+                                ? input.readSlice(length)
                                 : Unpooled.EMPTY_BUFFER;
                         Frame frame = Frame.of(header.get(), buffer);
                         output = Optional.of(frame);
