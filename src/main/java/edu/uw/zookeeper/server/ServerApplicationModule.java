@@ -10,10 +10,8 @@ import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
-import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.netty.server.NettyServerModule;
-import edu.uw.zookeeper.protocol.CodecConnection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
 import edu.uw.zookeeper.util.Application;
@@ -95,7 +93,8 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
                         ServerCodecConnection.codecFactory(),
                         ServerCodecConnection.factory());
         ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
-        ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = monitorsFactory.apply(serverConnectionFactory.get(address.get()));
+        ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = 
+                monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         
         final ServerConnectionListener server = ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
         

@@ -16,7 +16,7 @@ import com.google.common.collect.Range;
 import edu.uw.zookeeper.util.AbstractPair;
 
 
-public class Frame extends AbstractPair<IntHeader, ByteBuf> {
+public class Frame extends AbstractPair<IntHeader, ByteBuf> implements Encodable {
     
     public static Frame fromBuffer(ByteBuf buffer) {
         int length = buffer.readableBytes();
@@ -45,11 +45,10 @@ public class Frame extends AbstractPair<IntHeader, ByteBuf> {
             output.writerIndex(beginIndex + IntHeader.length());
             messageEncoder.encode(input, output);
             int endIndex = output.writerIndex();
-            int length = endIndex - beginIndex;
+            int length = endIndex - beginIndex - IntHeader.length();
             checkState(length >= 0);
             output.writerIndex(beginIndex);
-            IntHeader header = IntHeader.of(length);
-            header.encode(output);
+            output.writeInt(length);
             output.writerIndex(endIndex);
         }
     }
@@ -130,12 +129,13 @@ public class Frame extends AbstractPair<IntHeader, ByteBuf> {
                 Frame frame = optFrame.get();
                 ByteBuf frameBuffer = frame.buffer();
                 int readable = frameBuffer.readableBytes();
-                checkArgument(readable < frame.length());
+                int length = frame.header().intValue();
+                checkArgument(readable == length);
                 
                 output = Optional.of(messageDecoder.decode(frameBuffer));
                 
                 // make sure we consume the entire frame
-                readable = frame.length() - (readable - frameBuffer.readableBytes());
+                readable = frameBuffer.readableBytes();
                 if (readable > 0) {
                     logger.debug("Skipping {} unread bytes after {}",
                             readable, output);
@@ -157,8 +157,11 @@ public class Frame extends AbstractPair<IntHeader, ByteBuf> {
     public ByteBuf buffer() {
         return second;
     }
-    
-    public int length() {
-        return header().intValue();
+
+    @Override
+    public void encode(ByteBuf output) throws IOException {
+        checkArgument(header().intValue() == buffer().readableBytes());
+        header().encode(output);
+        output.writeBytes(buffer());
     }
 }
