@@ -437,7 +437,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         {
             if (! (reply instanceof Operation.Error)) {
                 E node = add(ZNodeLabel.Path.of(((Records.PathHolder) reply).getPath()), zxid);
-                StampedReference<Records.CreateRecord> stampedRequest = StampedReference.of(zxid, (Records.CreateRecord) request);
+                StampedReference<Records.CreateHolder> stampedRequest = StampedReference.of(zxid, (Records.CreateHolder) request);
                 update(node, stampedRequest);
                 if (reply instanceof Records.StatHolder) {
                     StampedReference<Records.StatHolder> stampedResponse = StampedReference.of(zxid, (Records.StatHolder)reply);

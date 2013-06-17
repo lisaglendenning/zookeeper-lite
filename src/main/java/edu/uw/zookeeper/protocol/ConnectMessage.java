@@ -379,7 +379,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .add("record", Records.toString(get()))
+                .add("record", get())
                 .add("readOnly", getReadOnly()).add("wraps", getWraps()).toString();
     }
 

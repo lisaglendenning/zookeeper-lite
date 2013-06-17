@@ -42,10 +42,15 @@ public class Frame extends AbstractPair<IntHeader, ByteBuf> implements Encodable
         @Override
         public void encode(T input, ByteBuf output) throws IOException {
             int beginIndex = output.writerIndex();
-            output.writerIndex(beginIndex + IntHeader.length());
+            int headerLength = IntHeader.length();
+            if (output.writableBytes() >= headerLength) {
+                output.writerIndex(beginIndex + headerLength);
+            } else {
+                output.writeInt(0);
+            }
             messageEncoder.encode(input, output);
             int endIndex = output.writerIndex();
-            int length = endIndex - beginIndex - IntHeader.length();
+            int length = endIndex - beginIndex - headerLength;
             checkState(length >= 0);
             output.writerIndex(beginIndex);
             output.writeInt(length);
