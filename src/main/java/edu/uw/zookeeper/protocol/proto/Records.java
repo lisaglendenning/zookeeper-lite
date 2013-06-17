@@ -27,7 +27,7 @@ import edu.uw.zookeeper.util.ParameterizedFactory;
  * 
  * @see org.apache.zookeeper.proto
  */
-public class Records {
+public abstract class Records {
    
     public static interface HeaderRecord extends Record {}
     
