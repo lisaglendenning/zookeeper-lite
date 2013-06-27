@@ -12,12 +12,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.MessageToByteEncoder;
 
-/**
- * TODO: check...
- * "One limitation to keep in mind is that it is not possible to detect the handled message type of you specify I while instance your class. Because of this Netty does not allow to do so and will throw an Exception if you try. For this cases you should handle the type detection by your self by override the acceptOutboundMessage(Object) method and use Object as type parameter."
- * 
- * @param <I>
- */
 public class OutboundHandler<I> extends MessageToByteEncoder<I> {
     
     public static <I> OutboundHandler<I> attach(Channel channel, Class<I> type, Encoder<? super I> encoder) {

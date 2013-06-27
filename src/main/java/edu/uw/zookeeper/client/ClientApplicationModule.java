@@ -80,7 +80,11 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
     public static class TimeoutFactory implements DefaultsFactory<Configuration, TimeValue> {
 
         public static TimeoutFactory newInstance() {
-            return new TimeoutFactory("");
+            return newInstance("");
+        }
+
+        public static TimeoutFactory newInstance(String configPath) {
+            return new TimeoutFactory(configPath);
         }
 
         public static final String CONFIG_PATH = "Client.Timeout";

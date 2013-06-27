@@ -14,7 +14,6 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientCodecConnection;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
-import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractPair;
 import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Factory;

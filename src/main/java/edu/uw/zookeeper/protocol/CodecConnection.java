@@ -27,8 +27,6 @@ public class CodecConnection<I, O, T extends Codec<I,Optional<O>>> extends Forwa
         this.logger = LoggerFactory.getLogger(getClass());
         this.codec = codec;
         this.connection = connection;
-        
-        connection.register(this);
     }
     
     @Override

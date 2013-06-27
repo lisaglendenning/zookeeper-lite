@@ -32,42 +32,53 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
     public static class ConfigurableServerAddressViewFactory implements DefaultsFactory<Configuration, ServerInetAddressView> {
 
         public static ConfigurableServerAddressViewFactory newInstance() {
-            return newInstance("");
+            return newInstance(DEFAULT_ARG, DEFAULT_CONFIG_KEY, DEFAULT_CONFIG_PATH, DEFAULT_ADDRESS, DEFAULT_PORT);
         }
 
-        public static ConfigurableServerAddressViewFactory newInstance(String configPath) {
-            return new ConfigurableServerAddressViewFactory(configPath);
+        public static ConfigurableServerAddressViewFactory newInstance(
+                String arg, String configKey, String configPath, String defaultAddress, int defaultPort) {
+            return new ConfigurableServerAddressViewFactory(arg, configKey, configPath, defaultAddress, defaultPort);
         }
         
-        public static final String ARG = "server";
-        public static final String CONFIG_KEY = "Server";
+        public static final String DEFAULT_ARG = "clientAddress";
+        public static final String DEFAULT_CONFIG_KEY = "Address";
+        public static final String DEFAULT_CONFIG_PATH = "";
         public static final String DEFAULT_ADDRESS = "";
         public static final int DEFAULT_PORT = 2181;
 
+        private final String arg;
+        private final String configKey;
         private final String configPath;
+        private final String defaultAddress;
+        private final int defaultPort;
         
-        protected ConfigurableServerAddressViewFactory(String configPath) {
+        public ConfigurableServerAddressViewFactory(
+                String arg, String configKey, String configPath, String defaultAddress, int defaultPort) {
+            this.arg = arg;
+            this.configKey = configKey;
             this.configPath = configPath;
+            this.defaultAddress = defaultAddress;
+            this.defaultPort = defaultPort;
         }
         
         @Override
         public ServerInetAddressView get() {
             return ServerInetAddressView.of(
-                    DEFAULT_ADDRESS, DEFAULT_PORT);
+                    defaultAddress, defaultPort);
         }
 
         @Override
         public ServerInetAddressView get(Configuration value) {
             Arguments arguments = value.asArguments();
-            if (! arguments.has(ARG)) {
-                arguments.add(arguments.newOption(ARG, "Address"));
+            if (! arguments.has(arg)) {
+                arguments.add(arguments.newOption(arg, "Address"));
             }
             arguments.parse();
-            Map.Entry<String, String> args = new AbstractMap.SimpleImmutableEntry<String,String>(ARG, CONFIG_KEY);
+            Map.Entry<String, String> args = new AbstractMap.SimpleImmutableEntry<String,String>(arg, configKey);
             @SuppressWarnings("unchecked")
             Config config = value.withArguments(configPath, args);
-            if (config.hasPath(CONFIG_KEY)) {
-            String input = config.getString(CONFIG_KEY);
+            if (config.hasPath(configKey)) {
+            String input = config.getString(configKey);
                 return ServerInetAddressView.fromString(input);
             } else {
                 return get();

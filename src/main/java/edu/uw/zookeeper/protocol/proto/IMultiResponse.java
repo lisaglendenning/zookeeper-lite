@@ -9,6 +9,7 @@ import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
 import org.apache.zookeeper.proto.MultiHeader;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
@@ -71,5 +72,10 @@ public class IMultiResponse extends IOperationalRecord<EmptyRecord> implements O
             h.deserialize(archive, tag);
         }
         archive.endRecord(tag);
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).addValue(Records.iterableToBeanString(this)).toString();
     }
 }

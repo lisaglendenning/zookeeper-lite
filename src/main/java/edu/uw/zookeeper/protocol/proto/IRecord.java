@@ -31,8 +31,7 @@ public class IRecord<T extends Record> implements Reference<T>, Record {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
-                .addValue(Records.toString(get())).toString();
+        return Records.toBeanString(this);
     }
 
     @Override

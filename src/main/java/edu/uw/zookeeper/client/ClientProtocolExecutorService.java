@@ -7,42 +7,51 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
-import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Promise;
+import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 
 /**
  * Wraps a lazily-instantiated ClientProtocolExecutor in a Service.
  */
 public class ClientProtocolExecutorService extends AbstractIdleService 
-        implements Reference<ClientProtocolExecutor>, ClientExecutor {
+        implements Reference<ClientProtocolExecutor>, Publisher, ClientExecutor {
 
     public static ClientProtocolExecutorService newInstance(
-            Factory<ClientProtocolExecutor> clientFactory) {
-        return new ClientProtocolExecutorService(clientFactory);
+            Factory<ClientProtocolExecutor> factory) {
+        return new ClientProtocolExecutorService(factory);
     }
     
-    protected final Factories.SynchronizedLazyHolder<ClientProtocolExecutor> client;
+    protected final Factory<ClientProtocolExecutor> factory;
+    protected volatile ClientProtocolExecutor client;
     
     protected ClientProtocolExecutorService(
-            Factory<ClientProtocolExecutor> clientFactory) {
-        this.client = Factories.synchronizedLazyFrom(clientFactory);
+            Factory<ClientProtocolExecutor> factory) {
+        this.factory = factory;
+        this.client = null;
+    }
+    
+    protected Factory<ClientProtocolExecutor> factory() {
+        return factory;
     }
     
     @Override
     protected void startUp() throws Exception {
-        ClientProtocolExecutor client = this.client.get();
+        assert (client == null);
+        this.client = factory().get();
         client.register(this);
         client.connect();
     }
 
     @Override
     protected void shutDown() throws Exception {
-        if (this.client.has()) {
-            ClientProtocolExecutor client = this.client.get();
+        if (client != null) {
+            try {
+                client.unregister(this);
+            } catch (IllegalArgumentException e) {}
+            
             switch (client.state()) {
             case CONNECTING:
             case CONNECTED:
@@ -65,7 +74,7 @@ public class ClientProtocolExecutorService extends AbstractIdleService
             break;
         }
         
-        return client.get();
+        return client;
     }
 
     @Override
@@ -95,6 +104,11 @@ public class ClientProtocolExecutorService extends AbstractIdleService
     }
 
     @Override
+    public void post(Object object) {
+        get().post(object);
+    }
+
+    @Override
     public void register(Object object) {
         get().register(object);
     }
@@ -104,24 +118,10 @@ public class ClientProtocolExecutorService extends AbstractIdleService
         get().unregister(object);
     }
 
-    @SuppressWarnings("unchecked")
     @Subscribe
     public void handleStateEvent(Automaton.Transition<?> event) {
-        if (event.type().isAssignableFrom(Connection.State.class)) {
-            handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
-        }
-    }
-    
-    public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
-        switch (event.to()) {
-        case CONNECTION_CLOSED:
-            try {
-                unregister(this);
-            } catch (IllegalArgumentException e) {}
+        if (Connection.State.CONNECTION_CLOSED == event.to()) {
             stop();
-            break;
-        default:
-            break;
         }
     }
 }

@@ -2,7 +2,6 @@ package edu.uw.zookeeper.client;
 
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionRequestMessage;
-import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Generator;
 import edu.uw.zookeeper.util.Processor;
 

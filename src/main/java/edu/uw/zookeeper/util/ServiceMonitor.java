@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.*;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
@@ -58,7 +59,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     }
     
     public static ServiceMonitor newInstance(Executor executor) {
-        return new ServiceMonitor(executor);
+        return new ServiceMonitor(Optional.of(executor));
     }
     
     public static ServiceMonitor newInstance(
@@ -70,95 +71,15 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     }
 
 
-    /**
-     * Logs Service state changes and notifies ServiceMonitor of significant changes.
-     */
-    private class ServiceMonitorListener implements Service.Listener {
-
-        private final Logger logger = LoggerFactory
-                .getLogger(ServiceMonitorListener.class);
-        private final Service service;
-
-        public ServiceMonitorListener(Service service) {
-            this.service = service;
-        }
-
-        private void log(Service.State nextState,
-                Optional<Service.State> prevState,
-                Optional<Throwable> throwable) {
-            checkArgument(nextState != null);
-            String str = nextState.toString()
-                    + (prevState.isPresent() ? String.format(" (%s)",
-                            prevState.get()) : "")
-                    + (throwable.isPresent() ? String.format(" %s",
-                            throwable.get()) : "") + ": {}";
-            if (nextState == Service.State.FAILED) {
-                logger.warn(str, service);
-            } else {
-                logger.debug(str, service);
-            }
-        }
-
-        private void log(Service.State nextState) {
-            this.log(nextState, Optional.<Service.State> absent(),
-                    Optional.<Throwable> absent());
-        }
-
-        private void log(Service.State nextState, Service.State prevState) {
-            this.log(nextState, Optional.of(prevState),
-                    Optional.<Throwable> absent());
-        }
-
-        @Override
-        public void failed(State arg0, Throwable arg1) {
-            log(Service.State.FAILED, Optional.of(arg0), Optional.of(arg1));
-            if (service != ServiceMonitor.this) {
-                notifyChange();
-            }
-        }
-
-        @Override
-        public void running() {
-            log(Service.State.RUNNING);
-            if (service == ServiceMonitor.this) {
-                notifyChange();
-            }
-        }
-
-        @Override
-        public void starting() {
-            log(Service.State.STARTING);
-        }
-
-        @Override
-        public void stopping(State arg0) {
-            log(Service.State.STOPPING, arg0);
-
-        }
-
-        @Override
-        public void terminated(State arg0) {
-            log(Service.State.TERMINATED, arg0);
-            if (service != ServiceMonitor.this) {
-                notifyChange();
-            }
-        }
-
-    }
-
     protected final Logger logger = LoggerFactory
             .getLogger(ServiceMonitor.class);
     private final Executor listenerExecutor;
     private final Optional<Executor> thisExecutor;
-    private final List<Service> services;
+    private final CopyOnWriteArrayList<Service> services;
     private volatile boolean stopOnTerminate;
 
     protected ServiceMonitor() {
         this(Optional.<Executor>absent());
-    }
-
-    protected ServiceMonitor(Executor thisExecutor) {
-        this(Optional.of(thisExecutor));
     }
 
     protected ServiceMonitor(Optional<Executor> thisExecutor) {
@@ -206,12 +127,22 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         return (state == Service.State.NEW || state == Service.State.STARTING || state == Service.State.RUNNING);
     }
 
-    public void add(Service service) {
+    public boolean add(Service service) {
         checkState(isAddable(), state());
-        if (! services.contains(service)) {
-            services.add(checkNotNull(service));
-            listen(service);
+        if (services.addIfAbsent(checkNotNull(service))) {
+            monitor(service);
             notifyChange();
+            return true;
+        }
+        return false;
+    }
+    
+    public void addOnStart(Service service) {
+        checkState(isAddable(), state());
+        if (service.state() == Service.State.NEW) {
+            service.addListener(new ServiceDelayedRegister(service), listenerExecutor);
+        } else {
+            add(service);
         }
     }
 
@@ -228,7 +159,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         logger.info("Starting up");
         try {
             startServices();
-            listen(this);
+            monitor(this);
         } catch (Exception e) {
             shutDown();
             throw e;
@@ -241,9 +172,8 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         stopServices();
     }
 
-    protected void listen(Service service) {
-        ServiceMonitorListener listener = new ServiceMonitorListener(service);
-        service.addListener(listener, listenerExecutor);
+    protected void monitor(Service service) {
+        service.addListener(new ServiceMonitorListener(service), listenerExecutor);
     }
 
     protected void notifyChange() {
@@ -342,5 +272,117 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             }
         }
         return !stop;
+    }
+    
+    public class ServiceDelayedRegister implements Service.Listener, Reference<Service> {
+
+        protected final Service service;
+        
+        public ServiceDelayedRegister(Service service) {
+            this.service = service;
+        }
+        
+        @Override
+        public Service get() {
+            return service;
+        }
+
+        @Override
+        public void starting() {
+            ServiceMonitor.this.add(get());
+        }
+
+        @Override
+        public void running() {
+        }
+
+        @Override
+        public void stopping(State from) {
+        }
+
+        @Override
+        public void terminated(State from) {
+        }
+
+        @Override
+        public void failed(State from, Throwable failure) {
+        }
+    }
+
+
+    /**
+     * Logs Service state changes and notifies ServiceMonitor of significant changes.
+     */
+    private class ServiceMonitorListener implements Service.Listener {
+    
+        private final Logger logger = LoggerFactory
+                .getLogger(ServiceMonitorListener.class);
+        private final Service service;
+    
+        public ServiceMonitorListener(Service service) {
+            this.service = service;
+        }
+    
+        private void log(Service.State nextState,
+                Optional<Service.State> prevState,
+                Optional<Throwable> throwable) {
+            checkArgument(nextState != null);
+            String str = nextState.toString()
+                    + (prevState.isPresent() ? String.format(" (%s)",
+                            prevState.get()) : "")
+                    + (throwable.isPresent() ? String.format(" %s",
+                            throwable.get()) : "") + ": {}";
+            if (nextState == Service.State.FAILED) {
+                logger.warn(str, service);
+            } else {
+                logger.debug(str, service);
+            }
+        }
+    
+        private void log(Service.State nextState) {
+            this.log(nextState, Optional.<Service.State> absent(),
+                    Optional.<Throwable> absent());
+        }
+    
+        private void log(Service.State nextState, Service.State prevState) {
+            this.log(nextState, Optional.of(prevState),
+                    Optional.<Throwable> absent());
+        }
+    
+        @Override
+        public void failed(State arg0, Throwable arg1) {
+            log(Service.State.FAILED, Optional.of(arg0), Optional.of(arg1));
+            if (service != ServiceMonitor.this) {
+                notifyChange();
+            }
+        }
+    
+        @Override
+        public void running() {
+            log(Service.State.RUNNING);
+            if (service == ServiceMonitor.this) {
+                notifyChange();
+            }
+        }
+    
+        @Override
+        public void starting() {
+            log(Service.State.STARTING);
+        }
+    
+        @Override
+        public void stopping(State arg0) {
+            log(Service.State.STOPPING, arg0);
+    
+        }
+    
+        @Override
+        public void terminated(State arg0) {
+            log(Service.State.TERMINATED, arg0);
+            if (service != ServiceMonitor.this) {
+                notifyChange();
+            }
+        }
+    
     }
 }

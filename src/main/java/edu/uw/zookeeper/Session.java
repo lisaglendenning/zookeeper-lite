@@ -124,7 +124,7 @@ public class Session {
                 passwordStr = "";
             } else {
                 // just output a hash
-                passwordStr = String.format("0x%08X", password.hashCode());
+                passwordStr = String.format("0x%08x", password.hashCode());
                 // BigInteger bi = new BigInteger(1, password);
                 // passwordStr = String.format("0x%0" + (password.length << 1) +
                 // "X", bi);

@@ -1,8 +1,15 @@
 package edu.uw.zookeeper.protocol.proto;
 
 
+import java.beans.BeanInfo;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.util.Collections;
+
+import javax.annotation.Nullable;
 
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
@@ -10,11 +17,13 @@ import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.data.Stat;
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.EnumHashBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.common.collect.MutableClassToInstanceMap;
 
@@ -244,13 +253,66 @@ public abstract class Records {
     }
 
     /**
-     * More readable String.
+     * Default string value without endlines.
      */
     public static String toString(Record record) {
         return Objects.toStringHelper(record)
                 .addValue(record.toString().replaceAll("\\s", "")).toString();
     }
 
+    public static enum ToBeanString implements Function<Object, String> {
+        INSTANCE;
+        
+        @Override
+        public @Nullable String apply(@Nullable Object input) {
+            if (input instanceof Record) {
+                return toBeanString((Record) input);
+            } else {
+                return String.valueOf(input);
+            }
+        }
+    }
+    
+    /**
+     * Bean property string.
+     */
+    public static String toBeanString(Record record) {
+        Objects.ToStringHelper helper = Objects.toStringHelper(record);
+        BeanInfo beanInfo;
+        try {
+            beanInfo = Introspector.getBeanInfo(record.getClass(), Object.class);
+        } catch (IntrospectionException e) {
+            throw new AssertionError(e);
+        }
+        for (PropertyDescriptor pd : beanInfo.getPropertyDescriptors()) {
+            Object value;
+            try {
+                value = pd.getReadMethod().invoke(record);
+            } catch (Exception e) {
+                throw new AssertionError(e);
+            }
+            if (value instanceof Record) {
+                value = toBeanString((Record) value);
+            } else if (value.getClass().isArray()) {
+                value = String.format("%s{%d}", value.getClass().getComponentType(), Array.getLength(value));
+            } else if (value instanceof Iterable) {
+                value = iterableToBeanString((Iterable<?>) value);
+            }
+            helper.add(pd.getName(), value);
+        }
+        return helper.toString();
+    }
+    
+    public static String iterableToBeanString(Iterable<?> value) {
+        StringBuilder sb = new StringBuilder().append('[');
+        return Joiner.on(',').appendTo(
+                sb,
+                Iterators.transform(
+                        value.iterator(), 
+                        ToBeanString.INSTANCE))
+                .append(']').toString();
+    }
+    
     @SuppressWarnings("unchecked")
     private static final BiMap<OpCode, Class<? extends Operation.Request>> requestTypes = 
             Maps.unmodifiableBiMap(EnumHashBiMap.create(
