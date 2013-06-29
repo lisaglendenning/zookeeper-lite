@@ -121,7 +121,7 @@ public class ClientProtocolExecutor
         
         public class PendingTask 
                 extends PromiseTask<Operation.SessionRequest, Operation.SessionResult>
-                implements FutureCallback<Message.ClientSessionMessage> {
+                implements FutureCallback<Operation.SessionRequest> {
 
             protected PendingTask(
                     Operation.SessionRequest task,
@@ -130,7 +130,7 @@ public class ClientProtocolExecutor
             }
             
             @Override
-            public void onSuccess(Message.ClientSessionMessage result) {
+            public void onSuccess(Operation.SessionRequest result) {
             }
 
             @Override
@@ -175,7 +175,7 @@ public class ClientProtocolExecutor
             PendingTask task = new PendingTask(message, input);
             pending.put(task);
             
-            ListenableFuture<Message.ClientSessionMessage> future = connection.write(message);
+            ListenableFuture<Operation.SessionRequest> future = connection.write(message);
             Futures.addCallback(future, task);
 
             return null;

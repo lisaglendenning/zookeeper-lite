@@ -51,7 +51,7 @@ public abstract class ForwardingConnection<I> implements Connection<I> {
     }
 
     @Override
-    public ListenableFuture<I> write(I message) {
+    public <T extends I> ListenableFuture<T> write(final T message) {
         return delegate().write(message);
     }
 
@@ -59,15 +59,15 @@ public abstract class ForwardingConnection<I> implements Connection<I> {
     public ListenableFuture<Connection<I>> close() {
         return Futures.transform(
                 delegate().close(), 
-                new Function<Connection<I>, Connection<I>>() {
+                new Function<Connection<? super I>, Connection<I>>() {
                     @Override
-                    public Connection<I> apply(@Nullable Connection<I> input) {
+                    public Connection<I> apply(@Nullable Connection<? super I> input) {
                         return ForwardingConnection.this;
                     }
                 });
     }
 
-    protected abstract Connection<I> delegate();
+    protected abstract Connection<? super I> delegate();
     
     @Override
     public String toString() {

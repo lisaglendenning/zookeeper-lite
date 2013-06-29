@@ -100,7 +100,7 @@ public interface Connection<I> extends Publisher, Executor {
      * @param message I to send
      * @return ListenableFuture that returns {@code message}
      */
-    ListenableFuture<I> write(I message);
+    <T extends I> ListenableFuture<T> write(T message);
 
     /**
      * Transition Connection to CONNECTION_CLOSING.

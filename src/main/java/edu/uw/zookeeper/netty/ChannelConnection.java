@@ -131,9 +131,10 @@ public class ChannelConnection<I>
         get().read();
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public ListenableFuture<I> write(I message) {
-        return outbound.submit(message);
+    public <T extends I> ListenableFuture<T> write(T message) {
+        return (ListenableFuture<T>) outbound.submit(message);
     }
 
     @Override

@@ -25,7 +25,7 @@ public class ClientProtocolInitializer
         extends PromiseTask<Factory<ConnectMessage.Request>, Session> 
         implements Callable<ListenableFuture<Session>>, 
             ListenableFuture<Session>, 
-            FutureCallback<Message.ClientSessionMessage> {
+            FutureCallback<ConnectMessage.Request> {
 
     public static ClientProtocolInitializer newInstance(
             ClientCodecConnection codecConnection,
@@ -37,7 +37,7 @@ public class ClientProtocolInitializer
     private final Logger logger = LoggerFactory
             .getLogger(ClientProtocolInitializer.class);
     private final Connection<Message.ClientSessionMessage> connection;
-    private volatile ListenableFuture<Message.ClientSessionMessage> future;
+    private volatile ListenableFuture<ConnectMessage.Request> future;
 
     private ClientProtocolInitializer(
             Connection<Message.ClientSessionMessage> connection,
@@ -105,7 +105,7 @@ public class ClientProtocolInitializer
     }
     
     @Override
-    public void onSuccess(Message.ClientSessionMessage result) {
+    public void onSuccess(ConnectMessage.Request result) {
     }
 
     @Override
