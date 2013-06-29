@@ -180,6 +180,14 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         public StampedReference<? extends Records.View> updatedValue() {
             return updatedValue;
         }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("view", view())
+                    .add("previous", previousValue())
+                    .add("updated", updatedValue()).toString();
+        }
     }
     
     @Event
