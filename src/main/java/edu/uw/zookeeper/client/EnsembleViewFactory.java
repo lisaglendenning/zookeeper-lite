@@ -18,6 +18,7 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientCodecConnection;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
 import edu.uw.zookeeper.util.DefaultsFactory;
+import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.TimeValue;
 
@@ -25,10 +26,10 @@ public class EnsembleViewFactory implements DefaultsFactory<ServerView.Address<?
 
     public static <C extends ClientCodecConnection> EnsembleViewFactory newInstance(
             ClientConnectionFactory<Message.ClientSessionMessage, C> connections,
-            Processor<Operation.Request, Operation.SessionRequest> processor,
+            Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory,
             EnsembleView<? extends ServerView.Address<?>> view, 
             TimeValue timeOut) {
-        return new EnsembleViewFactory(connections, processor, view, timeOut, SelectServer.RANDOM);
+        return new EnsembleViewFactory(connections, processorFactory, view, timeOut, SelectServer.RANDOM);
     }
     
     public static enum SelectServer implements Function<EnsembleView<? extends ServerView.Address<?>>, ServerView.Address<?>> {
@@ -52,11 +53,11 @@ public class EnsembleViewFactory implements DefaultsFactory<ServerView.Address<?
     protected final EnsembleView<? extends ServerView.Address<?>> view;
     protected final TimeValue timeOut;
     protected final Map<ServerView.Address<?>, ServerViewFactory> factories;
-    protected final Processor<Operation.Request, Operation.SessionRequest> processor;
+    protected final Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory;
     
     protected EnsembleViewFactory(
             ClientConnectionFactory<Message.ClientSessionMessage, ? extends ClientCodecConnection> connections,
-            Processor<Operation.Request, Operation.SessionRequest> processor,
+            Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory,
             EnsembleView<? extends ServerView.Address<?>> view, 
             TimeValue timeOut,
             Function<EnsembleView<? extends ServerView.Address<?>>, ServerView.Address<?>> selector) {
@@ -64,7 +65,7 @@ public class EnsembleViewFactory implements DefaultsFactory<ServerView.Address<?
         this.timeOut = timeOut;
         this.selector = selector;
         this.connections = connections;
-        this.processor = processor;
+        this.processorFactory = processorFactory;
         this.factories = Collections.synchronizedMap(Maps.<ServerView.Address<?>, ServerViewFactory>newHashMap());
     }
     
@@ -81,7 +82,7 @@ public class EnsembleViewFactory implements DefaultsFactory<ServerView.Address<?
     public synchronized ClientProtocolExecutor get(ServerView.Address<?> server) {
         ServerViewFactory factory = factories.get(server);
         if (factory == null) {
-            factory = ServerViewFactory.newInstance(connections, processor, server, timeOut);
+            factory = ServerViewFactory.newInstance(connections, processorFactory, server, timeOut);
             factories.put(server, factory);
         }
         return factory.get();

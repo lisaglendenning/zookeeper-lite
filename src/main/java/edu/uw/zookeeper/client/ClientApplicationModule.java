@@ -135,8 +135,7 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
                             PingingClientCodecConnection.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get())).get());
 
         EnsembleRoleView<InetSocketAddress, ServerInetAddressView> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
-        AssignXidProcessor xids = AssignXidProcessor.newInstance();
-        EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, xids, ensemble, timeOut);
+        EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, AssignXidProcessor.factory(), ensemble, timeOut);
         monitorsFactory.apply(
                 ClientProtocolExecutorService.newInstance(ensembleFactory));
 

@@ -46,43 +46,43 @@ public class ClientProtocolExecutor
         Reference<ClientCodecConnection> {
     
     public static ClientProtocolExecutorFactory factory(
-            Processor<Operation.Request, Operation.SessionRequest> processor,
+            Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory,
             Factory<? extends ClientCodecConnection> connections,
             Reference<Long> lastZxid,
             TimeValue timeOut) {
         return ClientProtocolExecutorFactory.newInstance(
-                processor, connections, lastZxid, timeOut);
+                processorFactory, connections, lastZxid, timeOut);
     }
     
     public static class ClientProtocolExecutorFactory implements DefaultsFactory<Factory<ConnectMessage.Request>, ClientProtocolExecutor> {
 
         public static ClientProtocolExecutorFactory newInstance(
-                Processor<Operation.Request, Operation.SessionRequest> processor,
+                Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory,
                 Factory<? extends ClientCodecConnection> connections,
                 Reference<Long> lastZxid,
                 TimeValue timeOut) {
             return newInstance(
-                    processor, connections, 
+                    processorFactory, connections, 
                     ConnectMessage.Request.NewRequest.factory(lastZxid, timeOut));
         }
         
         public static ClientProtocolExecutorFactory newInstance(
-                Processor<Operation.Request, Operation.SessionRequest> processor,
+                Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory,
                 Factory<? extends ClientCodecConnection> connections,
                 Factory<ConnectMessage.Request> requests) {
             return new ClientProtocolExecutorFactory(
-                    processor, connections, requests); 
+                    processorFactory, connections, requests); 
         }
         
-        protected final Processor<Operation.Request, Operation.SessionRequest> processor;
+        protected final Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory;
         protected final Factory<ConnectMessage.Request> requests;
         protected final Factory<? extends ClientCodecConnection> connections;
         
         protected ClientProtocolExecutorFactory(
-                Processor<Operation.Request, Operation.SessionRequest> processor,
+                Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory,
                 Factory<? extends ClientCodecConnection> connections,
                 Factory<ConnectMessage.Request> requests) {
-            this.processor = processor;
+            this.processorFactory = processorFactory;
             this.connections = connections;
             this.requests = requests;
         }
@@ -96,7 +96,7 @@ public class ClientProtocolExecutor
         public ClientProtocolExecutor get(Factory<ConnectMessage.Request> requests) {
             return ClientProtocolExecutor.newInstance(
                     connections.get(), 
-                    processor,
+                    processorFactory.get(),
                     requests);
         }
     }

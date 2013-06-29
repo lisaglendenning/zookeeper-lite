@@ -24,7 +24,7 @@ public class ServerViewFactory implements DefaultsFactory<Session, ClientProtoco
 
     public static <C extends ClientCodecConnection> ServerViewFactory newInstance(
             ClientConnectionFactory<Message.ClientSessionMessage, C> connections,
-            Processor<Operation.Request, Operation.SessionRequest> processor,
+            Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory,
             ServerView.Address<? extends SocketAddress> server,
             TimeValue timeOut) {
         FixedClientConnectionFactory<Message.ClientSessionMessage, C> connectionFactory = 
@@ -33,7 +33,7 @@ public class ServerViewFactory implements DefaultsFactory<Session, ClientProtoco
         ZxidTracker.Decorator<Message.ClientSessionMessage, C> zxids = 
                 ZxidTracker.Decorator.newInstance(connectionFactory);
         DefaultsFactory<Factory<ConnectMessage.Request>, ClientProtocolExecutor> delegate = 
-                ClientProtocolExecutor.factory(processor, zxids, zxids.first(), timeOut);
+                ClientProtocolExecutor.factory(processorFactory, zxids, zxids.first(), timeOut);
         return new ServerViewFactory(server, zxids, delegate);
     }
     
