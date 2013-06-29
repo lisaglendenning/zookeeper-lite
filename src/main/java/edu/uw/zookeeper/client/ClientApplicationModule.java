@@ -1,16 +1,14 @@
 package edu.uw.zookeeper.client;
 
 
-import java.net.InetSocketAddress;
 import java.util.AbstractMap;
 import java.util.Map;
 
 import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
-import edu.uw.zookeeper.EnsembleRoleView;
+import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.ServerRoleView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.netty.client.NettyClientModule;
 import edu.uw.zookeeper.protocol.Message;
@@ -32,45 +30,71 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
         return INSTANCE;
     }
 
-    public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleRoleView<InetSocketAddress, ServerInetAddressView>> {
+    public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleView<ServerInetAddressView>> {
 
         public static ConfigurableEnsembleViewFactory newInstance() {
-            return new ConfigurableEnsembleViewFactory("");
+            return newInstance(DEFAULT_CONFIG_PATH);
         }
         
-        public static final String ARG = "ensemble";
-        public static final String CONFIG_KEY = "Ensemble";
+        public static ConfigurableEnsembleViewFactory newInstance(String configPath) {
+            return newInstance(
+                    configPath, DEFAULT_CONFIG_KEY, DEFAULT_ARG, DEFAULT_ADDRESS, DEFAULT_PORT);
+        }
 
+        public static ConfigurableEnsembleViewFactory newInstance(
+                String configPath, 
+                String configKey, 
+                String arg,
+                String defaultAddress, 
+                int defaultPort) {
+            return new ConfigurableEnsembleViewFactory(
+                    configPath, configKey, arg, defaultAddress, defaultPort);
+        }
+
+        public static final String DEFAULT_CONFIG_PATH = "";
+        public static final String DEFAULT_ARG = "ensemble";
+        public static final String DEFAULT_CONFIG_KEY = "Ensemble";
         public static final String DEFAULT_ADDRESS = "localhost";
         public static final int DEFAULT_PORT = 2181;
         
         private final String configPath;
+        private final String configKey;
+        private final String arg;
+        private final String defaultAddress;
+        private final int defaultPort;
         
-        protected ConfigurableEnsembleViewFactory(String configPath) {
+        public ConfigurableEnsembleViewFactory(
+                String configPath, 
+                String configKey, 
+                String arg, 
+                String defaultAddress, 
+                int defaultPort) {
             this.configPath = configPath;
+            this.arg = arg;
+            this.configKey = configKey;
+            this.defaultAddress = defaultAddress;
+            this.defaultPort = defaultPort;
         }
         
-        @SuppressWarnings("unchecked")
         @Override
-        public EnsembleRoleView<InetSocketAddress, ServerInetAddressView> get() {
-            return EnsembleRoleView.ofRoles(
-                    ServerRoleView.of(ServerInetAddressView.of(
-                    DEFAULT_ADDRESS, DEFAULT_PORT)));
+        public EnsembleView<ServerInetAddressView> get() {
+            return EnsembleView.of(ServerInetAddressView.of(
+                    defaultAddress, defaultPort));
         }
 
         @Override
-        public EnsembleRoleView<InetSocketAddress, ServerInetAddressView> get(Configuration value) {
+        public EnsembleView<ServerInetAddressView> get(Configuration value) {
             Arguments arguments = value.asArguments();
-            if (! arguments.has(ARG)) {
-                arguments.add(arguments.newOption(ARG, "Ensemble"));
+            if (! arguments.has(arg)) {
+                arguments.add(arguments.newOption(arg, "Ensemble"));
             }
             arguments.parse();
-            Map.Entry<String, String> args = new AbstractMap.SimpleImmutableEntry<String,String>(ARG, CONFIG_KEY);
+            Map.Entry<String, String> args = new AbstractMap.SimpleImmutableEntry<String,String>(arg, configKey);
             @SuppressWarnings("unchecked")
             Config config = value.withArguments(configPath, args);
-            if (config.hasPath(CONFIG_KEY)) {
-                String input = config.getString(CONFIG_KEY);
-                return EnsembleRoleView.fromStringRoles(input);
+            if (config.hasPath(configKey)) {
+                String input = config.getString(configKey);
+                return EnsembleView.fromString(input);
             } else {
                 return get();
             }
@@ -80,25 +104,40 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
     public static class TimeoutFactory implements DefaultsFactory<Configuration, TimeValue> {
 
         public static TimeoutFactory newInstance() {
-            return newInstance("");
+            return newInstance(DEFAULT_CONFIG_PATH);
         }
 
         public static TimeoutFactory newInstance(String configPath) {
-            return new TimeoutFactory(configPath);
+            return newInstance(configPath, DEFAULT_CONFIG_KEY, DEFAULT_TIMEOUT_VALUE, DEFAULT_TIMEOUT_UNIT);
         }
 
-        public static final String CONFIG_PATH = "Client.Timeout";
+        public static TimeoutFactory newInstance(
+                String configPath,
+                String configKey,
+                long defaultTimeOutValue,
+                String defaultTimeOutUnit) {
+            return new TimeoutFactory(configPath, configKey, defaultTimeOutValue, defaultTimeOutUnit);
+        }
+
+        public static final String DEFAULT_CONFIG_PATH = "";
+        public static final String DEFAULT_CONFIG_KEY = "Timeout";
         public static final long DEFAULT_TIMEOUT_VALUE = 30;
         public static final String DEFAULT_TIMEOUT_UNIT = "SECONDS";
 
         protected final String configPath;
+        protected final String configKey;
         protected final ConfigurableTime timeOut;
 
-        protected TimeoutFactory(String configPath) {
+        protected TimeoutFactory(
+                String configPath,
+                String configKey,
+                long defaultTimeOutValue,
+                String defaultTimeOutUnit) {
             this.configPath = configPath;
+            this.configKey = configKey;
             this.timeOut = ConfigurableTime.create(
-                    DEFAULT_TIMEOUT_VALUE,
-                    DEFAULT_TIMEOUT_UNIT);
+                    defaultTimeOutValue,
+                    defaultTimeOutUnit);
         }
 
         @Override
@@ -112,14 +151,14 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
             if (configPath.length() > 0 && config.hasPath(configPath)) {
                 config = config.getConfig(configPath);
             }
-            if (config.hasPath(CONFIG_PATH)) {
-                return timeOut.get(config.getConfig(CONFIG_PATH));
+            if (config.hasPath(configKey)) {
+                return timeOut.get(config.getConfig(configKey));
             } else {
                 return get();
             }
         }
     }
-
+    
     @Override
     public Application get(RuntimeModule runtime) {
         ServiceMonitor monitor = runtime.serviceMonitor();
@@ -134,7 +173,7 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
                             PingingClientCodecConnection.codecFactory(), 
                             PingingClientCodecConnection.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get())).get());
 
-        EnsembleRoleView<InetSocketAddress, ServerInetAddressView> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
+        EnsembleView<ServerInetAddressView> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
         EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, AssignXidProcessor.factory(), ensemble, timeOut);
         monitorsFactory.apply(
                 ClientProtocolExecutorService.newInstance(ensembleFactory));

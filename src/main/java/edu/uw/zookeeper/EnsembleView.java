@@ -45,8 +45,8 @@ public class EnsembleView<E extends ServerView> extends ForwardingSortedSet<E> {
     }
     
     @Serializes(from=String.class, to=EnsembleView.class)
-    public static EnsembleView<? extends ServerView.Address<?>> fromString(String input) {
-        return from(fromString(input, ServerAddressView.getDefaultType()));
+    public static EnsembleView<ServerInetAddressView> fromString(String input) {
+        return from(fromString(input, ServerInetAddressView.class));
     }
     
     public static <E> List<E> fromString(String input, Class<E> type) {

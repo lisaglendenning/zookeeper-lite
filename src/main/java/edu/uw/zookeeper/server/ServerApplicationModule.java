@@ -32,28 +32,28 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
     public static class ConfigurableServerAddressViewFactory implements DefaultsFactory<Configuration, ServerInetAddressView> {
 
         public static ConfigurableServerAddressViewFactory newInstance() {
-            return newInstance(DEFAULT_ARG, DEFAULT_CONFIG_KEY, DEFAULT_CONFIG_PATH, DEFAULT_ADDRESS, DEFAULT_PORT);
+            return newInstance(DEFAULT_CONFIG_PATH, DEFAULT_CONFIG_KEY, DEFAULT_ARG, DEFAULT_ADDRESS, DEFAULT_PORT);
         }
 
         public static ConfigurableServerAddressViewFactory newInstance(
                 String arg, String configKey, String configPath, String defaultAddress, int defaultPort) {
-            return new ConfigurableServerAddressViewFactory(arg, configKey, configPath, defaultAddress, defaultPort);
+            return new ConfigurableServerAddressViewFactory(configPath,configKey, arg, defaultAddress, defaultPort);
         }
         
         public static final String DEFAULT_ARG = "clientAddress";
-        public static final String DEFAULT_CONFIG_KEY = "Address";
+        public static final String DEFAULT_CONFIG_KEY = "ClientAddress";
         public static final String DEFAULT_CONFIG_PATH = "";
         public static final String DEFAULT_ADDRESS = "";
         public static final int DEFAULT_PORT = 2181;
 
-        private final String arg;
-        private final String configKey;
         private final String configPath;
+        private final String configKey;
+        private final String arg;
         private final String defaultAddress;
         private final int defaultPort;
         
         public ConfigurableServerAddressViewFactory(
-                String arg, String configKey, String configPath, String defaultAddress, int defaultPort) {
+                String configPath, String configKey, String arg, String defaultAddress, int defaultPort) {
             this.arg = arg;
             this.configKey = configKey;
             this.configPath = configPath;
@@ -97,7 +97,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(runtime.publisherFactory().get(), policy);
         ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
 
-        final ServerExecutor serverExecutor = ServerExecutor.newInstance(runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions);
+        ServerExecutor serverExecutor = ServerExecutor.newInstance(runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions);
 
         ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>> serverConnectionFactory = 
                 nettyServer.get(
@@ -107,7 +107,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = 
                 monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         
-        final ServerConnectionListener server = ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
+        ServerConnectionListener server = ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
         
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
