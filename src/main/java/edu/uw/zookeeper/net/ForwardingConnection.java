@@ -2,6 +2,10 @@ package edu.uw.zookeeper.net;
 
 import java.net.SocketAddress;
 
+import javax.annotation.Nullable;
+
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 public abstract class ForwardingConnection<I> implements Connection<I> {
@@ -53,7 +57,14 @@ public abstract class ForwardingConnection<I> implements Connection<I> {
 
     @Override
     public ListenableFuture<Connection<I>> close() {
-        return delegate().close();
+        return Futures.transform(
+                delegate().close(), 
+                new Function<Connection<I>, Connection<I>>() {
+                    @Override
+                    public Connection<I> apply(@Nullable Connection<I> input) {
+                        return ForwardingConnection.this;
+                    }
+                });
     }
 
     protected abstract Connection<I> delegate();

@@ -202,8 +202,12 @@ public class Materializer extends ZNodeResponseCache<Materializer.MaterializedNo
         }
         
         public Submitter<Operations.Requests.GetChildren> getChildren(ZNodeLabel.Path path) {
+            return getChildren(path, false);
+        }
+
+        public Submitter<Operations.Requests.GetChildren> getChildren(ZNodeLabel.Path path, boolean watch) {
             return new Submitter<Operations.Requests.GetChildren>(
-                    Operations.Requests.getChildren().setPath(path), get());
+                    Operations.Requests.getChildren().setPath(path).setWatch(watch), get());
         }
 
         public Submitter<Operations.Requests.GetData> getData(ZNodeLabel.Path path) {

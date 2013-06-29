@@ -7,6 +7,7 @@ import java.util.EnumSet;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -19,7 +20,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.Operation.SessionResult;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractActor;
@@ -69,26 +69,26 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         }
     }
     
-    public static class Pending extends ForwardingQueue<ListenableFuture<Operation.SessionResult>> {
+    public static class Pending<U,T extends Future<U>> extends ForwardingQueue<T> {
 
-        public static Pending newInstance() {
-            return new Pending(new LinkedBlockingQueue<ListenableFuture<Operation.SessionResult>>());
+        public static <U,T extends Future<U>> Pending<U,T> newInstance() {
+            return new Pending<U,T>(new LinkedBlockingQueue<T>());
         }
         
-        protected final Queue<ListenableFuture<Operation.SessionResult>> delegate;
+        protected final Queue<T> delegate;
         
-        public Pending(Queue<ListenableFuture<Operation.SessionResult>> delegate) {
+        public Pending(Queue<T> delegate) {
             this.delegate = delegate;
         }
         
         @Override
-        public Queue<ListenableFuture<SessionResult>> delegate() {
+        public Queue<T> delegate() {
             return delegate;
         }
         
         @Override
-        public ListenableFuture<Operation.SessionResult> peek() {
-            ListenableFuture<Operation.SessionResult> next = super.peek();
+        public T peek() {
+            T next = super.peek();
             if ((next != null) && (next.isDone())) {
                 return next;
             } else {
@@ -97,8 +97,8 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         }
 
         @Override
-        public synchronized ListenableFuture<Operation.SessionResult> poll() {
-            ListenableFuture<Operation.SessionResult> next = peek();
+        public synchronized T poll() {
+            T next = peek();
             if (next != null) {
                 return super.poll();
             } else {
@@ -113,7 +113,7 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
         
         @Override
         public void clear() {
-            ListenableFuture<Operation.SessionResult> next;
+            T next;
             while ((next = super.poll()) != null) {
                 next.cancel(true);
             }
@@ -126,12 +126,26 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
             ClientExecutor client,
             Executor executor) {
         Promise<ZNodeLabel.Path> promise = SettableFuturePromise.create();
+        return newInstance(
+                parameters, 
+                root, 
+                client, 
+                executor,
+                promise);
+    }
+
+    public static TreeFetcher newInstance(
+            Parameters parameters,
+            ZNodeLabel.Path root,
+            ClientExecutor client,
+            Executor executor,
+            Promise<ZNodeLabel.Path> promise) {
         return new TreeFetcher(
                 parameters, 
                 root, 
                 client, 
                 promise, 
-                Pending.newInstance(), 
+                Pending.<Operation.SessionResult, ListenableFuture<Operation.SessionResult>>newInstance(), 
                 executor,
                 AbstractActor.<ZNodeLabel.Path>newQueue(),
                 AbstractActor.newState());
@@ -141,14 +155,14 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
     protected final Parameters parameters;
     protected final ZNodeLabel.Path root;
     protected final Promise<ZNodeLabel.Path> promise;
-    protected final Pending pending;
+    protected final Pending<Operation.SessionResult, ListenableFuture<Operation.SessionResult>> pending;
     
     protected TreeFetcher(
             Parameters parameters,
             ZNodeLabel.Path root,
             ClientExecutor client,
             Promise<ZNodeLabel.Path> promise,
-            Pending pending,
+            Pending<Operation.SessionResult, ListenableFuture<Operation.SessionResult>> pending,
             Executor executor, 
             Queue<ZNodeLabel.Path> mailbox,
             AtomicReference<State> state) {
@@ -219,20 +233,21 @@ public class TreeFetcher extends AbstractActor<ZNodeLabel.Path, Void> {
                 return;
             }
             
-            Operation.Request request = result.request().request();
-            Operation.Response reply = Operations.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
-            if (((OpCode.GET_CHILDREN == request.opcode())
-                    || (OpCode.GET_CHILDREN2 == request.opcode()))
-                    && !(reply instanceof Operation.Error)) {
-                String path = ((Records.PathHolder) request).getPath();
-                Records.ChildrenHolder responseRecord = (Records.ChildrenHolder) reply;
-                for (String child: responseRecord.getChildren()) {
-                    send(ZNodeLabel.Path.joined(path, child));
-                }
-            }
+            handleResult(result);
         }
         
         super.runAll();
+    }
+    
+    protected void handleResult(Operation.SessionResult result) throws Exception {
+        Operation.Request request = result.request().request();
+        Operation.Response reply = Operations.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
+        if (reply instanceof Records.ChildrenHolder) {
+            ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathHolder) request).getPath());
+            for (String child: ((Records.ChildrenHolder) reply).getChildren()) {
+                send(ZNodeLabel.Path.of(path, ZNodeLabel.Component.of(child)));
+            }
+        }
     }
     
     @Override

@@ -29,6 +29,16 @@ public abstract class AbstractConnectionFactory<I, C extends Connection<I>> exte
         this.publisher = checkNotNull(publisher);
     }
 
+    @Override
+    public void register(Object object) {
+        publisher.register(object);
+    }
+
+    @Override
+    public void unregister(Object object) {
+        publisher.unregister(object);
+    }
+
     protected boolean add(C connection) {
         new RemoveConnectionOnClose(connection);
         State state = state();
@@ -58,16 +68,6 @@ public abstract class AbstractConnectionFactory<I, C extends Connection<I>> exte
 
     protected void post(Object event) {
         publisher.post(event);
-    }
-
-    @Override
-    public void register(Object object) {
-        publisher.register(object);
-    }
-
-    @Override
-    public void unregister(Object object) {
-        publisher.unregister(object);
     }
 
     protected abstract boolean remove(C connection);

@@ -111,7 +111,7 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
     
     protected void runAll() throws Exception {
         I next;
-        while ((next = mailbox.poll()) != null) {
+        while ((State.TERMINATED != state.get()) && (next = mailbox.poll()) != null) {
             apply(next);
         }
     }

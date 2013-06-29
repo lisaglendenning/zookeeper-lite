@@ -7,6 +7,10 @@ import com.google.common.eventbus.EventBus;
  */
 public class EventBusPublisher extends EventBus implements Publisher {
 
+    public static EventBusPublisher newInstance() {
+        return new EventBusPublisher();
+    }
+    
     public EventBusPublisher() {
         super();
     }
