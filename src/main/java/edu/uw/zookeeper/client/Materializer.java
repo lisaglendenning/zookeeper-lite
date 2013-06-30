@@ -86,11 +86,14 @@ public class Materializer extends ZNodeResponseCache<Materializer.MaterializedNo
                     if (type instanceof Class<?>) {
                         Class<?> cls = (Class<?>) type;
                         int mod = cls.getModifiers();
-                        if (! ((type == Void.class) || Modifier.isInterface(mod) || Modifier.isAbstract(mod))) {
-                            if ((instance.get().stamp() == 0L) || (result.stamp().compareTo(value.stamp()) < 0)) {
-                                byte[] prev = ((Records.DataHolder)result.get()).getData();
-                                byte[] updated = ((Records.DataHolder)value.get()).getData();
-                                if ((instance.get().stamp() == 0L) || ! Arrays.equals(prev, updated)) {
+                        if (! ((type == Void.class) || Modifier.isInterface(mod) 
+                                || Modifier.isAbstract(mod))) {
+                            if (instance.get().stamp().equals(Long.valueOf(0L)) 
+                                    || (result.stamp().compareTo(value.stamp()) < 0)) {
+                                Records.DataHolder prev = (Records.DataHolder) result.get();
+                                byte[] updated = ((Records.DataHolder) value.get()).getData();
+                                if (instance.get().stamp().equals(Long.valueOf(0L))
+                                        || (prev == null) || ! Arrays.equals(prev.getData(), updated)) {
                                     if (updated.length > 0) { 
                                         try {
                                             newInstance = codec().fromBytes(updated, cls);

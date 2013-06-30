@@ -4,10 +4,11 @@ package edu.uw.zookeeper.client;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 
@@ -15,6 +16,8 @@ import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -23,6 +26,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.util.Event;
 import edu.uw.zookeeper.data.StampedReference;
+import edu.uw.zookeeper.data.StampedReference.Updater;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.data.ZNodeLabelTrie;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
@@ -106,36 +110,38 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
                 return null;
             }
             
-            switch (view) {
-            case DATA:
-            {
-                byte[] prev = ((Records.DataHolder)previousValue.get()).getData();
-                byte[] updated = ((Records.DataHolder)updatedValue.get()).getData();
-                if (Arrays.equals(prev, updated)) {
-                    return null;
+            if (previousValue.get() != null) {
+                switch (view) {
+                case DATA:
+                {
+                    byte[] prev = ((Records.DataHolder)previousValue.get()).getData();
+                    byte[] updated = ((Records.DataHolder)updatedValue.get()).getData();
+                    if (Arrays.equals(prev, updated)) {
+                        return null;
+                    }
+                    break;
                 }
-                break;
-            }
-            case ACL:
-            {
-                List<ACL> prev = ((Records.AclHolder)previousValue.get()).getAcl();
-                List<ACL> updated = ((Records.AclHolder)updatedValue.get()).getAcl();
-                if (prev.equals(updated)) {
-                    return null;
+                case ACL:
+                {
+                    List<ACL> prev = ((Records.AclHolder)previousValue.get()).getAcl();
+                    List<ACL> updated = ((Records.AclHolder)updatedValue.get()).getAcl();
+                    if (prev.equals(updated)) {
+                        return null;
+                    }
+                    break;
                 }
-                break;
-            }
-            case STAT:
-            {
-                Stat prev = ((Records.StatHolder)previousValue.get()).getStat();
-                Stat updated = ((Records.StatHolder)updatedValue.get()).getStat();
-                if (prev.equals(updated)) {
-                    return null;
+                case STAT:
+                {
+                    Stat prev = ((Records.StatHolder)previousValue.get()).getStat();
+                    Stat updated = ((Records.StatHolder)updatedValue.get()).getStat();
+                    if (prev.equals(updated)) {
+                        return null;
+                    }
+                    break;
                 }
-                break;
-            }
-            default:
-                throw new AssertionError();
+                default:
+                    throw new AssertionError();
+                }
             }
             
             return of(path, view, previousValue, updatedValue);
@@ -228,20 +234,13 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
     public abstract static class AbstractNodeCache<E extends AbstractNodeCache<E>> extends ZNodeLabelTrie.DefaultsNode<E> implements NodeCache<E> {
 
         protected final AtomicLong stamp;
-        protected final Map<View, StampedReference.Updater<? extends Records.View>> views;
+        protected final ConcurrentMap<View, StampedReference.Updater<? extends Records.View>> views;
 
         protected AbstractNodeCache(
                 Optional<ZNodeLabelTrie.Pointer<E>> parent) {
-            this(parent,
-                    Collections.synchronizedMap(Maps.<View, StampedReference.Updater<? extends Records.View>>newEnumMap(View.class)));
-        }
-        
-        protected AbstractNodeCache(
-                Optional<ZNodeLabelTrie.Pointer<E>> parent,
-                Map<View, StampedReference.Updater<? extends Records.View>> views) {
             super(parent);
             this.stamp = new AtomicLong(0L);
-            this.views = views;
+            this.views = new ConcurrentHashMap<View, StampedReference.Updater<? extends Records.View>>();
         }
         
         @Override
@@ -275,18 +274,15 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         @Override
         @SuppressWarnings("unchecked")
         public <T extends Records.View> StampedReference<T> update(View view, StampedReference<T> value) {
+            touch(value.stamp());
             StampedReference.Updater<T> updater = (StampedReference.Updater<T>) views.get(view);
             if (updater == null) {
-                synchronized (views) {
-                    if (views.containsKey(view)) {
-                        updater = (StampedReference.Updater<T>) views.get(view);
-                    } else {
-                        updater = StampedReference.Updater.<T>newInstance(value);
-                        views.put(view, updater);
-                    }
+                updater = StampedReference.Updater.<T>newInstance(StampedReference.<T>of(0L, null));
+                StampedReference.Updater<T> prev = (Updater<T>) views.putIfAbsent(view, updater);
+                if (prev != null) {
+                    updater = prev;
                 }
             }
-            touch(value.stamp());
             return updater.setIfGreater(value);
         }
         
@@ -353,6 +349,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         }
     }
     
+    protected final Logger logger;
     protected final ZxidTracker lastZxid;
     protected final ZNodeLabelTrie<E> trie;
     protected final ClientExecutor client;
@@ -360,6 +357,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
     
     protected ZNodeResponseCache(
             Publisher publisher, ClientExecutor client, ZNodeLabelTrie<E> trie) {
+        this.logger = LoggerFactory.getLogger(getClass());
         this.trie = trie;
         this.client = client;
         this.lastZxid = ZxidTracker.create();
@@ -448,7 +446,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
                 StampedReference<Records.CreateHolder> stampedRequest = StampedReference.of(zxid, (Records.CreateHolder) request);
                 update(node, stampedRequest);
                 if (reply instanceof Records.StatHolder) {
-                    StampedReference<Records.StatHolder> stampedResponse = StampedReference.of(zxid, (Records.StatHolder)reply);
+                    StampedReference<Records.StatHolder> stampedResponse = StampedReference.of(zxid, (Records.StatHolder) reply);
                     update(node, stampedResponse);
                 }
             } else if (KeeperException.Code.NODEEXISTS == ((Operation.Error)reply).error()) {
@@ -589,7 +587,7 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
             next = parent.get(e);
             if (next == null) {
                 next = parent.add(e);
-                if (next.touch(zxid).longValue() == 0L) {
+                if (next.touch(zxid).equals(Long.valueOf(0L))) {
                     post(NodeUpdate.of(
                             NodeUpdate.UpdateType.NODE_ADDED, 
                             StampedReference.of(zxid, next.path())));
