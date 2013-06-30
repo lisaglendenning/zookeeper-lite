@@ -14,8 +14,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.data.ACL;
-import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -103,38 +101,35 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
         public static ViewUpdate ifUpdated(
                 ZNodeLabel.Path path,
                 View view, 
-                StampedReference<? extends Records.View> previousValue, 
-                StampedReference<? extends Records.View> updatedValue) {
+                StampedReference<? extends Records.View> previous, 
+                StampedReference<? extends Records.View> updated) {
             
-            if (updatedValue.stamp().compareTo(previousValue.stamp()) < 0) {
+            if (updated.stamp().compareTo(previous.stamp()) < 0) {
                 return null;
             }
             
-            if (previousValue.get() != null) {
+            if (previous.get() != null) {
                 switch (view) {
                 case DATA:
                 {
-                    byte[] prev = ((Records.DataHolder)previousValue.get()).getData();
-                    byte[] updated = ((Records.DataHolder)updatedValue.get()).getData();
-                    if (Arrays.equals(prev, updated)) {
+                    if (Arrays.equals(((Records.DataHolder)previous.get()).getData(), 
+                            ((Records.DataHolder)updated.get()).getData())) {
                         return null;
                     }
                     break;
                 }
                 case ACL:
                 {
-                    List<ACL> prev = ((Records.AclHolder)previousValue.get()).getAcl();
-                    List<ACL> updated = ((Records.AclHolder)updatedValue.get()).getAcl();
-                    if (prev.equals(updated)) {
+                    if (Objects.equal(((Records.AclHolder)previous.get()).getAcl(), 
+                            ((Records.AclHolder)updated.get()).getAcl())) {
                         return null;
                     }
                     break;
                 }
                 case STAT:
                 {
-                    Stat prev = ((Records.StatHolder)previousValue.get()).getStat();
-                    Stat updated = ((Records.StatHolder)updatedValue.get()).getStat();
-                    if (prev.equals(updated)) {
+                    if (Objects.equal(((Records.StatHolder)previous.get()).getStat(),
+                            ((Records.StatHolder)updated.get()).getStat())) {
                         return null;
                     }
                     break;
@@ -144,31 +139,31 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
                 }
             }
             
-            return of(path, view, previousValue, updatedValue);
+            return of(path, view, previous, updated);
         }
         
         public static ViewUpdate of(
                 ZNodeLabel.Path path,
                 View view, 
-                StampedReference<? extends Records.View> previousValue, 
-                StampedReference<? extends Records.View> updatedValue) {
-            return new ViewUpdate(path, view, previousValue, updatedValue);
+                StampedReference<? extends Records.View> previous, 
+                StampedReference<? extends Records.View> updated) {
+            return new ViewUpdate(path, view, previous, updated);
         }
         
         private final ZNodeLabel.Path path;
         private final View view;
-        private final StampedReference<? extends Records.View> previousValue;
-        private final StampedReference<? extends Records.View> updatedValue;
+        private final StampedReference<? extends Records.View> previous;
+        private final StampedReference<? extends Records.View> updated;
         
         public ViewUpdate(
                 ZNodeLabel.Path path,
                 View view, 
-                StampedReference<? extends Records.View> previousValue, 
-                StampedReference<? extends Records.View> updatedValue) {
+                StampedReference<? extends Records.View> previous, 
+                StampedReference<? extends Records.View> updated) {
             this.path = path;
             this.view = view;
-            this.previousValue = previousValue;
-            this.updatedValue = updatedValue;
+            this.previous = previous;
+            this.updated = updated;
         }
         
         public ZNodeLabel.Path path() {
@@ -179,20 +174,21 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
             return view;
         }
         
-        public StampedReference<? extends Records.View> previousValue() {
-            return previousValue;
+        public StampedReference<? extends Records.View> previous() {
+            return previous;
         }
         
-        public StampedReference<? extends Records.View> updatedValue() {
-            return updatedValue;
+        public StampedReference<? extends Records.View> updated() {
+            return updated;
         }
         
         @Override
         public String toString() {
             return Objects.toStringHelper(this)
+                    .add("path", path())
                     .add("view", view())
-                    .add("previous", previousValue())
-                    .add("updated", updatedValue()).toString();
+                    .add("previous", previous())
+                    .add("updated", updated()).toString();
         }
     }
     
