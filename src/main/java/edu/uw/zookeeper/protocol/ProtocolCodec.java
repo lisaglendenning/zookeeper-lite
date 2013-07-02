@@ -14,9 +14,15 @@ import edu.uw.zookeeper.util.Stateful;
 
 public class ProtocolCodec<I extends Message, O extends Message> implements Codec<I, Optional<O>>, Stateful<ProtocolState> {
 
-    public static Automaton<ProtocolState, Message> newAutomaton(Publisher publisher) {
+    public static Automaton<ProtocolState, Message> newAutomaton(
+            Publisher publisher) {
+        return newAutomaton(publisher, ProtocolState.ANONYMOUS);
+    }
+
+    public static Automaton<ProtocolState, Message> newAutomaton(
+            Publisher publisher, ProtocolState state) {
         return Automatons.createSynchronizedEventful(publisher, 
-                Automatons.createSimple(ProtocolState.ANONYMOUS));
+                Automatons.createSimple(state));
     }
     
     protected final Automaton<ProtocolState, Message> automaton;

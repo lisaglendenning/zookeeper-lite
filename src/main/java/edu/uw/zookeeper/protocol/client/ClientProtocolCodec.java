@@ -36,16 +36,12 @@ public class ClientProtocolCodec
 
     public static ClientProtocolCodec newInstance(
             Publisher publisher) {
-        return newInstance(newAutomaton(publisher));
+        return newInstance(publisher, ProtocolState.ANONYMOUS);
     }
     
-    /**
-     * 
-     * @param automaton must be thread-safe
-     */
     public static ClientProtocolCodec newInstance(
-            Automaton<ProtocolState, Message> automaton) {
-        return new ClientProtocolCodec(automaton, Pending.newInstance());
+            Publisher publisher, ProtocolState state) {
+        return new ClientProtocolCodec(newAutomaton(publisher, state), Pending.newInstance());
     }
     
     public static class Pending implements Function<Integer, OpCode>, Reference<Queue<Pair<Integer, OpCode>>> {

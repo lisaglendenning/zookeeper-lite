@@ -56,6 +56,34 @@ public class SessionReplyMessage implements Operation.SessionReply {
         return newInstance(header.getXid(), header.getZxid(), reply);
     }
     
+    // TODO: DRY
+    public static SessionReplyMessage decode(OpCode opcode, ByteBuf input)
+            throws IOException {
+        ByteBufInputArchive archive = new ByteBufInputArchive(input);
+        IReplyHeader header = Records.Responses.Headers.deserialize(archive);
+        int err = header.getErr();
+        Operation.Response reply;
+        if (KeeperException.Code.OK.intValue() == err) {
+            int xid = header.getXid();
+            if (OpCodeXid.has(xid)) {
+                opcode = OpCodeXid.of(xid).opcode();
+            }
+            switch (opcode) {
+            case PING:
+                reply = OpPing.Response.newInstance();
+                break;
+            default:
+                reply = Records.Responses.deserialize(opcode, archive);
+                break;
+            }
+        } else {
+            // FIXME: make sure there isn't anything following an
+            // error header? doesn't look like the client expects one
+            reply = new IErrorResponse(err);
+        }
+        return newInstance(header.getXid(), header.getZxid(), reply);
+    }
+    
     private final long zxid;
     private final int xid;
     private final Operation.Response reply;

@@ -15,13 +15,17 @@ public abstract class Operation {
         long zxid();
     }
     
+    public static interface ClientRequest {}
+    
+    public static interface ServerResponse {}
+    
     public static interface Action extends Record {
         OpCode opcode();
     }
 
-    public static interface Request extends Action {}
+    public static interface Request extends Action, ClientRequest {}
 
-    public static interface Response extends Action {}
+    public static interface Response extends Action, ServerResponse {}
 
     /**
      * A reply indicating an unsuccessful operation.
@@ -30,11 +34,11 @@ public abstract class Operation {
         KeeperException.Code error();
     }
     
-    public static interface SessionRequest extends Message.ClientSessionMessage, XidHeader {
+    public static interface SessionRequest extends Message.ClientSessionMessage, XidHeader, ClientRequest {
         Request request();
     }
     
-    public static interface SessionReply extends Message.ServerSessionMessage, XidHeader, ZxidHeader {
+    public static interface SessionReply extends Message.ServerSessionMessage, XidHeader, ZxidHeader, ServerResponse {
         Response reply();
     }
     

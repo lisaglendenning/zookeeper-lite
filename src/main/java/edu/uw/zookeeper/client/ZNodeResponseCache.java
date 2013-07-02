@@ -387,12 +387,12 @@ public class ZNodeResponseCache<E extends ZNodeResponseCache.AbstractNodeCache<E
     }
 
     @Override
-    public ListenableFuture<Operation.SessionResult> submit(Operation.Request request) {
+    public ListenableFuture<Operation.SessionResult> submit(Operation.ClientRequest request) {
         return client.submit(request, new PromiseWrapper());
     }
     
     @Override
-    public ListenableFuture<Operation.SessionResult> submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
+    public ListenableFuture<Operation.SessionResult> submit(Operation.ClientRequest request, Promise<Operation.SessionResult> promise) {
         return client.submit(request, new PromiseWrapper(promise));
     }
     

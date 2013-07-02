@@ -78,7 +78,7 @@ public class ClientProtocolExecutorService extends AbstractIdleService
     }
 
     @Override
-    public ListenableFuture<Operation.SessionResult> submit(Operation.Request request) {
+    public ListenableFuture<Operation.SessionResult> submit(Operation.ClientRequest request) {
         State state = state();
         switch (state) {
         case NEW:
@@ -91,7 +91,7 @@ public class ClientProtocolExecutorService extends AbstractIdleService
     }
 
     @Override
-    public ListenableFuture<Operation.SessionResult> submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
+    public ListenableFuture<Operation.SessionResult> submit(Operation.ClientRequest request, Promise<Operation.SessionResult> promise) {
         State state = state();
         switch (state) {
         case NEW:

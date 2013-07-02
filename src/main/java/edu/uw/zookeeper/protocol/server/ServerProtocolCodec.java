@@ -28,12 +28,12 @@ public class ServerProtocolCodec extends ProtocolCodec<Message.ServerMessage, Me
     
     public static ServerProtocolCodec newInstance(
             Publisher publisher) {
-        return newInstance(newAutomaton(publisher));
+        return newInstance(publisher, ProtocolState.ANONYMOUS);
     }
     
     public static ServerProtocolCodec newInstance(
-            Automaton<ProtocolState, Message> automaton) {
-        return new ServerProtocolCodec(automaton);
+            Publisher publisher, ProtocolState state) {
+        return new ServerProtocolCodec(newAutomaton(publisher, state));
     }
     
     protected ServerProtocolCodec(

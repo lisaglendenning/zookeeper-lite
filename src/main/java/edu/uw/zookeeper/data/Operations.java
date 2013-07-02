@@ -8,6 +8,8 @@ import java.util.List;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.Watcher.Event.EventType;
+import org.apache.zookeeper.Watcher.Event.KeeperState;
 import org.apache.zookeeper.data.Stat;
 
 import com.google.common.base.Functions;
@@ -940,6 +942,71 @@ public abstract class Operations {
                 return record;
             }
         }
+        
+        public static class Notification extends AbstractBuilder<IWatcherEvent> implements PathBuilder<IWatcherEvent> {
+
+            public static Notification fromRecord(IWatcherEvent record) {
+                return new Notification(
+                        EventType.fromInt(record.getType()),
+                        KeeperState.fromInt(record.getState()),
+                        ZNodeLabel.Path.of(record.getPath()));
+            }
+            
+            private ZNodeLabel.Path path;
+            private KeeperState keeperState;
+            private EventType eventType;
+            
+            public Notification() {
+                this(EventType.None, KeeperState.SyncConnected, ZNodeLabel.Path.root());
+            }
+
+            public Notification(
+                    EventType eventType,
+                    KeeperState keeperState,
+                    ZNodeLabel.Path path) {
+                super(OpCode.NOTIFICATION);
+                this.eventType = eventType;
+                this.keeperState = keeperState;
+                this.path = path;
+            }
+            
+            @Override
+            public ZNodeLabel.Path getPath() {
+                return path;
+            }
+
+            @Override
+            public Notification setPath(ZNodeLabel.Path path) {
+                this.path = path;
+                return this;
+            }
+
+            public KeeperState getKeeperState() {
+                return keeperState;
+            }
+            
+            public Notification setKeeperState(KeeperState keeperState) {
+                this.keeperState = keeperState;
+                return this;
+            }
+            
+            public EventType getEventType() {
+                return eventType;
+            }
+
+            public Notification setEventType(EventType eventType) {
+                this.eventType = eventType;
+                return this;
+            }
+            
+            @Override
+            public IWatcherEvent build() {
+                return new IWatcherEvent( 
+                        getEventType().getIntValue(),
+                        getKeeperState().getIntValue(),
+                        getPath().toString());
+            }
+        }
     
         public static class SetAcl extends AbstractStat<ISetACLResponse, SetAcl> {
 
@@ -1038,6 +1105,8 @@ public abstract class Operations {
                 builder = GetData.fromRecord((IGetDataResponse) record);
             case MULTI:
                 builder = Multi.fromRecord((IMultiResponse) record);
+            case NOTIFICATION:
+                builder = Notification.fromRecord((IWatcherEvent) record);
             case SET_ACL:
                 builder = SetAcl.fromRecord((ISetACLResponse) record);
             case SET_DATA:
@@ -1078,6 +1147,10 @@ public abstract class Operations {
             return new Multi();
         }
         
+        public static Notification notification() {
+            return new Notification();
+        }
+        
         public static SetAcl setAcl() {
             return new SetAcl();
         }
@@ -1088,6 +1161,14 @@ public abstract class Operations {
         
         public static Sync sync() {
             return new Sync();
+        }
+    }
+    
+    public static Builder<? extends Operation.Action> fromRecord(Operation.Action input) {
+        if (input instanceof Operation.Request) {
+            return Requests.fromRecord((Operation.Request) input);
+        } else {
+            return Responses.fromRecord((Operation.Response) input);
         }
     }
 

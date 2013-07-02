@@ -111,7 +111,7 @@ public class ClientProtocolExecutor
                 ClientProtocolInitializer.newInstance(codecConnection, requests));
     }
     
-    public static class Pending implements Processor<PromiseTask<Operation.Request, Operation.SessionResult>, Void> {
+    public static class Pending implements Processor<PromiseTask<Operation.ClientRequest, Operation.SessionResult>, Void> {
 
         public static Pending newInstance(
                 Processor<Operation.Request, Operation.SessionRequest> processor,
@@ -162,13 +162,13 @@ public class ClientProtocolExecutor
         }
         
         @Override
-        public Void apply(PromiseTask<Operation.Request, Operation.SessionResult> input) throws Exception {
-            Operation.Request request = input.task();
+        public Void apply(PromiseTask<Operation.ClientRequest, Operation.SessionResult> input) throws Exception {
+            Operation.ClientRequest request = input.task();
             Operation.SessionRequest message;
             if (request instanceof Operation.SessionRequest) {
                 message = (Operation.SessionRequest) request;
             } else {
-                message = processor.apply(request);
+                message = processor.apply((Operation.Request) request);
             }
             
             // task needs to be in the queue before calling write
@@ -227,7 +227,7 @@ public class ClientProtocolExecutor
     private final ClientCodecConnection codecConnection;
     private final ClientProtocolInitializer initializer;
     private final Pending pending;
-    private final TaskMailbox.ActorTaskExecutor<Operation.Request, Operation.SessionResult> outbound;
+    private final TaskMailbox.ActorTaskExecutor<Operation.ClientRequest, Operation.SessionResult> outbound;
     
     private ClientProtocolExecutor(
             ClientCodecConnection codecConnection,
@@ -273,13 +273,13 @@ public class ClientProtocolExecutor
     }
 
     @Override
-    public ListenableFuture<Operation.SessionResult> submit(Operation.Request request) {
+    public ListenableFuture<Operation.SessionResult> submit(Operation.ClientRequest request) {
         Promise<Operation.SessionResult> promise = outbound.newPromise();
         return submit(request, promise);
     }
 
     @Override
-    public ListenableFuture<Operation.SessionResult> submit(Operation.Request request, Promise<Operation.SessionResult> promise) {
+    public ListenableFuture<Operation.SessionResult> submit(Operation.ClientRequest request, Promise<Operation.SessionResult> promise) {
         ProtocolState state = state();
         switch (state) {
         case ANONYMOUS:

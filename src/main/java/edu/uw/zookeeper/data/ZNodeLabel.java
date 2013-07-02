@@ -339,7 +339,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             String tail = toString().substring(lastSlash + 1);
             return new Component(tail);
         }
-
+        
         public ZNodeLabel suffix() {
             String suffix = toString();
             int slash = suffix.indexOf(SLASH);
@@ -363,7 +363,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             }
             return false;
         }
-
+        
         @Override
         public Iterator<Component> iterator() {
             // TODO: memoize
