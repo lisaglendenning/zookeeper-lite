@@ -1,6 +1,5 @@
 package edu.uw.zookeeper.protocol;
 
-import static com.google.common.base.Preconditions.*;
 import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -20,7 +19,8 @@ import edu.uw.zookeeper.protocol.proto.IOperationalRecord;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Operational;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.DefaultsFactory;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.TimeValue;
 
@@ -32,12 +32,28 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
             ConnectMessage<IConnectRequest> implements
             Operation.Request, Message.ClientSessionMessage {
 
-        public static abstract class RequestsFactory implements Factory<ConnectMessage.Request> {
-            protected final Reference<Long> lastZxid;
+        public static RequestsFactory factory(
+                TimeValue timeOut,
+                Reference<Long> lastZxid) {
+            return new RequestsFactory(timeOut, lastZxid);
+        }
         
-            protected RequestsFactory(
+        public static class RequestsFactory extends Pair<TimeValue, Reference<Long>> implements DefaultsFactory<Session, ConnectMessage.Request> {
+            
+            public RequestsFactory(
+                    TimeValue timeOut,
                     Reference<Long> lastZxid) {
-                this.lastZxid = lastZxid;
+                super(timeOut, lastZxid);
+            }
+
+            @Override
+            public Request get() {
+                return NewRequest.newInstance(first(), second().get());
+            }
+
+            @Override
+            public Request get(Session session) {
+                return RenewRequest.newInstance(session, second().get());
             }
         }
 
@@ -74,34 +90,6 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
         }
         
         public static class NewRequest extends Request {
-
-            public static class NewSessionRequestsFactory extends RequestsFactory {
-                public static NewSessionRequestsFactory newInstance(
-                        Reference<Long> lastZxid,
-                        TimeValue timeOut) {
-                    return new NewSessionRequestsFactory(lastZxid, timeOut);
-                }
-                
-                protected final TimeValue timeOut;
-                
-                protected NewSessionRequestsFactory(
-                        Reference<Long> lastZxid,
-                        TimeValue timeOut) {
-                    super(lastZxid);
-                    this.timeOut = timeOut;
-                }
-            
-                @Override
-                public ConnectMessage.Request get() {
-                    return ConnectMessage.Request.NewRequest.newInstance(timeOut, lastZxid.get());
-                }
-            }
-            
-            public static NewSessionRequestsFactory factory(
-                    Reference<Long> lastZxid,
-                    TimeValue timeOut) {
-                return NewSessionRequestsFactory.newInstance(lastZxid, timeOut);
-            }
 
             public static IConnectRequest newRecord() {
                 return toRecord(0, 0L);
@@ -147,35 +135,6 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
         }
         
         public static class RenewRequest extends Request {
-
-            public static class RenewSessionRequestsFactory extends RequestsFactory {
-                public static RenewSessionRequestsFactory newInstance(
-                        Reference<Long> lastZxid,
-                        Session session) {
-                    return new RenewSessionRequestsFactory(lastZxid, session);
-                }
-                
-                protected final Session session;
-            
-                protected RenewSessionRequestsFactory(
-                        Reference<Long> lastZxid,
-                        Session session) {
-                    super(lastZxid);
-                    checkArgument(session.initialized());
-                    this.session = session;
-                }
-                
-                @Override
-                public ConnectMessage.Request get() {
-                    return ConnectMessage.Request.RenewRequest.newInstance(session, lastZxid.get());
-                }
-            }
-            
-            public static RenewSessionRequestsFactory factory(
-                    Reference<Long> lastZxid,
-                    Session session) {
-                return RenewSessionRequestsFactory.newInstance(lastZxid, session);
-            }
 
             public static IConnectRequest toRecord(Session session) {
                 return toRecord(session, 0L);

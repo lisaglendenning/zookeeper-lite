@@ -9,7 +9,6 @@ import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientCodecConnection;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
@@ -32,8 +31,8 @@ public class ServerViewFactory implements DefaultsFactory<Session, ClientProtoco
                         server.get(), connections);
         ZxidTracker.Decorator<C> zxids = 
                 ZxidTracker.Decorator.newInstance(connectionFactory);
-        DefaultsFactory<Factory<ConnectMessage.Request>, ClientProtocolExecutor> delegate = 
-                ClientProtocolExecutor.factory(processorFactory, zxids, zxids.first(), timeOut);
+        DefaultsFactory<Session, ClientProtocolExecutor> delegate = 
+                ClientProtocolExecutor.factory(processorFactory, zxids, timeOut, zxids.first());
         return new ServerViewFactory(server, zxids, delegate);
     }
     
@@ -61,12 +60,12 @@ public class ServerViewFactory implements DefaultsFactory<Session, ClientProtoco
     
     protected final ServerView.Address<? extends SocketAddress> server;
     protected final ZxidTracker.Decorator<? extends ClientCodecConnection> zxids;
-    protected final DefaultsFactory<Factory<ConnectMessage.Request>, ClientProtocolExecutor> delegate;
+    protected final DefaultsFactory<Session, ClientProtocolExecutor> delegate;
 
     protected ServerViewFactory(
             ServerView.Address<? extends SocketAddress> server,
             ZxidTracker.Decorator<? extends ClientCodecConnection> zxids,
-            DefaultsFactory<Factory<ConnectMessage.Request>, ClientProtocolExecutor> delegate) {
+            DefaultsFactory<Session, ClientProtocolExecutor> delegate) {
         this.zxids = zxids;
         this.delegate = delegate;
         this.server = server;
@@ -87,6 +86,6 @@ public class ServerViewFactory implements DefaultsFactory<Session, ClientProtoco
 
     @Override
     public ClientProtocolExecutor get(Session session) {
-        return delegate.get(ConnectMessage.Request.RenewRequest.factory(zxids(), session));
+        return delegate.get(session);
     }
 }
