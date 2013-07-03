@@ -6,65 +6,54 @@ import com.google.common.eventbus.Subscribe;
 
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.util.AbstractPair;
 import edu.uw.zookeeper.util.Automaton;
+import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Reference;
 
 public class ZxidTracker implements Reference<Long>  {
     
-    public static class ZxidListener<I, C extends Connection<I>> extends AbstractPair<ZxidTracker, C> {
+    public static class ZxidListener extends Pair<ZxidTracker, Eventful> {
 
-        public static <I, C extends Connection<I>> ZxidListener<I,C> newInstance(
+        public static ZxidListener newInstance(
                 ZxidTracker tracker,
-                C connection) {
-            return new ZxidListener<I,C>(tracker, connection);
+                Eventful eventful) {
+            return new ZxidListener(tracker, eventful);
         }
         
-        public ZxidListener(ZxidTracker tracker, C connection) {
-            super(tracker, connection);
-            connection.register(this);
+        public ZxidListener(ZxidTracker tracker, Eventful eventful) {
+            super(tracker, eventful);
+            eventful.register(this);
         }
 
-        @SuppressWarnings("unchecked")
         @Subscribe
-        public void handleStateEvent(Automaton.Transition<?> event) {
-            if (event.type().isAssignableFrom(Connection.State.class)) {
-                handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
+        public void handleTransition(Automaton.Transition<?> event) {
+            if (Connection.State.CONNECTION_CLOSED == event.to()) {
+                try {
+                    second().unregister(this);
+                } catch (IllegalArgumentException e) {}
             }
         }
         
-        public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
-            switch (event.to()) {
-            case CONNECTION_CLOSED:
-                try {
-                    second.unregister(this);
-                } catch (IllegalArgumentException e) {}
-                break;
-            default:
-                break;
-            }
-        }
-
         @Subscribe
         public void handleSessionReply(Operation.SessionReply message) {
-            first.update(message.zxid());
+            first().update(message.zxid());
         }
     }
 
-    public static class Decorator<I, C extends Connection<I>> 
+    public static class Decorator<C extends Eventful> 
             extends Pair<ZxidTracker, Factory<C>> 
             implements Factory<C> {
-        public static <I, C extends Connection<I>> Decorator<I,C> newInstance(
+        public static <C extends Eventful> Decorator<C> newInstance(
                 Factory<C> delegate) {
             return newInstance(ZxidTracker.create(), delegate);
         }
         
-        public static <I, C extends Connection<I>> Decorator<I,C> newInstance(
+        public static <C extends Eventful> Decorator<C> newInstance(
                 ZxidTracker tracker,
                 Factory<C> delegate) {
-            return new Decorator<I,C>(tracker, delegate);
+            return new Decorator<C>(tracker, delegate);
         }
         
         public Decorator(
@@ -75,11 +64,10 @@ public class ZxidTracker implements Reference<Long>  {
         
         @Override
         public C get() {
-            C connection = second().get();
-            ZxidListener.newInstance(first(), connection);
-            return connection;
+            C instance = second().get();
+            ZxidListener.newInstance(first(), instance);
+            return instance;
         }
-        
     }
     
     public static ZxidTracker create() {
