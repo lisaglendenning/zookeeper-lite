@@ -2,10 +2,8 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.GetChildrenRequest;
 
-import edu.uw.zookeeper.protocol.Operation;
-
 @Operational(opcode=OpCode.GET_CHILDREN)
-public class IGetChildrenRequest extends IOperationalRecord<GetChildrenRequest> implements Operation.Request, Records.PathHolder, Records.WatchHolder {
+public class IGetChildrenRequest extends ICodedRecord<GetChildrenRequest> implements Records.Request, Records.PathGetter, Records.WatchGetter {
 
     public IGetChildrenRequest() {
         this(new GetChildrenRequest());

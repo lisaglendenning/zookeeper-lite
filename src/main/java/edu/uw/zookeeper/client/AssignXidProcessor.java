@@ -1,14 +1,17 @@
 package edu.uw.zookeeper.client;
 
+import com.google.common.base.Function;
+
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionRequestMessage;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Generator;
-import edu.uw.zookeeper.util.Processor;
 
 public class AssignXidProcessor implements
-        Processor<Operation.Request, Operation.SessionRequest>,
-        Generator<Integer> {
+        Generator<Integer>,
+        Function<Operation.Request, Message.ClientSession> {
 
     public static Factory<AssignXidProcessor> factory() {
         return new Factory<AssignXidProcessor>() {
@@ -20,28 +23,39 @@ public class AssignXidProcessor implements
     }
     
     public static AssignXidProcessor newInstance() {
-        return new AssignXidProcessor(XidIncrementer.fromZero());
+        return newInstance(XidIncrementer.fromZero());
     }
 
-    public static AssignXidProcessor newInstance(Generator<Integer> xid) {
+    public static AssignXidProcessor newInstance(XidIncrementer xid) {
         return new AssignXidProcessor(xid);
     }
 
-    private final Generator<Integer> xids;
+    private final XidIncrementer xids;
 
-    private AssignXidProcessor(Generator<Integer> xids) {
+    private AssignXidProcessor(XidIncrementer xids) {
         this.xids = xids;
     }
 
     @Override
-    public SessionRequestMessage apply(Operation.Request request) {        
-        int xid;
-        if (request instanceof Operation.XidHeader) {
-            xid = ((Operation.XidHeader)request).xid();
+    public Message.ClientSession apply(Operation.Request input) {  
+        Message.ClientSession output;
+        if (input instanceof Message.ClientSession) {
+            output = (Message.ClientSession) input;
+            if (output instanceof Operation.RequestId) {
+                xids.setIfGreater(Integer.valueOf(((Operation.RequestId) output).xid() + 1));
+            }
+        } else if (input instanceof Records.Request) {
+            int xid;
+            if (input instanceof Operation.RequestId) {
+                xid = ((Operation.RequestId) input).xid();
+            } else {
+                xid = next();
+            }
+            output = SessionRequestMessage.newInstance(xid, (Records.Request) input); 
         } else {
-            xid = next();
+            throw new IllegalArgumentException(input.toString());
         }
-        return SessionRequestMessage.newInstance(xid, request);
+        return output;
     }
 
     @Override
@@ -52,5 +66,10 @@ public class AssignXidProcessor implements
     @Override
     public Integer next() {
         return xids.next();
+    }
+    
+    @Override
+    public String toString() {
+        return xids.toString();
     }
 }

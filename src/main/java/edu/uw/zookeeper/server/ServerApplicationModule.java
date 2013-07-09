@@ -10,15 +10,19 @@ import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
+import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.netty.server.NettyServerModule;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
+import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.Arguments;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.DefaultsFactory;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.ServiceApplication;
 import edu.uw.zookeeper.util.ServiceMonitor;
 
@@ -85,6 +89,26 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
             }
         }
     }
+
+    public static ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> codecFactory() {
+        return new ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>>() {
+            @Override
+            public Pair<Class<Message.Server>, ServerProtocolCodec> get(
+                    Publisher value) {
+                return Pair.create(Message.Server.class, ServerProtocolCodec.newInstance(value));
+            }
+        };
+    }
+
+    public static ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory() {
+        return new ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>() {
+            @Override
+            public ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>> get(
+                    Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>> value) {
+                return ProtocolCodecConnection.newInstance(value.first().second(), value.second());
+            }
+        };
+    }
     
     @Override
     public Application get(RuntimeModule runtime) {
@@ -99,15 +123,15 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
 
         ServerExecutor serverExecutor = ServerExecutor.newInstance(runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions);
 
-        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>> serverConnectionFactory = 
+        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
                 nettyServer.get(
-                        ServerCodecConnection.codecFactory(),
-                        ServerCodecConnection.factory());
-        ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
-        ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = 
+                        codecFactory(),
+                        connectionFactory());
+        ServerInetAddressView address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
+        ServerConnectionFactory<Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
                 monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         
-        ServerConnectionListener server = ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
+        ServerConnectionListener<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> server = ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
         
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }

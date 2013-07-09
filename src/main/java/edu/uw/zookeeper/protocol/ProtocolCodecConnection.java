@@ -1,24 +1,57 @@
 package edu.uw.zookeeper.protocol;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.common.eventbus.Subscribe;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.protocol.CodecConnection;
-import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.net.ForwardingConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.util.Automaton;
 
-public abstract class ProtocolCodecConnection<I extends Message, O extends Message, T extends ProtocolCodec<I,O>> extends CodecConnection<I, O, T> {
+public class ProtocolCodecConnection<I, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> extends ForwardingConnection<I> {
 
-    protected ProtocolCodecConnection(
+    public static <I, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> ProtocolCodecConnection<I,T,C> newInstance(
             T codec, 
-            Connection<I> connection) {
-        super(codec, connection);
+            C connection) {
+        return new ProtocolCodecConnection<I,T,C>(codec, connection);
+    }
+    
+    protected final Logger logger;
+    protected final T codec;
+    protected final C connection;
+    
+    public ProtocolCodecConnection(
+            T codec, 
+            C connection) {
+        this.codec = codec;
+        this.connection = connection;
+        this.logger = LoggerFactory.getLogger(getClass());
+        
         register(this);
     }
+    
+    public T codec() {
+        return codec;
+    }
+    
+    @Override
+    public void register(Object handler) {
+        codec.register(handler);
+        connection.register(handler);
+    }
 
+    @Override
+    public void unregister(Object handler) {
+        codec.unregister(handler);
+        try {
+            connection.unregister(handler);
+        } catch (IllegalArgumentException e) {}
+    }
+    
     @SuppressWarnings("unchecked")
     @Subscribe
-    public void handleStateEvent(Automaton.Transition<?> event) {
+    public void handleTransitionEvent(Automaton.Transition<?> event) {
         if (event.type().isAssignableFrom(Connection.State.class)) {
             handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
         } else if (event.type().isAssignableFrom(ProtocolState.class)) {
@@ -26,11 +59,11 @@ public abstract class ProtocolCodecConnection<I extends Message, O extends Messa
         } 
     }
     
-    public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
+    protected void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
         switch (event.to()) {
         case CONNECTION_CLOSED:
             try {
-                unregister(this);
+                delegate().unregister(this);
             } catch (IllegalArgumentException e) {}
             break;
         default:
@@ -38,14 +71,22 @@ public abstract class ProtocolCodecConnection<I extends Message, O extends Messa
         }
     }
     
-    public void handleProtocolStateEvent(Automaton.Transition<ProtocolState> event) {
+    protected void handleProtocolStateEvent(Automaton.Transition<ProtocolState> event) {
         switch (event.to()) {
         case DISCONNECTED:
         case ERROR:
+            try {
+                codec().unregister(this);
+            } catch (IllegalArgumentException e) {}
             close();
             break;
         default:
             break;
         }
+    }
+
+    @Override
+    protected C delegate() {
+        return connection;
     }
 }

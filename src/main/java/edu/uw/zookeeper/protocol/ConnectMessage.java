@@ -9,13 +9,11 @@ import org.apache.jute.Record;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.Session.Parameters;
 import edu.uw.zookeeper.protocol.proto.ByteBufInputArchive;
 import edu.uw.zookeeper.protocol.proto.ByteBufOutputArchive;
 import edu.uw.zookeeper.protocol.proto.IConnectRequest;
 import edu.uw.zookeeper.protocol.proto.IConnectResponse;
-import edu.uw.zookeeper.protocol.proto.IOperationalRecord;
+import edu.uw.zookeeper.protocol.proto.ICodedRecord;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Operational;
 import edu.uw.zookeeper.protocol.proto.Records;
@@ -25,12 +23,12 @@ import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.TimeValue;
 
 @Operational(opcode=OpCode.CREATE_SESSION)
-public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> extends IOperationalRecord<T>
-        implements Operation.Action, Message, Records.ConnectHolder {
+public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> extends ICodedRecord<T>
+        implements Message.Session, Records.ConnectGetter {
 
     public static abstract class Request extends
             ConnectMessage<IConnectRequest> implements
-            Operation.Request, Message.ClientSessionMessage {
+            Records.Request, Message.ClientSession {
 
         public static RequestsFactory factory(
                 TimeValue timeOut,
@@ -38,7 +36,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
             return new RequestsFactory(timeOut, lastZxid);
         }
         
-        public static class RequestsFactory extends Pair<TimeValue, Reference<Long>> implements DefaultsFactory<Session, ConnectMessage.Request> {
+        public static class RequestsFactory extends Pair<TimeValue, Reference<Long>> implements DefaultsFactory<edu.uw.zookeeper.Session, ConnectMessage.Request> {
             
             public RequestsFactory(
                     TimeValue timeOut,
@@ -52,7 +50,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
             }
 
             @Override
-            public Request get(Session session) {
+            public Request get(edu.uw.zookeeper.Session session) {
                 return RenewRequest.newInstance(session, second().get());
             }
         }
@@ -104,8 +102,8 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
                         Records.PROTOCOL_VERSION,
                         lastZxid,
                         timeOutMillis,
-                        Session.UNINITIALIZED_ID,
-                        Parameters.NO_PASSWORD);
+                        edu.uw.zookeeper.Session.UNINITIALIZED_ID,
+                        edu.uw.zookeeper.Session.Parameters.NO_PASSWORD);
                 return record;
             }
             
@@ -122,7 +120,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
             }
 
             public static Request newInstance(IConnectRequest record, boolean readOnly, boolean wraps) {
-                if (record.getSessionId() != Session.UNINITIALIZED_ID) {
+                if (record.getSessionId() != edu.uw.zookeeper.Session.UNINITIALIZED_ID) {
                     return RenewRequest.newInstance(record, readOnly, wraps);
                 } else {
                     return new NewRequest(record, readOnly, wraps);
@@ -136,11 +134,11 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
         
         public static class RenewRequest extends Request {
 
-            public static IConnectRequest toRecord(Session session) {
+            public static IConnectRequest toRecord(edu.uw.zookeeper.Session session) {
                 return toRecord(session, 0L);
             }
 
-            public static IConnectRequest toRecord(Session session, long lastZxid) {
+            public static IConnectRequest toRecord(edu.uw.zookeeper.Session session, long lastZxid) {
                 IConnectRequest record = new IConnectRequest(
                         Records.PROTOCOL_VERSION, 
                         lastZxid,
@@ -150,11 +148,11 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
                 return record;
             }
             
-            public static RenewRequest newInstance(Session session) {
+            public static RenewRequest newInstance(edu.uw.zookeeper.Session session) {
                 return newInstance(toRecord(session));
             }
 
-            public static RenewRequest newInstance(Session session, long lastZxid) {
+            public static RenewRequest newInstance(edu.uw.zookeeper.Session session, long lastZxid) {
                 return newInstance(toRecord(session, lastZxid));
             }
 
@@ -174,7 +172,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
 
     public static abstract class Response extends
             ConnectMessage<IConnectResponse> implements
-            Operation.Response, Message.ServerSessionMessage {
+            Records.Response, Message.ServerSession {
 
         public static Response newInstance(IConnectResponse record, boolean readOnly,
                 boolean wraps) {
@@ -206,7 +204,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
 
         public static class Valid extends Response implements Operation.Response {
 
-            public static IConnectResponse toRecord(Session session) {
+            public static IConnectResponse toRecord(edu.uw.zookeeper.Session session) {
                 IConnectResponse record = new IConnectResponse(
                         Records.PROTOCOL_VERSION, 
                         session.parameters().timeOut().value(TIMEOUT_UNIT).intValue(),
@@ -215,11 +213,11 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
                 return record;
             }
             
-            public static Response newInstance(Session session) {
+            public static Response newInstance(edu.uw.zookeeper.Session session) {
                 return newInstance(session, false, false);
             }
 
-            public static Response newInstance(Session session, boolean readOnly, boolean wraps) {
+            public static Response newInstance(edu.uw.zookeeper.Session session, boolean readOnly, boolean wraps) {
                 return newInstance(toRecord(session), readOnly, wraps);
             }
 
@@ -229,7 +227,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
 
             public static Response newInstance(IConnectResponse record, boolean readOnly,
                     boolean wraps) {
-                if (record.getSessionId() == Session.UNINITIALIZED_ID) {
+                if (record.getSessionId() == edu.uw.zookeeper.Session.UNINITIALIZED_ID) {
                     return Invalid.newInstance(readOnly, wraps);
                 } else {
                     return new Valid(record, readOnly, wraps);
@@ -244,7 +242,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
         public static class Invalid extends Response {
 
             protected final static IConnectResponse RECORD = 
-                    new IConnectResponse(Records.PROTOCOL_VERSION, 0, Session.UNINITIALIZED_ID, Parameters.NO_PASSWORD);
+                    new IConnectResponse(Records.PROTOCOL_VERSION, 0, edu.uw.zookeeper.Session.UNINITIALIZED_ID, edu.uw.zookeeper.Session.Parameters.NO_PASSWORD);
 
             public static Invalid newInstance() {
                 return newInstance(false, false);
@@ -259,13 +257,13 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
             }
             
             @Override
-            public Session toSession() {
-                return Session.uninitialized();
+            public edu.uw.zookeeper.Session toSession() {
+                return edu.uw.zookeeper.Session.uninitialized();
             }
             
             @Override
-            public Session.Parameters toParameters() {
-                return Session.Parameters.uninitialized();
+            public edu.uw.zookeeper.Session.Parameters toParameters() {
+                return edu.uw.zookeeper.Session.Parameters.uninitialized();
             }
         }
     }
@@ -313,12 +311,12 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectHolder> e
         return get().getPasswd();
     }
     
-    public Session toSession() {
-        return Session.create(getSessionId(), toParameters());
+    public edu.uw.zookeeper.Session toSession() {
+        return edu.uw.zookeeper.Session.create(getSessionId(), toParameters());
     }
     
-    public Session.Parameters toParameters() {
-        return Session.Parameters.create(getTimeOut(), getPasswd());
+    public edu.uw.zookeeper.Session.Parameters toParameters() {
+        return edu.uw.zookeeper.Session.Parameters.create(getTimeOut(), getPasswd());
     }
     
     @Override

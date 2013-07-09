@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.data.StatPersisted;
 
-public class IStatPersisted extends IRecord<StatPersisted> implements Records.StatPersistedHolder {
+public class IStatPersisted extends IRecord<StatPersisted> implements Records.StatPersistedGetter {
 
     public IStatPersisted() {
         this(new StatPersisted());

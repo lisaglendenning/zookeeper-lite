@@ -41,7 +41,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             case CREATE:
             case CREATE2:
             {
-                Records.CreateHolder record = (Records.CreateHolder) request.record();
+                Records.CreateModeGetter record = (Records.CreateModeGetter) request.record();
                 ZNodeLabel.Path path = ZNodeLabel.Path.of(record.getPath());
                 ZNodeLabel parentPath = path.head();
                 ZNodeStateNode parent = trie.get(parentPath);
@@ -79,7 +79,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case DELETE:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -93,7 +93,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case EXISTS:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -103,7 +103,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case GET_DATA:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -129,7 +129,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case GET_ACL:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -156,7 +156,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             case GET_CHILDREN:
             case GET_CHILDREN2:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -171,7 +171,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
             case SYNC:
             {
-                ZNodeLabel.Path path = Path.of(((Records.PathHolder) request.record()).getPath());
+                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
                 ZNodeStateNode node = trie.get(path);
                 if (node == null) {
                     throw new KeeperException.NoNodeException(path.toString());
@@ -220,7 +220,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
     }
     
-    public static class ZNodeAcl implements Records.AclStatRecord {
+    public static class ZNodeAcl implements Records.AclStatSetter {
         
         public static ZNodeAcl newInstance(List<Acls.Acl> acl) {
             return newInstance(acl, Stats.initialVersion());

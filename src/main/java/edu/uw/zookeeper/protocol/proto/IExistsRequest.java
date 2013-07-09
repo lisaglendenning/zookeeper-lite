@@ -2,10 +2,8 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.ExistsRequest;
 
-import edu.uw.zookeeper.protocol.Operation;
-
 @Operational(opcode=OpCode.EXISTS)
-public class IExistsRequest extends IOperationalRecord<ExistsRequest> implements Operation.Request, Records.PathHolder, Records.WatchHolder {
+public class IExistsRequest extends ICodedRecord<ExistsRequest> implements Records.Request, Records.PathGetter, Records.WatchGetter {
 
     public IExistsRequest() {
         this(new ExistsRequest());

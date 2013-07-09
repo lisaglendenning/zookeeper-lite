@@ -42,6 +42,19 @@ public class XidIncrementer implements Generator<Integer> {
         return lastXid.incrementAndGet();
     }
     
+    public Integer setIfGreater(Integer value) {
+        Integer current = lastXid.get();
+        if (current.compareTo(value) < 0) {
+            if (lastXid.compareAndSet(current, value)) {
+                return value;
+            } else {
+                return setIfGreater(value);
+            }
+        } else {
+            return current;
+        }
+    }
+    
     @Override
     public String toString() {
         return Objects.toStringHelper(this)

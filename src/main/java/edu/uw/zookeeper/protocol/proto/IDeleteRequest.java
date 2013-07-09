@@ -2,10 +2,8 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.DeleteRequest;
 
-import edu.uw.zookeeper.protocol.Operation;
-
 @Operational(opcode=OpCode.DELETE)
-public class IDeleteRequest extends IOperationalRecord<DeleteRequest> implements Operation.Request, Records.MultiOpRequest, Records.PathHolder, Records.VersionHolder {
+public class IDeleteRequest extends ICodedRecord<DeleteRequest> implements Records.Request, Records.MultiOpRequest, Records.PathGetter, Records.VersionGetter {
 
     public IDeleteRequest() {
         this(new DeleteRequest());

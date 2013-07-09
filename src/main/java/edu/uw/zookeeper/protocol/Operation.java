@@ -1,49 +1,42 @@
 package edu.uw.zookeeper.protocol;
 
-import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 
 import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.Records;
 
 public abstract class Operation {
 
-    public static interface XidHeader {
+    public static interface RequestId {
         int xid();
     }
 
-    public static interface ZxidHeader {
+    public static interface ResponseId {
         long zxid();
     }
     
-    public static interface ClientRequest {}
-    
-    public static interface ServerResponse {}
-    
-    public static interface Action extends Record {
+    public static interface Coded {
         OpCode opcode();
     }
 
-    public static interface Request extends Action, ClientRequest {}
+    public static interface Request {}
 
-    public static interface Response extends Action, ServerResponse {}
+    public static interface Response {}
 
     /**
-     * A reply indicating an unsuccessful operation.
+     * A response indicating an unsuccessful operation.
      */
     public static interface Error extends Response {
         KeeperException.Code error();
     }
     
-    public static interface SessionRequest extends Message.ClientSessionMessage, XidHeader, ClientRequest {
-        Request request();
+    public static interface SessionRequest extends Request, RequestId {
+        Records.Request request();
     }
     
-    public static interface SessionReply extends Message.ServerSessionMessage, XidHeader, ZxidHeader, ServerResponse {
-        Response reply();
+    public static interface SessionResponse extends Response, RequestId, ResponseId {
+        Records.Response response();
     }
-    
-    public static interface SessionResult {
-        SessionRequest request();
-        SessionReply reply();
-    }
+
+    private Operation() {}
 }

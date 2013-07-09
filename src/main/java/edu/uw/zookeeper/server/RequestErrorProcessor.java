@@ -2,28 +2,28 @@ package edu.uw.zookeeper.server;
 
 import org.apache.zookeeper.KeeperException;
 
-import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.IErrorResponse;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Processor;
 
 public class RequestErrorProcessor implements
-        Processor<Operation.Request, Operation.Response> {
+        Processor<Records.Request, Records.Response> {
 
     public static RequestErrorProcessor newInstance(
-            Processor<Operation.Request, Operation.Response> processor) {
+            Processor<Records.Request, Records.Response> processor) {
         return new RequestErrorProcessor(processor);
     }
 
-    protected final Processor<Operation.Request, Operation.Response> processor;
+    protected final Processor<Records.Request, Records.Response> processor;
 
     protected RequestErrorProcessor(
-            Processor<Operation.Request, Operation.Response> processor) {
+            Processor<Records.Request, Records.Response> processor) {
         this.processor = processor;
     }
 
     @Override
-    public Operation.Response apply(Operation.Request request) throws Exception {
-        Operation.Response reply;
+    public Records.Response apply(Records.Request request) throws Exception {
+        Records.Response reply;
         try {
             reply = processor.apply(request);
         } catch (Exception e) {

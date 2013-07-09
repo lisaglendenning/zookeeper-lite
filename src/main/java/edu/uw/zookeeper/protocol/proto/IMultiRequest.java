@@ -13,10 +13,8 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-import edu.uw.zookeeper.protocol.Operation;
-
 @Operational(opcode=OpCode.MULTI)
-public class IMultiRequest extends IOperationalRecord<EmptyRecord> implements Operation.Request, Iterable<Records.MultiOpRequest> {
+public class IMultiRequest extends ICodedRecord<EmptyRecord> implements Records.Request, Iterable<Records.MultiOpRequest> {
 
     private final List<Records.MultiOpRequest> requests;
     

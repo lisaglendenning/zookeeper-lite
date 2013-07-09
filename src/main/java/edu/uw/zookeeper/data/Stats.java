@@ -5,10 +5,10 @@ import org.apache.zookeeper.data.Stat;
 
 import edu.uw.zookeeper.protocol.proto.IStat;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.protocol.proto.Records.AclStatHolder;
-import edu.uw.zookeeper.protocol.proto.Records.ChildrenStatRecord;
-import edu.uw.zookeeper.protocol.proto.Records.CreateStatHolder;
-import edu.uw.zookeeper.protocol.proto.Records.DataStatHolder;
+import edu.uw.zookeeper.protocol.proto.Records.AclStatGetter;
+import edu.uw.zookeeper.protocol.proto.Records.ChildrenStatSetter;
+import edu.uw.zookeeper.protocol.proto.Records.CreateStatGetter;
+import edu.uw.zookeeper.protocol.proto.Records.DataStatGetter;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Singleton;
 
@@ -30,7 +30,7 @@ public class Stats {
         return 0;
     }
     
-    public static Stat asStat(Records.StatHolderInterface source) {
+    public static Stat asStat(Records.ZNodeStatGetter source) {
         if (source instanceof IStat) {
             return ((IStat)source).get();
         }
@@ -48,7 +48,7 @@ public class Stats {
                 source.getPzxid());
     }
     
-    public static class CreateStat implements Records.CreateStatHolder {
+    public static class CreateStat implements Records.CreateStatGetter {
 
         public static long ephemeralOwnerNone() {
             return 0;
@@ -96,7 +96,7 @@ public class Stats {
         }
     }
     
-    public static class DataStat implements Records.DataStatRecord {
+    public static class DataStat implements Records.DataStatSetter {
 
         public static DataStat newInstance(long mzxid) {
             return of(mzxid, getTime(), initialVersion());
@@ -164,7 +164,7 @@ public class Stats {
         }
     }
     
-    public static class ChildrenStat implements Records.ChildrenStatRecord {
+    public static class ChildrenStat implements Records.ChildrenStatSetter {
 
         public static ChildrenStat newInstance(long pzxid) {
             return of(pzxid, initialVersion());
@@ -212,18 +212,18 @@ public class Stats {
         }
     }
     
-    public static class CompositeStatPersistedHolder implements Records.StatPersistedHolder {
+    public static class CompositeStatPersistedHolder implements Records.StatPersistedGetter {
 
-        private final Records.CreateStatHolder createStat;
-        private final Records.DataStatHolder dataStat;
-        private final Records.AclStatHolder aclStat;
-        private final Records.ChildrenStatRecord childrenStat;
+        private final Records.CreateStatGetter createStat;
+        private final Records.DataStatGetter dataStat;
+        private final Records.AclStatGetter aclStat;
+        private final Records.ChildrenStatSetter childrenStat;
         
         public CompositeStatPersistedHolder(
-                Records.CreateStatHolder createStat, 
-                Records.DataStatHolder dataStat, 
-                Records.AclStatHolder aclStat,
-                Records.ChildrenStatRecord childrenStat) {
+                Records.CreateStatGetter createStat, 
+                Records.DataStatGetter dataStat, 
+                Records.AclStatGetter aclStat,
+                Records.ChildrenStatSetter childrenStat) {
             this.createStat = createStat;
             this.dataStat = dataStat;
             this.aclStat = aclStat;
@@ -277,14 +277,14 @@ public class Stats {
     }
     
 
-    public static class CompositeStatHolder extends CompositeStatPersistedHolder implements Records.StatHolderInterface {
+    public static class CompositeStatHolder extends CompositeStatPersistedHolder implements Records.ZNodeStatGetter {
 
         private final int dataLength;
         private final int numChildren;
         
-        public CompositeStatHolder(CreateStatHolder createStat,
-                DataStatHolder dataStat, AclStatHolder aclStat,
-                ChildrenStatRecord childrenStat,
+        public CompositeStatHolder(CreateStatGetter createStat,
+                DataStatGetter dataStat, AclStatGetter aclStat,
+                ChildrenStatSetter childrenStat,
                 int dataLength,
                 int numChildren) {
             super(createStat, dataStat, aclStat, childrenStat);
@@ -304,13 +304,13 @@ public class Stats {
     }
     
     
-    public static class ImmutableStat extends Stat implements Records.StatHolderInterface {
+    public static class ImmutableStat extends Stat implements Records.ZNodeStatGetter {
         
         public static ImmutableStat uninitialized() {
             return Holder.INSTANCE.get();
         }
         
-        public static ImmutableStat copyOf(Records.StatHolderInterface stat) {
+        public static ImmutableStat copyOf(Records.ZNodeStatGetter stat) {
             return of(stat.getCzxid(), stat.getMzxid(), stat.getCtime(),
                     stat.getMtime(), stat.getVersion(), stat.getCversion(),
                     stat.getAversion(), stat.getEphemeralOwner(), stat.getDataLength(),

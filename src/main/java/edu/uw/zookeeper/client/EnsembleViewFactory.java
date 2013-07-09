@@ -1,89 +1,89 @@
 package edu.uw.zookeeper.client;
 
-import java.util.Collections;
-import java.util.Map;
+import java.net.SocketAddress;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import javax.annotation.Nullable;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
+import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.client.ClientCodecConnection;
-import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
+import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.TimeValue;
 
-public class EnsembleViewFactory implements DefaultsFactory<ServerView.Address<?>, ClientProtocolExecutor> {
+public class EnsembleViewFactory<T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> implements DefaultsFactory<T, ClientConnectionExecutor<C>> {
 
-    public static <C extends ClientCodecConnection> EnsembleViewFactory newInstance(
-            ClientConnectionFactory<Message.ClientSessionMessage, C> connections,
-            Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory,
-            EnsembleView<? extends ServerView.Address<?>> view, 
+    public static <T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> EnsembleViewFactory<T,C> newInstance(
+            ClientConnectionFactory<?, C> connections,
+            Class<T> type,
+            EnsembleView<T> view, 
             TimeValue timeOut) {
-        return new EnsembleViewFactory(connections, processorFactory, view, timeOut, SelectServer.RANDOM);
+        return new EnsembleViewFactory<T,C>(
+                connections, view, timeOut, RandomSelector.newInstance(type));
     }
     
-    public static enum SelectServer implements Function<EnsembleView<? extends ServerView.Address<?>>, ServerView.Address<?>> {
-        RANDOM {
-            @Override
-            @Nullable
-            public ServerView.Address<?> apply(EnsembleView<? extends ServerView.Address<?>> input) {
-                Random random = new Random();
-                ServerView.Address<?>[] servers = Iterables.toArray(input, ServerView.Address.class);
-                if (servers.length == 0) {
-                    return null;
-                }
-                int index = random.nextInt(servers.length);
-                return servers[index];
-            }
-        };
+    public static class RandomSelector<T> implements Function<Iterable<T>, T> {
+        
+        public static <T> RandomSelector<T> newInstance(Class<T> type) {
+            return new RandomSelector<T>(type);
+        }
+        
+        protected final Random random;
+        protected final Class<T> type;
+        
+        public RandomSelector(Class<T> type) {
+            this.type = type;
+            random = new Random();
+        }
+        
+        @Override
+        @Nullable
+        public T apply(Iterable<T> input) {
+            T[] array = Iterables.toArray(input, type);
+            return (array.length == 0) ? null : array[random.nextInt(array.length)];
+        }
     }
-    
-    protected final ClientConnectionFactory<Message.ClientSessionMessage, ? extends ClientCodecConnection> connections;
-    protected final Function<EnsembleView<? extends ServerView.Address<?>>, ServerView.Address<?>> selector;
-    protected final EnsembleView<? extends ServerView.Address<?>> view;
+
+    protected final ClientConnectionFactory<?, C> connections;
+    protected final Function<? super EnsembleView<T>, T> selector;
+    protected final EnsembleView<T> view;
     protected final TimeValue timeOut;
-    protected final Map<ServerView.Address<?>, ServerViewFactory> factories;
-    protected final Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory;
+    protected final ConcurrentMap<T, ServerViewFactory<T,C>> factories;
     
     protected EnsembleViewFactory(
-            ClientConnectionFactory<Message.ClientSessionMessage, ? extends ClientCodecConnection> connections,
-            Factory<? extends Processor<Operation.Request, Operation.SessionRequest>> processorFactory,
-            EnsembleView<? extends ServerView.Address<?>> view, 
+            ClientConnectionFactory<?,C> connections,
+            EnsembleView<T> view, 
             TimeValue timeOut,
-            Function<EnsembleView<? extends ServerView.Address<?>>, ServerView.Address<?>> selector) {
+            Function<? super EnsembleView<T>, T> selector) {
         this.view = view;
         this.timeOut = timeOut;
         this.selector = selector;
         this.connections = connections;
-        this.processorFactory = processorFactory;
-        this.factories = Collections.synchronizedMap(Maps.<ServerView.Address<?>, ServerViewFactory>newHashMap());
+        this.factories = new ConcurrentHashMap<T, ServerViewFactory<T,C>>();
     }
     
-    public EnsembleView<? extends ServerView.Address<?>> view() {
+    public EnsembleView<T> view() {
         return view;
     }
     
     @Override
-    public ClientProtocolExecutor get() {
+    public ClientConnectionExecutor<C> get() {
         return get(selector.apply(view));
     }
     
     @Override
-    public synchronized ClientProtocolExecutor get(ServerView.Address<?> server) {
-        ServerViewFactory factory = factories.get(server);
+    public ClientConnectionExecutor<C> get(T server) {
+        ServerViewFactory<T,C> factory = factories.get(server);
         if (factory == null) {
-            factory = ServerViewFactory.newInstance(connections, processorFactory, server, timeOut);
-            factories.put(server, factory);
+            factories.putIfAbsent(server, ServerViewFactory.newInstance(connections, server, timeOut));
+            factory = factories.get(server);
         }
         return factory.get();
     }

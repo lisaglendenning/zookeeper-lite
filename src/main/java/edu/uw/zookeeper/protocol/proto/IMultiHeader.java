@@ -5,7 +5,7 @@ import org.apache.zookeeper.proto.MultiHeader;
 
 import edu.uw.zookeeper.util.Singleton;
 
-public class IMultiHeader extends IRecord<MultiHeader> implements Records.HeaderRecord {
+public class IMultiHeader extends IRecord<MultiHeader> implements Records.Header {
     
     public static int NO_TYPE = -1;
     public static int NO_ERR = -1;

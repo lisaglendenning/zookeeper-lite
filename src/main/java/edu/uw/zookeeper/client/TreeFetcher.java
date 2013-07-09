@@ -4,15 +4,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
 import org.apache.zookeeper.KeeperException;
 
-import com.google.common.collect.ForwardingQueue;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
@@ -22,11 +18,13 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractActor;
+import edu.uw.zookeeper.util.FutureQueue;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
-public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> {
+public class TreeFetcher<T extends Operation.SessionRequest, V extends Operation.SessionResponse> implements Callable<ListenableFuture<ZNodeLabel.Path>> {
     
     public static class Parameters {
         
@@ -69,14 +67,14 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
         }
     }
     
-    public static class Builder {
+    public static class Builder<T extends Operation.SessionRequest, V extends Operation.SessionResponse> {
     
-        public static Builder create() {
-            return new Builder();
+        public static <T extends Operation.SessionRequest, V extends Operation.SessionResponse> Builder<T,V> create() {
+            return new Builder<T,V>();
         }
         
         protected volatile ZNodeLabel.Path root;
-        protected volatile ClientExecutor client;
+        protected volatile ClientExecutor<Operation.Request, T, V> client;
         protected volatile Executor executor;
         protected volatile Set<OpCode> operations; 
         protected volatile boolean watch;
@@ -88,7 +86,7 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
         
         public Builder(
                 ZNodeLabel.Path root, 
-                ClientExecutor client, 
+                ClientExecutor<Operation.Request, T, V> client, 
                 Executor executor,
                 Set<OpCode> operations, 
                 boolean watch) {
@@ -102,16 +100,16 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
             return root;
         }
     
-        public Builder setRoot(ZNodeLabel.Path root) {
+        public Builder<T,V> setRoot(ZNodeLabel.Path root) {
             this.root = root;
             return this;
         }
         
-        public ClientExecutor getClient() {
+        public ClientExecutor<Operation.Request, T, V> getClient() {
             return client;
         }
     
-        public Builder setClient(ClientExecutor client) {
+        public Builder<T,V> setClient(ClientExecutor<Operation.Request, T, V> client) {
             this.client = client;
             return this;
         }
@@ -120,7 +118,7 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
             return executor;
         }
     
-        public Builder setExecutor(Executor executor) {
+        public Builder<T,V> setExecutor(Executor executor) {
             this.executor = executor;
             return this;
         }
@@ -135,7 +133,7 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
             return false;
         }
         
-        public Builder setStat(boolean getStat) {
+        public Builder<T,V> setStat(boolean getStat) {
             OpCode[] ops = { OpCode.EXISTS, OpCode.GET_CHILDREN2 };
             if (getStat) {
                 for (OpCode op: ops) {
@@ -154,7 +152,7 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
             return operations.contains(op);
         }
         
-        public Builder setData(boolean getData) {
+        public Builder<T,V> setData(boolean getData) {
             OpCode op = OpCode.GET_DATA;
             if (getData) {
                 operations.add(op);
@@ -169,7 +167,7 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
             return operations.contains(op);
         }
         
-        public Builder setAcl(boolean getAcl) {
+        public Builder<T,V> setAcl(boolean getAcl) {
             OpCode op = OpCode.GET_ACL;
             if (getAcl) {
                 operations.add(op);
@@ -183,21 +181,21 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
             return watch;
         }
         
-        public Builder setWatch(boolean watch) {
+        public Builder<T,V> setWatch(boolean watch) {
             this.watch = watch;
             return this;
         }
         
-        public TreeFetcher build() {
+        public TreeFetcher<T,V> build() {
             Parameters parameters = Parameters.of(operations, watch);
             return TreeFetcher.newInstance(parameters, root, client, executor);
         }
     }
 
-    public static TreeFetcher newInstance(
+    public static <T extends Operation.SessionRequest, V extends Operation.SessionResponse> TreeFetcher<T,V> newInstance(
             Parameters parameters,
             ZNodeLabel.Path root,
-            ClientExecutor client,
+            ClientExecutor<Operation.Request, T, V> client,
             Executor executor) {
         Promise<ZNodeLabel.Path> promise = SettableFuturePromise.create();
         return newInstance(
@@ -208,13 +206,13 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
                 promise);
     }
 
-    public static TreeFetcher newInstance(
+    public static <T extends Operation.SessionRequest, V extends Operation.SessionResponse> TreeFetcher<T,V> newInstance(
             Parameters parameters,
             ZNodeLabel.Path root,
-            ClientExecutor client,
+            ClientExecutor<Operation.Request, T, V> client,
             Executor executor,
             Promise<ZNodeLabel.Path> promise) {
-        return new TreeFetcher(
+        return new TreeFetcher<T,V>(
                 parameters, 
                 root, 
                 client, 
@@ -223,7 +221,7 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
     }
     
     protected final Executor executor;
-    protected final ClientExecutor client;
+    protected final ClientExecutor<Operation.Request, T, V> client;
     protected final Parameters parameters;
     protected final ZNodeLabel.Path root;
     protected final Promise<ZNodeLabel.Path> promise;
@@ -231,7 +229,7 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
     protected TreeFetcher(
             Parameters parameters,
             ZNodeLabel.Path root,
-            ClientExecutor client,
+            ClientExecutor<Operation.Request, T, V> client,
             Promise<ZNodeLabel.Path> promise,
             Executor executor) {
         this.parameters = checkNotNull(parameters);
@@ -244,24 +242,24 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
     
     @Override
     public ListenableFuture<ZNodeLabel.Path> call() {
-        TreeFetcherActor actor = newActor();
+        TreeFetcherActor<T,V> actor = newActor();
         actor.send(root);
         return actor.future();
     }
     
-    protected TreeFetcherActor newActor() {
+    protected TreeFetcherActor<T,V> newActor() {
         return TreeFetcherActor.newInstance(parameters, root, client, executor, promise);
     }
 
-    public static class TreeFetcherActor extends AbstractActor<ZNodeLabel.Path, Void> {
+    public static class TreeFetcherActor<T extends Operation.SessionRequest, V extends Operation.SessionResponse> extends AbstractActor<ZNodeLabel.Path, Void> {
 
-        public static TreeFetcherActor newInstance(
+        public static <T extends Operation.SessionRequest, V extends Operation.SessionResponse> TreeFetcherActor<T,V> newInstance(
                 Parameters parameters,
                 ZNodeLabel.Path root,
-                ClientExecutor client,
+                ClientExecutor<Operation.Request, T, V> client,
                 Executor executor,
                 Promise<ZNodeLabel.Path> promise) {
-            return new TreeFetcherActor(
+            return new TreeFetcherActor<T,V>(
                     promise, 
                     parameters, 
                     root, 
@@ -269,22 +267,22 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
                     executor);
         }
         
-        protected final ClientExecutor client;
+        protected final ClientExecutor<Operation.Request, T, V> client;
         protected final Parameters parameters;
         protected final Task task;
-        protected final Pending<Operation.SessionResult, ListenableFuture<Operation.SessionResult>> pending;
+        protected final FutureQueue<ListenableFuture<Pair<T,V>>> pending;
         
         protected TreeFetcherActor(
                 Promise<ZNodeLabel.Path> promise,
                 Parameters parameters,
                 ZNodeLabel.Path root,
-                ClientExecutor client,
+                ClientExecutor<Operation.Request, T, V> client,
                 Executor executor) {
             super(executor, AbstractActor.<ZNodeLabel.Path>newQueue(), AbstractActor.newState());
             this.parameters = checkNotNull(parameters);
             this.client = checkNotNull(client);
             this.task = new Task(root, promise);
-            this.pending = Pending.newInstance();
+            this.pending = FutureQueue.create();
         }
         
         public ZNodeLabel.Path root() {
@@ -302,7 +300,7 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
             if (parameters.getStat()) {
                 getChildrenBuilder.setStat(true);
             }
-            ListenableFuture<Operation.SessionResult> future = client.submit(getChildrenBuilder.build());
+            ListenableFuture<Pair<T,V>> future = client.submit(getChildrenBuilder.build());
             pending.add(future);
             future.addListener(this, executor);
             
@@ -337,9 +335,9 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
         @Override
         protected void runAll() throws Exception {
             // process pending first
-            ListenableFuture<Operation.SessionResult> future;
+            ListenableFuture<Pair<T,V>> future;
             while ((future = pending.poll()) != null) {
-                Operation.SessionResult result;
+                Pair<T,V> result;
                 try {
                     result = future.get();
                 } catch (Exception e) {
@@ -354,12 +352,12 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
             super.runAll();
         }
         
-        protected void handleResult(Operation.SessionResult result) throws Exception {
-            Operation.Request request = result.request().request();
-            Operation.Response reply = Operations.maybeError(result.reply().reply(), KeeperException.Code.NONODE, request.toString());
-            if (reply instanceof Records.ChildrenHolder) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathHolder) request).getPath());
-                for (String child: ((Records.ChildrenHolder) reply).getChildren()) {
+        protected void handleResult(Pair<T,V> result) throws Exception {
+            Records.Request request = result.first().request();
+            Records.Response reply = Operations.maybeError(result.second().response(), KeeperException.Code.NONODE, request.toString());
+            if (reply instanceof Records.ChildrenGetter) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
+                for (String child: ((Records.ChildrenGetter) reply).getChildren()) {
                     send(ZNodeLabel.Path.of(path, ZNodeLabel.Component.of(child)));
                 }
             }
@@ -409,57 +407,6 @@ public class TreeFetcher implements Callable<ListenableFuture<ZNodeLabel.Path>> 
                     stop();
                 }
                 return canceled;
-            }
-        }
-    }
-
-    public static class Pending<U,T extends Future<U>> extends ForwardingQueue<T> {
-    
-        public static <U,T extends Future<U>> Pending<U,T> newInstance() {
-            return new Pending<U,T>(new LinkedBlockingQueue<T>());
-        }
-        
-        protected final Queue<T> delegate;
-        
-        public Pending(Queue<T> delegate) {
-            this.delegate = delegate;
-        }
-        
-        @Override
-        public Queue<T> delegate() {
-            return delegate;
-        }
-        
-        @Override
-        public T peek() {
-            T next = super.peek();
-            if ((next != null) && (next.isDone())) {
-                return next;
-            } else {
-                return null;
-            }
-        }
-    
-        @Override
-        public synchronized T poll() {
-            T next = peek();
-            if (next != null) {
-                return super.poll();
-            } else {
-                return null;
-            }
-        }
-        
-        @Override
-        public boolean isEmpty() {
-            return peek() == null;
-        }
-        
-        @Override
-        public void clear() {
-            T next;
-            while ((next = super.poll()) != null) {
-                next.cancel(true);
             }
         }
     }

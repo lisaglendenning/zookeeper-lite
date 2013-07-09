@@ -47,33 +47,33 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Paramete
         return new ServerExecutor(executor, publisherFactory, sessions, zxids);
     }
 
-    public static class ClientMessageTask extends PromiseTask<ProcessorThunk<Message.ClientMessage, Message.ServerMessage>, Message.ServerMessage>
-            implements RunnableFuture<Message.ServerMessage> {
+    public static class ClientMessageTask extends PromiseTask<ProcessorThunk<Message.Client, Message.Server>, Message.Server>
+            implements RunnableFuture<Message.Server> {
         public static ClientMessageTask newInstance(
-                Processor<? super Message.ClientMessage, ? extends Message.ServerMessage> first,
-                Message.ClientMessage second) {
-            Promise<Message.ServerMessage> promise = newPromise();
+                Processor<? super Message.Client, ? extends Message.Server> first,
+                Message.Client second) {
+            Promise<Message.Server> promise = newPromise();
             return newInstance(first, second, promise);
         }
         
         public static ClientMessageTask newInstance(
-                Processor<? super Message.ClientMessage, ? extends Message.ServerMessage> first,
-                Message.ClientMessage second,
-                Promise<Message.ServerMessage> promise) {
-            ProcessorThunk<Message.ClientMessage, Message.ServerMessage> task = ProcessorThunk.newInstance(first, second);
+                Processor<? super Message.Client, ? extends Message.Server> first,
+                Message.Client second,
+                Promise<Message.Server> promise) {
+            ProcessorThunk<Message.Client, Message.Server> task = ProcessorThunk.newInstance(first, second);
             return new ClientMessageTask(task, promise);
         }
         
         public ClientMessageTask(
-                ProcessorThunk<Message.ClientMessage, Message.ServerMessage> task,
-                Promise<Message.ServerMessage> promise) {
+                ProcessorThunk<Message.Client, Message.Server> task,
+                Promise<Message.Server> promise) {
             super(task, promise);
         }
         
         @Override
         public synchronized void run() {
             if (! isDone()) {
-                Message.ServerMessage result;
+                Message.Server result;
                 try {
                     result = task().call();
                 } catch (Exception e) {
@@ -94,32 +94,32 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Paramete
             return newInstance(processor(zxids, sessions), executor);
         }
         
-        public static Processor<Message.ClientMessage, Message.ServerMessage> processor(
+        public static Processor<Message.Client, Message.Server> processor(
                 Reference<Long> zxids,
                 SessionTable sessions) {
-            FilteringProcessor<Message.ClientMessage, Message.ServerMessage> createProcessor =
+            FilteringProcessor<Message.Client, Message.Server> createProcessor =
                     ConnectProcessor.filtered(sessions, zxids);
-            FilteringProcessor<Message.ClientMessage, Message.ServerMessage> errorProcessor =
-                    new FilteredProcessor<Message.ClientMessage, Message.ServerMessage>(
+            FilteringProcessor<Message.Client, Message.Server> errorProcessor =
+                    new FilteredProcessor<Message.Client, Message.Server>(
                             Predicates.alwaysTrue(),
-                            new ErrorProcessor<Message.ClientMessage, Message.ServerMessage>());
+                            new ErrorProcessor<Message.Client, Message.Server>());
             @SuppressWarnings("unchecked")
-            Processor<Message.ClientMessage, Message.ServerMessage> processor = 
+            Processor<Message.Client, Message.Server> processor = 
                     FilteredProcessors.newInstance(createProcessor, errorProcessor);
             return processor;
         }
 
         public static ServerClientMessageExecutor newInstance(
-                Processor<Message.ClientMessage, Message.ServerMessage> processor,
+                Processor<Message.Client, Message.Server> processor,
                 Executor executor) {
             return new ServerClientMessageExecutor(
                     processor, executor, AbstractActor.<ClientMessageTask>newQueue(), newState());
         }
         
-        protected final Processor<Message.ClientMessage, Message.ServerMessage> processor;
+        protected final Processor<Message.Client, Message.Server> processor;
         
         protected ServerClientMessageExecutor(
-                Processor<Message.ClientMessage, Message.ServerMessage> processor,
+                Processor<Message.Client, Message.Server> processor,
                 Executor executor, 
                 Queue<ClientMessageTask> mailbox,
                 AtomicReference<State> state) {
@@ -128,13 +128,13 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Paramete
         }
         
         @Override
-        public ListenableFuture<Message.ServerMessage> submit(Message.ClientMessage request) {
-            return submit(request, PromiseTask.<Message.ServerMessage>newPromise());
+        public ListenableFuture<Message.Server> submit(Message.Client request) {
+            return submit(request, PromiseTask.<Message.Server>newPromise());
         }
 
         @Override
-        public ListenableFuture<Message.ServerMessage> submit(Message.ClientMessage request,
-                Promise<Message.ServerMessage> promise) {
+        public ListenableFuture<Message.Server> submit(Message.Client request,
+                Promise<Message.Server> promise) {
             ClientMessageTask task = ClientMessageTask.newInstance(processor, request, promise);
             send(task);
             return task;
@@ -196,13 +196,13 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Paramete
     }
     
     @Override
-    public ListenableFuture<Message.ServerMessage> submit(Message.ClientMessage request) {
-        return submit(request, PromiseTask.<Message.ServerMessage>newPromise());
+    public ListenableFuture<Message.Server> submit(Message.Client request) {
+        return submit(request, PromiseTask.<Message.Server>newPromise());
     }
     
     @Override
-    public ListenableFuture<Message.ServerMessage> submit(Message.ClientMessage request,
-            Promise<Message.ServerMessage> promise) {
+    public ListenableFuture<Message.Server> submit(Message.Client request,
+            Promise<Message.Server> promise) {
         return anonymousExecutor.submit(request);
     }
 

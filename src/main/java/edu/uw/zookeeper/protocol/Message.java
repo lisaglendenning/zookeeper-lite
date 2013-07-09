@@ -7,19 +7,28 @@ public interface Message extends Encodable {
     /**
      * Sent by client.
      */
-    public static interface ClientMessage extends Message {}
+    public static interface Client extends Message {}
     
     /**
      * Sent by server.
      */
-    public static interface ServerMessage extends Message {}
+    public static interface Server extends Message {}
+    
+    /**
+     * Not associated with a session.
+     */
+    public static interface Anonymous extends Message {}
 
     /**
-     * Associated with a Session.
+     * Associated with a session.
      */
-    public static interface SessionMessage extends Message {}
+    public static interface Session extends Message {}
 
-    public static interface ClientSessionMessage extends SessionMessage, ClientMessage {}
+    public static interface ClientSession extends Session, Client, Operation.Request {}
 
-    public static interface ServerSessionMessage extends SessionMessage, ServerMessage {}
+    public static interface ServerSession extends Session, Server, Operation.Response {}
+    
+    public static interface ClientRequest extends ClientSession, Operation.SessionRequest {}
+    
+    public static interface ServerResponse extends ServerSession, Operation.SessionResponse {}
 }

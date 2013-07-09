@@ -24,14 +24,14 @@ import edu.uw.zookeeper.util.Singleton;
 
 public abstract class Operations {
 
-    public static interface Builder<T extends Operation.Action> {
+    public static interface Builder<T extends Records.Coded> {
 
         OpCode getOpCode();
         
         T build();
     }
     
-    public static abstract class AbstractBuilder<T extends Operation.Action> implements Builder<T> {
+    public static abstract class AbstractBuilder<T extends Records.Coded> implements Builder<T> {
 
         protected OpCode opcode;
         
@@ -50,19 +50,19 @@ public abstract class Operations {
         }
     }
     
-    public static interface PathBuilder<T extends Operation.Action> extends Builder<T> {
+    public static interface PathBuilder<T extends Records.Coded> extends Builder<T> {
         ZNodeLabel.Path getPath();
         PathBuilder<T> setPath(ZNodeLabel.Path path);
     }
 
-    public static interface DataBuilder<T extends Operation.Action> extends Builder<T> {
+    public static interface DataBuilder<T extends Records.Coded> extends Builder<T> {
         byte[] getData();
         DataBuilder<T> setData(byte[] data);
     }
     
     public static abstract class Requests {
         
-        public static abstract class AbstractPath<T extends Operation.Request, C extends AbstractPath<T,C>> extends AbstractBuilder<T> implements PathBuilder<T> {
+        public static abstract class AbstractPath<T extends Records.Request, C extends AbstractPath<T,C>> extends AbstractBuilder<T> implements PathBuilder<T> {
     
             protected ZNodeLabel.Path path;
             
@@ -89,7 +89,7 @@ public abstract class Operations {
             }
         }
 
-        public static abstract class AbstractData<T extends Operation.Request, C extends AbstractData<T,C>> extends AbstractPath<T,C> implements DataBuilder<T> {
+        public static abstract class AbstractData<T extends Records.Request, C extends AbstractData<T,C>> extends AbstractPath<T,C> implements DataBuilder<T> {
             protected byte[] data;
             
             protected AbstractData(OpCode opcode) {
@@ -115,10 +115,10 @@ public abstract class Operations {
             }
         }
         
-        public static class Create extends AbstractData<Operation.Request, Create> {
+        public static class Create extends AbstractData<Records.Request, Create> {
             
-            public static Create fromRecord(Operation.Request request) {
-                Records.CreateHolder record = (Records.CreateHolder) request;
+            public static Create fromRecord(Records.Request request) {
+                Records.CreateModeGetter record = (Records.CreateModeGetter) request;
                 OpCode opcode = request.opcode();
                 ZNodeLabel.Path path = ZNodeLabel.Path.of(record.getPath());
                 byte[] data = record.getData();
@@ -178,8 +178,8 @@ public abstract class Operations {
             }
             
             @Override
-            public Operation.Request build() {
-                Operation.Request record = getStat() 
+            public Records.Request build() {
+                Records.Request record = getStat() 
                         ? new ICreate2Request(getPath().toString(), getData(), Acls.Acl.asRecordList(getAcl()), getMode().toFlag()) 
                         : new ICreateRequest(getPath().toString(), getData(), Acls.Acl.asRecordList(getAcl()), getMode().toFlag());
                 return record;
@@ -281,12 +281,12 @@ public abstract class Operations {
             }
         }
         
-        public static class GetChildren extends AbstractPath<Operation.Request, GetChildren> {
+        public static class GetChildren extends AbstractPath<Records.Request, GetChildren> {
 
-            public static GetChildren fromRecord(Operation.Request request) {
+            public static GetChildren fromRecord(Records.Request request) {
                 OpCode opcode = request.opcode();
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathHolder)request).getPath());
-                boolean watch = ((Records.WatchHolder)request).getWatch();
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter)request).getPath());
+                boolean watch = ((Records.WatchGetter)request).getWatch();
                 return new GetChildren(opcode, path, watch);
             }
             
@@ -321,8 +321,8 @@ public abstract class Operations {
             }
             
             @Override
-            public Operation.Request build() {
-                Operation.Request record = getStat()
+            public Records.Request build() {
+                Records.Request record = getStat()
                         ? new IGetChildren2Request(getPath().toString(), getWatch())
                         : new IGetChildrenRequest(getPath().toString(), getWatch());
                 return record;
@@ -366,7 +366,7 @@ public abstract class Operations {
             }
         }
         
-        public static class Multi extends AbstractBuilder<IMultiRequest> implements Iterable<AbstractBuilder<? extends Operation.Request>> {
+        public static class Multi extends AbstractBuilder<IMultiRequest> implements Iterable<AbstractBuilder<? extends Records.Request>> {
 
             public static Multi fromRecord(IMultiRequest request) {
                 Multi builder = new Multi();
@@ -376,27 +376,27 @@ public abstract class Operations {
                 return builder;
             }
             
-            protected List<AbstractBuilder<? extends Operation.Request>> builders;
+            protected List<AbstractBuilder<? extends Records.Request>> builders;
             
             public Multi() {
                 super(OpCode.MULTI);
                 this.builders = Lists.newArrayList();
             }
             
-            public Multi add(AbstractBuilder<? extends Operation.Request> builder) {
+            public Multi add(AbstractBuilder<? extends Records.Request> builder) {
                 builders.add(builder);
                 return this;
             }
 
             @Override
-            public Iterator<AbstractBuilder<? extends Operation.Request>> iterator() {
+            public Iterator<AbstractBuilder<? extends Records.Request>> iterator() {
                 return builders.iterator();
             }
             
             @Override
             public IMultiRequest build() {
                 IMultiRequest record = new IMultiRequest();
-                for (AbstractBuilder<? extends Operation.Request> e: builders) {
+                for (AbstractBuilder<? extends Records.Request> e: builders) {
                     record.add((Records.MultiOpRequest) e.build());
                 }
                 return record;
@@ -512,9 +512,9 @@ public abstract class Operations {
             }
         }
         
-        public static class SerializedData<T extends Operation.Request, C extends AbstractData<T,C>, V> extends AbstractBuilder<T> implements PathBuilder<T>, DataBuilder<T> {
+        public static class SerializedData<T extends Records.Request, C extends AbstractData<T,C>, V> extends AbstractBuilder<T> implements PathBuilder<T>, DataBuilder<T> {
 
-            public static <T extends Operation.Request, C extends AbstractData<T,C>, V> SerializedData<T,C,V> of (C delegate, Serializers.ByteSerializer<? super V> serializer, V input) {
+            public static <T extends Records.Request, C extends AbstractData<T,C>, V> SerializedData<T,C,V> of (C delegate, Serializers.ByteSerializer<? super V> serializer, V input) {
                 return new SerializedData<T,C,V>(delegate, serializer, input);
             }
             
@@ -576,8 +576,8 @@ public abstract class Operations {
             }
         }
         
-        public static AbstractBuilder<? extends Operation.Request> fromRecord(Operation.Request record) {
-            AbstractBuilder<? extends Operation.Request> builder = null;
+        public static AbstractBuilder<? extends Records.Request> fromRecord(Records.Request record) {
+            AbstractBuilder<? extends Records.Request> builder = null;
             switch (record.opcode()) {
             case CREATE:
             case CREATE2:
@@ -647,7 +647,7 @@ public abstract class Operations {
             return new Sync();
         }
         
-        public static <T extends Operation.Request, C extends AbstractData<T,C>, V> SerializedData<T,C,V> serialized(C delegate, Serializers.ByteSerializer<? super V> serializer, V input) {
+        public static <T extends Records.Request, C extends AbstractData<T,C>, V> SerializedData<T,C,V> serialized(C delegate, Serializers.ByteSerializer<? super V> serializer, V input) {
             return SerializedData.of(delegate, serializer, input);
         }
         
@@ -656,7 +656,7 @@ public abstract class Operations {
     
     public static abstract class Responses {
     
-        public static abstract class AbstractStat<T extends Operation.Response, C extends AbstractStat<T,C>> extends AbstractBuilder<T> {
+        public static abstract class AbstractStat<T extends Records.Response, C extends AbstractStat<T,C>> extends AbstractBuilder<T> {
     
             protected Stat stat;
             
@@ -681,14 +681,14 @@ public abstract class Operations {
             }
         }
         
-        public static class Create extends AbstractStat<Operation.Response, Create> implements PathBuilder<Operation.Response> {
+        public static class Create extends AbstractStat<Records.Response, Create> implements PathBuilder<Records.Response> {
 
-            public static Create fromRecord(Operation.Response record) {
+            public static Create fromRecord(Records.Response record) {
                 OpCode opcode = record.opcode();
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathHolder) record).getPath());
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) record).getPath());
                 Stat stat = null;
-                if (record instanceof Records.StatHolder) {
-                    stat = ((Records.StatHolder) record).getStat();
+                if (record instanceof Records.StatGetter) {
+                    stat = ((Records.StatGetter) record).getStat();
                 }
                 return new Create(opcode, stat, path);
             }
@@ -724,8 +724,8 @@ public abstract class Operations {
             }
             
             @Override
-            public Operation.Response build() {
-                Operation.Response record = (getOpCode() == OpCode.CREATE2)
+            public Records.Response build() {
+                Records.Response record = (getOpCode() == OpCode.CREATE2)
                         ? new ICreate2Response(getPath().toString(), getStat())
                         : new ICreateResponse(getPath().toString());
                 return record;
@@ -755,7 +755,7 @@ public abstract class Operations {
 
             @Override
             public IDeleteResponse build() {
-                return Records.create(IDeleteResponse.class);
+                return Records.newInstance(IDeleteResponse.class);
             }
         }
     
@@ -815,15 +815,15 @@ public abstract class Operations {
             }
         }
         
-        public static class GetChildren extends AbstractStat<Operation.Response, GetChildren> {
+        public static class GetChildren extends AbstractStat<Records.Response, GetChildren> {
 
-            public static GetChildren fromRecord(Operation.Response record) {
+            public static GetChildren fromRecord(Records.Response record) {
                 OpCode opcode = record.opcode();
                 Stat stat = null;
-                if (record instanceof Records.StatHolder) {
-                    stat = ((Records.StatHolder) record).getStat();
+                if (record instanceof Records.StatGetter) {
+                    stat = ((Records.StatGetter) record).getStat();
                 }
-                List<String> childrenStr = ((Records.ChildrenHolder) record).getChildren();
+                List<String> childrenStr = ((Records.ChildrenGetter) record).getChildren();
                 List<ZNodeLabel.Component> children = Lists.newArrayListWithCapacity(childrenStr.size());
                 for (String e: childrenStr) {
                     children.add(ZNodeLabel.Component.of(e));
@@ -860,9 +860,9 @@ public abstract class Operations {
             }
             
             @Override
-            public Operation.Response build() {
+            public Records.Response build() {
                 List<String> children = ImmutableList.copyOf(Iterables.transform(getChildren(), Functions.toStringFunction()));
-                Operation.Response record = (OpCode.GET_CHILDREN2 == getOpCode())
+                Records.Response record = (OpCode.GET_CHILDREN2 == getOpCode())
                         ? new IGetChildren2Response(children, getStat())
                         : new IGetChildrenResponse(children);
                 return record;
@@ -906,7 +906,7 @@ public abstract class Operations {
             }
         }
     
-        public static class Multi extends AbstractBuilder<IMultiResponse> implements Iterable<Builder<? extends Operation.Response>> {
+        public static class Multi extends AbstractBuilder<IMultiResponse> implements Iterable<Builder<? extends Records.Response>> {
 
             public static Multi fromRecord(IMultiResponse record) {
                 Multi builder = new Multi();
@@ -916,27 +916,27 @@ public abstract class Operations {
                 return builder;
             }
             
-            protected List<Builder<? extends Operation.Response>> builders;
+            protected List<Builder<? extends Records.Response>> builders;
             
             public Multi() {
                 super(OpCode.MULTI);
                 this.builders = Lists.newArrayList();
             }
             
-            public Multi add(Builder<? extends Operation.Response> builder) {
+            public Multi add(Builder<? extends Records.Response> builder) {
                 builders.add(builder);
                 return this;
             }
     
             @Override
-            public Iterator<Builder<? extends Operation.Response>> iterator() {
+            public Iterator<Builder<? extends Records.Response>> iterator() {
                 return builders.iterator();
             }
             
             @Override
             public IMultiResponse build() {
                 IMultiResponse record = new IMultiResponse();
-                for (Builder<? extends Operation.Response> e: builders) {
+                for (Builder<? extends Records.Response> e: builders) {
                     record.add((Records.MultiOpResponse) e.build());
                 }
                 return record;
@@ -1086,8 +1086,8 @@ public abstract class Operations {
             }
         }
 
-        public static AbstractBuilder<? extends Operation.Response> fromRecord(Operation.Response record) {
-            AbstractBuilder<? extends Operation.Response> builder = null;
+        public static AbstractBuilder<? extends Records.Response> fromRecord(Records.Response record) {
+            AbstractBuilder<? extends Records.Response> builder = null;
             switch (record.opcode()) {
             case CREATE:
             case CREATE2:
@@ -1164,19 +1164,19 @@ public abstract class Operations {
         }
     }
     
-    public static Builder<? extends Operation.Action> fromRecord(Operation.Action input) {
-        if (input instanceof Operation.Request) {
-            return Requests.fromRecord((Operation.Request) input);
+    public static Builder<? extends Records.Coded> fromRecord(Records.Coded input) {
+        if (input instanceof Records.Request) {
+            return Requests.fromRecord((Records.Request) input);
         } else {
-            return Responses.fromRecord((Operation.Response) input);
+            return Responses.fromRecord((Records.Response) input);
         }
     }
 
-    public static Operation.Response unlessError(Operation.Response reply) throws KeeperException {
+    public static Records.Response unlessError(Records.Response reply) throws KeeperException {
         return Operations.unlessError(reply, "Unexpected Error");
     }
 
-    public static Operation.Response unlessError(Operation.Response reply, String message) throws KeeperException {
+    public static Records.Response unlessError(Records.Response reply, String message) throws KeeperException {
         if (reply instanceof Operation.Error) {
             KeeperException.Code error = ((Operation.Error) reply).error();
             throw KeeperException.create(error, message);
@@ -1185,11 +1185,11 @@ public abstract class Operations {
         }
     }
 
-    public static Operation.Error expectError(Operation.Response reply, KeeperException.Code expected) throws KeeperException {
+    public static Operation.Error expectError(Records.Response reply, KeeperException.Code expected) throws KeeperException {
         return Operations.expectError(reply, expected, "Expected Error " + expected.toString());
     }
 
-    public static Operation.Error expectError(Operation.Response reply, KeeperException.Code expected, String message) throws KeeperException {
+    public static Operation.Error expectError(Records.Response reply, KeeperException.Code expected, String message) throws KeeperException {
         if (reply instanceof Operation.Error) {
             Operation.Error errorReply = (Operation.Error) reply;
             KeeperException.Code error = errorReply.error();
@@ -1202,11 +1202,11 @@ public abstract class Operations {
         }
     }
 
-    public static Operation.Response maybeError(Operation.Response reply, KeeperException.Code expected) throws KeeperException {
+    public static Records.Response maybeError(Records.Response reply, KeeperException.Code expected) throws KeeperException {
         return Operations.maybeError(reply, expected, "Expected Error " + expected.toString());
     }
 
-    public static Operation.Response maybeError(Operation.Response reply, KeeperException.Code expected, String message) throws KeeperException {
+    public static Records.Response maybeError(Records.Response reply, KeeperException.Code expected, String message) throws KeeperException {
         if (reply instanceof Operation.Error) {
             KeeperException.Code error = ((Operation.Error) reply).error();
             if (expected != error) {

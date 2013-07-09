@@ -8,7 +8,6 @@ import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Eventful;
-import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Reference;
 
@@ -16,7 +15,7 @@ public class ZxidTracker implements Reference<Long>  {
     
     public static class ZxidListener extends Pair<ZxidTracker, Eventful> {
 
-        public static ZxidListener newInstance(
+        public static ZxidListener create(
                 ZxidTracker tracker,
                 Eventful eventful) {
             return new ZxidListener(tracker, eventful);
@@ -37,36 +36,8 @@ public class ZxidTracker implements Reference<Long>  {
         }
         
         @Subscribe
-        public void handleSessionReply(Operation.SessionReply message) {
+        public void handleSessionReply(Operation.SessionResponse message) {
             first().update(message.zxid());
-        }
-    }
-
-    public static class Decorator<C extends Eventful> 
-            extends Pair<ZxidTracker, Factory<C>> 
-            implements Factory<C> {
-        public static <C extends Eventful> Decorator<C> newInstance(
-                Factory<C> delegate) {
-            return newInstance(ZxidTracker.create(), delegate);
-        }
-        
-        public static <C extends Eventful> Decorator<C> newInstance(
-                ZxidTracker tracker,
-                Factory<C> delegate) {
-            return new Decorator<C>(tracker, delegate);
-        }
-        
-        public Decorator(
-                ZxidTracker tracker,
-                Factory<C> delegate) {
-            super(tracker, delegate);
-        }
-        
-        @Override
-        public C get() {
-            C instance = second().get();
-            ZxidListener.newInstance(first(), instance);
-            return instance;
         }
     }
     

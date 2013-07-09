@@ -5,10 +5,8 @@ import java.util.List;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.proto.Create2Request;
 
-import edu.uw.zookeeper.protocol.Operation;
-
 @Operational(opcode=OpCode.CREATE2)
-public class ICreate2Request extends IOperationalRecord<Create2Request> implements Operation.Request, Records.CreateHolder, Records.MultiOpRequest {
+public class ICreate2Request extends ICodedRecord<Create2Request> implements Records.Request, Records.CreateModeGetter, Records.MultiOpRequest {
 
     public ICreate2Request() {
         this(new Create2Request());

@@ -3,9 +3,8 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.SetDataResponse;
 
-import edu.uw.zookeeper.protocol.Operation;
 @Operational(opcode=OpCode.SET_DATA)
-public class ISetDataResponse extends IOperationalRecord<SetDataResponse> implements Operation.Response, Records.StatHolder, Records.MultiOpResponse {
+public class ISetDataResponse extends ICodedRecord<SetDataResponse> implements Records.Response, Records.StatGetter, Records.MultiOpResponse {
 
     public ISetDataResponse() {
         this(new SetDataResponse());

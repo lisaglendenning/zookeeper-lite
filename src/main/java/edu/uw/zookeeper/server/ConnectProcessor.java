@@ -17,8 +17,8 @@ import edu.uw.zookeeper.util.Reference;
 public class ConnectProcessor 
         implements Processor<ConnectMessage.Request, ConnectMessage.Response> {
 
-    public static class Filtered implements Processors.FilteringProcessor<Message.ClientMessage, Message.ServerMessage> {
-        public static enum Filter implements Predicate<Message.ClientMessage> {
+    public static class Filtered implements Processors.FilteringProcessor<Message.Client, Message.Server> {
+        public static enum Filter implements Predicate<Message.Client> {
             INSTANCE;
             
             public static Filter getInstance() {
@@ -26,7 +26,7 @@ public class ConnectProcessor
             }
             
             @Override
-            public boolean apply(@Nullable Message.ClientMessage input) {
+            public boolean apply(@Nullable Message.Client input) {
                 return (input instanceof ConnectMessage.Request);
             }
         }
@@ -42,7 +42,7 @@ public class ConnectProcessor
         }
         
         @Override
-        public Message.ServerMessage apply(Message.ClientMessage input) throws Exception {
+        public Message.Server apply(Message.Client input) throws Exception {
             if (filter().apply(input)) {
                 return processor.apply((ConnectMessage.Request)input);
             } else {
@@ -51,7 +51,7 @@ public class ConnectProcessor
         }
 
         @Override
-        public Predicate<? super Message.ClientMessage> filter() {
+        public Predicate<? super Message.Client> filter() {
             return Filter.getInstance();
         }
     }

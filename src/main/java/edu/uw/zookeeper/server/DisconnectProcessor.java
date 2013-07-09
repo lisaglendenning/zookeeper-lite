@@ -4,14 +4,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Processors.FilteredProcessor;
 import edu.uw.zookeeper.util.Processors.FilteringProcessor;
 
-import edu.uw.zookeeper.protocol.Operation;
 
 public class DisconnectProcessor extends OpRequestProcessor {
 
-    public static FilteringProcessor<Operation.Request, Operation.Response> filtered(
+    public static FilteringProcessor<Records.Request, Records.Response> filtered(
             long sessionId, SessionManager sessions) {
         return FilteredProcessor.newInstance(
                 EqualsFilter.newInstance(OpCode.CLOSE_SESSION),
@@ -42,7 +42,7 @@ public class DisconnectProcessor extends OpRequestProcessor {
     }
 
     @Override
-    public Operation.Response apply(Operation.Request request) {
+    public Records.Response apply(Records.Request request) {
         if (request.opcode() != OpCode.CLOSE_SESSION) {
             return null;
         }

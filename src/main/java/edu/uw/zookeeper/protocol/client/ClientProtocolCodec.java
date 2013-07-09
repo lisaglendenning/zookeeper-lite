@@ -7,6 +7,7 @@ import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -17,10 +18,10 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.SessionReplyMessage;
+import edu.uw.zookeeper.protocol.SessionResponseMessage;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
-import edu.uw.zookeeper.util.Automaton;
+import edu.uw.zookeeper.util.Automatons;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
@@ -32,7 +33,7 @@ import edu.uw.zookeeper.util.Stateful;
  * threads to call decode.
  */
 public class ClientProtocolCodec
-    extends ProtocolCodec<Message.ClientSessionMessage, Message.ServerSessionMessage> {
+    implements ProtocolCodec<Message.ClientSession, Message.ServerSession> {
 
     public static ClientProtocolCodec newInstance(
             Publisher publisher) {
@@ -41,7 +42,18 @@ public class ClientProtocolCodec
     
     public static ClientProtocolCodec newInstance(
             Publisher publisher, ProtocolState state) {
-        return new ClientProtocolCodec(newAutomaton(publisher, state), Pending.newInstance());
+        Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton =
+                Automatons.createSynchronizedEventful(publisher, 
+                        Automatons.createSimple(state));
+        Pending pending = Pending.newInstance();
+        Encoder<? super Message.ClientSession> encoder = 
+                Frame.FramedEncoder.create(
+                        ClientProtocolEncoder.newInstance(automaton));
+        Decoder<Optional<Message.ServerSession>> decoder =
+                Frame.FramedDecoder.create(
+                        Frame.FrameDecoder.getDefault(),
+                        ClientProtocolDecoder.newInstance(automaton, pending));
+        return new ClientProtocolCodec(automaton, encoder, decoder, pending.get());
     }
     
     public static class Pending implements Function<Integer, OpCode>, Reference<Queue<Pair<Integer, OpCode>>> {
@@ -74,17 +86,20 @@ public class ClientProtocolCodec
             return queue;
         }
     }
+
+    protected final Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton;
+    protected final Encoder<? super Message.ClientSession> encoder;
+    protected final Decoder<Optional<Message.ServerSession>> decoder;
+    protected final Queue<Pair<Integer, OpCode>> pending;
     
-    private final Pending pending;
-    
-    private ClientProtocolCodec(
-            Automaton<ProtocolState, Message> automaton,
-            Pending pending) {
-        super(automaton,
-                Frame.FramedEncoder.create(ClientProtocolEncoder.newInstance(automaton)),
-                Frame.FramedDecoder.create(
-                        Frame.FrameDecoder.getDefault(),
-                        ClientProtocolDecoder.newInstance(automaton, pending)));
+    protected ClientProtocolCodec(
+            Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton,
+            Encoder<? super Message.ClientSession> encoder,
+            Decoder<Optional<Message.ServerSession>> decoder,
+            Queue<Pair<Integer, OpCode>> pending) {
+        this.automaton = automaton;
+        this.encoder = encoder;
+        this.decoder = decoder;
         this.pending = pending;
     }
 
@@ -92,16 +107,17 @@ public class ClientProtocolCodec
      * Don't call concurrently!
      */
     @Override
-    public void encode(Message.ClientSessionMessage input, ByteBuf output) throws IOException {
-        super.encode(input, output);
+    public void encode(Message.ClientSession input, ByteBuf output) throws IOException {
+        encoder.encode(input, output);
+        automaton.apply(input);
         // we only need to remember xid -> opcode of pending messages
-        if (input instanceof Operation.XidHeader) {
-            int xid = ((Operation.XidHeader)input).xid();
+        if (input instanceof Operation.RequestId) {
+            int xid = ((Operation.RequestId)input).xid();
             if (! OpCodeXid.has(xid)) {
                 assert (input instanceof Operation.SessionRequest);
                 OpCode opcode = ((Operation.SessionRequest)input).request().opcode();
                 Pair<Integer, OpCode> pair = Pair.create(xid, opcode);
-                pending.get().add(pair);
+                pending.add(pair);
             }
         }
     }
@@ -110,25 +126,46 @@ public class ClientProtocolCodec
      * Don't call concurrently!
      */
     @Override
-    public Optional<Message.ServerSessionMessage> decode(ByteBuf input)
+    public Optional<Message.ServerSession> decode(ByteBuf input)
             throws IOException {
-        // the peek and poll need to be atomic
-        Optional<Message.ServerSessionMessage> out = super.decode(input);
+        Optional<Message.ServerSession> out =  decoder.decode(input);
         if (out.isPresent()) {
-            Message.ServerSessionMessage reply = out.get();
-            Pair<Integer, OpCode> next = pending.get().peek();
-            if ((next != null) && (reply instanceof Operation.XidHeader)) {
-                if (next.first().equals(((Operation.XidHeader)reply).xid())) {
-                    pending.get().poll();
+            automaton.apply(out.get());
+            Message.ServerSession reply = out.get();
+            // the peek and poll need to be atomic
+            Pair<Integer, OpCode> next = pending.peek();
+            if ((next != null) && (reply instanceof Operation.RequestId)) {
+                if (next.first().equals(((Operation.RequestId)reply).xid())) {
+                    pending.poll();
                 }
             }
         }
         return out;
     }
 
+    @Override
+    public ProtocolState state() {
+        return automaton.state();
+    }
+
+    @Override
+    public void register(Object handler) {
+        automaton.register(handler);
+    }
+
+    @Override
+    public void unregister(Object handler) {
+        automaton.unregister(handler);
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).add("state", state()).toString();
+    }
+
     public static class ClientProtocolEncoder implements 
             Stateful<ProtocolState>,
-            Encoder<Message.ClientSessionMessage> {
+            Encoder<Message.ClientSession> {
 
         public static ClientProtocolEncoder newInstance(
                 Stateful<ProtocolState> stateful) {
@@ -148,7 +185,7 @@ public class ClientProtocolCodec
         }
         
         @Override
-        public void encode(Message.ClientSessionMessage input, ByteBuf output) throws IOException {
+        public void encode(Message.ClientSession input, ByteBuf output) throws IOException {
             ProtocolState state = state();
             switch (state) {
             case ANONYMOUS:
@@ -165,7 +202,7 @@ public class ClientProtocolCodec
     
     public static class ClientProtocolDecoder implements 
             Stateful<ProtocolState>,
-            Decoder<Message.ServerSessionMessage> {
+            Decoder<Message.ServerSession> {
 
         public static ClientProtocolDecoder newInstance(
                 Stateful<ProtocolState> stateful,
@@ -189,16 +226,16 @@ public class ClientProtocolCodec
         }
         
         @Override
-        public Message.ServerSessionMessage decode(ByteBuf input) throws IOException {
+        public Message.ServerSession decode(ByteBuf input) throws IOException {
             ProtocolState state = state();
-            Message.ServerSessionMessage out;
+            Message.ServerSession out;
             switch (state) {
             case CONNECTING:
                 out = ConnectMessage.Response.decode(input);
                 break;
             case CONNECTED:
             case DISCONNECTING:
-                out = SessionReplyMessage.decode(xidToOpCode, input);
+                out = SessionResponseMessage.decode(xidToOpCode, input);
                 break;
             default:
                 throw new IllegalStateException(state.toString());

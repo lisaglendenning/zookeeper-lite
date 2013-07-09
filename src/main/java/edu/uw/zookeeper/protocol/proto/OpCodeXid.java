@@ -7,8 +7,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 
+import edu.uw.zookeeper.protocol.Operation;
+
 // These are hardcoded in various places in zookeeper code...
-public enum OpCodeXid {
+public enum OpCodeXid implements Operation.Coded, Operation.RequestId {
     // response only
     NOTIFICATION(-1, OpCode.NOTIFICATION), // zxid is -1?
     // request and response
@@ -42,10 +44,12 @@ public enum OpCodeXid {
         this.opcode = opcode;
     }
 
+    @Override
     public int xid() {
         return xid;
     }
 
+    @Override
     public OpCode opcode() {
         return opcode;
     }

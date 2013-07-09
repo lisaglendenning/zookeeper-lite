@@ -11,43 +11,40 @@ import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
-import edu.uw.zookeeper.protocol.server.ServerProtocolExecutor;
+import edu.uw.zookeeper.protocol.server.ServerConnectionExecutor;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 
-public class ServerConnectionListener {
+public class ServerConnectionListener<C extends Connection<Message.Server>> {
     
-    public static ServerConnectionListener newInstance(
-            final ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> connections,
+    public static <C extends Connection<Message.Server>> ServerConnectionListener<C> newInstance(
+            final ServerConnectionFactory<Message.Server, C> connections,
             final ClientMessageExecutor anonymousExecutor,
             final ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
             final Executor executor) {
-        ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor> serverFactory =
-                new ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor>() {
+        ParameterizedFactory<C, ServerConnectionExecutor<C>> serverFactory =
+                new ParameterizedFactory<C, ServerConnectionExecutor<C>>() {
                     @Override
-                    public ServerProtocolExecutor get(
-                            ServerCodecConnection value) {
-                        ServerProtocolExecutor server = ServerProtocolExecutor.newInstance(
+                    public ServerConnectionExecutor<C> get(C value) {
+                        return ServerConnectionExecutor.newInstance(
                                 value, 
                                 anonymousExecutor, 
                                 sessionExecutors, 
                                 executor);
-                        return server;
                     }
                     
                 };
-        return new ServerConnectionListener(connections, serverFactory);
+        return new ServerConnectionListener<C>(connections, serverFactory);
     }
     
     protected class ConnectionListener {
-        protected final ServerCodecConnection connection;
-        protected final ServerProtocolExecutor server;
+        protected final C connection;
+        protected final ServerConnectionExecutor<C> server;
         
-        public ConnectionListener(ServerCodecConnection connection) {
+        public ConnectionListener(C connection) {
             this.connection = connection;
             this.server = serverFactory.get(connection);
-            if (servers.put(connection, server) != null) {
+            if (servers.putIfAbsent(connection, server) != null) {
                 throw new AssertionError();
             }
             
@@ -65,13 +62,13 @@ public class ServerConnectionListener {
         }
     }
 
-    protected final ServerConnectionFactory<Message.ServerMessage, ? extends Connection<Message.ServerMessage>> connections;
-    protected final ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor> serverFactory;
-    protected final ConcurrentMap<Connection<Message.ServerMessage>, ServerProtocolExecutor> servers;
+    protected final ServerConnectionFactory<Message.Server, C> connections;
+    protected final ParameterizedFactory<C, ServerConnectionExecutor<C>> serverFactory;
+    protected final ConcurrentMap<C, ServerConnectionExecutor<C>> servers;
     
-    protected ServerConnectionListener(
-            ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> connections,
-            ParameterizedFactory<ServerCodecConnection, ServerProtocolExecutor> serverFactory) {
+    public ServerConnectionListener(
+            ServerConnectionFactory<Message.Server, C> connections,
+            ParameterizedFactory<C, ServerConnectionExecutor<C>> serverFactory) {
         this.connections = connections;
         this.serverFactory = serverFactory;
         this.servers = Maps.newConcurrentMap();
@@ -80,7 +77,7 @@ public class ServerConnectionListener {
     }
     
     @Subscribe
-    public void handleNewConnection(ServerCodecConnection event) {
-        new ConnectionListener(event);
+    public void handleNewConnection(C connection) {
+        new ConnectionListener(connection);
     }
 }

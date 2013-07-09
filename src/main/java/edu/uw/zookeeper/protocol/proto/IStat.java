@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.data.Stat;
 
-public class IStat extends IRecord<Stat> implements Records.StatHolderInterface {
+public class IStat extends IRecord<Stat> implements Records.ZNodeStatGetter {
 
     public IStat() {
         this(new Stat());

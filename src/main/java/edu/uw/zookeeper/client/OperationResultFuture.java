@@ -6,22 +6,22 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
-import edu.uw.zookeeper.protocol.OpSessionResult;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.util.Pair;
 
 public class OperationResultFuture 
-        extends ForwardingListenableFuture<Operation.SessionResult>
-        implements FutureCallback<Operation.SessionReply> {
+        extends ForwardingListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>>
+        implements FutureCallback<Operation.SessionResponse> {
     
-    public static OperationResultFuture of(Operation.SessionRequest request, ListenableFuture<Operation.SessionReply> future) {
+    public static OperationResultFuture of(Operation.SessionRequest request, ListenableFuture<Operation.SessionResponse> future) {
         return new OperationResultFuture(request, future);
     }
 
-    protected final SettableFuture<Operation.SessionResult> delegate;
+    protected final SettableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> delegate;
     protected final Operation.SessionRequest request;
-    protected final ListenableFuture<Operation.SessionReply> future;
+    protected final ListenableFuture<Operation.SessionResponse> future;
     
-    protected OperationResultFuture(Operation.SessionRequest request, ListenableFuture<Operation.SessionReply> future) {
+    protected OperationResultFuture(Operation.SessionRequest request, ListenableFuture<Operation.SessionResponse> future) {
         super();
         this.request = request;
         this.future = future;
@@ -33,7 +33,7 @@ public class OperationResultFuture
         return request;
     }
     
-    protected ListenableFuture<Operation.SessionResult> delegate() {
+    protected ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> delegate() {
         return delegate;
     }
     
@@ -48,8 +48,8 @@ public class OperationResultFuture
     }
     
     @Override
-    public void onSuccess(Operation.SessionReply result) {
-        delegate.set(OpSessionResult.of(request(), result));
+    public void onSuccess(Operation.SessionResponse result) {
+        delegate.set(Pair.create(request(), result));
     }
 
     @Override

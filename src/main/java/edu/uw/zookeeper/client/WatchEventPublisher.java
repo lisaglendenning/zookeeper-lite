@@ -29,9 +29,9 @@ public class WatchEventPublisher extends ForwardingEventful {
     }
 
     @Subscribe
-    public void handleReply(Operation.SessionReply message) {
+    public void handleReply(Operation.SessionResponse message) {
         if (OpCodeXid.NOTIFICATION.xid() == message.xid()) {
-            WatchEvent event = WatchEvent.of((IWatcherEvent) message.reply());
+            WatchEvent event = WatchEvent.of((IWatcherEvent) message.response());
             post(event);
         }
     }        

@@ -2,10 +2,8 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.SyncResponse;
 
-import edu.uw.zookeeper.protocol.Operation;
-
 @Operational(opcode=OpCode.SYNC)
-public class ISyncResponse extends IOperationalRecord<SyncResponse> implements Operation.Response, Records.PathHolder {
+public class ISyncResponse extends ICodedRecord<SyncResponse> implements Records.Response, Records.PathGetter {
     
     public ISyncResponse() {
         this(new SyncResponse());

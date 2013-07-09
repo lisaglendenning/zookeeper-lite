@@ -1,10 +1,9 @@
 package edu.uw.zookeeper.protocol.proto;
 
-import edu.uw.zookeeper.protocol.Operation;
-
+@Operational(opcode=OpCode.AUTH)
 @OperationalXid(xid=OpCodeXid.AUTH)
 @Shared
-public class IAuthResponse extends IOperationalXidRecord<EmptyRecord> implements Operation.Response, Operation.XidHeader {
+public class IAuthResponse extends IOpCodeXidRecord<EmptyRecord> implements Records.Response {
     public IAuthResponse() {
         super(EmptyRecord.getInstance());
     }

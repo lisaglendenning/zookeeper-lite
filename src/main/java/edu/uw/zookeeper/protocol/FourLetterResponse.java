@@ -10,7 +10,7 @@ import java.nio.charset.Charset;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
-public class FourLetterResponse implements Message.ServerMessage {
+public class FourLetterResponse implements Message.Server, Message.Anonymous {
 
     public static FourLetterResponse create(String strValue) {
         return new FourLetterResponse(strValue);

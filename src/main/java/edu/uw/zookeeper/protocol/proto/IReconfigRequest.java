@@ -2,10 +2,8 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.ReconfigRequest;
 
-import edu.uw.zookeeper.protocol.Operation;
-
 @Operational(opcode=OpCode.RECONFIG)
-public class IReconfigRequest extends IOperationalRecord<ReconfigRequest> implements Operation.Request {
+public class IReconfigRequest extends ICodedRecord<ReconfigRequest> implements Records.Request {
 
     public IReconfigRequest() {
         this(new ReconfigRequest());
@@ -18,5 +16,21 @@ public class IReconfigRequest extends IOperationalRecord<ReconfigRequest> implem
 
     public IReconfigRequest(ReconfigRequest record) {
         super(record);
+    }
+
+    public String getJoiningServers() {
+        return get().getJoiningServers();
+    }
+
+    public String getLeavingServers() {
+        return get().getLeavingServers();
+    }
+
+    public String getNewMembers() {
+        return get().getNewMembers();
+    }
+
+    public long getCurConfigId() {
+        return get().getCurConfigId();
     }
 }

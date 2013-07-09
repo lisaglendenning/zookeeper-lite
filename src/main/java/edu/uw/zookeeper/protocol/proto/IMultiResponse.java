@@ -13,9 +13,8 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-import edu.uw.zookeeper.protocol.Operation;
 @Operational(opcode=OpCode.MULTI)
-public class IMultiResponse extends IOperationalRecord<EmptyRecord> implements Operation.Response, Iterable<Records.MultiOpResponse> {
+public class IMultiResponse extends ICodedRecord<EmptyRecord> implements Records.Response, Iterable<Records.MultiOpResponse> {
 
     private final List<Records.MultiOpResponse> results;
     

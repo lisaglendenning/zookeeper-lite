@@ -3,9 +3,8 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.SetACLResponse;
 
-import edu.uw.zookeeper.protocol.Operation;
 @Operational(opcode=OpCode.SET_ACL)
-public class ISetACLResponse extends IOperationalRecord<SetACLResponse> implements Operation.Response, Records.StatHolder {
+public class ISetACLResponse extends ICodedRecord<SetACLResponse> implements Records.Response, Records.StatGetter {
 
     public ISetACLResponse() {
         this(new SetACLResponse());

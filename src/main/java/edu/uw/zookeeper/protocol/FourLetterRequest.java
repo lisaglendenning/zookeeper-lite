@@ -10,7 +10,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 
-public enum FourLetterRequest implements Message.ClientMessage {
+public enum FourLetterRequest implements Message.Client, Message.Anonymous {
 
     CONF("conf") {
     },

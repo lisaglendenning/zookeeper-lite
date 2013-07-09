@@ -2,11 +2,12 @@ package edu.uw.zookeeper.server;
 
 
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Generator;
 import edu.uw.zookeeper.util.Processor;
 
 public class AssignZxidProcessor implements
-        Processor<Operation.Response, Long>,
+        Processor<Records.Response, Long>,
         Generator<Long> {
 
     public static AssignZxidProcessor newInstance() {
@@ -25,11 +26,13 @@ public class AssignZxidProcessor implements
     }
 
     @Override
-    public Long apply(Operation.Response input) throws Exception {
+    public Long apply(Records.Response input) throws Exception {
         // TODO: for now we assume that Error does not get assigned a zxid
         // TODO: double check what real server does
-        Long zxid = -1L;
-        if (! (input instanceof Operation.Error)) {
+        Long zxid;
+        if (input instanceof Operation.Error) {
+            zxid = get();
+        } else {
             switch (input.opcode()) {
             case PING:
             case AUTH:
@@ -41,8 +44,6 @@ public class AssignZxidProcessor implements
                 zxid = next();
                 break;
             }
-        } else {
-            zxid = get();
         }
         return zxid;
     }

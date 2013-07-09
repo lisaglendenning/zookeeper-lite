@@ -4,9 +4,9 @@ import org.apache.jute.Record;
 
 import edu.uw.zookeeper.protocol.Operation;
 
-public abstract class IOperationalXidRecord<T extends Record> extends IOperationalRecord<T> implements Operation.Action, Operation.XidHeader {
+public abstract class IOpCodeXidRecord<T extends Record> extends ICodedRecord<T> implements Operation.RequestId {
 
-    protected IOperationalXidRecord(T record) {
+    protected IOpCodeXidRecord(T record) {
         super(record);
     }
 

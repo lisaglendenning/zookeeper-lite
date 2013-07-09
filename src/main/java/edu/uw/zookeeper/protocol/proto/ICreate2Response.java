@@ -3,10 +3,8 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.Create2Response;
 
-import edu.uw.zookeeper.protocol.Operation;
-
 @Operational(opcode=OpCode.CREATE2)
-public class ICreate2Response extends IOperationalRecord<Create2Response> implements Operation.Response, Records.MultiOpResponse, Records.PathHolder, Records.StatHolder {
+public class ICreate2Response extends ICodedRecord<Create2Response> implements Records.Response, Records.MultiOpResponse, Records.PathGetter, Records.StatGetter {
 
     public ICreate2Response() {
         this(new Create2Response());

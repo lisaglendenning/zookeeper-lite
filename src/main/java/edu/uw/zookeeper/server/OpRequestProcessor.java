@@ -12,9 +12,9 @@ import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Processor;
 
 public class OpRequestProcessor implements
-        Processor<Operation.Request, Operation.Response> {
+        Processor<Records.Request, Records.Response> {
 
-    public static class SetFilter implements Predicate<Operation.Action> {
+    public static class SetFilter implements Predicate<Operation.Coded> {
         public static SetFilter newInstance(Set<OpCode> opcodes) {
             return new SetFilter(opcodes);
         }
@@ -26,7 +26,7 @@ public class OpRequestProcessor implements
         }
 
         @Override
-        public boolean apply(Operation.Action input) {
+        public boolean apply(Operation.Coded input) {
             return (opcodes().contains(input.opcode()));
         }
 
@@ -35,7 +35,7 @@ public class OpRequestProcessor implements
         }
     }
 
-    public static class NotEqualsFilter implements Predicate<Operation.Action> {
+    public static class NotEqualsFilter implements Predicate<Operation.Coded> {
         public static NotEqualsFilter newInstance(OpCode opcode) {
             return new NotEqualsFilter(opcode);
         }
@@ -47,7 +47,7 @@ public class OpRequestProcessor implements
         }
 
         @Override
-        public boolean apply(Operation.Action input) {
+        public boolean apply(Operation.Coded input) {
             return (input.opcode() != opcode());
         }
 
@@ -56,7 +56,7 @@ public class OpRequestProcessor implements
         }
     }
 
-    public static class EqualsFilter implements Predicate<Operation.Action> {
+    public static class EqualsFilter implements Predicate<Operation.Coded> {
         public static EqualsFilter newInstance(OpCode opcode) {
             return new EqualsFilter(opcode);
         }
@@ -68,7 +68,7 @@ public class OpRequestProcessor implements
         }
 
         @Override
-        public boolean apply(Operation.Action input) {
+        public boolean apply(Operation.Coded input) {
             return (input.opcode() == opcode());
         }
 
@@ -85,20 +85,20 @@ public class OpRequestProcessor implements
     }
 
     @Override
-    public Operation.Response apply(Operation.Request request) {
+    public Records.Response apply(Records.Request request) {
         OpCode opcode = request.opcode();
-        Operation.Response reply;
+        Records.Response response;
         switch (opcode) {
         case CREATE_SESSION:
-            reply = ConnectMessage.Response.Invalid.newInstance();
+            response = ConnectMessage.Response.Invalid.newInstance();
             break;
         case RECONFIG:
-            reply = Records.Responses.getInstance().get(OpCode.GET_DATA);
+            response = Records.Responses.getInstance().get(OpCode.GET_DATA);
             break;
         default:
-            reply = Records.Responses.getInstance().get(opcode);
+            response = Records.Responses.getInstance().get(opcode);
             break;
         }
-        return reply;
+        return response;
     }
 }

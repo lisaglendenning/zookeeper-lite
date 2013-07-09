@@ -10,7 +10,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.SessionRequestMessage;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
@@ -33,37 +33,37 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
     public static ServerSessionRequestExecutor newInstance(
             Publisher publisher,
             ServerExecutor executor,
-            Processor<Operation.SessionRequest, Operation.SessionReply> processor,
+            Processor<Message.ClientRequest, Message.ServerResponse> processor,
             long sessionId) {
         return new ServerSessionRequestExecutor(publisher, executor, processor, sessionId);
     }
     
-    public static Processor<Operation.SessionRequest, Operation.SessionReply> processor(
+    public static Processor<Message.ClientRequest, Message.ServerResponse> processor(
             ServerExecutor executor,
             long sessionId) {
         @SuppressWarnings("unchecked")
-        Processor<Operation.Request, Operation.Response> responseProcessor = FilteredProcessors
+        Processor<Records.Request, Records.Response> responseProcessor = FilteredProcessors
                 .newInstance(
                         DisconnectProcessor.filtered(sessionId, executor.sessions()),
                         FilteredProcessor.newInstance(
                                 OpRequestProcessor.NotEqualsFilter
                                         .newInstance(OpCode.CLOSE_SESSION),
                                 OpRequestProcessor.newInstance()));
-        Processor<Operation.Request, Operation.Response> replyProcessor = RequestErrorProcessor.newInstance(responseProcessor);
-        Processor<Operation.SessionRequest, Operation.SessionReply> processor = SessionRequestProcessor.newInstance(replyProcessor, executor.zxids());
+        Processor<Records.Request, Records.Response> replyProcessor = RequestErrorProcessor.newInstance(responseProcessor);
+        Processor<Message.ClientRequest, Message.ServerResponse> processor = SessionRequestProcessor.newInstance(replyProcessor, executor.zxids());
         return processor;
     }
 
-    public static class SessionRequestTask extends ProcessorThunk<Operation.SessionRequest, Operation.SessionReply> {
+    public static class SessionRequestTask extends ProcessorThunk<Message.ClientRequest, Message.ServerResponse> {
         public static SessionRequestTask newInstance(
-                Processor<? super Operation.SessionRequest, ? extends Operation.SessionReply> first,
-                Operation.SessionRequest second) {
+                Processor<? super Message.ClientRequest, ? extends Message.ServerResponse> first,
+                Message.ClientRequest second) {
             return new SessionRequestTask(first, second);
         }
         
         public SessionRequestTask(
-                Processor<? super Operation.SessionRequest, ? extends Operation.SessionReply> first,
-                Operation.SessionRequest second) {
+                Processor<? super Message.ClientRequest, ? extends Message.ServerResponse> first,
+                Message.ClientRequest second) {
             super(first, second);
         }}
     
@@ -71,12 +71,12 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
             .getLogger(ServerSessionRequestExecutor.class);
     protected final long sessionId;
     protected final ServerExecutor executor;
-    protected final Processor<Operation.SessionRequest, Operation.SessionReply> processor;
+    protected final Processor<Message.ClientRequest, Message.ServerResponse> processor;
     
     protected ServerSessionRequestExecutor(
             Publisher publisher,
             ServerExecutor executor,
-            Processor<Operation.SessionRequest, Operation.SessionReply> processor,
+            Processor<Message.ClientRequest, Message.ServerResponse> processor,
             long sessionId) {
         super(publisher);
         this.executor = executor;
@@ -96,18 +96,18 @@ public class ServerSessionRequestExecutor extends ForwardingEventful implements 
     }
 
     @Override
-    public ListenableFuture<Operation.SessionReply> submit(Operation.SessionRequest request) {
-        return submit(request, PromiseTask.<Operation.SessionReply>newPromise());
+    public ListenableFuture<Message.ServerResponse> submit(Message.ClientRequest request) {
+        return submit(request, PromiseTask.<Message.ServerResponse>newPromise());
     }
     
     @Override
-    public ListenableFuture<Operation.SessionReply> submit(Operation.SessionRequest request,
-            Promise<Operation.SessionReply> promise) {
+    public ListenableFuture<Message.ServerResponse> submit(Message.ClientRequest request,
+            Promise<Message.ServerResponse> promise) {
         touch();
         if (logger.isDebugEnabled()) {
             logger.debug(String.format("0x%s: Submitting %s", Long.toHexString(sessionId), request));
         }
-        ListenableFutureTask<Operation.SessionReply> task = ListenableFutureTask.create(SessionRequestTask.newInstance(processor, request));
+        ListenableFutureTask<Message.ServerResponse> task = ListenableFutureTask.create(SessionRequestTask.newInstance(processor, request));
         execute(task);
         return task;
     }

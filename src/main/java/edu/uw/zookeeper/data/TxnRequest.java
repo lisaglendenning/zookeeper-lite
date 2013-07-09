@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.data;
 
-import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.proto.Records;
+
 
 public interface TxnRequest {
     public interface Header {
@@ -11,5 +12,5 @@ public interface TxnRequest {
     
     Header header();
     
-    Operation.Request record();
+    Records.Request record();
 }

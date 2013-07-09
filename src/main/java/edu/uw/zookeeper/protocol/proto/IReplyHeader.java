@@ -4,7 +4,7 @@ import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.proto.ReplyHeader;
 
 
-public class IReplyHeader extends IRecord<ReplyHeader> implements Records.HeaderRecord {
+public class IReplyHeader extends IRecord<ReplyHeader> implements Records.Header {
 
     public IReplyHeader() {
         this(new ReplyHeader());

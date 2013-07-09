@@ -21,19 +21,19 @@ public class ClientProtocolInitializer
         implements Callable<ListenableFuture<Session>> {
 
     public static ClientProtocolInitializer newInstance(
-            ClientCodecConnection codecConnection,
+            Connection<Message.ClientSession> connection,
             Factory<ConnectMessage.Request> factory) {
         return new ClientProtocolInitializer(
-                codecConnection, factory, SettableFuturePromise.<Session>create());
+                connection, factory, SettableFuturePromise.<Session>create());
     }
 
     private final Logger logger = LoggerFactory
             .getLogger(ClientProtocolInitializer.class);
-    private final Connection<Message.ClientSessionMessage> connection;
+    private final Connection<Message.ClientSession> connection;
     private volatile ListenableFuture<Session> future;
 
     private ClientProtocolInitializer(
-            Connection<Message.ClientSessionMessage> connection,
+            Connection<Message.ClientSession> connection,
             Factory<ConnectMessage.Request> requests,
             Promise<Session> promise) {
         super(requests, promise);

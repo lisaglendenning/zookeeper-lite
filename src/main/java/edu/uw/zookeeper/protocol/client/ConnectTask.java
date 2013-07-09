@@ -9,44 +9,48 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
-import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ConnectTask
-    extends PromiseTask<Connection<Message.ClientSessionMessage>, Session> 
+    extends PromiseTask<ConnectMessage.Request, Session> 
     implements FutureCallback<ConnectMessage.Request> {
 
-    public static ListenableFuture<Session> create(
-            Connection<Message.ClientSessionMessage> connection,
+    public static ConnectTask create(
+            Connection<? super ConnectMessage.Request> connection,
             ConnectMessage.Request message) {
         return create(connection, message, SettableFuturePromise.<Session>create());
     }
 
-    public static ListenableFuture<Session> create(
-            Connection<Message.ClientSessionMessage> connection,
+    public static ConnectTask create(
+            Connection<? super ConnectMessage.Request> connection,
             ConnectMessage.Request message, 
             Promise<Session> promise) {
-        ConnectTask task = new ConnectTask(connection, promise);
-        ListenableFuture<ConnectMessage.Request> future = null;
-        try {
-            future = connection.write(message);
-        } catch (Throwable e) {
-            task.onFailure(e);
-        }
-        if (future != null) {
-            Futures.addCallback(future, task);
-        }
+        ConnectTask task = new ConnectTask(message, connection, promise);
         return task;
     }
     
+    protected final Connection<? super ConnectMessage.Request> connection;
+    
     protected ConnectTask(
-            Connection<Message.ClientSessionMessage> connection,
+            ConnectMessage.Request request,
+            Connection<? super ConnectMessage.Request> connection,
             Promise<Session> promise) {
-        super(connection, promise);
+        super(request, promise);
+        this.connection = connection;
+
         register();
+        ListenableFuture<ConnectMessage.Request> future = null;
+        try {
+            future = connection.write(request);
+        } catch (Throwable e) {
+            onFailure(e);
+        }
+        if (future != null) {
+            Futures.addCallback(future, this);
+        }
     }
     
     @Override
@@ -91,12 +95,12 @@ public class ConnectTask
     }
     
     protected void register() {
-        task().register(this);
+        connection.register(this);
     }
     
     protected void unregister() {
         try {
-            task().unregister(this);
+            connection.unregister(this);
         } catch (IllegalArgumentException e) {}
     } 
 }

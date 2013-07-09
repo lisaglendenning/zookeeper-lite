@@ -5,35 +5,38 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
+import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
+import edu.uw.zookeeper.protocol.client.DisconnectTask;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 
 /**
- * Wraps a lazily-instantiated ClientProtocolExecutor in a Service.
+ * Wraps a lazily-instantiated ClientConnectionExecutor in a Service.
  */
-public class ClientProtocolExecutorService extends AbstractIdleService 
-        implements Reference<ClientProtocolExecutor>, Publisher, ClientExecutor {
+public class ClientConnectionExecutorService<T extends Connection<? super Operation.Request>> extends AbstractIdleService 
+        implements Reference<ClientConnectionExecutor<T>>, Publisher, ClientExecutor<Operation.Request, Message.ClientRequest, Message.ServerResponse> {
 
-    public static ClientProtocolExecutorService newInstance(
-            Factory<ClientProtocolExecutor> factory) {
-        return new ClientProtocolExecutorService(factory);
+    public static <T extends Connection<? super Operation.Request>> ClientConnectionExecutorService<T> newInstance(
+            Factory<ClientConnectionExecutor<T>> factory) {
+        return new ClientConnectionExecutorService<T>(factory);
     }
     
-    protected final Factory<ClientProtocolExecutor> factory;
-    protected volatile ClientProtocolExecutor client;
+    protected final Factory<ClientConnectionExecutor<T>> factory;
+    protected volatile ClientConnectionExecutor<T> client;
     
-    protected ClientProtocolExecutorService(
-            Factory<ClientProtocolExecutor> factory) {
+    protected ClientConnectionExecutorService(
+            Factory<ClientConnectionExecutor<T>> factory) {
         this.factory = factory;
         this.client = null;
     }
     
-    protected Factory<ClientProtocolExecutor> factory() {
+    protected Factory<ClientConnectionExecutor<T>> factory() {
         return factory;
     }
     
@@ -42,7 +45,6 @@ public class ClientProtocolExecutorService extends AbstractIdleService
         assert (client == null);
         this.client = factory().get();
         client.register(this);
-        client.connect();
     }
 
     @Override
@@ -51,22 +53,19 @@ public class ClientProtocolExecutorService extends AbstractIdleService
             try {
                 client.unregister(this);
             } catch (IllegalArgumentException e) {}
-            
-            switch (client.state()) {
-            case CONNECTING:
-            case CONNECTED:
-                client.disconnect().get();
-                break;
-            default:
-                break;
+            try {
+                DisconnectTask.<Void>create(null, client.get()).get();
+            } finally {
+                client.stop();
             }
         }
     }
 
     @Override
-    public ClientProtocolExecutor get() {
+    public ClientConnectionExecutor<T> get() {
         State state = state();
         switch (state) {
+        case NEW:
         case STOPPING:
         case TERMINATED:
             throw new IllegalStateException(state.toString());
@@ -78,28 +77,12 @@ public class ClientProtocolExecutorService extends AbstractIdleService
     }
 
     @Override
-    public ListenableFuture<Operation.SessionResult> submit(Operation.ClientRequest request) {
-        State state = state();
-        switch (state) {
-        case NEW:
-        case TERMINATED:
-            throw new IllegalStateException(state.toString());
-        default:
-            break;
-        }
+    public ListenableFuture<Pair<Message.ClientRequest, Message.ServerResponse>> submit(Operation.Request request) {
         return get().submit(request);
     }
 
     @Override
-    public ListenableFuture<Operation.SessionResult> submit(Operation.ClientRequest request, Promise<Operation.SessionResult> promise) {
-        State state = state();
-        switch (state) {
-        case NEW:
-        case TERMINATED:
-            throw new IllegalStateException(state.toString());
-        default:
-            break;
-        }
+    public ListenableFuture<Pair<Message.ClientRequest, Message.ServerResponse>> submit(Operation.Request request, Promise<Pair<Message.ClientRequest, Message.ServerResponse>> promise) {
         return get().submit(request, promise);
     }
 

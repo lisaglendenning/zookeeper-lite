@@ -5,9 +5,8 @@ import java.util.List;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.GetChildren2Response;
 
-import edu.uw.zookeeper.protocol.Operation;
 @Operational(opcode=OpCode.GET_CHILDREN2)
-public class IGetChildren2Response extends IOperationalRecord<GetChildren2Response> implements Operation.Response, Records.ChildrenHolder, Records.StatHolder {
+public class IGetChildren2Response extends ICodedRecord<GetChildren2Response> implements Records.Response, Records.ChildrenGetter, Records.StatGetter {
 
     public IGetChildren2Response() {
         this(new GetChildren2Response());

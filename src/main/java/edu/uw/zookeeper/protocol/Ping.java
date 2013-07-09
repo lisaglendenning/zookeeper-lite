@@ -6,17 +6,19 @@ import org.apache.jute.Record;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.protocol.proto.IOperationalXidRecord;
+import edu.uw.zookeeper.protocol.proto.IOpCodeXidRecord;
 import edu.uw.zookeeper.protocol.proto.IPingRequest;
 import edu.uw.zookeeper.protocol.proto.IPingResponse;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
+import edu.uw.zookeeper.protocol.proto.Operational;
 import edu.uw.zookeeper.protocol.proto.OperationalXid;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.TimeValue;
 
+@Operational(opcode=OpCode.PING)
 @OperationalXid(xid=OpCodeXid.PING)
-public abstract class OpPing<T extends Record> extends IOperationalXidRecord<T> {
+public abstract class Ping<T extends Record> extends IOpCodeXidRecord<T> {
 
     public static OpCodeXid OPCODE_XID = OpCodeXid.PING;
     
@@ -26,11 +28,11 @@ public abstract class OpPing<T extends Record> extends IOperationalXidRecord<T> 
     
     protected final TimeValue time;
 
-    protected OpPing(T record) {
+    protected Ping(T record) {
         this(record, now());
     }
 
-    protected OpPing(T record, TimeValue time) {
+    protected Ping(T record, TimeValue time) {
         super(record);
         this.time = time;
     }
@@ -39,7 +41,7 @@ public abstract class OpPing<T extends Record> extends IOperationalXidRecord<T> 
         return time;
     }
 
-    public TimeValue difference(OpPing<?> other) {
+    public TimeValue difference(Ping<?> other) {
         return getTime().difference(other.getTime());
     }
 
@@ -66,12 +68,13 @@ public abstract class OpPing<T extends Record> extends IOperationalXidRecord<T> 
         if (getClass() != obj.getClass()) {
             return false;
         }
-        OpPing<?> other = (OpPing<?>) obj;
+        Ping<?> other = (Ping<?>) obj;
         return Objects.equal(get(), other.get()) 
                 && Objects.equal(getTime(), other.getTime());
     }
     
-    public static class Request extends OpPing<IPingRequest> implements Operation.Request {
+    public static class Request extends Ping<IPingRequest> implements 
+            Records.Request {
 
         public static IPingRequest getRecord() {
             return (IPingRequest) Records.Requests.getInstance().get(OpCode.PING);
@@ -86,8 +89,8 @@ public abstract class OpPing<T extends Record> extends IOperationalXidRecord<T> 
         }
     }
 
-    public static class Response extends OpPing<IPingResponse> implements
-            Operation.Response {
+    public static class Response extends Ping<IPingResponse> implements
+            Records.Response {
         
         public static IPingResponse getRecord() {
             return (IPingResponse) Records.Responses.getInstance().get(OpCode.PING);

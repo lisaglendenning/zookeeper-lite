@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.proto.RequestHeader;
 
 
-public class IRequestHeader extends IRecord<RequestHeader> implements Records.HeaderRecord {
+public class IRequestHeader extends IRecord<RequestHeader> implements Records.Header {
 
     public IRequestHeader() {
         this(new RequestHeader());

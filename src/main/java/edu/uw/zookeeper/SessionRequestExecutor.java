@@ -1,8 +1,8 @@
 package edu.uw.zookeeper;
 
-import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.TaskExecutor;
 
-public interface SessionRequestExecutor extends TaskExecutor<Operation.SessionRequest, Operation.SessionReply>, Eventful {
+public interface SessionRequestExecutor extends TaskExecutor<Message.ClientRequest, Message.ServerResponse>, Eventful {
 }

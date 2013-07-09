@@ -13,7 +13,7 @@ public enum ProtocolState implements Function<Message, Optional<ProtocolState>> 
         public Optional<ProtocolState> apply(Message input) {
             if (input instanceof ConnectMessage.Request) {
                 return Optional.of(CONNECTING);
-            } else if (input instanceof FourLetterRequest || input instanceof FourLetterResponse) {
+            } else if (input instanceof Message.Anonymous) {
                 // no-op
             } else {
                 throw new IllegalArgumentException(input.toString());
@@ -30,7 +30,7 @@ public enum ProtocolState implements Function<Message, Optional<ProtocolState>> 
                 } else {
                     return Optional.of(ERROR);
                 }
-            } else if (input instanceof Operation.SessionRequest || input instanceof FourLetterResponse) {
+            } else if (input instanceof Message.ClientRequest || input instanceof FourLetterResponse) {
                 // no-op                   
             } else {
                 throw new IllegalArgumentException(input.toString());
@@ -41,12 +41,11 @@ public enum ProtocolState implements Function<Message, Optional<ProtocolState>> 
     CONNECTED {
         @Override
         public Optional<ProtocolState> apply(Message input) {
-            if (input instanceof Operation.SessionRequest) {
-                Operation.Request request = ((Operation.SessionRequest)input).request();
-                if (request.opcode() == OpCode.CLOSE_SESSION) {
+            if (input instanceof Message.ClientRequest) {
+                if (OpCode.CLOSE_SESSION == ((Message.ClientRequest) input).request().opcode()) {
                     return Optional.of(DISCONNECTING);
                 }
-            } else if (input instanceof Operation.SessionReply) {
+            } else if (input instanceof Message.ServerResponse) {
                 // noop
             } else {
                 throw new IllegalArgumentException(input.toString());                    
@@ -57,12 +56,9 @@ public enum ProtocolState implements Function<Message, Optional<ProtocolState>> 
     DISCONNECTING {
         @Override
         public Optional<ProtocolState> apply(Message input) {
-            if (input instanceof Operation.SessionReply) {
-                Operation.Response reply = ((Operation.SessionReply)input).reply();
-                if (! (reply instanceof Operation.Error)) {
-                    if (reply.opcode() == OpCode.CLOSE_SESSION) {
-                        return Optional.of(DISCONNECTED);
-                    }
+            if (input instanceof Message.ServerResponse) {
+                if (OpCode.CLOSE_SESSION == ((Message.ServerResponse) input).response().opcode()) {
+                    return Optional.of(DISCONNECTED);
                 }
             } else {
                 throw new IllegalArgumentException(input.toString());                    

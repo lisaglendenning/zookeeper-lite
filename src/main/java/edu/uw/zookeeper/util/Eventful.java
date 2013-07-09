@@ -6,7 +6,7 @@ package edu.uw.zookeeper.util;
  * @see <a href="http://docs.guava-libraries.googlecode.com/git-history/release/javadoc/com/google/common/eventbus/package-summary.html">com.google.common.eventbus</a>
  */
 public interface Eventful {
-    void register(Object object);
+    void register(Object handler);
 
-    void unregister(Object object);
+    void unregister(Object handler);
 }

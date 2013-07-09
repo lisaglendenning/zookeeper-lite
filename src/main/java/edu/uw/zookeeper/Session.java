@@ -12,6 +12,65 @@ import edu.uw.zookeeper.util.TimeValue;
 
 public class Session {
 
+    public static final long UNINITIALIZED_ID = 0;
+    public static final Session UNINITIALIZED = new Session(UNINITIALIZED_ID, Parameters.uninitialized());
+
+    public static Session uninitialized() {
+        return UNINITIALIZED;
+    }
+
+    public static Session create(long id, Parameters parameters) {
+        return new Session(id, parameters);
+    }
+    
+    private final long id;
+    private final Parameters parameters;
+
+    private Session(long id, Parameters parameters) {
+        this.id = id;
+        this.parameters = parameters;
+    }
+
+    public long id() {
+        return id;
+    }
+
+    public boolean initialized() {
+        return id() != UNINITIALIZED_ID;
+    }
+
+    public Parameters parameters() {
+        return parameters;
+    }
+
+    @Override
+    public String toString() {
+        String idStr = String.format("0x%s", Long.toHexString(id()));
+        return Objects.toStringHelper(this).add("id", idStr)
+                .add("parameters", parameters()).toString();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        Session other = (Session) obj;
+        return Objects.equal(id(), other.id())
+                && Objects.equal(parameters(), other.parameters());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id(), parameters());
+    }
+
     public static enum State implements Function<State, Optional<State>> {
         SESSION_UNINITIALIZED {
             @Override
@@ -65,7 +124,6 @@ public class Session {
             }
         };
     }
-    
 
     public static class Parameters {
     
@@ -90,7 +148,7 @@ public class Session {
         public static Parameters create(TimeValue timeOut, byte[] password) {
             return new Parameters(timeOut, password);
         }
-
+    
         private final TimeValue timeOut;
         private final byte[] password;
     
@@ -154,64 +212,5 @@ public class Session {
         public int hashCode() {
             return Objects.hashCode(password, timeOut);
         }
-    }
-
-    public static final long UNINITIALIZED_ID = 0;
-    public static final Session UNINITIALIZED = new Session(UNINITIALIZED_ID, Parameters.uninitialized());
-
-    public static Session uninitialized() {
-        return UNINITIALIZED;
-    }
-
-    public static Session create(long id, Parameters parameters) {
-        return new Session(id, parameters);
-    }
-    
-    private final long id;
-    private final Parameters parameters;
-
-    private Session(long id, Parameters parameters) {
-        this.id = id;
-        this.parameters = parameters;
-    }
-
-    public long id() {
-        return id;
-    }
-
-    public boolean initialized() {
-        return id() != UNINITIALIZED_ID;
-    }
-
-    public Parameters parameters() {
-        return parameters;
-    }
-
-    @Override
-    public String toString() {
-        String idStr = String.format("0x%s", Long.toHexString(id()));
-        return Objects.toStringHelper(this).add("id", idStr)
-                .add("parameters", parameters()).toString();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        Session other = (Session) obj;
-        return Objects.equal(id(), other.id())
-                && Objects.equal(parameters(), other.parameters());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id(), parameters());
     }
 }

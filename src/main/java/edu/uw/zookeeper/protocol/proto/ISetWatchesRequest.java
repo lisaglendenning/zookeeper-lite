@@ -4,10 +4,9 @@ import java.util.List;
 
 import org.apache.zookeeper.proto.SetWatches;
 
-import edu.uw.zookeeper.protocol.Operation;
-
+@Operational(opcode=OpCode.SET_WATCHES)
 @OperationalXid(xid=OpCodeXid.SET_WATCHES)
-public class ISetWatchesRequest extends IOperationalXidRecord<SetWatches> implements Operation.Request, Operation.XidHeader {
+public class ISetWatchesRequest extends IOpCodeXidRecord<SetWatches> implements Records.Request {
 
     public ISetWatchesRequest() {
         this(new SetWatches());
@@ -20,5 +19,21 @@ public class ISetWatchesRequest extends IOperationalXidRecord<SetWatches> implem
 
     public ISetWatchesRequest(SetWatches record) {
         super(record);
+    }
+
+    public long getRelativeZxid() {
+        return get().getRelativeZxid();
+    }
+
+    public List<String> getDataWatches() {
+        return get().getDataWatches();
+    }
+
+    public List<String> getExistWatches() {
+        return get().getExistWatches();
+    }
+
+    public List<String> getChildWatches() {
+        return get().getChildWatches();
     }
 }
