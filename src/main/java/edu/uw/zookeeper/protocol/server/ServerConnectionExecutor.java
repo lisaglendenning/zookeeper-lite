@@ -13,7 +13,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import edu.uw.zookeeper.ClientMessageExecutor;
+import edu.uw.zookeeper.ServerMessageExecutor;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.net.Connection;
@@ -34,7 +34,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
 
     public static <C extends Connection<Message.Server>> ServerConnectionExecutor<C> newInstance(
             C connection,
-            ClientMessageExecutor anonymousExecutor,
+            ServerMessageExecutor anonymousExecutor,
             ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
             Executor executor) {
         return new ServerConnectionExecutor<C>(
@@ -88,7 +88,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         }
     }
 
-    public class InboundActor extends AbstractActor<Message.Client, Void>
+    public class InboundActor extends AbstractActor<Message.Client>
             implements FutureCallback<Message.Server> {
 
         protected final Connection<Message.Server> connection;
@@ -98,7 +98,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
 
         protected InboundActor(
                 Connection<Message.Server> connection,
-                ClientMessageExecutor anonymousExecutor,
+                ServerMessageExecutor anonymousExecutor,
                 ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
                 Executor executor) {
             this(connection, anonymousExecutor, sessionExecutors, executor, 
@@ -108,7 +108,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         
         protected InboundActor(
                 Connection<Message.Server> connection,
-                ClientMessageExecutor anonymousExecutor,
+                ServerMessageExecutor anonymousExecutor,
                 ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
                 Executor executor, 
                 InboundMailbox mailbox,
@@ -143,22 +143,6 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         }
 
         @Override
-        public boolean stop() {
-            boolean stopped = super.stop();
-            if (stopped) {
-                try {
-                    connection.unregister(this);
-                } catch (IllegalArgumentException e) {}
-                if (sessionExecutor != null) {
-                    try {
-                        sessionExecutor.unregister(submitted);
-                    } catch (IllegalArgumentException e) {}
-                }
-            }
-            return stopped;
-        }
-        
-        @Override
         public void onFailure(Throwable t) {
             ServerConnectionExecutor.this.onFailure(t);
             stop();
@@ -178,7 +162,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         }
 
         @Override
-        protected Void apply(Message.Client input) throws Exception {
+        protected boolean apply(Message.Client input) throws Exception {
             // ordering constraint: requests are submitted in the same
             // order that they are received
             ListenableFuture<? extends Message.Server> future;
@@ -191,16 +175,30 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
                 submitted.send(future);
             } catch (Throwable t) {
                 onFailure(t);
-                return null;
+                return false;
             }
             if (input instanceof ConnectMessage.Request) {
                 Futures.addCallback(future, this);
             }
-            return null;
+            return true;
+        }
+
+        @Override
+        protected void doStop() {
+            super.doStop();
+            
+            try {
+                connection.unregister(this);
+            } catch (IllegalArgumentException e) {}
+            if (sessionExecutor != null) {
+                try {
+                    sessionExecutor.unregister(submitted);
+                } catch (IllegalArgumentException e) {}
+            }
         }
     }
 
-    public class SubmittedActor extends AbstractActor<ListenableFuture<? extends Message.Server>, Void>
+    public class SubmittedActor extends AbstractActor<ListenableFuture<? extends Message.Server>>
             implements FutureCallback<Message.Server> {
 
         protected SubmittedActor(
@@ -252,31 +250,32 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         }
         
         protected synchronized void flush(Message.Server message) throws Exception {
-            runAll();
+            doRun();
             outbound.send(message);
         }
         
         @Override
-        protected synchronized void runAll() throws Exception {
-            super.runAll();
+        protected synchronized void doRun() throws Exception {
+            super.doRun();
         }
         
         @Override
-        protected Void apply(ListenableFuture<? extends Message.Server> input)
+        protected boolean apply(ListenableFuture<? extends Message.Server> input)
                 throws Exception {         
             // ordering constraint: replies are queued for outbound in the order
             // that the requests were submitted       
             try {
                 Message.Server reply = input.get();
                 outbound.send(reply);
+                return true;
             } catch (Throwable t) {
                 onFailure(t);
+                return false;
             }
-            return null;
         }
     }
     
-    public class OutboundActor extends AbstractActor<Message.Server, Void> 
+    public class OutboundActor extends AbstractActor<Message.Server> 
             implements FutureCallback<Message.Server> {
 
         protected final Connection<Message.Server> connection;
@@ -286,19 +285,6 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
                 Executor executor) {
             super(executor, AbstractActor.<Message.Server>newQueue(), AbstractActor.newState());
             this.connection = connection;
-        }
-
-        @Override
-        protected Void apply(Message.Server input) {
-            // ordering constraint: messages are written in the order
-            // that they were enqueued in outbound
-            try {
-                ListenableFuture<Message.Server> future = connection.write(input);
-                Futures.addCallback(future, this);
-            } catch (Throwable t) {
-                onFailure(t);
-            }
-            return null;
         }
 
         @Override
@@ -312,23 +298,35 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         }
 
         @Override
-        public boolean stop() {
-            boolean stopped = super.stop();
-            if (stopped) {
-                // TODO: flush?
-                switch (connection.state()) {
-                case CONNECTION_OPENING:
-                case CONNECTION_OPENED:
-                {
-                    logger.debug("Closing connection {}", connection);
-                    connection.close();
-                    break;
-                }
-                default:
-                    break;
-                }
+        protected boolean apply(Message.Server input) {
+            // ordering constraint: messages are written in the order
+            // that they were enqueued in outbound
+            try {
+                ListenableFuture<Message.Server> future = connection.write(input);
+                Futures.addCallback(future, this);
+                return true;
+            } catch (Throwable t) {
+                onFailure(t);
+                return false;
             }
-            return stopped;
+        }
+
+        @Override
+        protected void doStop() {
+            super.doStop();
+            
+            // TODO: flush?
+            switch (connection.state()) {
+            case CONNECTION_OPENING:
+            case CONNECTION_OPENED:
+            {
+                logger.debug("Closing connection {}", connection);
+                connection.close();
+                break;
+            }
+            default:
+                break;
+            }
         }
     }
 
@@ -341,7 +339,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
     
     private ServerConnectionExecutor(
             C connection,
-            ClientMessageExecutor anonymousExecutor,
+            ServerMessageExecutor anonymousExecutor,
             ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
             Executor executor) {
         this.logger = LoggerFactory.getLogger(getClass());

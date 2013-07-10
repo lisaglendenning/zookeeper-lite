@@ -192,7 +192,8 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
                             codecFactory, pingingFactory).get());
 
         EnsembleView<ServerInetAddressView> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
-        EnsembleViewFactory<ServerInetAddressView, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, ServerInetAddressView.class, ensemble, timeOut);
+        EnsembleViewFactory<ServerInetAddressView, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> ensembleFactory = 
+                EnsembleViewFactory.newInstance(clientConnections, ServerInetAddressView.class, ensemble, timeOut);
         monitorsFactory.apply(
                 ClientConnectionExecutorService.newInstance(ensembleFactory));
 

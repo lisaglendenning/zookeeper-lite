@@ -4,26 +4,29 @@ import static com.google.common.base.Preconditions.*;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import java.net.SocketAddress;
+import java.util.Queue;
 import java.util.concurrent.Executor;
-
+import java.util.concurrent.RejectedExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.collect.ForwardingQueue;
 import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Codec;
+import edu.uw.zookeeper.util.AbstractActor;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Processor;
+import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.PublisherActor;
 import edu.uw.zookeeper.util.Reference;
-import edu.uw.zookeeper.util.TaskMailbox;
+import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ChannelConnection<I> 
         implements Connection<I>, Publisher, Reference<Channel>, Executor {
@@ -72,7 +75,7 @@ public class ChannelConnection<I>
     protected final Automaton<Connection.State, Connection.State> state;
     protected final Logger logger;
     protected final Channel channel;
-    protected final TaskMailbox.ActorTaskExecutor<I,I> outbound;
+    protected final OutboundActor outbound;
 
     protected ChannelConnection(
             Channel channel,
@@ -81,7 +84,7 @@ public class ChannelConnection<I>
         this.channel = checkNotNull(channel);
         this.publisher = PublisherActor.newInstance(publisher, this);
         this.state = ConnectionStateHandler.newAutomaton(this);
-        this.outbound = TaskMailbox.executor(TaskMailbox.actor(new OutboundProcessor(), this));
+        this.outbound = new OutboundActor();
     }
     
     protected <O> void attach(
@@ -131,10 +134,17 @@ public class ChannelConnection<I>
         get().read();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public <T extends I> ListenableFuture<T> write(T message) {
-        return (ListenableFuture<T>) outbound.submit(message);
+        Promise<T> promise = SettableFuturePromise.create();
+        PromiseTask<T,T> task = PromiseTask.of(message, promise);
+        try {
+            outbound.send(task);
+        } catch (RejectedExecutionException e) {
+            task.cancel(true);
+            throw e;
+        }
+        return task;
     }
 
     @Override
@@ -169,11 +179,40 @@ public class ChannelConnection<I>
         return Objects.toStringHelper(this)
                 .add("channel", get()).toString();
     }
+    
+    protected class OutboundQueue extends ForwardingQueue<PromiseTask<? extends I, ? extends I>> {
 
-    protected class OutboundProcessor implements Processor<PromiseTask<I, I>, I> {
+        protected final Queue<PromiseTask<? extends I, ? extends I>> delegate;
+        
+        public OutboundQueue() {
+            this.delegate = AbstractActor.newQueue();
+        }
+
         @Override
-        public I apply(PromiseTask<I, I> input) throws Exception {
-            Connection.State state = state();
+        public void clear() {
+            PromiseTask<? extends I, ? extends I> next;
+            while ((next = poll()) != null) {
+                if (! next.isDone()) {
+                    next.cancel(true);
+                }
+            }
+        }
+
+        @Override
+        protected Queue<PromiseTask<? extends I, ? extends I>> delegate() {
+            return delegate;
+        }
+    }
+
+    protected class OutboundActor extends AbstractActor<PromiseTask<? extends I, ? extends I>> {
+        public OutboundActor() {
+            super(ChannelConnection.this, new OutboundQueue(), AbstractActor.newState());
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public boolean apply(PromiseTask<? extends I, ? extends I> input) throws Exception {
+            Connection.State state = ChannelConnection.this.state();
             switch (state) {
             case CONNECTION_CLOSING:
             case CONNECTION_CLOSED:
@@ -185,9 +224,9 @@ public class ChannelConnection<I>
             I task = input.task();
             if (! input.isDone()) {
                 ChannelFuture future = get().write(task);
-                ChannelFutureWrapper.of(future, task, input);
+                ChannelFutureWrapper.of(future, task, (Promise<I>) input);
             }
-            return task;
+            return true;
         }
     }
 }

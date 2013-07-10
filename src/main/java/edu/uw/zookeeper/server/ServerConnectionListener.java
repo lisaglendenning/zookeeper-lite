@@ -6,7 +6,7 @@ import java.util.concurrent.Executor;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 
-import edu.uw.zookeeper.ClientMessageExecutor;
+import edu.uw.zookeeper.ServerMessageExecutor;
 import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
@@ -19,7 +19,7 @@ public class ServerConnectionListener<C extends Connection<Message.Server>> {
     
     public static <C extends Connection<Message.Server>> ServerConnectionListener<C> newInstance(
             final ServerConnectionFactory<Message.Server, C> connections,
-            final ClientMessageExecutor anonymousExecutor,
+            final ServerMessageExecutor anonymousExecutor,
             final ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
             final Executor executor) {
         ParameterizedFactory<C, ServerConnectionExecutor<C>> serverFactory =

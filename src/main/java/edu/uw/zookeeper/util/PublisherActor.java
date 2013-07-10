@@ -4,7 +4,7 @@ import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class PublisherActor extends AbstractActor<Object, Void> implements Publisher, Reference<Publisher> {
+public class PublisherActor extends AbstractActor<Object> implements Publisher, Reference<Publisher> {
 
     public static PublisherActor newInstance(
             Publisher publisher,
@@ -48,8 +48,8 @@ public class PublisherActor extends AbstractActor<Object, Void> implements Publi
     }
 
     @Override
-    protected Void apply(Object input) {
+    protected boolean apply(Object input) {
         get().post(input);
-        return null;
+        return true;
     }
 }

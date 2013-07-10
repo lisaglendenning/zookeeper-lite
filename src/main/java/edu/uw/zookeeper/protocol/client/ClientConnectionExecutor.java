@@ -16,6 +16,7 @@ import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.util.AbstractActor;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Pair;
@@ -26,8 +27,8 @@ import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ClientConnectionExecutor<C extends Connection<? super Message.ClientSession>>
-    extends AbstractActor<PromiseTask<Operation.Request, Pair<Message.ClientRequest, Message.ServerResponse>>, Void>
-    implements ClientExecutor<Operation.Request, Message.ClientRequest, Message.ServerResponse>,
+    extends AbstractActor<PromiseTask<Operation.Request, Pair<Operation.SessionRequest, Operation.SessionResponse>>>
+    implements ClientExecutor<Operation.Request, Operation.SessionRequest, Operation.SessionResponse>,
         Publisher,
         Reference<C> {
 
@@ -64,14 +65,14 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
             C connection,
             AssignXidProcessor xids,
             Executor executor) {
-        super(executor, AbstractActor.<PromiseTask<Operation.Request, Pair<Message.ClientRequest, Message.ServerResponse>>>newQueue(), AbstractActor.newState());
+        super(executor, AbstractActor.<PromiseTask<Operation.Request, Pair<Operation.SessionRequest, Operation.SessionResponse>>>newQueue(), AbstractActor.newState());
         this.connection = connection;
         this.xids = xids;
         this.pending = new LinkedBlockingQueue<PendingTask>();
         this.received = new LinkedBlockingQueue<Message.ServerResponse>();
         this.connectTask = ConnectTask.create(connection, request);
                 
-        register(this);
+        connection.register(this);
     }
 
     public Session session() {
@@ -92,16 +93,31 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
     
     @Override
-    public ListenableFuture<Pair<Message.ClientRequest, Message.ServerResponse>> submit(Operation.Request request) {
-        Promise<Pair<Message.ClientRequest, Message.ServerResponse>> promise = SettableFuturePromise.create();
+    public ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> submit(Operation.Request request) {
+        Promise<Pair<Operation.SessionRequest, Operation.SessionResponse>> promise = SettableFuturePromise.create();
         return submit(request, promise);
     }
 
     @Override
-    public ListenableFuture<Pair<Message.ClientRequest, Message.ServerResponse>> submit(Operation.Request request, Promise<Pair<Message.ClientRequest, Message.ServerResponse>> promise) {
-        PromiseTask<Operation.Request, Pair<Message.ClientRequest, Message.ServerResponse>> task = PromiseTask.of(request, promise);
+    public ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> submit(Operation.Request request, Promise<Pair<Operation.SessionRequest, Operation.SessionResponse>> promise) {
+        PromiseTask<Operation.Request, Pair<Operation.SessionRequest, Operation.SessionResponse>> task = PromiseTask.of(request, promise);
         send(task);
         return task;
+    }
+
+    @Override
+    public void register(Object object) {
+        get().register(object);
+    }
+
+    @Override
+    public void unregister(Object object) {
+        get().unregister(object);
+    }
+
+    @Override
+    public void post(Object object) {
+        get().post(object);
     }
 
     @Subscribe
@@ -120,38 +136,6 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
 
     @Override
-    public void register(Object object) {
-        get().register(object);
-    }
-
-    @Override
-    public void unregister(Object object) {
-        get().unregister(object);
-    }
-
-    @Override
-    public void post(Object object) {
-        get().post(object);
-    }
-    
-    @Override
-    public boolean stop() {
-        boolean isStopped = super.stop();
-        if (isStopped) {
-            try {
-                unregister(this);
-            } catch (IllegalArgumentException e) {}
-            
-            PendingTask next = null;
-            while ((next = pending.poll()) != null) {
-                next.cancel(true);
-            }
-            received.clear();
-        }
-        return isStopped;
-    }
-
-    @Override
     protected boolean runEnter() {
         if (state.get() == State.WAITING) {
             schedule();
@@ -162,34 +146,48 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
     
     @Override
-    protected void runAll() throws Exception {
-        PendingTask next = null;
-        while ((next = pending.peek()) != null) {
+    protected void doRun() throws Exception {
+        doPending();
+        
+        super.doRun();
+    }
+    
+    protected void doPending() {
+        PendingTask task = null;
+        while (((task = pending.peek()) != null) 
+                || !received.isEmpty()) {
             Message.ServerResponse response = null;
-            while ((response = received.poll()) != null) {
-                if (next.task().xid() == response.xid()) {
-                    next.set(Pair.create(next.task(), response));
+            while (((task == null) || !task.isDone()) 
+                    && ((response = received.poll()) != null)) {
+                applyReceived(task, response);
+            }
+            if (task != null) {
+                if (task.isDone()) {
+                    pending.remove(task);
+                } else {
+                    break;
                 }
             }
-            if (next.isDone()) {
-                pending.remove(next);
-            } else {
-                break;
-            }
         }
-        
-        super.runAll();
+    }
+    
+    protected void applyReceived(PendingTask task, Message.ServerResponse response) {
+        if ((task != null) && (task.task().xid() == response.xid())) {
+            Pair<Operation.SessionRequest, Operation.SessionResponse> result = 
+                    Pair.<Operation.SessionRequest, Operation.SessionResponse>create(task.task(), response);
+            task.set(result);
+        }
     }
 
     @Override
-    protected Void apply(PromiseTask<Operation.Request, Pair<Message.ClientRequest, Message.ServerResponse>> input) {
+    protected boolean apply(PromiseTask<Operation.Request, Pair<Operation.SessionRequest, Operation.SessionResponse>> input) {
         PendingTask task;
         try {
             Message.ClientRequest message = (Message.ClientRequest) xids.apply(input.task());
             task = new PendingTask(message, input);
         } catch (Throwable t) {
             input.setException(t);
-            return null;
+            return true;
         }
     
         try {
@@ -203,37 +201,63 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
             task.addListener(this, executor);
         }
         
-        return null;
+        return true;
     }
 
     @Override
     protected void runExit() {
         if (state.compareAndSet(State.RUNNING, State.WAITING)) {
-            if (! mailbox.isEmpty()) {
-                schedule();
-            } else if (! pending.isEmpty() && (pending.peek().isDone() || ! received.isEmpty())) {
+            if (! mailbox.isEmpty()
+                    || (! pending.isEmpty() 
+                            && (pending.peek().isDone() 
+                                    || ! received.isEmpty()))) {
                 schedule();
             }
         }
     }
     
+    @Override
+    protected void doStop() {
+        super.doStop();
+    
+        try {
+            connection.unregister(this);
+        } catch (IllegalArgumentException e) {}
+        
+        PendingTask next = null;
+        while ((next = pending.poll()) != null) {
+            next.cancel(true);
+        }
+        received.clear();
+    }
+
     protected static class PendingTask
-        extends PromiseTask<Message.ClientRequest, Pair<Message.ClientRequest, Message.ServerResponse>>
+        extends PromiseTask<Message.ClientRequest, Pair<Operation.SessionRequest, Operation.SessionResponse>>
         implements FutureCallback<Message.ClientRequest> {
     
-        protected PendingTask(
+        public PendingTask(
                 Message.ClientRequest task,
-                Promise<Pair<Message.ClientRequest, Message.ServerResponse>> delegate) {
+                Promise<Pair<Operation.SessionRequest, Operation.SessionResponse>> delegate) {
             super(task, delegate);
         }
     
         @Override
         public void onSuccess(Message.ClientRequest result) {
+            // mark pings as done on write because ZooKeeper doesn't care about their ordering
+            assert (task() == result);
+            if (task().xid() == OpCodeXid.PING.xid()) {
+                set(null);
+            }
         }
         
         @Override
         public void onFailure(Throwable t) {
             setException(t);
+        }
+
+        @Override
+        public Promise<Pair<Operation.SessionRequest, Operation.SessionResponse>> delegate() {
+            return delegate;
         }
     } 
 }

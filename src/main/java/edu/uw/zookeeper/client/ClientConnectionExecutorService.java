@@ -5,7 +5,6 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.DisconnectTask;
@@ -19,24 +18,24 @@ import edu.uw.zookeeper.util.Reference;
 /**
  * Wraps a lazily-instantiated ClientConnectionExecutor in a Service.
  */
-public class ClientConnectionExecutorService<T extends Connection<? super Operation.Request>> extends AbstractIdleService 
-        implements Reference<ClientConnectionExecutor<T>>, Publisher, ClientExecutor<Operation.Request, Message.ClientRequest, Message.ServerResponse> {
+public class ClientConnectionExecutorService<C extends Connection<? super Operation.Request>> extends AbstractIdleService 
+        implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Operation.SessionRequest, Operation.SessionResponse> {
 
-    public static <T extends Connection<? super Operation.Request>> ClientConnectionExecutorService<T> newInstance(
-            Factory<ClientConnectionExecutor<T>> factory) {
-        return new ClientConnectionExecutorService<T>(factory);
+    public static <C extends Connection<? super Operation.Request>> ClientConnectionExecutorService<C> newInstance(
+            Factory<ClientConnectionExecutor<C>> factory) {
+        return new ClientConnectionExecutorService<C>(factory);
     }
     
-    protected final Factory<ClientConnectionExecutor<T>> factory;
-    protected volatile ClientConnectionExecutor<T> client;
+    protected final Factory<ClientConnectionExecutor<C>> factory;
+    protected volatile ClientConnectionExecutor<C> client;
     
     protected ClientConnectionExecutorService(
-            Factory<ClientConnectionExecutor<T>> factory) {
+            Factory<ClientConnectionExecutor<C>> factory) {
         this.factory = factory;
         this.client = null;
     }
     
-    protected Factory<ClientConnectionExecutor<T>> factory() {
+    protected Factory<ClientConnectionExecutor<C>> factory() {
         return factory;
     }
     
@@ -62,7 +61,7 @@ public class ClientConnectionExecutorService<T extends Connection<? super Operat
     }
 
     @Override
-    public ClientConnectionExecutor<T> get() {
+    public ClientConnectionExecutor<C> get() {
         State state = state();
         switch (state) {
         case NEW:
@@ -77,12 +76,12 @@ public class ClientConnectionExecutorService<T extends Connection<? super Operat
     }
 
     @Override
-    public ListenableFuture<Pair<Message.ClientRequest, Message.ServerResponse>> submit(Operation.Request request) {
+    public ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> submit(Operation.Request request) {
         return get().submit(request);
     }
 
     @Override
-    public ListenableFuture<Pair<Message.ClientRequest, Message.ServerResponse>> submit(Operation.Request request, Promise<Pair<Message.ClientRequest, Message.ServerResponse>> promise) {
+    public ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> submit(Operation.Request request, Promise<Pair<Operation.SessionRequest, Operation.SessionResponse>> promise) {
         return get().submit(request, promise);
     }
 

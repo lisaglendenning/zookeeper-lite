@@ -10,30 +10,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.common.base.Throwables;
 
-public abstract class AbstractActor<I,O> implements Actor<I> {
-    
-    public static <I,O> SimpleActor<I,O> newInstance(
-            Processor<? super I, ? extends O> processor, 
-            Executor executor) {
-        Queue<I> queue = newQueue();
-        return newInstance(
-                processor,
-                executor,
-                queue, 
-                newState());
-    }
-
-    public static <I,O> SimpleActor<I,O> newInstance(
-            Processor<? super I, ? extends O> processor, 
-            Executor executor, 
-            Queue<I> mailbox,
-            AtomicReference<State> state) {
-        return SimpleActor.newInstance(
-                processor,
-                executor,
-                mailbox,
-                state);
-    }
+public abstract class AbstractActor<I> implements Actor<I> {
     
     public static <I> Queue<I> newQueue() {
         return new LinkedBlockingQueue<I>();
@@ -59,7 +36,7 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
     @Override
     public void send(I message) {        
         if (mailbox.offer(checkNotNull(message))) {
-            if (! schedule() && state() == State.TERMINATED) {
+            if (! schedule() && (state() == State.TERMINATED)) {
                 mailbox.remove(message);
                 throw new RejectedExecutionException();
             }
@@ -77,7 +54,7 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
     public void run() {
         if (runEnter()) {
             try {
-                runAll();
+                doRun();
             } catch (Throwable e) {
                 stop();
                 throw Throwables.propagate(e);
@@ -86,36 +63,21 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
         }
     }
 
-    @Override
-    public boolean stop() {
-        if ((state.get() == State.TERMINATED)
-                || (state.getAndSet(State.TERMINATED) == State.TERMINATED)) {
-            return false;
-        }
-        mailbox.clear();
-        return true;
-    }
-
-    @Override
-    public boolean schedule() {
-        boolean schedule = state.compareAndSet(State.WAITING, State.SCHEDULED);
-        if (schedule) {
-            executor.execute(this);
-        }
-        return schedule;
-    }
-    
     protected boolean runEnter() {
         return state.compareAndSet(State.SCHEDULED, State.RUNNING);
     }
-    
-    protected void runAll() throws Exception {
+
+    protected void doRun() throws Exception {
         I next;
         while ((State.TERMINATED != state.get()) && (next = mailbox.poll()) != null) {
-            apply(next);
+            if (! apply(next)) {
+                break;
+            }
         }
     }
-    
+
+    protected abstract boolean apply(I input) throws Exception;
+
     protected void runExit() {
         if (state.compareAndSet(State.RUNNING, State.WAITING)) {
             if (! mailbox.isEmpty()) {
@@ -123,37 +85,31 @@ public abstract class AbstractActor<I,O> implements Actor<I> {
             }
         }
     }
-    
-    protected abstract O apply(I input) throws Exception;
-    
-    public static class SimpleActor<I,O> extends AbstractActor<I,O> {
-        
-        public static <I,O> SimpleActor<I,O> newInstance(
-                Processor<? super I, ? extends O> processor, 
-                Executor executor, 
-                Queue<I> mailbox,
-                AtomicReference<State> state) {
-            return new SimpleActor<I,O>(
-                    processor,
-                    executor,
-                    mailbox,
-                    state);
-        }
-        
-        protected final Processor<? super I, ? extends O> processor;
-        
-        protected SimpleActor(
-                Processor<? super I, ? extends O> processor, 
-                Executor executor,
-                Queue<I> mailbox,
-                AtomicReference<Actor.State> state) {
-            super(executor, mailbox, state);
-            this.processor = checkNotNull(processor);
-        }
 
-        @Override
-        protected O apply(I input) throws Exception {
-            return processor.apply(input);
+    @Override
+    public boolean stop() {
+        boolean stop = (state.get() != State.TERMINATED)
+                && (state.getAndSet(State.TERMINATED) != State.TERMINATED);
+        if (stop) {
+            doStop();
         }
+        return stop;
+    }
+    
+    protected void doStop() {
+        mailbox.clear();
+    }
+
+    @Override
+    public boolean schedule() {
+        boolean schedule = state.compareAndSet(State.WAITING, State.SCHEDULED);
+        if (schedule) {
+            doSchedule();
+        }
+        return schedule;
+    }
+    
+    protected void doSchedule() {
+        executor.execute(this);
     }
 }

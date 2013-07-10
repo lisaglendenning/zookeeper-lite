@@ -251,7 +251,7 @@ public class TreeFetcher<T extends Operation.SessionRequest, V extends Operation
         return TreeFetcherActor.newInstance(parameters, root, client, executor, promise);
     }
 
-    public static class TreeFetcherActor<T extends Operation.SessionRequest, V extends Operation.SessionResponse> extends AbstractActor<ZNodeLabel.Path, Void> {
+    public static class TreeFetcherActor<T extends Operation.SessionRequest, V extends Operation.SessionResponse> extends AbstractActor<ZNodeLabel.Path> {
 
         public static <T extends Operation.SessionRequest, V extends Operation.SessionResponse> TreeFetcherActor<T,V> newInstance(
                 Parameters parameters,
@@ -294,7 +294,51 @@ public class TreeFetcher<T extends Operation.SessionRequest, V extends Operation
         }
 
         @Override
-        protected Void apply(ZNodeLabel.Path input) throws Exception {
+        protected boolean runEnter() {
+            if (State.WAITING == state.get()) {
+                schedule();
+                return false;
+            } else {
+                return super.runEnter();
+            }
+        }
+
+        @Override
+        protected void doRun() throws Exception {
+            doPending();
+            
+            super.doRun();
+        }
+
+        protected void doPending() throws Exception {
+            ListenableFuture<Pair<T,V>> future;
+            while ((future = pending.poll()) != null) {
+                Pair<T,V> result;
+                try {
+                    result = future.get();
+                } catch (Exception e) {
+                    task.setException(e);
+                    stop();
+                    return;
+                }
+                
+                applyPendingResult(result);
+            }
+        }
+
+        protected void applyPendingResult(Pair<T,V> result) throws Exception {
+            Records.Request request = result.first().request();
+            Records.Response reply = Operations.maybeError(result.second().response(), KeeperException.Code.NONODE, request.toString());
+            if (reply instanceof Records.ChildrenGetter) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
+                for (String child: ((Records.ChildrenGetter) reply).getChildren()) {
+                    send(ZNodeLabel.Path.of(path, ZNodeLabel.Component.of(child)));
+                }
+            }
+        }
+
+        @Override
+        protected boolean apply(ZNodeLabel.Path input) throws Exception {
             Operations.Requests.GetChildren getChildrenBuilder = 
                     Operations.Requests.getChildren().setPath(input).setWatch(parameters.watch());
             if (parameters.getStat()) {
@@ -319,50 +363,9 @@ public class TreeFetcher<T extends Operation.SessionRequest, V extends Operation
                 future.addListener(this, executor);
             }
             
-            return null;
+            return true;
         }
 
-        @Override
-        public boolean runEnter() {
-            if (State.WAITING == state.get()) {
-                schedule();
-                return false;
-            } else {
-                return super.runEnter();
-            }
-        }
-
-        @Override
-        protected void runAll() throws Exception {
-            // process pending first
-            ListenableFuture<Pair<T,V>> future;
-            while ((future = pending.poll()) != null) {
-                Pair<T,V> result;
-                try {
-                    result = future.get();
-                } catch (Exception e) {
-                    task.setException(e);
-                    stop();
-                    return;
-                }
-                
-                handleResult(result);
-            }
-            
-            super.runAll();
-        }
-        
-        protected void handleResult(Pair<T,V> result) throws Exception {
-            Records.Request request = result.first().request();
-            Records.Response reply = Operations.maybeError(result.second().response(), KeeperException.Code.NONODE, request.toString());
-            if (reply instanceof Records.ChildrenGetter) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
-                for (String child: ((Records.ChildrenGetter) reply).getChildren()) {
-                    send(ZNodeLabel.Path.of(path, ZNodeLabel.Component.of(child)));
-                }
-            }
-        }
-        
         @Override
         protected void runExit() {
             if (state.compareAndSet(State.RUNNING, State.WAITING)) {
@@ -376,14 +379,11 @@ public class TreeFetcher<T extends Operation.SessionRequest, V extends Operation
         }
         
         @Override
-        public boolean stop() {
-            boolean stopped = super.stop();
+        protected void doStop() {
+            super.doStop();
             
-            if (stopped) {
-                pending.clear();
-                task.complete();
-            }
-            return stopped;
+            pending.clear();
+            task.complete();
         }
         
         protected class Task extends PromiseTask<ZNodeLabel.Path, ZNodeLabel.Path> {

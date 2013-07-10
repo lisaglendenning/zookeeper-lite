@@ -4,14 +4,13 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RunnableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import edu.uw.zookeeper.ClientMessageExecutor;
+import edu.uw.zookeeper.ServerMessageExecutor;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.event.SessionStateEvent;
@@ -27,7 +26,7 @@ import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.Processors.*;
 
-public class ServerExecutor implements ClientMessageExecutor, Executor, ParameterizedFactory<Long, ServerExecutor.PublishingSessionRequestExecutor> {
+public class ServerExecutor implements ServerMessageExecutor, Executor, ParameterizedFactory<Long, ServerExecutor.PublishingSessionRequestExecutor> {
 
     public interface PublishingSessionRequestExecutor extends SessionRequestExecutor, Publisher {}
     
@@ -85,7 +84,20 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Paramete
         }
     }
     
-    public static class ServerClientMessageExecutor extends AbstractActor<ClientMessageTask, Void> implements ClientMessageExecutor {
+    public static class ExecutorActor<I extends Runnable> extends AbstractActor<I> {
+
+        public ExecutorActor(Executor executor, Queue<I> mailbox) {
+            super(executor, mailbox, newState());
+        }
+
+        @Override
+        protected boolean apply(I input) throws Exception {
+            input.run();
+            return true;
+        }
+    }
+    
+    public static class ServerClientMessageExecutor extends ExecutorActor<ClientMessageTask> implements ServerMessageExecutor {
         
         public static ServerClientMessageExecutor newInstance(
                 Reference<Long> zxids,
@@ -113,7 +125,7 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Paramete
                 Processor<Message.Client, Message.Server> processor,
                 Executor executor) {
             return new ServerClientMessageExecutor(
-                    processor, executor, AbstractActor.<ClientMessageTask>newQueue(), newState());
+                    processor, executor, AbstractActor.<ClientMessageTask>newQueue());
         }
         
         protected final Processor<Message.Client, Message.Server> processor;
@@ -121,9 +133,8 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Paramete
         protected ServerClientMessageExecutor(
                 Processor<Message.Client, Message.Server> processor,
                 Executor executor, 
-                Queue<ClientMessageTask> mailbox,
-                AtomicReference<State> state) {
-            super(executor, mailbox, state);
+                Queue<ClientMessageTask> mailbox) {
+            super(executor, mailbox);
             this.processor = processor;
         }
         
@@ -138,13 +149,7 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Paramete
             ClientMessageTask task = ClientMessageTask.newInstance(processor, request, promise);
             send(task);
             return task;
-        }
-
-        @Override
-        protected Void apply(ClientMessageTask input) throws Exception {
-            input.run();
-            return null;
-        }   
+        } 
     }
     
     protected final ListeningExecutorService executor;
@@ -165,14 +170,7 @@ public class ServerExecutor implements ClientMessageExecutor, Executor, Paramete
         this.zxids = zxids;
         this.sessions = sessions;
         this.executors = Maps.newConcurrentMap();
-        this.tasks = AbstractActor.newInstance(
-                new Processor<Runnable, Void>() {
-                    @Override
-                    public Void apply(Runnable input) throws Exception {
-                        input.run();
-                        return null;
-                    }
-                }, executor);
+        this.tasks = new ExecutorActor<Runnable>(executor, AbstractActor.<Runnable>newQueue());
         this.anonymousExecutor = ServerClientMessageExecutor.newInstance(zxids, sessions, this);
 
         sessions.register(this);

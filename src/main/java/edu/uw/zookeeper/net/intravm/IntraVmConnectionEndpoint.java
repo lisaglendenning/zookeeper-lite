@@ -11,7 +11,7 @@ import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.PublisherActor;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
-public class IntraVmConnectionEndpoint extends AbstractActor<Optional<Object>, Void> implements Publisher, Executor {
+public class IntraVmConnectionEndpoint extends AbstractActor<Optional<Object>> implements Publisher, Executor {
 
     public static IntraVmConnectionEndpoint create(
             Publisher publisher,
@@ -36,25 +36,6 @@ public class IntraVmConnectionEndpoint extends AbstractActor<Optional<Object>, V
         return stopped;
     }
     
-    @Override
-    public boolean stop() {
-        boolean doStop = super.stop();
-        if (doStop) {
-            stopped.set(null);
-        }
-        return doStop;
-    }
-    
-    @Override
-    protected Void apply(Optional<Object> input) throws Exception {
-        if (input.isPresent()) {
-            post(input.get());
-        } else {
-            stop();
-        }
-        return null;
-    }
-
     public IntraVmSocketAddress address() {
         return address;
     }
@@ -77,5 +58,23 @@ public class IntraVmConnectionEndpoint extends AbstractActor<Optional<Object>, V
     @Override
     public void unregister(Object object) {
         publisher.unregister(object);
+    }
+
+    @Override
+    protected boolean apply(Optional<Object> input) throws Exception {
+        if (input.isPresent()) {
+            post(input.get());
+            return true;
+        } else {
+            stop();
+            return false;
+        }
+    }
+
+    @Override
+    protected void doStop() {
+        super.doStop();
+
+        stopped.set(null);
     }
 }
