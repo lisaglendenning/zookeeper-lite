@@ -28,7 +28,7 @@ public class IntraVmSocketAddress extends SocketAddress implements Reference<Obj
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(get()).toString();
+        return String.format("0x%08x", (get() == null) ? 0 : get().hashCode());
     }
 
     @Override

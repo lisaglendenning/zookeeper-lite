@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -77,17 +78,17 @@ public class IntraVmConnectionEndpoint extends AbstractActor<Optional<Object>> i
 
     @Override
     protected boolean apply(Optional<Object> input) throws Exception {
-        boolean stopped = super.apply(input);
-        if (! stopped) {
+        boolean running = super.apply(input);
+        if (running) {
             if (input.isPresent()) {
                 Object message = input.get();
                 post(message);
             } else {
                 stop();
-                stopped = true;
+                running = false;
             }
         }
-        return stopped;
+        return running;
     }
 
     @Override
@@ -102,5 +103,10 @@ public class IntraVmConnectionEndpoint extends AbstractActor<Optional<Object>> i
         publisher.stop();
         
         stopped.set(null);
+    }
+    
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).addValue(String.format("0x%08x", hashCode())).toString();
     }
 }

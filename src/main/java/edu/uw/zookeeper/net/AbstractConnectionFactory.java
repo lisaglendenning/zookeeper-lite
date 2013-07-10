@@ -81,28 +81,13 @@ public abstract class AbstractConnectionFactory<I, C extends Connection<I>> exte
             connection.register(this);
         }
         
-        public void close() {
-            remove(connection);
-            try {
-                connection.unregister(this);
-            } catch (IllegalArgumentException e) {}
-        }
-    
-        @SuppressWarnings("unchecked")
         @Subscribe
         public void handleStateEvent(Automaton.Transition<?> event) {
-            if (event.type().isAssignableFrom(Connection.State.class)) {
-                handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
-            }
-        }
-        
-        public void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
-            switch (event.to()) {
-            case CONNECTION_CLOSED:
-                close();
-                break;
-            default:
-                break;
+            if (Connection.State.CONNECTION_CLOSED == event.to()) {
+                try {
+                    connection.unregister(this);
+                } catch (IllegalArgumentException e) {}
+                remove(connection);
             }
         }
     }

@@ -7,7 +7,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 
 public abstract class AbstractActor<I> implements Actor<I> {
@@ -117,10 +116,5 @@ public abstract class AbstractActor<I> implements Actor<I> {
     
     protected void doSchedule() {
         executor.execute(this);
-    }
-    
-    @Override
-    public String toString() {
-        return Objects.toStringHelper(this).add("state", state()).toString();
     }
 }

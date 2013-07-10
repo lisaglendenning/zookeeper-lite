@@ -1,8 +1,7 @@
 package edu.uw.zookeeper.net.intravm;
 
-import static com.google.common.base.Preconditions.*;
 
-
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -77,7 +76,7 @@ public class IntraVmConnection implements Connection<Object> {
     }
 
     @Override
-    public ListenableFuture<Object> write(Object message) {
+    public <T extends Object> ListenableFuture<T> write(T message) {
         Connection.State state = state();
         switch (state) {
         case CONNECTION_CLOSING:
@@ -88,7 +87,7 @@ public class IntraVmConnection implements Connection<Object> {
         }
         
         try {
-            remoteEndpoint.send(Optional.of(checkNotNull(message)));
+            remoteEndpoint.send(Optional.of((Object) message));
         } catch (Exception e) {
             close();
             return Futures.immediateFailedCheckedFuture(e);
@@ -123,6 +122,13 @@ public class IntraVmConnection implements Connection<Object> {
     public void unregister(Object object) {
         localEndpoint.unregister(object);
     }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .addValue(String.format("%s => %s", localAddress(), remoteAddress()))
+                .toString();
+    }
     
     protected class CloseTask extends ForwardingPromise<Connection<Object>> implements Runnable {
 
@@ -149,7 +155,7 @@ public class IntraVmConnection implements Connection<Object> {
             } catch (Exception e) {}
             
             if (Actor.State.TERMINATED == localEndpoint.state()) {
-                state.apply(Connection.State.CONNECTION_CLOSING);
+                state.apply(Connection.State.CONNECTION_CLOSED);
                 if (! isDone()) {
                     try {
                         localEndpoint.stopped().get();
