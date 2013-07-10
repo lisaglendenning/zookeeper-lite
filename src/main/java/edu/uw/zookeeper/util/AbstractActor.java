@@ -34,14 +34,18 @@ public abstract class AbstractActor<I> implements Actor<I> {
     }
     
     @Override
-    public void send(I message) {        
-        if (mailbox.offer(checkNotNull(message))) {
-            if (! schedule() && (state() == State.TERMINATED)) {
-                mailbox.remove(message);
-                throw new RejectedExecutionException();
-            }
+    public void send(I message) {
+        if (state() == State.TERMINATED) {
+            throw new RejectedExecutionException(State.TERMINATED.toString());
         } else {
-            throw new RejectedExecutionException();
+            if (mailbox.offer(checkNotNull(message))) {
+                if (! schedule() && (state() == State.TERMINATED)) {
+                    mailbox.remove(message);
+                    throw new RejectedExecutionException(State.TERMINATED.toString());
+                }
+            } else {
+                throw new RejectedExecutionException("Mailbox full");
+            }
         }
     }
     

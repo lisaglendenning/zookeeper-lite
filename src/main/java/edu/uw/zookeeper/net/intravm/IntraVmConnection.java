@@ -143,18 +143,22 @@ public class IntraVmConnection implements Connection<Object> {
         }
         
         public void run() {
-            state.apply(Connection.State.CONNECTION_CLOSING);
+            try {
+                state.apply(Connection.State.CONNECTION_CLOSING);
+            } catch (Exception e) {}
             
             localEndpoint.stop();
 
             try {
                 if (Actor.State.TERMINATED != remoteEndpoint.state()) {
-                        remoteEndpoint.send(Optional.<Object>absent());
+                    remoteEndpoint.send(Optional.<Object>absent());
                 }
             } catch (Exception e) {}
             
             if (Actor.State.TERMINATED == localEndpoint.state()) {
-                state.apply(Connection.State.CONNECTION_CLOSING);
+                try {
+                    state.apply(Connection.State.CONNECTION_CLOSING);
+                } catch (Exception e) {}
                 if (! isDone()) {
                     try {
                         localEndpoint.stopped().get();

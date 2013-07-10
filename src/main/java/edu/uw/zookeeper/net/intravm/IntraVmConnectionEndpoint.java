@@ -75,6 +75,8 @@ public class IntraVmConnectionEndpoint extends AbstractActor<Optional<Object>> i
     protected void doStop() {
         super.doStop();
 
+        publisher.stop();
+        
         stopped.set(null);
     }
 }

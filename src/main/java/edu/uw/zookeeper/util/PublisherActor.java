@@ -18,7 +18,7 @@ public class PublisherActor extends AbstractActor<Object> implements Publisher, 
 
     protected final Publisher publisher;
     
-    protected PublisherActor(
+    public PublisherActor(
             Publisher publisher,
             Executor executor, 
             Queue<Object> mailbox,
