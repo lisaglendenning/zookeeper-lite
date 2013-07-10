@@ -4,6 +4,8 @@ import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.google.common.base.Throwables;
+
 public class PublisherActor extends AbstractActor<Object> implements Publisher, Reference<Publisher> {
 
     public static PublisherActor newInstance(
@@ -34,7 +36,15 @@ public class PublisherActor extends AbstractActor<Object> implements Publisher, 
 
     @Override
     public void post(Object event) {
-        send(event);
+        try {
+            try {
+                send(event);
+            } catch (IllegalStateException e) {
+                flush(event);
+            }
+        } catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
     
     @Override
@@ -46,10 +56,30 @@ public class PublisherActor extends AbstractActor<Object> implements Publisher, 
     public void unregister(Object object) {
         get().unregister(object);
     }
+    
+    @Override
+    public synchronized void doRun() throws Exception {
+        super.doRun();
+    }
 
     @Override
     protected boolean apply(Object input) {
         get().post(input);
         return true;
+    }
+
+    @Override
+    protected synchronized void doStop() {
+        Object next = null;
+        while ((next = mailbox.poll()) != null) {
+            try {
+                get().post(next);
+            } catch (Exception e) {}
+        }
+    }
+    
+    protected synchronized void flush(Object input) throws Exception {
+        doRun();
+        get().post(input);
     }
 }

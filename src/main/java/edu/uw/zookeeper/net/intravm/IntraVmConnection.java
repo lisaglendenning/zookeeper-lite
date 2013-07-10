@@ -73,12 +73,7 @@ public class IntraVmConnection implements Connection<Object> {
             break;
         }
         
-        try {
-            localEndpoint.schedule();
-        } catch (Exception e) {
-            close();
-            throw new IllegalStateException(e);
-        }
+        localEndpoint.schedule();
     }
 
     @Override
@@ -143,9 +138,7 @@ public class IntraVmConnection implements Connection<Object> {
         }
         
         public void run() {
-            try {
-                state.apply(Connection.State.CONNECTION_CLOSING);
-            } catch (Exception e) {}
+            state.apply(Connection.State.CONNECTION_CLOSING);
             
             localEndpoint.stop();
 
@@ -156,9 +149,7 @@ public class IntraVmConnection implements Connection<Object> {
             } catch (Exception e) {}
             
             if (Actor.State.TERMINATED == localEndpoint.state()) {
-                try {
-                    state.apply(Connection.State.CONNECTION_CLOSING);
-                } catch (Exception e) {}
+                state.apply(Connection.State.CONNECTION_CLOSING);
                 if (! isDone()) {
                     try {
                         localEndpoint.stopped().get();

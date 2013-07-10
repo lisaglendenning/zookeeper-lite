@@ -7,9 +7,13 @@ import java.net.SocketAddress;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+
+import javax.annotation.Nullable;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ForwardingQueue;
@@ -19,6 +23,7 @@ import edu.uw.zookeeper.protocol.Codec;
 import edu.uw.zookeeper.util.AbstractActor;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.LoggingPublisher;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Promise;
@@ -82,7 +87,14 @@ public class ChannelConnection<I>
             Publisher publisher) {
         this.logger = LoggerFactory.getLogger(getClass());
         this.channel = checkNotNull(channel);
-        this.publisher = PublisherActor.newInstance(publisher, this);
+        this.publisher = PublisherActor.newInstance(
+                new LoggingPublisher(logger, publisher, new Function<Object, String>() {
+                    @Override
+                    public String apply(@Nullable Object input) {
+                        return String.format("Posting: %s (%s)", input, ChannelConnection.this);
+                    }
+                }), 
+                this);
         this.state = ConnectionStateHandler.newAutomaton(this);
         this.outbound = new OutboundActor();
     }
@@ -160,7 +172,6 @@ public class ChannelConnection<I>
 
     @Override
     public void post(Object event) {
-        logger.trace("{} ({})", event, this);
         publisher.post(event);
     }
 

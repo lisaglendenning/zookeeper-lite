@@ -48,7 +48,7 @@ public class FutureQueue<V extends Future<?>> extends ForwardingQueue<V> {
     }
     
     @Override
-    public void clear() {
+    public synchronized void clear() {
         V next;
         while ((next = super.poll()) != null) {
             next.cancel(true);

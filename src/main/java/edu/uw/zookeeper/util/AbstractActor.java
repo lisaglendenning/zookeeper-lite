@@ -5,9 +5,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 
 public abstract class AbstractActor<I> implements Actor<I> {
@@ -36,15 +36,12 @@ public abstract class AbstractActor<I> implements Actor<I> {
     @Override
     public void send(I message) {
         if (state() == State.TERMINATED) {
-            throw new RejectedExecutionException(State.TERMINATED.toString());
+            throw new IllegalStateException(State.TERMINATED.toString());
         } else {
-            if (mailbox.offer(checkNotNull(message))) {
-                if (! schedule() && (state() == State.TERMINATED)) {
-                    mailbox.remove(message);
-                    throw new RejectedExecutionException(State.TERMINATED.toString());
-                }
-            } else {
-                throw new RejectedExecutionException("Mailbox full");
+            mailbox.add(message);
+            if (! schedule() && (state() == State.TERMINATED)) {
+                mailbox.remove(message);
+                throw new IllegalStateException(State.TERMINATED.toString());
             }
         }
     }
@@ -73,14 +70,19 @@ public abstract class AbstractActor<I> implements Actor<I> {
 
     protected void doRun() throws Exception {
         I next;
-        while ((State.TERMINATED != state.get()) && (next = mailbox.poll()) != null) {
+        while ((next = mailbox.poll()) != null) {
             if (! apply(next)) {
                 break;
             }
         }
     }
 
-    protected abstract boolean apply(I input) throws Exception;
+    protected boolean apply(I input) throws Exception {
+        if (State.TERMINATED == state()) {
+            return false;
+        }
+        return true;
+    }
 
     protected void runExit() {
         if (state.compareAndSet(State.RUNNING, State.WAITING)) {
@@ -115,5 +117,10 @@ public abstract class AbstractActor<I> implements Actor<I> {
     
     protected void doSchedule() {
         executor.execute(this);
+    }
+    
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).add("state", state()).toString();
     }
 }
