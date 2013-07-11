@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.net.intravm;
 
+import java.net.SocketAddress;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
@@ -10,14 +11,14 @@ import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
 
-public abstract class IntraVmConnectionFactory<I, C extends Connection<I>> extends AbstractConnectionFactory<I,C> {
+public abstract class IntraVmConnectionFactory<T extends SocketAddress, I, C extends Connection<I>> extends AbstractConnectionFactory<I,C> {
 
-    protected final ParameterizedFactory<IntraVmConnection, C> connectionFactory;
+    protected final ParameterizedFactory<IntraVmConnection<T>, C> connectionFactory;
     protected final Set<C> connections;
     
     protected IntraVmConnectionFactory(
             Publisher publisher,
-            ParameterizedFactory<IntraVmConnection, C> connectionFactory) {
+            ParameterizedFactory<IntraVmConnection<T>, C> connectionFactory) {
         super(publisher);
         this.connections = Collections.synchronizedSet(Sets.<C>newHashSet());
         this.connectionFactory = connectionFactory;

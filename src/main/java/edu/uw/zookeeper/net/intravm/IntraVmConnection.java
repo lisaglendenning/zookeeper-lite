@@ -1,6 +1,8 @@
 package edu.uw.zookeeper.net.intravm;
 
 
+import java.net.SocketAddress;
+
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.Futures;
@@ -14,27 +16,28 @@ import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
-public class IntraVmConnection implements Connection<Object> {
+public class IntraVmConnection<T extends SocketAddress> implements Connection<Object> {
     
-    public static <I> Pair<IntraVmConnection, IntraVmConnection> createPair(
-            Pair<IntraVmConnectionEndpoint, IntraVmConnectionEndpoint> endpoints) {
+    public static <T extends SocketAddress> Pair<IntraVmConnection<T>, IntraVmConnection<T>> createPair(
+            Pair<IntraVmConnectionEndpoint<T>, IntraVmConnectionEndpoint<T>> endpoints) {
         return Pair.create(
                 IntraVmConnection.create(endpoints.first(), endpoints.second()),
                 IntraVmConnection.create(endpoints.second(), endpoints.first()));
     }
     
-    public static IntraVmConnection create(IntraVmConnectionEndpoint local, IntraVmConnectionEndpoint remote) {
-        return new IntraVmConnection(local, remote);
+    public static <T extends SocketAddress> IntraVmConnection<T> create(
+            IntraVmConnectionEndpoint<T> local, IntraVmConnectionEndpoint<T> remote) {
+        return new IntraVmConnection<T>(local, remote);
     }
     
     protected final Automatons.SynchronizedEventfulAutomaton<Connection.State, Connection.State> state;
-    protected final IntraVmConnectionEndpoint localEndpoint;
-    protected final IntraVmConnectionEndpoint remoteEndpoint;
+    protected final IntraVmConnectionEndpoint<T> localEndpoint;
+    protected final IntraVmConnectionEndpoint<T> remoteEndpoint;
     protected final CloseTask closeTask;
     
     public IntraVmConnection(
-            IntraVmConnectionEndpoint localActor,
-            IntraVmConnectionEndpoint remoteActor) {
+            IntraVmConnectionEndpoint<T> localActor,
+            IntraVmConnectionEndpoint<T> remoteActor) {
         this.state = Automatons.createSynchronizedEventful(this, 
                 Automatons.createSimple(Connection.State.CONNECTION_OPENING));
         this.localEndpoint = localActor;
@@ -52,12 +55,12 @@ public class IntraVmConnection implements Connection<Object> {
     }
 
     @Override
-    public IntraVmSocketAddress localAddress() {
+    public T localAddress() {
         return localEndpoint.address();
     }
 
     @Override
-    public IntraVmSocketAddress remoteAddress() {
+    public T remoteAddress() {
         return remoteEndpoint.address();
     }
 
@@ -76,7 +79,7 @@ public class IntraVmConnection implements Connection<Object> {
     }
 
     @Override
-    public <T extends Object> ListenableFuture<T> write(T message) {
+    public <V extends Object> ListenableFuture<V> write(V message) {
         Connection.State state = state();
         switch (state) {
         case CONNECTION_CLOSING:
