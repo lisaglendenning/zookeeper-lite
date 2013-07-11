@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.net.intravm;
 
+import java.net.SocketAddress;
 import java.util.concurrent.Executor;
 
 import javax.annotation.Nullable;
@@ -19,25 +20,27 @@ import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.PublisherActor;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
-public class IntraVmConnectionEndpoint extends AbstractActor<Optional<Object>> implements Publisher, Executor {
+public class IntraVmConnectionEndpoint<T extends SocketAddress> extends AbstractActor<Optional<Object>> implements Publisher, Executor {
 
-    public static IntraVmConnectionEndpoint create(
+    public static <T extends SocketAddress> IntraVmConnectionEndpoint<T> create(
+            T address,
             Publisher publisher,
             Executor executor) {
-        return new IntraVmConnectionEndpoint(publisher, executor);
+        return new IntraVmConnectionEndpoint<T>(address, publisher, executor);
     }
     
     protected final Logger logger;
     protected final PublisherActor publisher;
-    protected final IntraVmSocketAddress address;
+    protected final T address;
     protected final Promise<Void> stopped;
     
     public IntraVmConnectionEndpoint(
+            T address,
             Publisher publisher,
             Executor executor) {
         super(executor, AbstractActor.<Optional<Object>>newQueue(), newState());
         this.logger = LoggerFactory.getLogger(getClass());
-        this.address = IntraVmSocketAddress.of(this);
+        this.address = address;
         this.publisher = PublisherActor.newInstance(
                 new LoggingPublisher(logger, publisher, new Function<Object, String>() {
                     @Override
@@ -52,7 +55,7 @@ public class IntraVmConnectionEndpoint extends AbstractActor<Optional<Object>> i
         return stopped;
     }
     
-    public IntraVmSocketAddress address() {
+    public T address() {
         return address;
     }
 
@@ -107,6 +110,6 @@ public class IntraVmConnectionEndpoint extends AbstractActor<Optional<Object>> i
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(String.format("0x%08x", hashCode())).toString();
+        return Objects.toStringHelper(this).addValue(address()).toString();
     }
 }

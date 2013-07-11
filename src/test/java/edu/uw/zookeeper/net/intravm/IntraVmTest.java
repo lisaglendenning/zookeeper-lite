@@ -2,16 +2,23 @@ package edu.uw.zookeeper.net.intravm;
 
 import static org.junit.Assert.*;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.net.UnknownHostException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.net.Connection;
@@ -26,33 +33,86 @@ import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
 @RunWith(JUnit4.class)
 public class IntraVmTest {
-
+    
+    public static final InetAddress LOOPBACK;
+    static {
+        try {
+            LOOPBACK = InetAddress.getByName(null);
+        } catch (UnknownHostException e) {
+            throw new AssertionError(e);
+        }
+    }
+    
+    public static <T> IdentityFactory<T> identityFactory() {
+        return new IdentityFactory<T>();
+    }
+    
     public static class IdentityFactory<T> implements ParameterizedFactory<T, T> {
         @Override
         public T get(T value) {
             return value;
         }
     }
+
+    public static Factory<ListeningExecutorService> sameThreadExecutors() {
+        return Factories.holderOf(MoreExecutors.sameThreadExecutor());
+    }
     
-    public static class EndpointFactory implements Factory<Pair<IntraVmConnectionEndpoint, IntraVmConnectionEndpoint>> {
+    public static Factory<EventBusPublisher> eventBusPublishers() {
+        return new Factory<EventBusPublisher>() {
+            @Override
+            public EventBusPublisher get() {
+                return EventBusPublisher.newInstance();
+            }
+        };
+    }
+    
+    public static Factory<InetSocketAddress> loopbackAddresses(final int startPort) {
+        final InetAddress host = LOOPBACK;
+        
+        return new Factory<InetSocketAddress>() {
+
+            private final AtomicInteger nextPort = new AtomicInteger(startPort);
+            
+            @Override
+            public InetSocketAddress get() {
+                int port = nextPort.getAndIncrement();
+                return new InetSocketAddress(host, port);
+            }
+        };
+    }
+    
+    public static <T extends SocketAddress> Function<SocketAddress, IntraVmConnection<T>> connector(
+            final IntraVmServerConnectionFactory<T,?,?> server) {
+        return new Function<SocketAddress, IntraVmConnection<T>>() {
+            @Override
+            public IntraVmConnection<T> apply(SocketAddress input) {
+                return server.connect();
+            }
+        };
+    }
+    
+    public static class EndpointFactory<T extends SocketAddress> implements Factory<Pair<IntraVmConnectionEndpoint<T>, IntraVmConnectionEndpoint<T>>> {
+        protected final Factory<T> addresses;
         protected final Factory<? extends Publisher> publishers;
         protected final Factory<? extends Executor> executors;
         
         public EndpointFactory(
+                Factory<T> addresses,
                 Factory<? extends Publisher> publishers, 
                 Factory<? extends Executor> executors) {
+            this.addresses = addresses;
             this.publishers = publishers;
             this.executors = executors;
         }
         @Override
-        public Pair<IntraVmConnectionEndpoint, IntraVmConnectionEndpoint> get() {
-            return Pair.create(IntraVmConnectionEndpoint.create(publishers.get(), executors.get()),
-                    IntraVmConnectionEndpoint.create(publishers.get(), executors.get()));
+        public Pair<IntraVmConnectionEndpoint<T>, IntraVmConnectionEndpoint<T>> get() {
+            return Pair.create(IntraVmConnectionEndpoint.create(addresses.get(), publishers.get(), executors.get()),
+                    IntraVmConnectionEndpoint.create(addresses.get(), publishers.get(), executors.get()));
         }
     };
     
@@ -95,37 +155,31 @@ public class IntraVmTest {
     
     @Test(timeout=5000)
     public void test() throws InterruptedException, ExecutionException {
-        Reference<? extends Executor> executors = Factories.holderOf(MoreExecutors.sameThreadExecutor());
-        Factory<? extends Publisher> publishers = new Factory<EventBusPublisher>() {
-            @Override
-            public EventBusPublisher get() {
-                return EventBusPublisher.newInstance();
-            }
-        };
-        testEndpoints(new EndpointFactory(publishers, executors));
+        testEndpoints(new EndpointFactory<InetSocketAddress>(loopbackAddresses(1), eventBusPublishers(), sameThreadExecutors()));
     }
     
-    protected void testEndpoints(Factory<Pair<IntraVmConnectionEndpoint, IntraVmConnectionEndpoint>> endpointFactory) throws InterruptedException, ExecutionException {
+    protected void testEndpoints(Factory<Pair<IntraVmConnectionEndpoint<InetSocketAddress>, IntraVmConnectionEndpoint<InetSocketAddress>>> endpointFactory) throws InterruptedException, ExecutionException {
         EventBusPublisher clientPublisher = EventBusPublisher.newInstance();
         EventBusPublisher serverPublisher = EventBusPublisher.newInstance();
-        IdentityFactory<IntraVmConnection> connectionFactory = new IdentityFactory<IntraVmConnection>();
-        IntraVmServerConnectionFactory<Object, IntraVmConnection> serverConnections = 
+        IdentityFactory<IntraVmConnection<InetSocketAddress>> connectionFactory = identityFactory();
+        IntraVmServerConnectionFactory<InetSocketAddress, Object, IntraVmConnection<InetSocketAddress>> serverConnections = 
                 IntraVmServerConnectionFactory.newInstance(
-                        clientPublisher, endpointFactory, connectionFactory);
-        IntraVmClientConnectionFactory<Object, IntraVmConnection> clientConnections = 
+                        new InetSocketAddress(LOOPBACK, 0), clientPublisher, endpointFactory, connectionFactory);
+        Function<SocketAddress, IntraVmConnection<InetSocketAddress>> connector = connector(serverConnections);
+        IntraVmClientConnectionFactory<InetSocketAddress, Object, IntraVmConnection<InetSocketAddress>> clientConnections = 
                 IntraVmClientConnectionFactory.newInstance(
-                        serverPublisher, connectionFactory);
+                        connector, serverPublisher, connectionFactory);
         ConnectionFactory<?,?>[] connections = { clientConnections, serverConnections };
         for (ConnectionFactory<?,?> e: connections) {
             e.start().get();
         }
         
-        GetEvent<IntraVmConnection> clientConnectionEvent = GetEvent.newInstance(clientConnections);
-        GetEvent<IntraVmConnection> serverConnectionEvent = GetEvent.newInstance(serverConnections);
-        IntraVmConnection client = clientConnections.connect(serverConnections.listenAddress()).get();
+        GetEvent<IntraVmConnection<InetSocketAddress>> clientConnectionEvent = GetEvent.newInstance(clientConnections);
+        GetEvent<IntraVmConnection<InetSocketAddress>> serverConnectionEvent = GetEvent.newInstance(serverConnections);
+        IntraVmConnection<InetSocketAddress> client = clientConnections.connect(serverConnections.listenAddress()).get();
         assertSame(client, Iterables.getOnlyElement(clientConnections));
         assertSame(client, clientConnectionEvent.get());
-        IntraVmConnection server = Iterables.getOnlyElement(serverConnections);
+        IntraVmConnection<InetSocketAddress> server = Iterables.getOnlyElement(serverConnections);
         assertSame(server, serverConnectionEvent.get());
         
         String input = "hello";
