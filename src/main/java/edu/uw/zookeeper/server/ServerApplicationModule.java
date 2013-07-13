@@ -3,28 +3,31 @@ package edu.uw.zookeeper.server;
 import java.net.SocketAddress;
 import java.util.AbstractMap;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.MapMaker;
+import com.google.common.collect.Maps;
 import com.typesafe.config.Config;
 
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.ServerView;
+import edu.uw.zookeeper.data.ZNodeDataTrie;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.netty.server.NettyServerModule;
+import edu.uw.zookeeper.protocol.ConnectMessage;
+import edu.uw.zookeeper.protocol.FourLetterRequest;
+import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
-import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
-import edu.uw.zookeeper.util.Application;
-import edu.uw.zookeeper.util.Arguments;
-import edu.uw.zookeeper.util.Configuration;
-import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.ServiceApplication;
-import edu.uw.zookeeper.util.ServiceMonitor;
+import edu.uw.zookeeper.protocol.SessionOperation;
+import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.Records;
+import edu.uw.zookeeper.protocol.server.*;
+import edu.uw.zookeeper.util.*;
 
 public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModule, Application> {
     INSTANCE;
@@ -110,6 +113,38 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         };
     }
     
+    public static TxnRequestProcessor<Records.Request, Records.Response> defaultTxnProcessor(
+            final ZNodeDataTrie trie,
+            final SessionTable sessions) {
+        Map<OpCode, TxnRequestProcessor<?,?>> processors = Maps.newEnumMap(OpCode.class);
+        processors = ZNodeDataTrie.Operators.of(trie, processors);
+        processors.put(OpCode.CLOSE_SESSION, DisconnectTableProcessor.newInstance(sessions));
+        processors.put(OpCode.PING, PingProcessor.getInstance());
+        System.out.println(processors);
+        ByOpcodeTxnRequestProcessor processor = ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(processors));
+        return processor;
+    }
+    
+    public static ServerTaskExecutor defaultServerExecutor(
+            ZNodeDataTrie dataTrie,
+            Executor executor,
+            Generator<Long> zxids,
+            ExpiringSessionTable sessions) {
+        Map<Long, Publisher> listeners = new MapMaker().makeMap();
+        TaskExecutor<FourLetterRequest, FourLetterResponse> anonymousExecutor = 
+                ServerTaskExecutor.ProcessorExecutor.of(FourLetterRequestProcessor.getInstance());
+        TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> connectExecutor = 
+                ServerTaskExecutor.ProcessorExecutor.of(ConnectListenerProcessor.newInstance(ConnectTableProcessor.create(sessions, zxids), listeners));
+        Processor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> processor = 
+                Processors.bridge(
+                        ToTxnRequestProcessor.create(AssignZxidProcessor.newInstance(zxids)), 
+                        ProtocolResponseProcessor.create(
+                                defaultTxnProcessor(dataTrie, sessions)));
+        TaskExecutor<SessionOperation.Request<Records.Request>, Operation.ProtocolResponse<Records.Response>> sessionExecutor = 
+                ExpiringSessionRequestExecutor.newInstance(sessions, executor, listeners, processor);
+        return ServerTaskExecutor.newInstance(anonymousExecutor, connectExecutor, sessionExecutor);
+    }
+    
     @Override
     public Application get(RuntimeModule runtime) {
         ServiceMonitor monitor = runtime.serviceMonitor();
@@ -117,11 +152,12 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
 
         NettyServerModule nettyServer = NettyServerModule.newInstance(runtime);
 
-        SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(runtime.configuration());
-        ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(runtime.publisherFactory().get(), policy);
-        ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
-
-        ServerExecutor serverExecutor = ServerExecutor.newInstance(runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions);
+        SessionParametersPolicy policy = 
+                DefaultSessionParametersPolicy.create(runtime.configuration());
+        ExpiringSessionTable sessions = 
+                ExpiringSessionTable.newInstance(runtime.publisherFactory().get(), policy);
+        ExpiringSessionService expires = 
+                monitorsFactory.apply(ExpiringSessionService.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
 
         ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
                 nettyServer.get(
@@ -131,7 +167,15 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         ServerConnectionFactory<Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
                 monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         
-        ServerConnectionListener<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> server = ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
+        ZxidEpochIncrementer zxids = ZxidEpochIncrementer.fromZero();
+        ZNodeDataTrie dataTrie = ZNodeDataTrie.newInstance();
+        ServerTaskExecutor serverExecutor = defaultServerExecutor(
+                dataTrie,
+                runtime.executors().asListeningExecutorServiceFactory().get(),
+                zxids,
+                sessions);
+        ServerConnectionExecutorsService<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> server = 
+                monitorsFactory.apply(ServerConnectionExecutorsService.newInstance(serverConnections, serverExecutor));
         
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }

@@ -5,7 +5,7 @@ import java.util.List;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.proto.CreateRequest;
 
-@Operational(opcode=OpCode.CREATE)
+@Operational(value=OpCode.CREATE)
 public class ICreateRequest extends ICodedRecord<CreateRequest> implements Records.Request, Records.CreateModeGetter, Records.MultiOpRequest {
 
     public ICreateRequest() {

@@ -1,200 +1,343 @@
 package edu.uw.zookeeper.data;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.data.Stat;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-
-import edu.uw.zookeeper.data.ZNodeLabel.Component;
-import edu.uw.zookeeper.data.ZNodeLabel.Path;
-import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.proto.ISetACLRequest;
-import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
-import edu.uw.zookeeper.protocol.proto.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.Pair;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import edu.uw.zookeeper.data.ZNodeLabel;
+import edu.uw.zookeeper.protocol.proto.*;
+import edu.uw.zookeeper.protocol.server.ByOpcodeTxnRequestProcessor;
+import edu.uw.zookeeper.protocol.server.TxnRequestProcessor;
+import edu.uw.zookeeper.util.Reference;
 
 public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> {
 
-    public static class Operator {
+    public static ZNodeDataTrie newInstance() {
+        return new ZNodeDataTrie(ZNodeStateNode.root());
+    }
+
+    public static abstract class AbstractOperator<T extends Records.Request, V extends Records.Response> implements Reference<ZNodeDataTrie>, TxnRequestProcessor<T, V> {
+
+        public static ZNodeLabel.Path getPath(Records.PathGetter record) {
+            return ZNodeLabel.Path.of(record.getPath());
+        }
+        
+        public static ZNodeStateNode getNode(ZNodeDataTrie trie, ZNodeLabel path) throws KeeperException.NoNodeException {
+            ZNodeStateNode node = trie.get(path);
+            if (node == null) {
+                throw new KeeperException.NoNodeException(path.toString());
+            }
+            return node;
+        }
         
         protected final ZNodeDataTrie trie;
         
-        public Operator(ZNodeDataTrie trie) {
+        protected AbstractOperator(ZNodeDataTrie trie) {
             this.trie = trie;
         }
         
-        public ZNodeDataTrie trie() {
+        @Override
+        public ZNodeDataTrie get() {
             return trie;
         }
+    }
+
+    public static abstract class Operators {
         
-        // TODO: watches
-        public Operation.Response apply(TxnRequest request) throws KeeperException {
-            TxnRequest.Header header = request.header();
-            Operation.Response response;
-            switch (request.record().opcode()) {
-            case CREATE:
-            case CREATE2:
-            {
-                Records.CreateModeGetter record = (Records.CreateModeGetter) request.record();
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(record.getPath());
-                ZNodeLabel parentPath = path.head();
-                ZNodeStateNode parent = trie.get(parentPath);
-                if (parent == null) {
-                    throw new KeeperException.NoNodeException(parentPath.toString());
+        private Operators() {}
+
+        public static Map<OpCode, TxnRequestProcessor<?, ?>> of(ZNodeDataTrie trie) {
+            return of(trie, Maps.<OpCode, TxnRequestProcessor<?, ?>>newEnumMap(OpCode.class));
+        }
+        
+        public static Map<OpCode, TxnRequestProcessor<?, ?>> of(ZNodeDataTrie trie, Map<OpCode, TxnRequestProcessor<?, ?>> operators) {
+            for (Class<?> cls: Operators.class.getDeclaredClasses()) {
+                Operational annotation = cls.getAnnotation(Operational.class);
+                if (annotation == null) {
+                    continue;
                 }
-                if (parent.state().getCreateStat().isEphemeral()) {
+                if (! TxnRequestProcessor.class.isAssignableFrom(cls)) {
+                    continue;
+                }
+                TxnRequestProcessor<?, ?> operator;
+                try {
+                    operator = (TxnRequestProcessor<?, ?>) cls.getConstructor(trie.getClass()).newInstance(trie);
+                } catch (Exception e) {
+                    throw Throwables.propagate(e);
+                }
+                for (OpCode opcode: annotation.value()) {
+                    operators.put(opcode, operator);
+                }
+            }
+            return operators;
+        }
+
+        @Operational({OpCode.CREATE, OpCode.CREATE2})
+        public static class CreateOperator extends AbstractOperator<Records.Request, Records.Response> {
+    
+            public CreateOperator(ZNodeDataTrie trie) {
+                super(trie);
+            }
+    
+            @Override
+            public Records.Response apply(TxnOperation.Request<Records.Request> request) throws KeeperException {
+                Records.CreateModeGetter record = (Records.CreateModeGetter) request.getRecord();
+                ZNodeLabel.Path path = getPath(record);
+                ZNodeLabel parentPath = path.head();
+                ZNodeStateNode parent = getNode(get(), parentPath);
+                if (parent.state().getCreate().isEphemeral()) {
                     throw new KeeperException.NoChildrenForEphemeralsException(parentPath.toString());
                 }
-                Pair<Integer, Long> cversion = parent.state().getChildrenStat().getAndIncrement(header.zxid());
-
                 CreateMode mode = CreateMode.fromFlag(record.getFlags());
-                if (mode.isSequential()) {
-                    path = Path.of(Sequenced.toString(path, cversion.first()));
-                } else {
-                    if (trie.get(path) != null) {
-                        throw new KeeperException.NodeExistsException(path.toString());
-                    }
+                if (! mode.isSequential() && (getNode(get(), path) != null)) {
+                    throw new KeeperException.NodeExistsException(path.toString());
                 }
-                long ephemeralOwner = mode.isEphemeral() ? header.session() : Stats.CreateStat.ephemeralOwnerNone();
-                Stats.CreateStat createStat = Stats.CreateStat.of(header.zxid(), header.time(), ephemeralOwner);
-                ZNodeData data = ZNodeData.newInstance(Stats.DataStat.newInstance(header.zxid(), header.time()), record.getData());
+                
+                int cversion = parent.state().getChildren().getAndIncrement(request.getZxid());
+                if (mode.isSequential()) {
+                    path = ZNodeLabel.Path.of(Sequenced.toString(path, cversion));
+                }
+                
+                long ephemeralOwner = mode.isEphemeral() ? request.getSessionId() : Stats.CreateStat.ephemeralOwnerNone();
+                Stats.CreateStat createStat = Stats.CreateStat.of(request.getZxid(), request.getTime(), ephemeralOwner);
+                byte[] bytes = record.getData();
+                bytes = (bytes == null) ? ZNodeData.emptyBytes() : bytes;
+                ZNodeData data = ZNodeData.newInstance(Stats.DataStat.newInstance(request.getZxid(), request.getTime()), bytes);
                 ZNodeAcl acl = ZNodeAcl.newInstance(Acls.Acl.fromRecordList(record.getAcl()));
-                Stats.ChildrenStat childrenStat = Stats.ChildrenStat.newInstance(header.zxid());
+                Stats.ChildrenStat childrenStat = Stats.ChildrenStat.newInstance(request.getZxid());
                 ZNodeState state = ZNodeState.newInstance(createStat, data, acl, childrenStat);
                 
                 ZNodeStateNode node = parent.add(path.tail(), state);
                 Operations.Responses.Create builder = 
                         Operations.Responses.create().setPath(path);
-                if (OpCode.CREATE2 == request.record().opcode()) {
+                if (OpCode.CREATE2 == request.getRecord().getOpcode()) {
                     builder.setStat(node.asStat());
                 }
-                response = builder.build();
-                break;
+                return builder.build();
             }
-            case DELETE:
-            {
-                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
-                ZNodeStateNode node = trie.get(path);
-                if (node == null) {
-                    throw new KeeperException.NoNodeException(path.toString());
-                }
+        }
+
+        @Operational(OpCode.DELETE)
+        public static class DeleteOperator extends AbstractOperator<IDeleteRequest, IDeleteResponse> {
+    
+            public DeleteOperator(ZNodeDataTrie trie) {
+                super(trie);
+            }
+    
+            @Override
+            public IDeleteResponse apply(TxnOperation.Request<IDeleteRequest> request)
+                    throws KeeperException {
+                IDeleteRequest record = request.getRecord();
+                ZNodeLabel.Path path = getPath(record);
+                ZNodeStateNode node = getNode(get(), path);
                 if (node.size() > 0) {
                     throw new KeeperException.NotEmptyException(path.toString());
-                }
-                trie.remove(path);
-                response = Operations.Responses.delete().build();
-                break;
-            }
-            case EXISTS:
-            {
-                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
-                ZNodeStateNode node = trie.get(path);
-                if (node == null) {
-                    throw new KeeperException.NoNodeException(path.toString());
-                }
-                response = Operations.Responses.exists().setStat(node.asStat()).build();
-                break;
-            }
-            case GET_DATA:
-            {
-                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
-                ZNodeStateNode node = trie.get(path);
-                if (node == null) {
-                    throw new KeeperException.NoNodeException(path.toString());
-                }
-                response = Operations.Responses.getData().setData(node.state().getData().getData()).setStat(node.asStat()).build();
-                break;
-            }
-            case SET_DATA:
-            {
-                ISetDataRequest record = (ISetDataRequest)request.record();
-                ZNodeLabel.Path path = Path.of(record.getPath());
-                ZNodeStateNode node = trie.get(path);
-                if (node == null) {
-                    throw new KeeperException.NoNodeException(path.toString());
                 }
                 if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
                     throw new KeeperException.BadVersionException(path.toString());
                 }
-                node.state().getData().getStat().getAndIncrement(header.zxid(), header.time());
-                node.state().getData().setData(record.getData());
-                response = Operations.Responses.setData().setStat(node.asStat()).build();
-                break;
+                ZNodeStateNode parent = getNode(get(), path.head());
+                get().remove(path);
+                parent.state().getChildren().getAndIncrement(request.getZxid());
+                return Operations.Responses.delete().build();
             }
-            case GET_ACL:
-            {
-                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
-                ZNodeStateNode node = trie.get(path);
-                if (node == null) {
-                    throw new KeeperException.NoNodeException(path.toString());
-                }
-                response = Operations.Responses.getAcl().setAcl(node.state().getAcl().getAcl()).setStat(node.asStat()).build();
-                break;
+        }
+
+        @Operational(OpCode.EXISTS)
+        public static class ExistsOperator extends AbstractOperator<IExistsRequest, IExistsResponse> {
+    
+            public ExistsOperator(ZNodeDataTrie trie) {
+                super(trie);
             }
-            case SET_ACL:
-            {
-                ISetACLRequest record = (ISetACLRequest)request.record();
-                ZNodeLabel.Path path = Path.of(record.getPath());
-                ZNodeStateNode node = trie.get(path);
-                if (node == null) {
-                    throw new KeeperException.NoNodeException(path.toString());
+    
+            @Override
+            public IExistsResponse apply(TxnOperation.Request<IExistsRequest> request)
+                    throws KeeperException {
+                IExistsRequest record = request.getRecord();
+                ZNodeLabel.Path path = getPath(record);
+                ZNodeStateNode node = getNode(get(), path);
+                return Operations.Responses.exists().setStat(node.asStat()).build();
+            }
+        }
+
+        @Operational(OpCode.GET_DATA)
+        public static class GetDataOperator extends AbstractOperator<IGetDataRequest, IGetDataResponse> {
+    
+            public GetDataOperator(ZNodeDataTrie trie) {
+                super(trie);
+            }
+    
+            @Override
+            public IGetDataResponse apply(TxnOperation.Request<IGetDataRequest> request)
+                    throws KeeperException {
+                IGetDataRequest record = request.getRecord();
+                ZNodeLabel.Path path = getPath(record);
+                ZNodeStateNode node = getNode(get(), path);
+                return Operations.Responses.getData().setData(node.state().getData().getData()).setStat(node.asStat()).build();
+            }
+        }
+
+        @Operational(OpCode.SET_DATA)
+        public static class SetDataOperator extends AbstractOperator<ISetDataRequest, ISetDataResponse> {
+    
+            public SetDataOperator(ZNodeDataTrie trie) {
+                super(trie);
+            }
+    
+            @Override
+            public ISetDataResponse apply(TxnOperation.Request<ISetDataRequest> request)
+                    throws KeeperException {
+                ISetDataRequest record = (ISetDataRequest) request.getRecord();
+                ZNodeLabel.Path path = getPath(record);
+                ZNodeStateNode node = getNode(get(), path);
+                if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
+                    throw new KeeperException.BadVersionException(path.toString());
                 }
+                node.state().getData().getStat().getAndIncrement(request.getZxid(), request.getTime());
+                byte[] bytes = record.getData();
+                bytes = (bytes == null) ? ZNodeData.emptyBytes() : bytes;
+                node.state().getData().setData(bytes);
+                return Operations.Responses.setData().setStat(node.asStat()).build();
+            }
+        }
+
+        @Operational(OpCode.GET_ACL)
+        public static class GetAclOperator extends AbstractOperator<IGetACLRequest, IGetACLResponse> {
+    
+            public GetAclOperator(ZNodeDataTrie trie) {
+                super(trie);
+            }
+    
+            @Override
+            public IGetACLResponse apply(TxnOperation.Request<IGetACLRequest> request)
+                    throws KeeperException {
+                IGetACLRequest record = request.getRecord();
+                ZNodeLabel.Path path = getPath(record);
+                ZNodeStateNode node = getNode(get(), path);
+                return Operations.Responses.getAcl().setAcl(node.state().getAcl().getAcl()).setStat(node.asStat()).build();
+            }
+        }
+
+        @Operational(OpCode.SET_ACL)
+        public static class SetAclOperator extends AbstractOperator<ISetACLRequest, ISetACLResponse> {
+    
+            public SetAclOperator(ZNodeDataTrie trie) {
+                super(trie);
+            }
+    
+            @Override
+            public ISetACLResponse apply(TxnOperation.Request<ISetACLRequest> request)
+                    throws KeeperException {
+                ISetACLRequest record = request.getRecord();
+                ZNodeLabel.Path path = getPath(record);
+                ZNodeStateNode node = getNode(get(), path);
                 if (! node.state().getAcl().compareVersion(record.getVersion())) {
                     throw new KeeperException.BadVersionException(path.toString());
                 }
                 node.state().getAcl().getAndIncrement();
                 node.state().getAcl().setAcl(Acls.Acl.fromRecordList(record.getAcl()));
-                response = Operations.Responses.setAcl().setStat(node.asStat()).build();
-                break;
+                return Operations.Responses.setAcl().setStat(node.asStat()).build();        
             }
-            case GET_CHILDREN:
-            case GET_CHILDREN2:
-            {
-                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
-                ZNodeStateNode node = trie.get(path);
-                if (node == null) {
-                    throw new KeeperException.NoNodeException(path.toString());
-                }
+        }
+
+        @Operational({OpCode.GET_CHILDREN, OpCode.GET_CHILDREN2})
+        public static class GetChildrenOperator extends AbstractOperator<Records.Request, Records.Response> {
+    
+            public GetChildrenOperator(ZNodeDataTrie trie) {
+                super(trie);
+            }
+    
+            @Override
+            public Records.Response apply(TxnOperation.Request<Records.Request> request)
+                    throws KeeperException {
+                ZNodeLabel.Path path = getPath((Records.PathGetter) request.getRecord());
+                ZNodeStateNode node = getNode(get(), path);
                 Operations.Responses.GetChildren builder = Operations.Responses.getChildren();
                 builder.setChildren(ImmutableList.copyOf(node.keySet()));
-                if (OpCode.GET_CHILDREN2 == request.record().opcode()) {
+                if (OpCode.GET_CHILDREN2 == request.getRecord().getOpcode()) {
                     builder.setStat(node.asStat());
                 }
-                response = builder.build();
-                break;
+                return builder.build();       
             }
-            case SYNC:
-            {
-                ZNodeLabel.Path path = Path.of(((Records.PathGetter) request.record()).getPath());
-                ZNodeStateNode node = trie.get(path);
-                if (node == null) {
-                    throw new KeeperException.NoNodeException(path.toString());
-                }
-                response = Operations.Responses.sync().setPath(path).build();
-                break;
+        }
+
+        @Operational(OpCode.SYNC)
+        public static class SyncOperator extends AbstractOperator<ISyncRequest, ISyncResponse> {
+    
+            public SyncOperator(ZNodeDataTrie trie) {
+                super(trie);
             }
-            case CHECK:
-            case MULTI:
+    
+            @Override
+            public ISyncResponse apply(TxnOperation.Request<ISyncRequest> request)
+                    throws KeeperException {
+                ISyncRequest record = request.getRecord();
+                ZNodeLabel.Path path = getPath(record);
+                getNode(get(), path);
+                return Operations.Responses.sync().setPath(path).build();        
+            }
+        }
+        
+        @Operational(OpCode.CHECK)
+        public static class CheckOperator extends AbstractOperator<ICheckVersionRequest, ICheckVersionResponse> {
+    
+            public CheckOperator(ZNodeDataTrie trie) {
+                super(trie);
+            }
+    
+            @Override
+            public ICheckVersionResponse apply(TxnOperation.Request<ICheckVersionRequest> request)
+                    throws KeeperException {
                 // TODO
-            default:
-                throw new IllegalArgumentException(request.toString());
+                throw new UnsupportedOperationException();       
             }
-            return response;
+        }
+        
+        @Operational(OpCode.MULTI)
+        public static class MultiOperator extends AbstractOperator<IMultiRequest, IMultiResponse> {
+    
+            public MultiOperator(ZNodeDataTrie trie) {
+                super(trie);
+            }
+    
+            @Override
+            public IMultiResponse apply(TxnOperation.Request<IMultiRequest> request)
+                    throws KeeperException {
+                // TODO
+                throw new UnsupportedOperationException();       
+            }
         }
     }
-    
+
+    public static TxnRequestProcessor<Records.Request, Records.Response> operator(ZNodeDataTrie trie) {
+        return ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(Operators.of(trie)));
+    }
+
     public static class ZNodeData {
+
+        public static byte[] emptyBytes() {
+            return new byte[0];
+        }
+        
+        public static ZNodeData empty(Stats.DataStat stat) {
+            return newInstance(stat, emptyBytes());
+        }
         
         public static ZNodeData newInstance(Stats.DataStat stat, byte[] data) {
             return new ZNodeData(stat, data);
         }
-        
+
         protected final Stats.DataStat stat;
         protected byte[] data;
         
@@ -208,7 +351,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
         
         public void setData(byte[] data) {
-            this.data = data;
+            this.data = checkNotNull(data);
         }
         
         public Stats.DataStat getStat() {
@@ -218,10 +361,22 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         public int getDataLength() {
             return data.length;
         }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("dataLength", getDataLength())
+                    .add("stat", getStat())
+                    .toString();
+        }
     }
     
     public static class ZNodeAcl implements Records.AclStatSetter {
-        
+
+        public static ZNodeAcl anyoneAll() {
+            return newInstance(Acls.Definition.ANYONE_ALL.asList());
+        }
+
         public static ZNodeAcl newInstance(List<Acls.Acl> acl) {
             return newInstance(acl, Stats.initialVersion());
         }
@@ -235,7 +390,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
 
         public ZNodeAcl(List<Acls.Acl> acl, int aversion) {
             this.aversion = aversion;
-            this.acl = acl;
+            this.acl = checkNotNull(acl);
         }
 
         public List<Acls.Acl> getAcl() {
@@ -243,7 +398,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
         
         public void setAcl(List<Acls.Acl> acl) {
-            this.acl = acl;
+            this.acl = checkNotNull(acl);
         }
 
         @Override
@@ -265,16 +420,29 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             this.aversion = prev + 1;
             return prev;
         }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("acl", getAcl())
+                    .add("aversion", getAversion())
+                    .toString();
+        }
     }
 
     public static class ZNodeState {
         
-        public static ZNodeState newInstance() {
+        public static ZNodeState defaults() {
+            return defaults(0);
+        }
+
+        public static ZNodeState defaults(long zxid) {
+            long time = Stats.getTime();
             return newInstance(
-                    Stats.CreateStat.of(0, 0, 0),
-                    new ZNodeData(Stats.DataStat.of(0, 0, 0), new byte[0]),
-                    new ZNodeAcl(ImmutableList.<Acls.Acl>of(), 0),
-                    Stats.ChildrenStat.of(0, 0));
+                    Stats.CreateStat.nonEphemeral(zxid, time),
+                    ZNodeData.empty(Stats.DataStat.newInstance(zxid, time)),
+                    ZNodeAcl.anyoneAll(),
+                    Stats.ChildrenStat.newInstance(zxid));
         }
 
         public static ZNodeState newInstance(
@@ -285,41 +453,60 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             return new ZNodeState(createStat, data, acl, childrenStat);
         }
 
-        protected final Stats.CreateStat createStat;
+        protected final Stats.CreateStat create;
         protected final ZNodeData data;
         protected final ZNodeAcl acl;
-        protected final Stats.ChildrenStat childrenStat;
+        protected final Stats.ChildrenStat children;
         
         public ZNodeState(
-                Stats.CreateStat createStat,
+                Stats.CreateStat create,
                 ZNodeData data,
                 ZNodeAcl acl,
-                Stats.ChildrenStat childrenStat) {
-            this.createStat = createStat;
+                Stats.ChildrenStat children) {
+            this.create = create;
             this.data = data;
             this.acl = acl;
-            this.childrenStat = childrenStat;
+            this.children = children;
         }
         
         public ZNodeData getData() {
             return data;
         }
         
-        public Stats.CreateStat getCreateStat() {
-            return createStat;
+        public Stats.CreateStat getCreate() {
+            return create;
         }
         
         public ZNodeAcl getAcl() {
             return acl;
         }
         
-        public Stats.ChildrenStat getChildrenStat() {
-            return childrenStat;
+        public Stats.ChildrenStat getChildren() {
+            return children;
+        }
+        
+        public Stats.CompositeStatPersistedGetter asStatPersisted() {
+            return Stats.CompositeStatPersistedGetter.of(
+                    getCreate(), getData().getStat(), getAcl(), getChildren());
+        }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("create", getCreate())
+                    .add("children", getChildren())
+                    .add("data", getData())
+                    .add("acl", getData())
+                    .toString();
         }
     }
     
     public static class ZNodeStateNode extends ZNodeLabelTrie.AbstractNode<ZNodeStateNode> {
 
+        public static ZNodeStateNode root() {
+            return root(ZNodeState.defaults());
+        }
+        
         public static ZNodeStateNode root(ZNodeState state) {
             return new ZNodeStateNode(Optional.<Pointer<ZNodeStateNode>>absent(), state);
         }
@@ -338,7 +525,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
 
         @Override
         protected ConcurrentSkipListMap<ZNodeLabel.Component, ZNodeStateNode> delegate() {
-            return (ConcurrentSkipListMap<Component, ZNodeStateNode>) children;
+            return (ConcurrentSkipListMap<ZNodeLabel.Component, ZNodeStateNode>) children;
         }
         
         public ZNodeState state() {
@@ -350,15 +537,23 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             return get(label);
         }
         
-        public Stat asStat() {
+        public Stats.ImmutableStat asStat() {
             int dataLength = state.getData().getDataLength();
             int numChildren = children.size();
-            return Stats.ImmutableStat.copyOf(new Stats.CompositeStatHolder(state.getCreateStat(), state.getData().getStat(), state.getAcl(), state.getChildrenStat(), dataLength, numChildren));
+            return Stats.ImmutableStat.copyOf(Stats.CompositeStatGetter.of(state.asStatPersisted(), dataLength, numChildren));
+        }
+
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("path", path())
+                    .add("children", keySet())
+                    .add("state", state())
+                    .toString();
         }
     }
     
     protected ZNodeDataTrie(ZNodeStateNode root) {
         super(root);
     }
-
 }

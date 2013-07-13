@@ -26,9 +26,9 @@ import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 
-public class Materializer<T extends Operation.SessionRequest, V extends Operation.SessionResponse> extends ZNodeViewCache<Materializer.MaterializedNode, T, V> {
+public class Materializer<T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> extends ZNodeViewCache<Materializer.MaterializedNode, T, V> {
 
-    public static <T extends Operation.SessionRequest, V extends Operation.SessionResponse> Materializer<T,V> newInstance(
+    public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> Materializer<T,V> newInstance(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
             Publisher publisher,
@@ -140,9 +140,9 @@ public class Materializer<T extends Operation.SessionRequest, V extends Operatio
         }
     }
     
-    public static class Operator<T extends Operation.SessionRequest, V extends Operation.SessionResponse> implements Reference<Materializer<T,V>> {
+    public static class Operator<T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> implements Reference<Materializer<T,V>> {
         
-        public static class Submitter<C extends Operations.Builder<? extends Operation.Request>, T extends Operation.SessionRequest, V extends Operation.SessionResponse> implements Reference<C> {
+        public static class Submitter<C extends Operations.Builder<? extends Operation.Request>, T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> implements Reference<C> {
             protected final C builder;
             protected final ClientExecutor<Operation.Request, T, V> client;
             

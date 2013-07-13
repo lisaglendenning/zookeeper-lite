@@ -11,21 +11,21 @@ import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.event.SessionStateEvent;
 import edu.uw.zookeeper.util.Publisher;
 
-public class ExpiringSessionManager extends SessionManager {
+public class ExpiringSessionTable extends ConcurrentSessionTable {
 
-    public static ExpiringSessionManager newInstance(Publisher publisher,
+    public static ExpiringSessionTable newInstance(Publisher publisher,
             SessionParametersPolicy policy) {
-        return new ExpiringSessionManager(publisher, policy);
+        return new ExpiringSessionTable(publisher, policy);
     }
 
     protected final ConcurrentMap<Long, Long> touches;
 
-    protected ExpiringSessionManager(Publisher publisher,
+    protected ExpiringSessionTable(Publisher publisher,
             SessionParametersPolicy policy) {
         this(publisher, policy, Maps.<Long, Long> newConcurrentMap());
     }
 
-    protected ExpiringSessionManager(Publisher publisher,
+    protected ExpiringSessionTable(Publisher publisher,
             SessionParametersPolicy policy, ConcurrentMap<Long, Long> touches) {
         super(publisher, policy);
         this.touches = touches;

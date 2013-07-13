@@ -49,39 +49,17 @@ public class ProtocolCodecConnection<I, T extends ProtocolCodec<?, ?>, C extends
         } catch (IllegalArgumentException e) {}
     }
     
-    @SuppressWarnings("unchecked")
     @Subscribe
     public void handleTransitionEvent(Automaton.Transition<?> event) {
-        if (event.type().isAssignableFrom(Connection.State.class)) {
-            handleConnectionStateEvent((Automaton.Transition<Connection.State>)event);
-        } else if (event.type().isAssignableFrom(ProtocolState.class)) {
-            handleProtocolStateEvent((Automaton.Transition<ProtocolState>)event);
-        } 
-    }
-    
-    protected void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
-        switch (event.to()) {
-        case CONNECTION_CLOSED:
+        if (Connection.State.CONNECTION_CLOSED == event.to()) {
             try {
                 delegate().unregister(this);
             } catch (IllegalArgumentException e) {}
-            break;
-        default:
-            break;
-        }
-    }
-    
-    protected void handleProtocolStateEvent(Automaton.Transition<ProtocolState> event) {
-        switch (event.to()) {
-        case DISCONNECTED:
-        case ERROR:
+        } else if (ProtocolState.DISCONNECTED == event.to() || ProtocolState.ERROR == event.to()) {
             try {
                 codec().unregister(this);
             } catch (IllegalArgumentException e) {}
             close();
-            break;
-        default:
-            break;
         }
     }
 

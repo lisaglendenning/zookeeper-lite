@@ -16,25 +16,25 @@ import edu.uw.zookeeper.util.ForwardingEventful;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.TimeValue;
 
-public class SessionManager extends ForwardingEventful implements SessionTable {
+public class ConcurrentSessionTable extends ForwardingEventful implements SessionTable {
 
-    public static SessionManager newInstance(Publisher publisher,
+    public static ConcurrentSessionTable newInstance(Publisher publisher,
             SessionParametersPolicy policy) {
-        return new SessionManager(publisher, policy);
+        return new ConcurrentSessionTable(publisher, policy);
     }
 
-    protected final Logger logger = LoggerFactory
-            .getLogger(SessionManager.class);
+    protected final Logger logger;
     protected final SessionParametersPolicy policy;
     protected final ConcurrentMap<Long, Session> sessions;
 
-    protected SessionManager(Publisher publisher, SessionParametersPolicy policy) {
+    protected ConcurrentSessionTable(Publisher publisher, SessionParametersPolicy policy) {
         this(publisher, policy, Maps.<Long, Session>newConcurrentMap());
     }
 
-    protected SessionManager(Publisher publisher, SessionParametersPolicy policy,
+    protected ConcurrentSessionTable(Publisher publisher, SessionParametersPolicy policy,
             ConcurrentMap<Long, Session> sessions) {
         super(publisher);
+        this.logger = LoggerFactory.getLogger(getClass());
         this.policy = policy;
         this.sessions = sessions;
     }

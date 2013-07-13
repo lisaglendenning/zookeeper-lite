@@ -2,8 +2,6 @@ package edu.uw.zookeeper.protocol.server;
 
 import java.util.Queue;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,45 +10,125 @@ import com.google.common.collect.ForwardingQueue;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import edu.uw.zookeeper.ServerMessageExecutor;
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.SessionRequestExecutor;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.protocol.FourLetterRequest;
+import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.proto.OpCodeXid;
+import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.SessionOperation;
+import edu.uw.zookeeper.protocol.SessionOperationRequest;
 import edu.uw.zookeeper.protocol.ConnectMessage;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractActor;
 import edu.uw.zookeeper.util.Actor;
 import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Eventful;
-import edu.uw.zookeeper.util.FutureQueue;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.Publisher;
+import edu.uw.zookeeper.util.PublisherActor;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.TaskExecutor;
 
 public class ServerConnectionExecutor<C extends Connection<Message.Server>>
-        implements Eventful, Reference<C> {
+        implements Publisher, Reference<C>, FutureCallback<Object> {
 
     public static <C extends Connection<Message.Server>> ServerConnectionExecutor<C> newInstance(
             C connection,
-            ServerMessageExecutor anonymousExecutor,
-            ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
-            Executor executor) {
+            TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
+            TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
+            TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> sessionExecutor) {
         return new ServerConnectionExecutor<C>(
-                connection, anonymousExecutor, sessionExecutors, executor);
+                connection, connection, connection, anonymousExecutor, connectExecutor, sessionExecutor);
     }
     
-    public static class InboundMailbox extends ForwardingQueue<Message.Client> {
+    public static <C extends Connection<Message.Server>> ParameterizedFactory<C, ServerConnectionExecutor<C>> factory(
+            final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
+            final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
+            final TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> sessionExecutor) {
+        return new ParameterizedFactory<C, ServerConnectionExecutor<C>>() {
+            @Override
+            public ServerConnectionExecutor<C> get(C connection) {
+                ServerConnectionExecutor<C> instance = ServerConnectionExecutor.newInstance(
+                        connection, 
+                        anonymousExecutor, 
+                        connectExecutor, 
+                        sessionExecutor);
+                return instance;
+            }
+        };
+    }
 
-        public static InboundMailbox newInstance() {
-            return new InboundMailbox(AbstractActor.<Message.Client>newQueue());
+    protected final Logger logger;
+    protected final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor;
+    protected final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor;
+    protected final TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> sessionExecutor;
+    protected final C connection;
+    protected final InboundActor inbound;
+    protected final OutboundActor outbound;
+    protected volatile Session session;
+    
+    public ServerConnectionExecutor(
+            Publisher publisher,
+            Executor executor,
+            C connection,
+            TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
+            TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
+            TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> sessionExecutor) {
+        this.logger = LoggerFactory.getLogger(getClass());
+        this.connection = connection;
+        this.anonymousExecutor = anonymousExecutor;
+        this.connectExecutor = connectExecutor;
+        this.sessionExecutor = sessionExecutor;
+        this.session = Session.uninitialized();
+        this.outbound = new OutboundActor(publisher, executor);
+        this.inbound = new InboundActor(executor);
+    }
+    
+    @Override
+    public C get() {
+        return connection;
+    }
+    
+    @Override
+    public void onSuccess(Object result) {
+    }
+
+    @Override
+    public void onFailure(Throwable t) {
+        logger.debug("Stopping", t);
+        
+        Actor<?>[] actors = { inbound, outbound };
+        for (Actor<?> actor: actors) {
+            actor.stop();
+        }
+    }
+    
+    @Override
+    public void post(Object event) {
+        outbound.post(event);
+    }
+
+    @Override
+    public void register(Object handler) {
+        outbound.register(handler);
+    }
+
+    @Override
+    public void unregister(Object handler) {
+        outbound.unregister(handler);
+    }
+    
+    protected static class ThrottlableMailbox<T> extends ForwardingQueue<T> {
+    
+        public static <T> ThrottlableMailbox<T> newInstance() {
+            return new ThrottlableMailbox<T>(AbstractActor.<T>newQueue());
         }
         
-        protected final Queue<Message.Client> delegate;
+        protected final Queue<T> delegate;
         protected volatile boolean throttled;
         
-        protected InboundMailbox(Queue<Message.Client> delegate) {
+        public ThrottlableMailbox(Queue<T> delegate) {
             this.delegate = delegate;
             this.throttled = false;
         }
@@ -62,23 +140,19 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         public void throttle(boolean throttled) {
             this.throttled = throttled;
         }
-
+    
         @Override
-        protected Queue<Message.Client> delegate() {
+        public Queue<T> delegate() {
             return delegate;
         }
         
         @Override
-        public Message.Client poll() {
-            Message.Client message =  throttled ? null : super.poll();
-            if (message instanceof ConnectMessage.Request) {
-                throttled = true;
-            }
-            return message;
+        public T poll() {
+            return  throttled ? null : super.poll();
         }
-
+    
         @Override
-        public Message.Client peek() {
+        public T peek() {
             return throttled ? null : super.peek();
         }
         
@@ -88,234 +162,123 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         }
     }
 
-    public class InboundActor extends AbstractActor<Message.Client>
-            implements FutureCallback<Message.Server> {
-
-        protected final Connection<Message.Server> connection;
-        protected final TaskExecutor<Message.Client, Message.Server> anonymousExecutor;
-        protected final ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors;
-        protected volatile SessionRequestExecutor sessionExecutor;
-
-        protected InboundActor(
-                Connection<Message.Server> connection,
-                ServerMessageExecutor anonymousExecutor,
-                ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
-                Executor executor) {
-            this(connection, anonymousExecutor, sessionExecutors, executor, 
-                    InboundMailbox.newInstance(),
+    protected class InboundActor extends AbstractActor<Message.Client> 
+            implements FutureCallback<Object> {
+    
+        public InboundActor(Executor executor) {
+            super(executor, 
+                    ThrottlableMailbox.<Message.Client>newInstance(), 
                     newState());
-        }
-        
-        protected InboundActor(
-                Connection<Message.Server> connection,
-                ServerMessageExecutor anonymousExecutor,
-                ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
-                Executor executor, 
-                InboundMailbox mailbox,
-                AtomicReference<Actor.State> state) {
-            super(executor, mailbox, state);
-            this.connection = connection;
-            this.anonymousExecutor = anonymousExecutor;
-            this.sessionExecutors = sessionExecutors;
-            this.sessionExecutor = null;
-            
+    
             connection.register(this);
         }
-
+        
         public void throttle(boolean throttled) {
-            ((InboundMailbox) mailbox).throttle(throttled);
+            ((ThrottlableMailbox<?>) mailbox).throttle(throttled);
             if (! throttled) {
                 schedule();
             }
         }
-
-        @Override
-        public synchronized void onSuccess(Message.Server result) {
-            if (result instanceof ConnectMessage.Response.Valid) {
-                Long sessionId = ((ConnectMessage.Response.Valid)result).getSessionId();
-                sessionExecutor = sessionExecutors.get(sessionId);
-                sessionExecutor.register(submitted);
-                throttle(false);
-            } else {
-                // if the response is Invalid, we want the response
-                // to be flushed to the client before closing the connection
-            }
-        }
-
-        @Override
-        public void onFailure(Throwable t) {
-            ServerConnectionExecutor.this.onFailure(t);
-            stop();
-        }
-
+    
         @Subscribe
-        public void handleStateEvent(Automaton.Transition<?> event) {
+        public void handleTransitionEvent(Automaton.Transition<?> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
                 onFailure(new KeeperException.ConnectionLossException());
             }
         }
 
+        @Override
+        public void onSuccess(Object result) {  
+            if (result instanceof FourLetterResponse) {
+                outbound.send(result);
+            } else if (result instanceof ConnectMessage.Response) {
+                Session session = ((ConnectMessage.Response) result).toSession();
+                if (session.initialized()) {
+                    ServerConnectionExecutor.this.session = session;
+                    throttle(false);
+                } else {
+                    // if the response is Invalid, we want the response
+                    // to be flushed to the client before closing the connection
+                }
+            }
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+            ServerConnectionExecutor.this.onFailure(t);
+        }
+    
         @Subscribe
         @Override
         public void send(Message.Client message) {
             super.send(message);
         }
-
+    
         @Override
-        protected boolean apply(Message.Client input) throws Exception {
+        protected boolean apply(Message.Client input) {
             // ordering constraint: requests are submitted in the same
             // order that they are received
-            ListenableFuture<? extends Message.Server> future;
-            try {
-                if (sessionExecutor != null) {
-                    future = sessionExecutor.submit((Message.ClientRequest) input);
-                } else {
-                    future = anonymousExecutor.submit(input);
-                }
-                submitted.send(future);
-            } catch (Throwable t) {
-                onFailure(t);
-                return false;
-            }
-            if (input instanceof ConnectMessage.Request) {
-                Futures.addCallback(future, this);
+            if (input instanceof FourLetterRequest) {
+                Futures.addCallback(anonymousExecutor.submit((FourLetterRequest) input), this);
+            } else if (input instanceof ConnectMessage.Request) {
+                throttle(true);
+                Futures.addCallback(connectExecutor.submit(Pair.create((ConnectMessage.Request) input, (Publisher) outbound)), this);
+            } else {
+                @SuppressWarnings("unchecked")
+                Message.ClientRequest<Records.Request> request = (Message.ClientRequest<Records.Request>) input;
+                Futures.addCallback(sessionExecutor.submit(SessionOperationRequest.of(session.id(), request, request)), this);
             }
             return true;
         }
-
+    
         @Override
         protected void doStop() {
-            super.doStop();
-            
             try {
                 connection.unregister(this);
             } catch (IllegalArgumentException e) {}
-            if (sessionExecutor != null) {
-                try {
-                    sessionExecutor.unregister(submitted);
-                } catch (IllegalArgumentException e) {}
-            }
+            
+            super.doStop();
         }
     }
 
-    public class SubmittedActor extends AbstractActor<ListenableFuture<? extends Message.Server>>
-            implements FutureCallback<Message.Server> {
-
-        protected SubmittedActor(
-                Executor executor) {
-            super(executor, FutureQueue.<ListenableFuture<? extends Message.Server>>create(), newState());
-        }
-
-        @Override
-        public void send(ListenableFuture<? extends Message.Server> message) {
-            super.send(message);
-            Futures.addCallback(message, this);
-        }
-        
-        @Override
-        public void onSuccess(Message.Server result) {
-            schedule();
-        }
+    protected class OutboundActor extends PublisherActor 
+        implements FutureCallback<Object> {
     
+        public OutboundActor(Publisher publisher, Executor executor) {
+            super(publisher, executor, AbstractActor.<Object>newQueue(), AbstractActor.newState());
+        }
+
+        @Override
+        public void onSuccess(Object result) {
+        }
+
         @Override
         public void onFailure(Throwable t) {
             ServerConnectionExecutor.this.onFailure(t);
-            stop();
-        }
-        
-        @Subscribe
-        public void handleSessionEvent(Session.State event) {
-            switch (event) {
-            case SESSION_EXPIRED:
-                // TODO: try to flush messages first?
-                onFailure(new KeeperException.SessionExpiredException());
-                break;
-            default:
-                break;
-            }
-        }
-        
-        @Subscribe
-        public void handleSessionReply(Message.ServerResponse message) {
-            if (OpCodeXid.NOTIFICATION.xid() == message.xid()) {
-                // we need to flush completed messages to outbound
-                // before queueing this message
-                // to maintain the expected ordering
-                try {
-                    flush(message);
-                } catch (Throwable t) {
-                    onFailure(t);
-                }
-            }
-        }
-        
-        protected synchronized void flush(Message.Server message) throws Exception {
-            doRun();
-            outbound.send(message);
         }
         
         @Override
-        protected synchronized void doRun() throws Exception {
-            super.doRun();
-        }
-        
-        @Override
-        protected boolean apply(ListenableFuture<? extends Message.Server> input)
-                throws Exception {         
-            // ordering constraint: replies are queued for outbound in the order
-            // that the requests were submitted       
-            try {
-                Message.Server reply = input.get();
-                outbound.send(reply);
-                return true;
-            } catch (Throwable t) {
-                onFailure(t);
-                return false;
-            }
-        }
-    }
-    
-    public class OutboundActor extends AbstractActor<Message.Server> 
-            implements FutureCallback<Message.Server> {
-
-        protected final Connection<Message.Server> connection;
-
-        protected OutboundActor(
-                Connection<Message.Server> connection,
-                Executor executor) {
-            super(executor, AbstractActor.<Message.Server>newQueue(), AbstractActor.newState());
-            this.connection = connection;
-        }
-
-        @Override
-        public void onSuccess(Message.Server result) {
-        }
-    
-        @Override
-        public void onFailure(Throwable t) {
-            ServerConnectionExecutor.this.onFailure(t);
-            stop();
-        }
-
-        @Override
-        protected boolean apply(Message.Server input) {
+        protected boolean apply(Object input) {
             // ordering constraint: messages are written in the order
             // that they were enqueued in outbound
-            try {
-                ListenableFuture<Message.Server> future = connection.write(input);
-                Futures.addCallback(future, this);
-                return true;
-            } catch (Throwable t) {
-                onFailure(t);
-                return false;
+            if (input instanceof Message.Server) {
+                try {
+                    Futures.addCallback(connection.write((Message.Server) input), this);
+                } catch (Throwable t) {
+                    onFailure(t);
+                    return false;
+                }
+            } else if (Session.State.SESSION_EXPIRED == input) {
+                onFailure(new KeeperException.SessionExpiredException());
             }
+            
+            return super.apply(input);
         }
-
+    
         @Override
         protected void doStop() {
             super.doStop();
             
-            // TODO: flush?
             switch (connection.state()) {
             case CONNECTION_OPENING:
             case CONNECTION_OPENED:
@@ -328,53 +291,5 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
                 break;
             }
         }
-    }
-
-    private final Logger logger;
-    private final InboundActor inbound;
-    private final SubmittedActor submitted;
-    private final OutboundActor outbound;
-    private final C connection;
-    private final AtomicReference<Actor.State> state;
-    
-    private ServerConnectionExecutor(
-            C connection,
-            ServerMessageExecutor anonymousExecutor,
-            ParameterizedFactory<Long, ? extends SessionRequestExecutor> sessionExecutors,
-            Executor executor) {
-        this.logger = LoggerFactory.getLogger(getClass());
-        this.connection = connection;
-        this.inbound = new InboundActor(connection, anonymousExecutor, sessionExecutors, executor);
-        this.submitted = new SubmittedActor(executor);
-        this.outbound = new OutboundActor(connection, executor);
-        this.state = AbstractActor.newState();
-    }
-    
-    @Override
-    public C get() {
-        return connection;
-    }
-
-    public void onFailure(Throwable t) {
-        if (state.getAndSet(Actor.State.TERMINATED) == Actor.State.TERMINATED) {
-            return;
-        }
-
-        logger.debug("Stopping", t);
-        
-        Actor<?>[] actors = { inbound, submitted, outbound };
-        for (Actor<?> actor: actors) {
-            actor.stop();
-        }
-    }
-
-    @Override
-    public void register(Object handler) {
-        get().register(handler);
-    }
-
-    @Override
-    public void unregister(Object handler) {
-        get().unregister(handler);
     }
 }

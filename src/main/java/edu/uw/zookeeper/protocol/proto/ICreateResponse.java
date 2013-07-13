@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.CreateResponse;
 
-@Operational(opcode=OpCode.CREATE)
+@Operational(value=OpCode.CREATE)
 public class ICreateResponse extends ICodedRecord<CreateResponse> implements Records.Response, Records.MultiOpResponse, Records.PathGetter {
 
     public ICreateResponse() {

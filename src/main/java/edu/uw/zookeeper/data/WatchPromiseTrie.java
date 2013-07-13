@@ -56,7 +56,7 @@ public class WatchPromiseTrie implements Reference<ZNodeLabelTrie<WatchPromiseTr
 
     @Subscribe
     public void handleEvent(WatchEvent event) {
-        WatchPromiseNode node = get().get(event.path());
+        WatchPromiseNode node = get().get(event.getPath());
         if (node != null) {
             List<Promise<WatchEvent>> watches = node.notify(event);
             if (watches.isEmpty()) {
@@ -102,7 +102,7 @@ public class WatchPromiseTrie implements Reference<ZNodeLabelTrie<WatchPromiseTr
             List<Promise<WatchEvent>> watches = Lists.newLinkedList();
             synchronized (registry) {
                 for (EnumSet<Watcher.Event.EventType> types: registry.keySet()) {
-                    if (types.contains(event.type())) {
+                    if (types.contains(event.getType())) {
                         Promise<WatchEvent> promise = registry.remove(types);
                         if (promise != null) {
                             watches.add(promise);

@@ -13,7 +13,7 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-@Operational(opcode=OpCode.MULTI)
+@Operational(value=OpCode.MULTI)
 public class IMultiResponse extends ICodedRecord<EmptyRecord> implements Records.Response, Iterable<Records.MultiOpResponse> {
 
     private final List<Records.MultiOpResponse> results;
@@ -46,7 +46,7 @@ public class IMultiResponse extends ICodedRecord<EmptyRecord> implements Records
         for (Records.MultiOpResponse result : this) {
             IMultiHeader header = (result instanceof IErrorResponse) 
                     ? IMultiHeader.ofError(((IErrorResponse)result).getErr())
-                    : IMultiHeader.ofResponse(result.opcode());
+                    : IMultiHeader.ofResponse(result.getOpcode());
             header.serialize(archive, tag);
             result.serialize(archive, tag);
         }

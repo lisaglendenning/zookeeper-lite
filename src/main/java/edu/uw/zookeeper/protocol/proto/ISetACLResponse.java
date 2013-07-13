@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.SetACLResponse;
 
-@Operational(opcode=OpCode.SET_ACL)
+@Operational(value=OpCode.SET_ACL)
 public class ISetACLResponse extends ICodedRecord<SetACLResponse> implements Records.Response, Records.StatGetter {
 
     public ISetACLResponse() {

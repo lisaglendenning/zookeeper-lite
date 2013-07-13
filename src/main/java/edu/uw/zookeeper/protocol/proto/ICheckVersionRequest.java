@@ -2,7 +2,7 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.CheckVersionRequest;
 
-@Operational(opcode=OpCode.CHECK)
+@Operational(value=OpCode.CHECK)
 public class ICheckVersionRequest extends ICodedRecord<CheckVersionRequest> implements Records.Request, Records.MultiOpRequest, Records.PathGetter, Records.VersionGetter {
 
     public ICheckVersionRequest() {

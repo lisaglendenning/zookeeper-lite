@@ -1,7 +1,7 @@
 package edu.uw.zookeeper.protocol.proto;
 
-@Operational(opcode=OpCode.AUTH)
-@OperationalXid(xid=OpCodeXid.AUTH)
+@Operational(value=OpCode.AUTH)
+@OperationalXid(value=OpCodeXid.AUTH)
 @Shared
 public class IAuthResponse extends IOpCodeXidRecord<EmptyRecord> implements Records.Response {
     public IAuthResponse() {

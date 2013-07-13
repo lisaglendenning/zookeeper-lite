@@ -10,7 +10,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.client.AssignXidProcessor;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
@@ -27,8 +26,8 @@ import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ClientConnectionExecutor<C extends Connection<? super Message.ClientSession>>
-    extends AbstractActor<PromiseTask<Operation.Request, Pair<Operation.SessionRequest, Operation.SessionResponse>>>
-    implements ClientExecutor<Operation.Request, Operation.SessionRequest, Operation.SessionResponse>,
+    extends AbstractActor<PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>>>
+    implements ClientExecutor<Operation.Request, Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>,
         Publisher,
         Reference<C> {
 
@@ -58,18 +57,18 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     protected final ConnectTask connectTask;
     protected final AssignXidProcessor xids;
     protected final BlockingQueue<PendingTask> pending;
-    protected final BlockingQueue<Message.ServerResponse> received;
+    protected final BlockingQueue<Message.ServerResponse<?>> received;
     
     protected ClientConnectionExecutor(
             ConnectMessage.Request request,
             C connection,
             AssignXidProcessor xids,
             Executor executor) {
-        super(executor, AbstractActor.<PromiseTask<Operation.Request, Pair<Operation.SessionRequest, Operation.SessionResponse>>>newQueue(), AbstractActor.newState());
+        super(executor, AbstractActor.<PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>>>newQueue(), AbstractActor.newState());
         this.connection = connection;
         this.xids = xids;
         this.pending = new LinkedBlockingQueue<PendingTask>();
-        this.received = new LinkedBlockingQueue<Message.ServerResponse>();
+        this.received = new LinkedBlockingQueue<Message.ServerResponse<?>>();
         this.connectTask = ConnectTask.create(connection, request);
                 
         connection.register(this);
@@ -93,14 +92,15 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
     
     @Override
-    public ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> submit(Operation.Request request) {
-        Promise<Pair<Operation.SessionRequest, Operation.SessionResponse>> promise = SettableFuturePromise.create();
+    public ListenableFuture<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> submit(Operation.Request request) {
+        Promise<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> promise = SettableFuturePromise.create();
         return submit(request, promise);
     }
 
     @Override
-    public ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> submit(Operation.Request request, Promise<Pair<Operation.SessionRequest, Operation.SessionResponse>> promise) {
-        PromiseTask<Operation.Request, Pair<Operation.SessionRequest, Operation.SessionResponse>> task = PromiseTask.of(request, promise);
+    public ListenableFuture<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> submit(
+            Operation.Request request, Promise<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> promise) {
+        PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> task = PromiseTask.of(request, promise);
         send(task);
         return task;
     }
@@ -128,7 +128,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
 
     @Subscribe
-    public void handleResponse(Message.ServerResponse message) throws InterruptedException {
+    public void handleResponse(Message.ServerResponse<?> message) throws InterruptedException {
         if ((state.get() != State.TERMINATED) && !pending.isEmpty()) {
             received.put(message);
             schedule();
@@ -156,7 +156,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         PendingTask task = null;
         while (((task = pending.peek()) != null) 
                 || !received.isEmpty()) {
-            Message.ServerResponse response = null;
+            Message.ServerResponse<?> response = null;
             while (((task == null) || !task.isDone()) 
                     && ((response = received.poll()) != null)) {
                 applyReceived(task, response);
@@ -171,19 +171,19 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         }
     }
     
-    protected void applyReceived(PendingTask task, Message.ServerResponse response) {
-        if ((task != null) && (task.task().xid() == response.xid())) {
-            Pair<Operation.SessionRequest, Operation.SessionResponse> result = 
-                    Pair.<Operation.SessionRequest, Operation.SessionResponse>create(task.task(), response);
+    protected void applyReceived(PendingTask task, Message.ServerResponse<?> response) {
+        if ((task != null) && (task.task().getXid() == response.getXid())) {
+            Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>> result = 
+                    Pair.<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>create(task.task(), response);
             task.set(result);
         }
     }
 
     @Override
-    protected boolean apply(PromiseTask<Operation.Request, Pair<Operation.SessionRequest, Operation.SessionResponse>> input) {
+    protected boolean apply(PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> input) {
         PendingTask task;
         try {
-            Message.ClientRequest message = (Message.ClientRequest) xids.apply(input.task());
+            Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
             task = new PendingTask(message, input);
         } catch (Throwable t) {
             input.setException(t);
@@ -193,7 +193,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         try {
             // task needs to be in the queue before calling write
             pending.add(task);
-            ListenableFuture<Message.ClientRequest> future = connection.write(task.task());
+            ListenableFuture<?> future = connection.write(task.task());
             Futures.addCallback(future, task);
         } catch (Throwable t) {
             task.setException(t);
@@ -232,20 +232,20 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
 
     protected static class PendingTask
-        extends PromiseTask<Message.ClientRequest, Pair<Operation.SessionRequest, Operation.SessionResponse>>
-        implements FutureCallback<Message.ClientRequest> {
+        extends PromiseTask<Message.ClientRequest<?>, Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>>
+        implements FutureCallback<Object> {
     
         public PendingTask(
-                Message.ClientRequest task,
-                Promise<Pair<Operation.SessionRequest, Operation.SessionResponse>> delegate) {
+                Message.ClientRequest<?> task,
+                Promise<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> delegate) {
             super(task, delegate);
         }
     
         @Override
-        public void onSuccess(Message.ClientRequest result) {
+        public void onSuccess(Object result) {
             // mark pings as done on write because ZooKeeper doesn't care about their ordering
             assert (task() == result);
-            if (task().xid() == OpCodeXid.PING.xid()) {
+            if (task().getXid() == OpCodeXid.PING.getXid()) {
                 set(null);
             }
         }
@@ -256,7 +256,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         }
 
         @Override
-        public Promise<Pair<Operation.SessionRequest, Operation.SessionResponse>> delegate() {
+        public Promise<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> delegate() {
             return delegate;
         }
     } 

@@ -73,13 +73,13 @@ public class PublisherActor extends AbstractActor<Object> implements Publisher, 
         Object next = null;
         while ((next = mailbox.poll()) != null) {
             try {
-                get().post(next);
+                apply(next);
             } catch (Exception e) {}
         }
     }
     
     protected synchronized void flush(Object input) throws Exception {
         doRun();
-        get().post(input);
+        apply(input);
     }
 }

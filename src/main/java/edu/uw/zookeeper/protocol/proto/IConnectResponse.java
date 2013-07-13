@@ -2,7 +2,7 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.ConnectResponse;
 
-@Operational(opcode=OpCode.CREATE_SESSION)
+@Operational(value=OpCode.CREATE_SESSION)
 public class IConnectResponse extends ICodedRecord<ConnectResponse> implements Records.Response, Records.ConnectGetter {
 
     public IConnectResponse() {

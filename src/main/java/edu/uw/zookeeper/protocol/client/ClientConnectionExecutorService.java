@@ -1,13 +1,12 @@
-package edu.uw.zookeeper.client;
+package edu.uw.zookeeper.protocol.client;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
-import edu.uw.zookeeper.protocol.client.DisconnectTask;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Pair;
@@ -19,7 +18,7 @@ import edu.uw.zookeeper.util.Reference;
  * Wraps a lazily-instantiated ClientConnectionExecutor in a Service.
  */
 public class ClientConnectionExecutorService<C extends Connection<? super Operation.Request>> extends AbstractIdleService 
-        implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Operation.SessionRequest, Operation.SessionResponse> {
+        implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>> {
 
     public static <C extends Connection<? super Operation.Request>> ClientConnectionExecutorService<C> newInstance(
             Factory<ClientConnectionExecutor<C>> factory) {
@@ -76,12 +75,12 @@ public class ClientConnectionExecutorService<C extends Connection<? super Operat
     }
 
     @Override
-    public ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> submit(Operation.Request request) {
+    public ListenableFuture<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> submit(Operation.Request request) {
         return get().submit(request);
     }
 
     @Override
-    public ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> submit(Operation.Request request, Promise<Pair<Operation.SessionRequest, Operation.SessionResponse>> promise) {
+    public ListenableFuture<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> submit(Operation.Request request, Promise<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> promise) {
         return get().submit(request, promise);
     }
 

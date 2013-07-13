@@ -4,9 +4,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.common.eventbus.Subscribe;
 
-import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Reference;
@@ -27,17 +25,8 @@ public class ZxidTracker implements Reference<Long>  {
         }
 
         @Subscribe
-        public void handleTransition(Automaton.Transition<?> event) {
-            if (Connection.State.CONNECTION_CLOSED == event.to()) {
-                try {
-                    second().unregister(this);
-                } catch (IllegalArgumentException e) {}
-            }
-        }
-        
-        @Subscribe
-        public void handleSessionReply(Operation.SessionResponse message) {
-            first().update(message.zxid());
+        public void handleSessionReply(Operation.ProtocolResponse<?> message) {
+            first().update(message.getZxid());
         }
     }
     

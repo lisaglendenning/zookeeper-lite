@@ -30,8 +30,8 @@ import edu.uw.zookeeper.data.ZNodeLabelTrie;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.SimplePointer;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.SessionResponseMessage;
-import edu.uw.zookeeper.protocol.SessionRequestMessage;
+import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
+import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 import edu.uw.zookeeper.protocol.proto.IGetACLResponse;
 import edu.uw.zookeeper.protocol.proto.IGetDataResponse;
@@ -53,20 +53,20 @@ import edu.uw.zookeeper.util.SettableFuturePromise;
 /**
  * Only caches the results of operations submitted through this wrapper.
  */
-public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.SessionRequest, V extends Operation.SessionResponse> 
+public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> 
         implements ClientExecutor<Operation.Request, T, V> {
 
-    public static <T extends Operation.SessionRequest, V extends Operation.SessionResponse> ZNodeViewCache<SimpleZNodeCache, T, V> newInstance(
+    public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<SimpleZNodeCache, T, V> newInstance(
             Publisher publisher, ClientExecutor<Operation.Request, T, V> client) {
         return newInstance(publisher, client, SimpleZNodeCache.root());
     }
     
-    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.SessionRequest, V extends Operation.SessionResponse> ZNodeViewCache<E,T,V> newInstance(
+    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<E,T,V> newInstance(
             Publisher publisher, ClientExecutor<Operation.Request, T, V> client, E root) {
         return newInstance(publisher, client, ZNodeLabelTrie.of(root));
     }
     
-    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.SessionRequest, V extends Operation.SessionResponse> ZNodeViewCache<E,T,V> newInstance(
+    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<E,T,V> newInstance(
             Publisher publisher, ClientExecutor<Operation.Request, T, V> client, ZNodeLabelTrie<E> trie) {
         return new ZNodeViewCache<E,T,V>(publisher, client, trie);
     }
@@ -401,16 +401,16 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T ext
         return trie().get(path);
     }
     
-    public void handleResult(Pair<? extends Operation.SessionRequest, ? extends Operation.SessionResponse> result) {
-        Long zxid = result.second().zxid();
+    public void handleResult(Pair<? extends Operation.ProtocolRequest<?>, ? extends Operation.ProtocolResponse<?>> result) {
+        Long zxid = result.second().getZxid();
         lastZxid.update(zxid);
-        Records.Response response = result.second().response();
-        Records.Request request = result.first().request();
+        Records.Response response = result.second().getRecord();
+        Records.Request request = result.first().getRecord();
         
         if (response instanceof Operation.Error 
-                && (KeeperException.Code.NONODE == ((Operation.Error)response).error())) {
+                && (KeeperException.Code.NONODE == ((Operation.Error)response).getError())) {
             ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
-            switch (request.opcode()) {
+            switch (request.getOpcode()) {
             case CREATE:
             case CREATE2:
                 path = (ZNodeLabel.Path) path.head();
@@ -431,7 +431,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T ext
             }
         }
         
-        switch (request.opcode()) {
+        switch (request.getOpcode()) {
         case CHECK:
             // TODO
             break;
@@ -446,7 +446,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T ext
                     StampedReference<Records.StatGetter> stampedResponse = StampedReference.of(zxid, (Records.StatGetter) response);
                     update(node, stampedResponse);
                 }
-            } else if (KeeperException.Code.NODEEXISTS == ((Operation.Error)response).error()) {
+            } else if (KeeperException.Code.NODEEXISTS == ((Operation.Error)response).getError()) {
                 add(ZNodeLabel.Path.of(((Records.PathGetter) request).getPath()), zxid);
             }
             break;
@@ -454,7 +454,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T ext
         case DELETE:
         {
             if (! (response instanceof Operation.Error) 
-                    || (KeeperException.Code.NONODE == ((Operation.Error)response).error())) {
+                    || (KeeperException.Code.NONODE == ((Operation.Error)response).getError())) {
                 remove(ZNodeLabel.Path.of(((Records.PathGetter) request).getPath()), zxid);
                 break;
             }
@@ -517,16 +517,16 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T ext
         case MULTI:
         {
             if (! (response instanceof Operation.Error)) {
-                int xid = result.first().xid();
+                int xid = result.first().getXid();
                 IMultiRequest requestRecord = (IMultiRequest) request;
                 IMultiResponse responseRecord = (IMultiResponse) response;
                 Iterator<MultiOpRequest> requests = requestRecord.iterator();
                 Iterator<MultiOpResponse> responses = responseRecord.iterator();
                 while (requests.hasNext()) {
                     checkArgument(responses.hasNext());
-                    Pair<SessionRequestMessage, SessionResponseMessage> nestedResult = Pair.create(
-                            SessionRequestMessage.newInstance(xid, requests.next()), 
-                            SessionResponseMessage.newInstance(xid, zxid, responses.next()));
+                    Pair<ProtocolRequestMessage<MultiOpRequest>, ProtocolResponseMessage<MultiOpResponse>> nestedResult = Pair.create(
+                            ProtocolRequestMessage.of(xid, requests.next()), 
+                            ProtocolResponseMessage.of(xid, zxid, responses.next()));
                     handleResult(nestedResult);
                 }
             } else {

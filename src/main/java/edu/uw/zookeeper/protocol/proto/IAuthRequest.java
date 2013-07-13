@@ -2,8 +2,8 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.AuthPacket;
 
-@Operational(opcode=OpCode.AUTH)
-@OperationalXid(xid=OpCodeXid.AUTH)
+@Operational(value=OpCode.AUTH)
+@OperationalXid(value=OpCodeXid.AUTH)
 public class IAuthRequest extends IOpCodeXidRecord<AuthPacket> implements Records.Request {
 
     public IAuthRequest() {

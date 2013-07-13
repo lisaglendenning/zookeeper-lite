@@ -5,7 +5,7 @@ import java.util.List;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.proto.SetACLRequest;
 
-@Operational(opcode=OpCode.SET_ACL)
+@Operational(value=OpCode.SET_ACL)
 public class ISetACLRequest extends ICodedRecord<SetACLRequest> implements Records.Request, Records.PathGetter, Records.AclGetter, Records.VersionGetter {
 
     public ISetACLRequest() {

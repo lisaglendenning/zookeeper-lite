@@ -3,15 +3,15 @@ package edu.uw.zookeeper.data;
 import org.apache.jute.InputArchive;
 import org.apache.zookeeper.data.Stat;
 
+import com.google.common.base.Objects;
+
 import edu.uw.zookeeper.protocol.proto.IStat;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.proto.Records.AclStatGetter;
-import edu.uw.zookeeper.protocol.proto.Records.ChildrenStatSetter;
+import edu.uw.zookeeper.protocol.proto.Records.ChildrenStatGetter;
 import edu.uw.zookeeper.protocol.proto.Records.CreateStatGetter;
 import edu.uw.zookeeper.protocol.proto.Records.DataStatGetter;
-import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Singleton;
-
 
 
 public class Stats {
@@ -33,8 +33,8 @@ public class Stats {
     public static Stat asStat(Records.ZNodeStatGetter source) {
         if (source instanceof IStat) {
             return ((IStat)source).get();
-        }
-        return new Stat(
+        } else {
+            return new Stat(
                 source.getCzxid(),
                 source.getMzxid(),
                 source.getCtime(),
@@ -46,6 +46,7 @@ public class Stats {
                 source.getDataLength(),
                 source.getNumChildren(),
                 source.getPzxid());
+        }
     }
     
     public static class CreateStat implements Records.CreateStatGetter {
@@ -55,7 +56,11 @@ public class Stats {
         }
 
         public static CreateStat nonEphemeral(long czxid) {
-            return of(czxid, Stats.getTime(), ephemeralOwnerNone());
+            return nonEphemeral(czxid, Stats.getTime());
+        }
+
+        public static CreateStat nonEphemeral(long czxid, long time) {
+            return of(czxid, time, ephemeralOwnerNone());
         }
 
         public static CreateStat ephemeral(long czxid, long ephemeralOwner) {
@@ -93,6 +98,15 @@ public class Stats {
         
         public boolean isEphemeral() {
             return ephemeralOwnerNone() != getEphemeralOwner();
+        }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("czxid", getCzxid())
+                    .add("ctime", getCtime())
+                    .add("ephemeral", getEphemeralOwner())
+                    .toString();
         }
     }
     
@@ -162,6 +176,15 @@ public class Stats {
             this.mzxid = mzxid;
             return prev;
         }
+
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("mzxid", getMzxid())
+                    .add("mtime", getMtime())
+                    .add("version", getVersion())
+                    .toString();
+        }
     }
     
     public static class ChildrenStat implements Records.ChildrenStatSetter {
@@ -174,56 +197,75 @@ public class Stats {
             return new ChildrenStat(pzxid, cversion);
         }
         
-        private Pair<Integer, Long> version;
+        private long pzxid;
+        private int cversion;
         
         public ChildrenStat(long pzxid, int cversion) {
             super();
-            this.version = Pair.create(cversion, pzxid);
+            this.pzxid = pzxid;
+            this.cversion = cversion;
         }
 
         @Override
         public int getCversion() {
-            return version.first();
+            return cversion;
         }
 
         @Override
         public long getPzxid() {
-            return version.second();
+            return pzxid;
         }
 
         @Override
         public void setCversion(int cversion) {
-            this.version = Pair.create(cversion, version.second());
+            this.cversion = cversion;
         }
 
         @Override
         public void setPzxid(long pzxid) {
-            this.version = Pair.create(version.first(), pzxid);
-        }
-
-        public Pair<Integer, Long> getAndIncrement(long pzxid) {
-            return getAndSet(getCversion() + 1, pzxid);
+            this.pzxid = pzxid;
         }
         
-        public Pair<Integer, Long> getAndSet(int cversion, long pzxid) {
-            Pair<Integer, Long> prev = this.version;
-            this.version = Pair.create(cversion, pzxid);
+        public boolean compareVersion(int cversion) {
+            return Stats.compareVersion(cversion, getCversion());
+        }
+
+        public int getAndIncrement(long pzxid) {
+            int prev = this.cversion;
+            this.cversion = prev + 1;
+            this.pzxid = pzxid;
             return prev;
+        }
+
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("pzxid", getPzxid())
+                    .add("cversion", getCversion())
+                    .toString();
         }
     }
     
-    public static class CompositeStatPersistedHolder implements Records.StatPersistedGetter {
+    public static class CompositeStatPersistedGetter implements Records.StatPersistedGetter {
 
-        private final Records.CreateStatGetter createStat;
-        private final Records.DataStatGetter dataStat;
-        private final Records.AclStatGetter aclStat;
-        private final Records.ChildrenStatSetter childrenStat;
-        
-        public CompositeStatPersistedHolder(
+        public static CompositeStatPersistedGetter of(
                 Records.CreateStatGetter createStat, 
                 Records.DataStatGetter dataStat, 
                 Records.AclStatGetter aclStat,
-                Records.ChildrenStatSetter childrenStat) {
+                Records.ChildrenStatGetter childrenStat) {
+            return new CompositeStatPersistedGetter(createStat, dataStat, aclStat, childrenStat);
+        }
+        
+        protected final Records.CreateStatGetter createStat;
+        protected final Records.DataStatGetter dataStat;
+        protected final Records.AclStatGetter aclStat;
+        protected final Records.ChildrenStatGetter childrenStat;
+        
+        public CompositeStatPersistedGetter(
+                Records.CreateStatGetter createStat, 
+                Records.DataStatGetter dataStat, 
+                Records.AclStatGetter aclStat,
+                Records.ChildrenStatGetter childrenStat) {
             this.createStat = createStat;
             this.dataStat = dataStat;
             this.aclStat = aclStat;
@@ -274,17 +316,43 @@ public class Stats {
         public long getPzxid() {
             return childrenStat.getPzxid();
         }
+
+        @Override
+        public String toString() {
+            return Records.toBeanString(this);
+        }
     }
     
 
-    public static class CompositeStatHolder extends CompositeStatPersistedHolder implements Records.ZNodeStatGetter {
+    public static class CompositeStatGetter extends CompositeStatPersistedGetter implements Records.ZNodeStatGetter {
 
-        private final int dataLength;
-        private final int numChildren;
+        public static CompositeStatGetter of(
+                Records.StatPersistedGetter persisted,
+                int dataLength,
+                int numChildren) {
+            return of(
+                    persisted, persisted, persisted, persisted, dataLength, numChildren);
+        }
         
-        public CompositeStatHolder(CreateStatGetter createStat,
-                DataStatGetter dataStat, AclStatGetter aclStat,
-                ChildrenStatSetter childrenStat,
+        public static CompositeStatGetter of(
+                Records.CreateStatGetter createStat, 
+                Records.DataStatGetter dataStat, 
+                Records.AclStatGetter aclStat,
+                Records.ChildrenStatGetter childrenStat,
+                int dataLength,
+                int numChildren) {
+            return new CompositeStatGetter(
+                    createStat, dataStat, aclStat, childrenStat, dataLength, numChildren);
+        }
+        
+        protected final int dataLength;
+        protected final int numChildren;
+        
+        public CompositeStatGetter(
+                CreateStatGetter createStat,
+                DataStatGetter dataStat, 
+                AclStatGetter aclStat,
+                ChildrenStatGetter childrenStat,
                 int dataLength,
                 int numChildren) {
             super(createStat, dataStat, aclStat, childrenStat);
@@ -301,13 +369,17 @@ public class Stats {
         public int getNumChildren() {
             return numChildren;
         }
+
+        @Override
+        public String toString() {
+            return Records.toBeanString(this);
+        }
     }
-    
     
     public static class ImmutableStat extends Stat implements Records.ZNodeStatGetter {
         
         public static ImmutableStat uninitialized() {
-            return Holder.INSTANCE.get();
+            return Holder.ZEROS.get();
         }
         
         public static ImmutableStat copyOf(Records.ZNodeStatGetter stat) {
@@ -326,7 +398,7 @@ public class Stats {
         }
         
         public static enum Holder implements Singleton<ImmutableStat> {
-            INSTANCE(new ImmutableStat());
+            ZEROS(new ImmutableStat());
             
             private final ImmutableStat instance;
             

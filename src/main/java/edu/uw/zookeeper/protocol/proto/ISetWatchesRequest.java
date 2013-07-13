@@ -4,8 +4,8 @@ import java.util.List;
 
 import org.apache.zookeeper.proto.SetWatches;
 
-@Operational(opcode=OpCode.SET_WATCHES)
-@OperationalXid(xid=OpCodeXid.SET_WATCHES)
+@Operational(value=OpCode.SET_WATCHES)
+@OperationalXid(value=OpCodeXid.SET_WATCHES)
 public class ISetWatchesRequest extends IOpCodeXidRecord<SetWatches> implements Records.Request {
 
     public ISetWatchesRequest() {

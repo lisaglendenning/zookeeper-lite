@@ -7,7 +7,7 @@ import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.protocol.Operation;
 
-@Operational(opcode=OpCode.ERROR)
+@Operational(value=OpCode.ERROR)
 public class IErrorResponse extends ICodedRecord<ErrorResponse> implements Records.Response, Records.MultiOpResponse, Operation.Error {
     public IErrorResponse() {
         this(new ErrorResponse());
@@ -26,7 +26,7 @@ public class IErrorResponse extends ICodedRecord<ErrorResponse> implements Recor
     }
 
     @Override
-    public KeeperException.Code error() {
+    public KeeperException.Code getError() {
         return KeeperException.Code.get(getErr());
     }
     
@@ -37,6 +37,6 @@ public class IErrorResponse extends ICodedRecord<ErrorResponse> implements Recor
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .addValue(error()).toString();
+                .addValue(getError()).toString();
     }
 }

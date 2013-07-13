@@ -20,7 +20,7 @@ import edu.uw.zookeeper.protocol.Frame;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.SessionRequestMessage;
+import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.util.Automatons;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Stateful;
@@ -221,7 +221,7 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
                 break;
             case CONNECTING:
             case CONNECTED:
-                output = SessionRequestMessage.decode(input);
+                output = ProtocolRequestMessage.decode(input);
                 break;
             default:
                 throw new IllegalStateException(state.toString());

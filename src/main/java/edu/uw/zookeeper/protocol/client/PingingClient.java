@@ -20,8 +20,7 @@ import edu.uw.zookeeper.protocol.Ping;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.SessionRequestMessage;
-import edu.uw.zookeeper.util.Automaton;
+import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Stateful;
@@ -111,6 +110,12 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         return super.write(input);
     }
 
+    @Override
+    public ListenableFuture<Connection<I>> close() {
+        pingTask.stop();
+        return super.close();
+    }
+
     @Subscribe
     public void handleCreateSessionResponse(ConnectMessage.Response message) {
         if (message instanceof ConnectMessage.Response.Valid) {
@@ -123,46 +128,17 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
     }
 
     @Subscribe
-    public void handleSessionReply(Message.ServerResponse message) {
-        if (message.response() instanceof Ping.Response) {
-            handlePingResponse((Ping.Response) message.response());
-        }
-    }
-
-    protected void handlePingResponse(Ping.Response message) {
+    public void handleSessionReply(Message.ServerResponse<?> message) {
         if (logger.isTraceEnabled()) {
-            // of course, this pong could be for an earlier ping,
-            // so this time difference is not very accurate...
-            Ping.Request ping = pingTask.lastPing();
-            logger.trace(String.format("PONG %s: %s",
-                    (ping == null) ? 0 : message.difference(ping), message));
+            if (message.getRecord() instanceof Ping.Response) {
+                Ping.Response pong = (Ping.Response) message.getRecord();
+                // of course, this pong could be for an earlier ping,
+                // so this time difference is not very accurate...
+                Ping.Request ping = pingTask.lastPing();
+                logger.trace(String.format("PONG %s: %s",
+                        (ping == null) ? 0 : pong.difference(ping), pong));
+            }
         }
-    }
-
-    @Override
-    protected void handleConnectionStateEvent(Automaton.Transition<Connection.State> event) {
-        switch (event.to()) {
-        case CONNECTION_CLOSED:
-            pingTask.stop();
-        default:
-            break;
-        }
-        
-        super.handleConnectionStateEvent(event);
-    }
-
-    @Override
-    protected void handleProtocolStateEvent(Automaton.Transition<ProtocolState> event) {
-        switch (event.to()) {
-        case DISCONNECTED:
-        case ERROR:
-            pingTask.stop();
-            break;
-        default:
-            break;
-        }
-        
-        super.handleProtocolStateEvent(event);
     }
 
     public static enum PingingState {
@@ -215,7 +191,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
             }
 
             Ping.Request ping = Ping.Request.newInstance();
-            Operation.SessionRequest message = SessionRequestMessage.newInstance(ping.xid(), ping);
+            Operation.ProtocolRequest<Ping.Request> message = ProtocolRequestMessage.from(ping);
             try {
                 delegate().write(message);
             } catch (Exception e) {

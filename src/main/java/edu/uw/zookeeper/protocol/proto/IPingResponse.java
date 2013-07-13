@@ -1,7 +1,7 @@
 package edu.uw.zookeeper.protocol.proto;
 
-@Operational(opcode=OpCode.PING)
-@OperationalXid(xid=OpCodeXid.PING)
+@Operational(value=OpCode.PING)
+@OperationalXid(value=OpCodeXid.PING)
 @Shared
 public class IPingResponse extends IOpCodeXidRecord<EmptyRecord> implements Records.Response {
     public IPingResponse() {

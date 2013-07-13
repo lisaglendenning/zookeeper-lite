@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.client;
+package edu.uw.zookeeper.protocol.client;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

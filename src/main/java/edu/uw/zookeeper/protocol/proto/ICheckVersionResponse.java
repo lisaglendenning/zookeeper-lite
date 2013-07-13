@@ -1,6 +1,6 @@
 package edu.uw.zookeeper.protocol.proto;
 
-@Operational(opcode=OpCode.CHECK)
+@Operational(value=OpCode.CHECK)
 @Shared
 public class ICheckVersionResponse extends ICodedRecord<EmptyRecord> implements Records.Response, Records.MultiOpResponse {
     public ICheckVersionResponse() {

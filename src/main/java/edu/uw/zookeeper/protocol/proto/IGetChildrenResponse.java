@@ -4,7 +4,7 @@ import java.util.List;
 
 import org.apache.zookeeper.proto.GetChildrenResponse;
 
-@Operational(opcode=OpCode.GET_CHILDREN)
+@Operational(value=OpCode.GET_CHILDREN)
 public class IGetChildrenResponse extends ICodedRecord<GetChildrenResponse> implements Records.Response, Records.ChildrenGetter {
 
     public IGetChildrenResponse() {

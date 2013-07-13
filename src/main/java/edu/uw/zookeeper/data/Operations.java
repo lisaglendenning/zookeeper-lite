@@ -119,7 +119,7 @@ public abstract class Operations {
             
             public static Create fromRecord(Records.Request request) {
                 Records.CreateModeGetter record = (Records.CreateModeGetter) request;
-                OpCode opcode = request.opcode();
+                OpCode opcode = request.getOpcode();
                 ZNodeLabel.Path path = ZNodeLabel.Path.of(record.getPath());
                 byte[] data = record.getData();
                 CreateMode mode;
@@ -284,7 +284,7 @@ public abstract class Operations {
         public static class GetChildren extends AbstractPath<Records.Request, GetChildren> {
 
             public static GetChildren fromRecord(Records.Request request) {
-                OpCode opcode = request.opcode();
+                OpCode opcode = request.getOpcode();
                 ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter)request).getPath());
                 boolean watch = ((Records.WatchGetter)request).getWatch();
                 return new GetChildren(opcode, path, watch);
@@ -578,7 +578,7 @@ public abstract class Operations {
         
         public static AbstractBuilder<? extends Records.Request> fromRecord(Records.Request record) {
             AbstractBuilder<? extends Records.Request> builder = null;
-            switch (record.opcode()) {
+            switch (record.getOpcode()) {
             case CREATE:
             case CREATE2:
                 builder = Create.fromRecord(record);
@@ -684,7 +684,7 @@ public abstract class Operations {
         public static class Create extends AbstractStat<Records.Response, Create> implements PathBuilder<Records.Response> {
 
             public static Create fromRecord(Records.Response record) {
-                OpCode opcode = record.opcode();
+                OpCode opcode = record.getOpcode();
                 ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) record).getPath());
                 Stat stat = null;
                 if (record instanceof Records.StatGetter) {
@@ -818,7 +818,7 @@ public abstract class Operations {
         public static class GetChildren extends AbstractStat<Records.Response, GetChildren> {
 
             public static GetChildren fromRecord(Records.Response record) {
-                OpCode opcode = record.opcode();
+                OpCode opcode = record.getOpcode();
                 Stat stat = null;
                 if (record instanceof Records.StatGetter) {
                     stat = ((Records.StatGetter) record).getStat();
@@ -1088,7 +1088,7 @@ public abstract class Operations {
 
         public static AbstractBuilder<? extends Records.Response> fromRecord(Records.Response record) {
             AbstractBuilder<? extends Records.Response> builder = null;
-            switch (record.opcode()) {
+            switch (record.getOpcode()) {
             case CREATE:
             case CREATE2:
                 builder = Create.fromRecord(record);
@@ -1178,7 +1178,7 @@ public abstract class Operations {
 
     public static Records.Response unlessError(Records.Response reply, String message) throws KeeperException {
         if (reply instanceof Operation.Error) {
-            KeeperException.Code error = ((Operation.Error) reply).error();
+            KeeperException.Code error = ((Operation.Error) reply).getError();
             throw KeeperException.create(error, message);
         } else {
             return reply;
@@ -1192,7 +1192,7 @@ public abstract class Operations {
     public static Operation.Error expectError(Records.Response reply, KeeperException.Code expected, String message) throws KeeperException {
         if (reply instanceof Operation.Error) {
             Operation.Error errorReply = (Operation.Error) reply;
-            KeeperException.Code error = errorReply.error();
+            KeeperException.Code error = errorReply.getError();
             if (expected != error) {
                 throw KeeperException.create(error, message);
             }
@@ -1208,7 +1208,7 @@ public abstract class Operations {
 
     public static Records.Response maybeError(Records.Response reply, KeeperException.Code expected, String message) throws KeeperException {
         if (reply instanceof Operation.Error) {
-            KeeperException.Code error = ((Operation.Error) reply).error();
+            KeeperException.Code error = ((Operation.Error) reply).getError();
             if (expected != error) {
                 throw KeeperException.create(error, message);
             }

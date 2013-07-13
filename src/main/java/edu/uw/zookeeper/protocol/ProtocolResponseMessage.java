@@ -19,18 +19,24 @@ import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractPair;
 
 
-public class SessionResponseMessage extends AbstractPair<IReplyHeader, Records.Response> implements Message.ServerResponse {
+public class ProtocolResponseMessage<T extends Records.Response> extends AbstractPair<IReplyHeader, T> implements Message.ServerResponse<T> {
 
-    public static SessionResponseMessage newInstance(
+    public static <T extends Records.Response> ProtocolResponseMessage<T> of(
             int xid,
             long zxid,
-            Records.Response response) {
-        KeeperException.Code code = (response instanceof Operation.Error) ? ((Operation.Error) response).error() : KeeperException.Code.OK;
+            T response) {
+        KeeperException.Code code = (response instanceof Operation.Error) ? ((Operation.Error) response).getError() : KeeperException.Code.OK;
         IReplyHeader header = Records.Responses.Headers.newInstance(xid, zxid, code);
-        return new SessionResponseMessage(header, response);
+        return of(header, response);
     }
 
-    public static SessionResponseMessage decode(final OpCode opcode, ByteBuf input)
+    public static <T extends Records.Response> ProtocolResponseMessage<T> of(
+            IReplyHeader header,
+            T response) {
+        return new ProtocolResponseMessage<T>(header, response);
+    }
+
+    public static ProtocolResponseMessage<?> decode(final OpCode opcode, ByteBuf input)
             throws IOException {
         return decode(new Function<Integer, OpCode>() {
             @Override
@@ -39,7 +45,7 @@ public class SessionResponseMessage extends AbstractPair<IReplyHeader, Records.R
             }}, input);
     }
 
-    public static SessionResponseMessage decode(
+    public static ProtocolResponseMessage<?> decode(
             Function<Integer, OpCode> xidToOpCode, ByteBuf input)
             throws IOException {
         ByteBufInputArchive archive = new ByteBufInputArchive(input);
@@ -50,7 +56,7 @@ public class SessionResponseMessage extends AbstractPair<IReplyHeader, Records.R
             int xid = header.getXid();
             OpCode opcode;
             if (OpCodeXid.has(xid)) {
-                opcode = OpCodeXid.of(xid).opcode();
+                opcode = OpCodeXid.of(xid).getOpcode();
             } else {
                 opcode = xidToOpCode.apply(xid);
             }
@@ -65,25 +71,25 @@ public class SessionResponseMessage extends AbstractPair<IReplyHeader, Records.R
         } else {
             response = new IErrorResponse(err);
         }
-        return new SessionResponseMessage(header, response);
+        return of(header, response);
     }
     
-    protected SessionResponseMessage(IReplyHeader header, Records.Response response) {
+    protected ProtocolResponseMessage(IReplyHeader header, T response) {
         super(header, response);
     }
     
     @Override
-    public long zxid() {
+    public long getZxid() {
         return first.getZxid();
     }
 
     @Override
-    public int xid() {
+    public int getXid() {
         return first.getXid();
     }
 
     @Override
-    public Records.Response response() {
+    public T getRecord() {
         return second;
     }
 

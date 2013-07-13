@@ -18,7 +18,7 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.SessionResponseMessage;
+import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.util.Automatons;
@@ -112,10 +112,10 @@ public class ClientProtocolCodec
         automaton.apply(input);
         // we only need to remember xid -> opcode of pending messages
         if (input instanceof Operation.RequestId) {
-            int xid = ((Operation.RequestId)input).xid();
+            int xid = ((Operation.RequestId)input).getXid();
             if (! OpCodeXid.has(xid)) {
-                assert (input instanceof Operation.SessionRequest);
-                OpCode opcode = ((Operation.SessionRequest)input).request().opcode();
+                assert (input instanceof Operation.ProtocolRequest);
+                OpCode opcode = ((Operation.ProtocolRequest<?>) input).getRecord().getOpcode();
                 Pair<Integer, OpCode> pair = Pair.create(xid, opcode);
                 pending.add(pair);
             }
@@ -135,7 +135,7 @@ public class ClientProtocolCodec
             // the peek and poll need to be atomic
             Pair<Integer, OpCode> next = pending.peek();
             if ((next != null) && (reply instanceof Operation.RequestId)) {
-                if (next.first().equals(((Operation.RequestId)reply).xid())) {
+                if (next.first().equals(((Operation.RequestId)reply).getXid())) {
                     pending.poll();
                 }
             }
@@ -235,7 +235,7 @@ public class ClientProtocolCodec
                 break;
             case CONNECTED:
             case DISCONNECTING:
-                out = SessionResponseMessage.decode(xidToOpCode, input);
+                out = ProtocolResponseMessage.decode(xidToOpCode, input);
                 break;
             default:
                 throw new IllegalStateException(state.toString());

@@ -2,7 +2,7 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.GetDataRequest;
 
-@Operational(opcode=OpCode.GET_DATA)
+@Operational(value=OpCode.GET_DATA)
 public class IGetDataRequest extends ICodedRecord<GetDataRequest> implements Records.Request, Records.PathGetter, Records.WatchGetter {
 
     public IGetDataRequest() {

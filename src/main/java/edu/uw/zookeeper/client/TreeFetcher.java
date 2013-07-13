@@ -24,7 +24,7 @@ import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
-public class TreeFetcher<T extends Operation.SessionRequest, V extends Operation.SessionResponse> implements Callable<ListenableFuture<ZNodeLabel.Path>> {
+public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> implements Callable<ListenableFuture<ZNodeLabel.Path>> {
     
     public static class Parameters {
         
@@ -67,9 +67,9 @@ public class TreeFetcher<T extends Operation.SessionRequest, V extends Operation
         }
     }
     
-    public static class Builder<T extends Operation.SessionRequest, V extends Operation.SessionResponse> {
+    public static class Builder<T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> {
     
-        public static <T extends Operation.SessionRequest, V extends Operation.SessionResponse> Builder<T,V> create() {
+        public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> Builder<T,V> create() {
             return new Builder<T,V>();
         }
         
@@ -192,7 +192,7 @@ public class TreeFetcher<T extends Operation.SessionRequest, V extends Operation
         }
     }
 
-    public static <T extends Operation.SessionRequest, V extends Operation.SessionResponse> TreeFetcher<T,V> newInstance(
+    public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> TreeFetcher<T,V> newInstance(
             Parameters parameters,
             ZNodeLabel.Path root,
             ClientExecutor<Operation.Request, T, V> client,
@@ -206,7 +206,7 @@ public class TreeFetcher<T extends Operation.SessionRequest, V extends Operation
                 promise);
     }
 
-    public static <T extends Operation.SessionRequest, V extends Operation.SessionResponse> TreeFetcher<T,V> newInstance(
+    public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> TreeFetcher<T,V> newInstance(
             Parameters parameters,
             ZNodeLabel.Path root,
             ClientExecutor<Operation.Request, T, V> client,
@@ -251,9 +251,9 @@ public class TreeFetcher<T extends Operation.SessionRequest, V extends Operation
         return TreeFetcherActor.newInstance(parameters, root, client, executor, promise);
     }
 
-    public static class TreeFetcherActor<T extends Operation.SessionRequest, V extends Operation.SessionResponse> extends AbstractActor<ZNodeLabel.Path> {
+    public static class TreeFetcherActor<T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> extends AbstractActor<ZNodeLabel.Path> {
 
-        public static <T extends Operation.SessionRequest, V extends Operation.SessionResponse> TreeFetcherActor<T,V> newInstance(
+        public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> TreeFetcherActor<T,V> newInstance(
                 Parameters parameters,
                 ZNodeLabel.Path root,
                 ClientExecutor<Operation.Request, T, V> client,
@@ -327,8 +327,8 @@ public class TreeFetcher<T extends Operation.SessionRequest, V extends Operation
         }
 
         protected void applyPendingResult(Pair<T,V> result) throws Exception {
-            Records.Request request = result.first().request();
-            Records.Response reply = Operations.maybeError(result.second().response(), KeeperException.Code.NONODE, request.toString());
+            Records.Request request = result.first().getRecord();
+            Records.Response reply = Operations.maybeError(result.second().getRecord(), KeeperException.Code.NONODE, request.toString());
             if (reply instanceof Records.ChildrenGetter) {
                 ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
                 for (String child: ((Records.ChildrenGetter) reply).getChildren()) {

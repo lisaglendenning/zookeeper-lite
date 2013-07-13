@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.protocol;
 
+import edu.uw.zookeeper.protocol.proto.Records;
 
 
 public interface Message extends Encodable {
@@ -28,7 +29,7 @@ public interface Message extends Encodable {
 
     public static interface ServerSession extends Session, Server, Operation.Response {}
     
-    public static interface ClientRequest extends ClientSession, Operation.SessionRequest {}
+    public static interface ClientRequest<T extends Records.Request> extends ClientSession, Operation.ProtocolRequest<T> {}
     
-    public static interface ServerResponse extends ServerSession, Operation.SessionResponse {}
+    public static interface ServerResponse<T extends Records.Response> extends ServerSession, Operation.ProtocolResponse<T> {}
 }

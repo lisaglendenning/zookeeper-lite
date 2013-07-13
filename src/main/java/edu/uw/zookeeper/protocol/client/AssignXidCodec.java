@@ -6,7 +6,6 @@ import java.io.IOException;
 
 import com.google.common.base.Optional;
 
-import edu.uw.zookeeper.client.AssignXidProcessor;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;

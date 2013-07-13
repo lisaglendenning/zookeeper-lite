@@ -13,7 +13,7 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-@Operational(opcode=OpCode.MULTI)
+@Operational(value=OpCode.MULTI)
 public class IMultiRequest extends ICodedRecord<EmptyRecord> implements Records.Request, Iterable<Records.MultiOpRequest> {
 
     private final List<Records.MultiOpRequest> requests;
@@ -44,7 +44,7 @@ public class IMultiRequest extends ICodedRecord<EmptyRecord> implements Records.
     public void serialize(OutputArchive archive, String tag) throws IOException {
         archive.startRecord(this, tag);
         for (Records.MultiOpRequest request: this) {
-            IMultiHeader.ofRequest(request.opcode()).serialize(archive, tag);
+            IMultiHeader.ofRequest(request.getOpcode()).serialize(archive, tag);
             request.serialize(archive, tag);
         }
         IMultiHeader.ofEnd().serialize(archive, tag);

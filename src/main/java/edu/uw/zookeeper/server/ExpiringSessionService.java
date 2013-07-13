@@ -12,8 +12,8 @@ import edu.uw.zookeeper.util.DefaultsFactory;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.TimeValue;
 
-public class ExpireSessionsTask extends AbstractIdleService implements
-        Runnable, Reference<ExpiringSessionManager> {
+public class ExpiringSessionService extends AbstractIdleService implements
+        Runnable, Reference<ExpiringSessionTable> {
 
     public static enum ConfigurableTickTime implements DefaultsFactory<Configuration, TimeValue> {
         DEFAULT;
@@ -48,38 +48,39 @@ public class ExpireSessionsTask extends AbstractIdleService implements
         
     }
 
-    public static ExpireSessionsTask newInstance(
-            ExpiringSessionManager sessions,
+    public static ExpiringSessionService newInstance(
+            ExpiringSessionTable sessions,
             ScheduledExecutorService executor,
             Configuration configuration) {
         return newInstance(sessions, executor,
                 ConfigurableTickTime.getInstance().get(configuration));
     }
     
-    public static ExpireSessionsTask newInstance(
-            ExpiringSessionManager sessions,
+    public static ExpiringSessionService newInstance(
+            ExpiringSessionTable sessions,
             ScheduledExecutorService executor,
             TimeValue tickTime) {
-        return new ExpireSessionsTask(sessions, executor, tickTime);
+        return new ExpiringSessionService(sessions, executor, tickTime);
     }
 
-    private final ExpiringSessionManager sessions;
+    private final ExpiringSessionTable sessions;
     private final ScheduledExecutorService executor;
     private final TimeValue tickTime;
-    private ScheduledFuture<?> future = null;
+    private volatile ScheduledFuture<?> future;
 
-    private ExpireSessionsTask(
-            ExpiringSessionManager sessions,
+    private ExpiringSessionService(
+            ExpiringSessionTable sessions,
             ScheduledExecutorService executor,
             TimeValue tickTime) {
         super();
         this.sessions = sessions;
         this.executor = executor;
         this.tickTime = tickTime;
+        this.future = null;
     }
     
     @Override
-    public ExpiringSessionManager get() {
+    public ExpiringSessionTable get() {
         return sessions;
     }
 

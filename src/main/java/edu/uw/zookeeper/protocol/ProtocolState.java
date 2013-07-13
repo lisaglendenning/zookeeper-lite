@@ -42,7 +42,7 @@ public enum ProtocolState implements Function<Message, Optional<ProtocolState>> 
         @Override
         public Optional<ProtocolState> apply(Message input) {
             if (input instanceof Message.ClientRequest) {
-                if (OpCode.CLOSE_SESSION == ((Message.ClientRequest) input).request().opcode()) {
+                if (OpCode.CLOSE_SESSION == ((Message.ClientRequest<?>) input).getRecord().getOpcode()) {
                     return Optional.of(DISCONNECTING);
                 }
             } else if (input instanceof Message.ServerResponse) {
@@ -57,7 +57,7 @@ public enum ProtocolState implements Function<Message, Optional<ProtocolState>> 
         @Override
         public Optional<ProtocolState> apply(Message input) {
             if (input instanceof Message.ServerResponse) {
-                if (OpCode.CLOSE_SESSION == ((Message.ServerResponse) input).response().opcode()) {
+                if (OpCode.CLOSE_SESSION == ((Message.ServerResponse<?>) input).getRecord().getOpcode()) {
                     return Optional.of(DISCONNECTED);
                 }
             } else {

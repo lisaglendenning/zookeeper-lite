@@ -206,19 +206,19 @@ public abstract class Records {
         if (operational == null) {
             OpCodeXid xid = opCodeXidOf(type);
             if (xid != null) {
-                return xid.opcode();
+                return xid.getOpcode();
             } else {
                 return null;
             }
         } else {
-            return operational.opcode();
+            return operational.value()[0];
         }
     }
     
     public static OpCodeXid opCodeXidOf(Class<?> type) {
         OperationalXid operationalXid = type.getAnnotation(OperationalXid.class);
         if (operationalXid != null) {
-            return operationalXid.xid();
+            return operationalXid.value();
         } else {
             return null;
         }
@@ -269,38 +269,36 @@ public abstract class Records {
         
         @Override
         public @Nullable String apply(@Nullable Object input) {
-            if (input instanceof Record) {
-                return toBeanString((Record) input);
-            } else {
-                return String.valueOf(input);
-            }
+            return toBeanString(input);
         }
     }
     
     /**
      * Bean property string.
      */
-    public static String toBeanString(Record record) {
-        Objects.ToStringHelper helper = Objects.toStringHelper(record);
+    public static String toBeanString(Object obj) {
+        Objects.ToStringHelper helper = Objects.toStringHelper(obj);
         BeanInfo beanInfo;
         try {
-            beanInfo = Introspector.getBeanInfo(record.getClass(), Object.class);
+            beanInfo = Introspector.getBeanInfo(obj.getClass(), Object.class);
         } catch (IntrospectionException e) {
             throw new AssertionError(e);
         }
         for (PropertyDescriptor pd : beanInfo.getPropertyDescriptors()) {
             Object value;
             try {
-                value = pd.getReadMethod().invoke(record);
+                value = pd.getReadMethod().invoke(obj);
             } catch (Exception e) {
                 throw new AssertionError(e);
             }
-            if (value instanceof Record) {
-                value = toBeanString((Record) value);
-            } else if (value.getClass().isArray()) {
-                value = String.format("%s{%d}", value.getClass().getComponentType(), Array.getLength(value));
-            } else if (value instanceof Iterable) {
-                value = iterableToBeanString((Iterable<?>) value);
+            if (value != null) {
+                if (value instanceof Record) {
+                    value = toBeanString((Record) value);
+                } else if (value.getClass().isArray()) {
+                    value = String.format("%s{%d}", value.getClass().getComponentType(), Array.getLength(value));
+                } else if (value instanceof Iterable) {
+                    value = iterableToBeanString((Iterable<?>) value);
+                }
             }
             helper.add(pd.getName(), value);
         }
@@ -393,7 +391,7 @@ public abstract class Records {
 
         public static void serialize(Records.Request record, OutputArchive archive)
                 throws IOException {
-            record.serialize(archive, tagOf(record.opcode()));
+            record.serialize(archive, tagOf(record.getOpcode()));
         }
         
         @Override
@@ -505,7 +503,7 @@ public abstract class Records {
 
         public static void serialize(Records.Response record, OutputArchive archive)
                 throws IOException {
-            record.serialize(archive, tagOf(record.opcode()));
+            record.serialize(archive, tagOf(record.getOpcode()));
         }
         
         private Responses() {}

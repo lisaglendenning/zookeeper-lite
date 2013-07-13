@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.GetDataResponse;
 
-@Operational(opcode=OpCode.GET_DATA)
+@Operational(value=OpCode.GET_DATA)
 public class IGetDataResponse extends ICodedRecord<GetDataResponse> implements Records.Response, Records.DataGetter, Records.StatGetter {
     
     public IGetDataResponse() {

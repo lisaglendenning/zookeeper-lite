@@ -11,25 +11,31 @@ import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractPair;
 
 
-public class SessionRequestMessage extends AbstractPair<IRequestHeader, Records.Request> implements Message.ClientRequest {
+public class ProtocolRequestMessage<T extends Records.Request> extends AbstractPair<IRequestHeader, T> implements Message.ClientRequest<T> {
 
-    public static SessionRequestMessage newInstance(
-            Records.Request request) {
+    public static <T extends Records.Request> ProtocolRequestMessage<T> from(
+            T request) {
         if (request instanceof Operation.RequestId) {
-            return newInstance(((Operation.RequestId) request).xid(), request);
+            return of(((Operation.RequestId) request).getXid(), request);
         } else {
             throw new IllegalArgumentException();
         }
     }
 
-    public static SessionRequestMessage newInstance(
+    public static <T extends Records.Request> ProtocolRequestMessage<T> of(
             int xid,
-            Records.Request request) {
-        IRequestHeader header = Records.Requests.Headers.newInstance(xid, request.opcode());
-        return new SessionRequestMessage(header, request);
+            T request) {
+        IRequestHeader header = Records.Requests.Headers.newInstance(xid, request.getOpcode());
+        return of(header, request);
     }
 
-    public static SessionRequestMessage decode(ByteBuf input) throws IOException {
+    public static <T extends Records.Request> ProtocolRequestMessage<T> of(
+            IRequestHeader header,
+            T request) {
+         return new ProtocolRequestMessage<T>(header, request);
+    }
+
+    public static ProtocolRequestMessage<?> decode(ByteBuf input) throws IOException {
         ByteBufInputArchive archive = new ByteBufInputArchive(input);
         IRequestHeader header = Records.Requests.Headers.deserialize(archive);
         OpCode opcode = OpCode.of(header.getType());
@@ -44,20 +50,20 @@ public class SessionRequestMessage extends AbstractPair<IRequestHeader, Records.
             request = Records.Requests.deserialize(opcode, archive);
             break;
         }
-        return new SessionRequestMessage(header, request);
+        return of(header, request);
     }
     
-    protected SessionRequestMessage(IRequestHeader header, Records.Request request) {
+    protected ProtocolRequestMessage(IRequestHeader header, T request) {
         super(header, request);
     }
 
     @Override
-    public int xid() {
+    public int getXid() {
         return first.getXid();
     }
 
     @Override
-    public Records.Request request() {
+    public T getRecord() {
         return second;
     }
 

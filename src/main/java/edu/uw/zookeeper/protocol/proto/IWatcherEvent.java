@@ -2,8 +2,8 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.WatcherEvent;
 
-@Operational(opcode=OpCode.NOTIFICATION)
-@OperationalXid(xid=OpCodeXid.NOTIFICATION)
+@Operational(value=OpCode.NOTIFICATION)
+@OperationalXid(value=OpCodeXid.NOTIFICATION)
 public class IWatcherEvent extends IOpCodeXidRecord<WatcherEvent> implements Records.Response, Records.PathGetter {
 
     public IWatcherEvent() {

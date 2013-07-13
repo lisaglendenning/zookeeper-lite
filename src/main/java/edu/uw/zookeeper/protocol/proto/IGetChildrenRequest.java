@@ -2,7 +2,7 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.zookeeper.proto.GetChildrenRequest;
 
-@Operational(opcode=OpCode.GET_CHILDREN)
+@Operational(value=OpCode.GET_CHILDREN)
 public class IGetChildrenRequest extends ICodedRecord<GetChildrenRequest> implements Records.Request, Records.PathGetter, Records.WatchGetter {
 
     public IGetChildrenRequest() {

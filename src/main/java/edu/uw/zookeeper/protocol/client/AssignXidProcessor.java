@@ -1,10 +1,10 @@
-package edu.uw.zookeeper.client;
+package edu.uw.zookeeper.protocol.client;
 
 import com.google.common.base.Function;
 
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.SessionRequestMessage;
+import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Generator;
@@ -42,16 +42,16 @@ public class AssignXidProcessor implements
         if (input instanceof Message.ClientSession) {
             output = (Message.ClientSession) input;
             if (output instanceof Operation.RequestId) {
-                xids.setIfGreater(Integer.valueOf(((Operation.RequestId) output).xid() + 1));
+                xids.setIfGreater(Integer.valueOf(((Operation.RequestId) output).getXid() + 1));
             }
         } else if (input instanceof Records.Request) {
             int xid;
             if (input instanceof Operation.RequestId) {
-                xid = ((Operation.RequestId) input).xid();
+                xid = ((Operation.RequestId) input).getXid();
             } else {
                 xid = next();
             }
-            output = SessionRequestMessage.newInstance(xid, (Records.Request) input); 
+            output = ProtocolRequestMessage.of(xid, (Records.Request) input); 
         } else {
             throw new IllegalArgumentException(input.toString());
         }

@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.client;
+package edu.uw.zookeeper.protocol.client;
 
 import java.util.Collections;
 import java.util.Iterator;
@@ -9,8 +9,6 @@ import com.google.common.util.concurrent.AbstractIdleService;
 
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
-import edu.uw.zookeeper.protocol.client.DisconnectTask;
 import edu.uw.zookeeper.util.Factory;
 
 /**

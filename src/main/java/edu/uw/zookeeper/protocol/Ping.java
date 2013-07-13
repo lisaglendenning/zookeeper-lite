@@ -16,8 +16,8 @@ import edu.uw.zookeeper.protocol.proto.OperationalXid;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.TimeValue;
 
-@Operational(opcode=OpCode.PING)
-@OperationalXid(xid=OpCodeXid.PING)
+@Operational(value=OpCode.PING)
+@OperationalXid(value=OpCodeXid.PING)
 public abstract class Ping<T extends Record> extends IOpCodeXidRecord<T> {
 
     public static OpCodeXid OPCODE_XID = OpCodeXid.PING;
@@ -80,8 +80,8 @@ public abstract class Ping<T extends Record> extends IOpCodeXidRecord<T> {
             return (IPingRequest) Records.Requests.getInstance().get(OpCode.PING);
         }
         
-        public static Request newInstance() {
-            return new Request();
+        public static Ping.Request newInstance() {
+            return new Ping.Request();
         }
 
         private Request() {
@@ -96,8 +96,8 @@ public abstract class Ping<T extends Record> extends IOpCodeXidRecord<T> {
             return (IPingResponse) Records.Responses.getInstance().get(OpCode.PING);
         }
         
-        public static Response newInstance() {
-            return new Response();
+        public static Ping.Response newInstance() {
+            return new Ping.Response();
         }
 
         private Response() {

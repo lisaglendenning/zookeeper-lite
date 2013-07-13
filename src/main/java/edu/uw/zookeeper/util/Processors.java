@@ -24,6 +24,16 @@ public abstract class Processors {
         }
     }
     
+    public static abstract class ForwardingProcessor<V,T> implements Processor<V,T> {
+        
+        protected abstract Processor<? super V, ? extends T> delegate();
+
+        @Override
+        public T apply(V input) throws Exception {
+            return delegate().apply(input);
+        }
+    }
+    
     public static <V,U,T> ProcessorBridge<V,U,T> bridge(
             Processor<? super V, ? extends U> first, Processor<? super U, ? extends T> second) {
         return ProcessorBridge.newInstance(first, second);

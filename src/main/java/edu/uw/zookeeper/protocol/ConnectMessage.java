@@ -22,7 +22,7 @@ import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.TimeValue;
 
-@Operational(opcode=OpCode.CREATE_SESSION)
+@Operational(value=OpCode.CREATE_SESSION)
 public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> extends ICodedRecord<T>
         implements Message.Session, Records.ConnectGetter {
 
@@ -45,17 +45,17 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             }
 
             @Override
-            public Request get() {
+            public ConnectMessage.Request get() {
                 return NewRequest.newInstance(first(), second().get());
             }
 
             @Override
-            public Request get(edu.uw.zookeeper.Session session) {
+            public ConnectMessage.Request get(edu.uw.zookeeper.Session session) {
                 return RenewRequest.newInstance(session, second().get());
             }
         }
 
-        public static Request decode(ByteBuf input) throws IOException {
+        public static ConnectMessage.Request decode(ByteBuf input) throws IOException {
             ByteBufInputArchive archive = new ByteBufInputArchive(input);
             IConnectRequest record = new IConnectRequest();
             record.deserialize(archive, Records.CONNECT_TAG);
@@ -66,11 +66,11 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             } catch (IOException e) {
                 wraps = true;
             }
-            Request out = Request.newInstance(record, readOnly, wraps);
+            ConnectMessage.Request out = ConnectMessage.Request.newInstance(record, readOnly, wraps);
             return out;
         }
 
-        public static Request newInstance(IConnectRequest record, boolean readOnly,
+        public static ConnectMessage.Request newInstance(IConnectRequest record, boolean readOnly,
                 boolean wraps) {
             return NewRequest.newInstance(record, readOnly, wraps);
         }
@@ -87,7 +87,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             return get().getLastZxidSeen();
         }
         
-        public static class NewRequest extends Request {
+        public static class NewRequest extends ConnectMessage.Request {
 
             public static IConnectRequest newRecord() {
                 return toRecord(0, 0L);
@@ -107,19 +107,19 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
                 return record;
             }
             
-            public static Request newInstance() {
+            public static ConnectMessage.Request newInstance() {
                 return newInstance(newRecord());
             }
 
-            public static Request newInstance(TimeValue timeOut, long lastZxid) {
+            public static ConnectMessage.Request newInstance(TimeValue timeOut, long lastZxid) {
                 return newInstance(toRecord(timeOut, lastZxid));
             }
             
-            public static Request newInstance(IConnectRequest record) {
+            public static ConnectMessage.Request newInstance(IConnectRequest record) {
                 return newInstance(record, false, false);
             }
 
-            public static Request newInstance(IConnectRequest record, boolean readOnly, boolean wraps) {
+            public static ConnectMessage.Request newInstance(IConnectRequest record, boolean readOnly, boolean wraps) {
                 if (record.getSessionId() != edu.uw.zookeeper.Session.UNINITIALIZED_ID) {
                     return RenewRequest.newInstance(record, readOnly, wraps);
                 } else {
@@ -132,7 +132,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             }
         }
         
-        public static class RenewRequest extends Request {
+        public static class RenewRequest extends ConnectMessage.Request {
 
             public static IConnectRequest toRecord(edu.uw.zookeeper.Session session) {
                 return toRecord(session, 0L);
@@ -174,12 +174,12 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             ConnectMessage<IConnectResponse> implements
             Records.Response, Message.ServerSession {
 
-        public static Response newInstance(IConnectResponse record, boolean readOnly,
+        public static ConnectMessage.Response newInstance(IConnectResponse record, boolean readOnly,
                 boolean wraps) {
             return Valid.newInstance(record, readOnly, wraps);
         }
 
-        public static Response decode(ByteBuf input) throws IOException {
+        public static ConnectMessage.Response decode(ByteBuf input) throws IOException {
             ByteBufInputArchive archive = new ByteBufInputArchive(input);
             IConnectResponse record = new IConnectResponse();
             record.deserialize(archive, Records.CONNECT_TAG);
@@ -190,7 +190,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             } catch (IOException e) {
                 wraps = true;
             }
-            Response out = Response.newInstance(record, readOnly, wraps);
+            ConnectMessage.Response out = ConnectMessage.Response.newInstance(record, readOnly, wraps);
             return out;
         }
 
@@ -202,7 +202,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             super(record, readOnly, wraps);
         }
 
-        public static class Valid extends Response implements Operation.Response {
+        public static class Valid extends ConnectMessage.Response implements Operation.Response {
 
             public static IConnectResponse toRecord(edu.uw.zookeeper.Session session) {
                 IConnectResponse record = new IConnectResponse(
@@ -213,19 +213,19 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
                 return record;
             }
             
-            public static Response newInstance(edu.uw.zookeeper.Session session) {
+            public static ConnectMessage.Response newInstance(edu.uw.zookeeper.Session session) {
                 return newInstance(session, false, false);
             }
 
-            public static Response newInstance(edu.uw.zookeeper.Session session, boolean readOnly, boolean wraps) {
+            public static ConnectMessage.Response newInstance(edu.uw.zookeeper.Session session, boolean readOnly, boolean wraps) {
                 return newInstance(toRecord(session), readOnly, wraps);
             }
 
-            public static Response newInstance(IConnectResponse record) {
+            public static ConnectMessage.Response newInstance(IConnectResponse record) {
                 return newInstance(record, false, false);
             }
 
-            public static Response newInstance(IConnectResponse record, boolean readOnly,
+            public static ConnectMessage.Response newInstance(IConnectResponse record, boolean readOnly,
                     boolean wraps) {
                 if (record.getSessionId() == edu.uw.zookeeper.Session.UNINITIALIZED_ID) {
                     return Invalid.newInstance(readOnly, wraps);
@@ -239,7 +239,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             }
         }
 
-        public static class Invalid extends Response {
+        public static class Invalid extends ConnectMessage.Response {
 
             protected final static IConnectResponse RECORD = 
                     new IConnectResponse(Records.PROTOCOL_VERSION, 0, edu.uw.zookeeper.Session.UNINITIALIZED_ID, edu.uw.zookeeper.Session.Parameters.NO_PASSWORD);

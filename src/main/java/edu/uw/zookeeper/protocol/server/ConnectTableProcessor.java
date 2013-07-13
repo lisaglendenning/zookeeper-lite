@@ -1,83 +1,40 @@
-package edu.uw.zookeeper.server;
-
-import javax.annotation.Nullable;
+package edu.uw.zookeeper.protocol.server;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Predicate;
-
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ConnectMessage;
+import edu.uw.zookeeper.server.SessionTable;
 import edu.uw.zookeeper.util.Processor;
-import edu.uw.zookeeper.util.Processors;
 import edu.uw.zookeeper.util.Reference;
 
-public class ConnectProcessor 
+public class ConnectTableProcessor 
         implements Processor<ConnectMessage.Request, ConnectMessage.Response> {
 
-    public static class Filtered implements Processors.FilteringProcessor<Message.Client, Message.Server> {
-        public static enum Filter implements Predicate<Message.Client> {
-            INSTANCE;
-            
-            public static Filter getInstance() {
-                return INSTANCE;
-            }
-            
-            @Override
-            public boolean apply(@Nullable Message.Client input) {
-                return (input instanceof ConnectMessage.Request);
-            }
-        }
-
-        public static Filtered newInstance(Processor<ConnectMessage.Request, ConnectMessage.Response> processor) {
-            return new Filtered(processor);
-        }
-
-        private final Processor<ConnectMessage.Request, ConnectMessage.Response> processor;
-        
-        protected Filtered(Processor<ConnectMessage.Request, ConnectMessage.Response> processor) {
-            this.processor = processor;
-        }
-        
-        @Override
-        public Message.Server apply(Message.Client input) throws Exception {
-            if (filter().apply(input)) {
-                return processor.apply((ConnectMessage.Request)input);
-            } else {
-                return null;
-            }
-        }
-
-        @Override
-        public Predicate<? super Message.Client> filter() {
-            return Filter.getInstance();
-        }
-    }
-    
-    public static Filtered filtered(
+    public static ConnectTableProcessor create(
             SessionTable sessions,
             Reference<Long> lastZxid) {
-        return Filtered.newInstance(newInstance(sessions, lastZxid));
-    }
-    
-    public static ConnectProcessor newInstance(
-            SessionTable sessions,
-            Reference<Long> lastZxid) {
-        return new ConnectProcessor(sessions, lastZxid);
+        return new ConnectTableProcessor(sessions, lastZxid, false);
     }
     
     protected final Logger logger = LoggerFactory
-            .getLogger(ConnectProcessor.class);
+            .getLogger(ConnectTableProcessor.class);
     protected final SessionTable sessions;
     protected final Reference<Long> lastZxid;
+    protected final boolean readOnly;
 
-    protected ConnectProcessor(
+    protected ConnectTableProcessor(
             SessionTable sessions,
-            Reference<Long> lastZxid) {
+            Reference<Long> lastZxid,
+            boolean readOnly) {
         this.sessions = sessions;
         this.lastZxid = lastZxid;
+        this.readOnly = readOnly;
+    }
+    
+    public boolean readOnly() {
+        return readOnly;
     }
 
     public Reference<Long> lastZxid() {
@@ -100,7 +57,10 @@ public class ConnectProcessor
                     Long.toHexString(myZxid)));
         }
         
-        // TODO: readOnly?
+        if (readOnly() && ! request.getReadOnly()) {
+            throw new IllegalStateException("readonly");
+        }
+        
         Session session = null;
         if (request instanceof ConnectMessage.Request.NewRequest) {
             session = sessions().validate(request.toParameters());
@@ -113,6 +73,7 @@ public class ConnectProcessor
         } else {
             throw new IllegalArgumentException(request.toString());
         }
+        
         ConnectMessage.Response response = (session == null)
             ? ConnectMessage.Response.Invalid.newInstance(request.getReadOnly(), request.getWraps())
             : ConnectMessage.Response.Valid.newInstance(session, request.getReadOnly(), request.getWraps());

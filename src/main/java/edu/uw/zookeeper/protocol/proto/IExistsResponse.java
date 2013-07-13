@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.ExistsResponse;
 
-@Operational(opcode=OpCode.EXISTS)
+@Operational(value=OpCode.EXISTS)
 public class IExistsResponse extends ICodedRecord<ExistsResponse> implements Records.Response, Records.StatGetter {
 
     public IExistsResponse() {

@@ -1,7 +1,7 @@
 package edu.uw.zookeeper.protocol.proto;
 
-@Operational(opcode=OpCode.SET_WATCHES)
-@OperationalXid(xid=OpCodeXid.SET_WATCHES)
+@Operational(value=OpCode.SET_WATCHES)
+@OperationalXid(value=OpCodeXid.SET_WATCHES)
 @Shared
 public class ISetWatchesResponse extends IOpCodeXidRecord<EmptyRecord> implements Records.Response {
     public ISetWatchesResponse() {
