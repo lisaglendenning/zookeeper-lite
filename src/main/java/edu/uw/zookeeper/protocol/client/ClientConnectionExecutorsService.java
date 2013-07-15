@@ -1,46 +1,82 @@
 package edu.uw.zookeeper.protocol.client;
 
-import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
+import java.util.concurrent.ConcurrentMap;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.MapMaker;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.Automaton;
+import edu.uw.zookeeper.util.DefaultsFactory;
 
 /**
  * Wraps a ClientConnectionExecutor Factory in a Service.
  */
-public class ClientConnectionExecutorsService<T extends Connection<? super Operation.Request>> extends AbstractIdleService implements Iterable<ClientConnectionExecutor<T>>, Factory<ClientConnectionExecutor<T>> {
+public class ClientConnectionExecutorsService<V, C extends Connection<Operation.Request>> extends AbstractIdleService implements DefaultsFactory<V, ClientConnectionExecutor<C>>, Iterable<ClientConnectionExecutor<C>> {
 
-    public static <T extends Connection<? super Operation.Request>> ClientConnectionExecutorsService<T> newInstance(
-            Factory<ClientConnectionExecutor<T>> clientFactory) {
-        return new ClientConnectionExecutorsService<T>(clientFactory);
+    public static <C extends Connection<Operation.Request>, V> ClientConnectionExecutorsService<V,C> newInstance(
+            DefaultsFactory<V, ClientConnectionExecutor<C>> clientFactory) {
+        return new ClientConnectionExecutorsService<V,C>(clientFactory);
     }
     
-    protected final Factory<ClientConnectionExecutor<T>> clientFactory;
-    protected final List<ClientConnectionExecutor<T>> clients;
+    protected final DefaultsFactory<V, ClientConnectionExecutor<C>> clientFactory;
+    protected final ConcurrentMap<C, ClientConnectionExecutor<C>> handlers;
     
     protected ClientConnectionExecutorsService(
-            Factory<ClientConnectionExecutor<T>> clientFactory) {
+            DefaultsFactory<V, ClientConnectionExecutor<C>> clientFactory) {
         this.clientFactory = clientFactory;
-        this.clients = Collections.synchronizedList(Lists.<ClientConnectionExecutor<T>>newLinkedList());
+        this.handlers = new MapMaker().makeMap();
     }
     
-    public Factory<ClientConnectionExecutor<T>> factory() {
+    public DefaultsFactory<V, ClientConnectionExecutor<C>> factory() {
         return clientFactory;
     }
     
+    @Override
+    public ClientConnectionExecutor<C> get() {
+        State state = state();
+        switch (state) {
+        case STOPPING:
+        case TERMINATED:
+            throw new IllegalStateException(state.toString());
+        default:
+            break;
+        }
+        ClientConnectionExecutor<C> handler = clientFactory.get();
+        new ConnectionListener(handler);
+        return handler;
+    }
+
+    @Override
+    public ClientConnectionExecutor<C> get(V value) {
+        State state = state();
+        switch (state) {
+        case STOPPING:
+        case TERMINATED:
+            throw new IllegalStateException(state.toString());
+        default:
+            break;
+        }
+        ClientConnectionExecutor<C> handler = clientFactory.get(value);
+        new ConnectionListener(handler);
+        return handler;
+    }
+    
+    @Override
+    public Iterator<ClientConnectionExecutor<C>> iterator() {
+        return handlers.values().iterator();
+    }
+
     @Override
     protected void startUp() throws Exception {
     }
 
     @Override
     protected void shutDown() throws Exception {
-        for (ClientConnectionExecutor<T> client: clients) {
+        for (ClientConnectionExecutor<C> client: this) {
             try {
                 client.unregister(this);
             } catch (IllegalArgumentException e) {}
@@ -52,24 +88,27 @@ public class ClientConnectionExecutorsService<T extends Connection<? super Opera
         }
     }
 
-    @Override
-    public ClientConnectionExecutor<T> get() {
-        State state = state();
-        switch (state) {
-        case STOPPING:
-        case TERMINATED:
-            throw new IllegalStateException(state.toString());
-        default:
-            break;
+    protected class ConnectionListener {
+        
+        protected final ClientConnectionExecutor<C> handler;
+        
+        public ConnectionListener(ClientConnectionExecutor<C> handler) {
+            this.handler = handler;
+            
+            if (handlers.putIfAbsent(handler.get(), handler) != null) {
+                throw new AssertionError();
+            }
+            handler.get().register(this);
         }
-        ClientConnectionExecutor<T> client = clientFactory.get();
-        // TODO: if shutdown gets called here, we'll miss this client...
-        clients.add(client);
-        return client;
-    }
-
-    @Override
-    public Iterator<ClientConnectionExecutor<T>> iterator() {
-        return clients.iterator();
+    
+        @Subscribe
+        public void handleStateEvent(Automaton.Transition<?> event) {
+            if (Connection.State.CONNECTION_CLOSED == event.to()) {
+                try {
+                    handler.get().unregister(this);
+                } catch (IllegalArgumentException e) {}
+                handlers.remove(handler.get(), handler);
+            }
+        }
     }
 }

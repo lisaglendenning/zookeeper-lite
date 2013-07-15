@@ -3,14 +3,15 @@ package edu.uw.zookeeper.protocol.server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.uw.zookeeper.data.TxnOperation;
+import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.proto.IDisconnectRequest;
-import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.IDisconnectResponse;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.server.SessionTable;
+import edu.uw.zookeeper.util.Processor;
 
 
-public class DisconnectTableProcessor implements TxnRequestProcessor<IDisconnectRequest, Records.Response> {
+public class DisconnectTableProcessor implements Processor<SessionOperation.Request<IDisconnectRequest>, IDisconnectResponse> {
 
     public static DisconnectTableProcessor newInstance(
             SessionTable sessions) {
@@ -30,10 +31,10 @@ public class DisconnectTableProcessor implements TxnRequestProcessor<IDisconnect
     }
 
     @Override
-    public Records.Response apply(TxnOperation.Request<IDisconnectRequest> request) {
+    public IDisconnectResponse apply(SessionOperation.Request<IDisconnectRequest> request) {
         if (sessions().remove(request.getSessionId()) == null) {
             throw new IllegalStateException(String.format("Session %l not found", request.getSessionId()));
         }
-        return Records.Responses.getInstance().get(OpCode.CLOSE_SESSION);
+        return Records.newInstance(IDisconnectResponse.class);
     }
 }

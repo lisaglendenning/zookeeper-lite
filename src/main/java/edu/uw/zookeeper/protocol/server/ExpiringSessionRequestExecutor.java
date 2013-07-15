@@ -5,6 +5,7 @@ import java.util.concurrent.Executor;
 
 import com.google.common.eventbus.Subscribe;
 import edu.uw.zookeeper.event.SessionStateEvent;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.SessionOperation;
@@ -22,7 +23,7 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
             ExpiringSessionTable sessions,
             Executor executor,
             Map<Long, Publisher> listeners,
-            Processor<? super SessionOperation.Request<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> processor) {
+            Processor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> processor) {
         return new ExpiringSessionRequestExecutor(sessions, executor, listeners, processor);
     }
     
@@ -32,7 +33,7 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
             ExpiringSessionTable sessions,
             Executor executor,
             Map<Long, Publisher> listeners,
-            Processor<? super SessionOperation.Request<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> processor) {
+            Processor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> processor) {
         super(executor, listeners, processor);
         this.sessions = sessions;
         
@@ -40,7 +41,7 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
     }
 
     @Override
-    public void send(PromiseTask<SessionOperation.Request<Records.Request>, Operation.ProtocolResponse<Records.Response>> message) {
+    public void send(PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> message) {
         super.send(message);
         sessions.touch(message.task().getSessionId());
     }

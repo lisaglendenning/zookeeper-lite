@@ -8,12 +8,15 @@ import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
+import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.netty.client.NettyClientModule;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Operation.Request;
 import edu.uw.zookeeper.protocol.client.AssignXidCodec;
 import edu.uw.zookeeper.protocol.client.AssignXidProcessor;
+import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;
 import edu.uw.zookeeper.protocol.client.ClientProtocolCodec;
 import edu.uw.zookeeper.protocol.client.PingingClient;
@@ -22,6 +25,7 @@ import edu.uw.zookeeper.util.Arguments;
 import edu.uw.zookeeper.util.ConfigurableTime;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.DefaultsFactory;
+import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
@@ -194,10 +198,20 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
                             codecFactory, pingingFactory).get());
 
         EnsembleView<ServerInetAddressView> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
-        EnsembleViewFactory<ServerInetAddressView, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> ensembleFactory = 
-                EnsembleViewFactory.newInstance(clientConnections, ServerInetAddressView.class, ensemble, timeOut);
+        final EnsembleViewFactory<ServerInetAddressView, ServerViewFactory<Session, ServerInetAddressView, PingingClient<Operation.Request, AssignXidCodec, Connection<Operation.Request>>>> ensembleFactory = 
+                EnsembleViewFactory.newInstance(
+                    clientConnections, 
+                    ServerInetAddressView.class, 
+                    ensemble, 
+                    timeOut);
         monitorsFactory.apply(
-                ClientConnectionExecutorService.newInstance(ensembleFactory));
+                ClientConnectionExecutorService.newInstance(
+                        new Factory<ClientConnectionExecutor<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>>() {
+                            @Override
+                            public ClientConnectionExecutor<PingingClient<Request, AssignXidCodec, Connection<Request>>> get() {
+                                return ensembleFactory.get().get();
+                            }
+                        }));
 
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }

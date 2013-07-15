@@ -6,7 +6,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.util.Automaton;
@@ -15,19 +14,19 @@ import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ConnectTask
-    extends PromiseTask<ConnectMessage.Request, Session> 
+    extends PromiseTask<ConnectMessage.Request, ConnectMessage.Response> 
     implements FutureCallback<ConnectMessage.Request> {
 
     public static ConnectTask create(
             Connection<? super ConnectMessage.Request> connection,
             ConnectMessage.Request message) {
-        return create(connection, message, SettableFuturePromise.<Session>create());
+        return create(connection, message, SettableFuturePromise.<ConnectMessage.Response>create());
     }
 
     public static ConnectTask create(
             Connection<? super ConnectMessage.Request> connection,
             ConnectMessage.Request message, 
-            Promise<Session> promise) {
+            Promise<ConnectMessage.Response> promise) {
         ConnectTask task = new ConnectTask(message, connection, promise);
         return task;
     }
@@ -37,7 +36,7 @@ public class ConnectTask
     protected ConnectTask(
             ConnectMessage.Request request,
             Connection<? super ConnectMessage.Request> connection,
-            Promise<Session> promise) {
+            Promise<ConnectMessage.Response> promise) {
         super(request, promise);
         this.connection = connection;
 
@@ -72,14 +71,7 @@ public class ConnectTask
     @Subscribe
     public void handleConnectMessageResponse(ConnectMessage.Response result) {
         unregister();
-        if (result instanceof ConnectMessage.Response.Valid) {
-            if (! isDone()) {
-                Session session = result.toSession();
-                set(session);
-            }
-        } else {
-            onFailure(new KeeperException.SessionExpiredException());
-        }
+        set(result);
     }
     
     @Override

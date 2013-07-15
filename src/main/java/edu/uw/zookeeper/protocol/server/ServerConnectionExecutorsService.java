@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.protocol.server;
 
+import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
 
 import com.google.common.collect.MapMaker;
@@ -10,9 +11,10 @@ import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.util.Automaton;
+import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 
-public class ServerConnectionExecutorsService<C extends Connection<Message.Server>> extends AbstractIdleService {
+public class ServerConnectionExecutorsService<C extends Connection<Message.Server>> extends AbstractIdleService implements Iterable<ServerConnectionExecutor<C>> {
 
     public static <C extends Connection<Message.Server>> ServerConnectionExecutorsService<C> newInstance(
             ServerConnectionFactory<Message.Server, C> connections,
@@ -24,37 +26,31 @@ public class ServerConnectionExecutorsService<C extends Connection<Message.Serve
                         server.getConnectExecutor(), 
                         server.getSessionExecutor()));
     }
-    
+
     protected final ServerConnectionFactory<Message.Server, C> connections;
     protected final ParameterizedFactory<C, ServerConnectionExecutor<C>> factory;
-    protected final ConcurrentMap<C, ServerConnectionExecutor<C>> servers;
+    protected final ConcurrentMap<C, ServerConnectionExecutor<C>> handlers;
     
     public ServerConnectionExecutorsService(
             ServerConnectionFactory<Message.Server, C> connections,
             ParameterizedFactory<C, ServerConnectionExecutor<C>> factory) {
         this.connections = connections;
         this.factory = factory;
-        this.servers = new MapMaker().makeMap();
-        
+        this.handlers = new MapMaker().makeMap();
         connections.register(this);
     }
-    
+
     @Subscribe
     public void handleNewConnection(C connection) {
-        new ConnectionListener(connection);
+        new ConnectionListener(connection, factory.get(connection));
     }
 
-    protected class ConnectionListener {
-        protected final C connection;
-        protected final ServerConnectionExecutor<C> server;
-        
-        public ConnectionListener(C connection) {
-            this.connection = connection;
-            this.server = factory.get(connection);
-            if (servers.putIfAbsent(connection, server) != null) {
+    protected class ConnectionListener extends Pair<C, ServerConnectionExecutor<C>> {
+        public ConnectionListener(C connection, ServerConnectionExecutor<C> handler) {
+            super(connection, handler);
+            if (handlers.putIfAbsent(connection, handler) != null) {
                 throw new AssertionError();
             }
-            
             connection.register(this);
         }
     
@@ -62,9 +58,9 @@ public class ServerConnectionExecutorsService<C extends Connection<Message.Serve
         public void handleStateEvent(Automaton.Transition<?> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
                 try {
-                    connection.unregister(this);
+                    first().unregister(this);
                 } catch (IllegalArgumentException e) {}
-                servers.remove(connection, server);
+                handlers.remove(first(), second());
             }
         }
     }
@@ -77,5 +73,10 @@ public class ServerConnectionExecutorsService<C extends Connection<Message.Serve
     @Override
     protected void shutDown() throws Exception {
         connections.stop().get();
+    }
+
+    @Override
+    public Iterator<ServerConnectionExecutor<C>> iterator() {
+        return handlers.values().iterator();
     }
 }

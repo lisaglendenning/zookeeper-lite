@@ -1,9 +1,9 @@
 package edu.uw.zookeeper.protocol.server;
 
-import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.protocol.Ping;
+import edu.uw.zookeeper.util.Processor;
 
-public enum PingProcessor implements TxnRequestProcessor<Ping.Request, Ping.Response> {
+public enum PingProcessor implements Processor<Ping.Request, Ping.Response> {
     PING_PROCESSOR;
     
     public static PingProcessor getInstance() {
@@ -11,7 +11,7 @@ public enum PingProcessor implements TxnRequestProcessor<Ping.Request, Ping.Resp
     }
     
     @Override
-    public Ping.Response apply(TxnOperation.Request<Ping.Request> input) {
+    public Ping.Response apply(Ping.Request input) {
         return Ping.Response.newInstance();
     }
 }

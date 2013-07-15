@@ -37,7 +37,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
             C connection,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
-            TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> sessionExecutor) {
+            TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
         return new ServerConnectionExecutor<C>(
                 connection, connection, connection, anonymousExecutor, connectExecutor, sessionExecutor);
     }
@@ -45,7 +45,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
     public static <C extends Connection<Message.Server>> ParameterizedFactory<C, ServerConnectionExecutor<C>> factory(
             final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
-            final TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> sessionExecutor) {
+            final TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
         return new ParameterizedFactory<C, ServerConnectionExecutor<C>>() {
             @Override
             public ServerConnectionExecutor<C> get(C connection) {
@@ -74,7 +74,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
             C connection,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
-            TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> sessionExecutor) {
+            TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
         this.logger = LoggerFactory.getLogger(getClass());
         this.connection = connection;
         this.anonymousExecutor = anonymousExecutor;

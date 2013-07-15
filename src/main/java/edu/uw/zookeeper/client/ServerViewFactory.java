@@ -17,49 +17,43 @@ import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.TimeValue;
 
-public class ServerViewFactory<T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> implements DefaultsFactory<Session, ClientConnectionExecutor<C>> {
+public class ServerViewFactory<V, T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> extends Pair<T, ZxidTracker> implements DefaultsFactory<V, ClientConnectionExecutor<C>> {
 
-    public static <T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> ServerViewFactory<T,C> newInstance(
+    public static <T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> ServerViewFactory<Session, T, C> newInstance(
             ClientConnectionFactory<?, C> connections,
-            T server,
+            T view,
             TimeValue timeOut) {
         ZxidTracker zxids = ZxidTracker.create();
-        DefaultsFactory<Session, ConnectMessage.Request> requestFactory = ConnectMessage.Request.factory(timeOut, zxids);
-        return new ServerViewFactory<T,C>(requestFactory, zxids, FromRequestFactory.newInstance(server, connections));
-    }
-    
-    public static class FromRequestFactory<T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> extends Pair<T, ClientConnectionFactory<?, C>> implements ParameterizedFactory<ConnectMessage.Request, ClientConnectionExecutor<C>> {
-    
-        public static <T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> FromRequestFactory<T,C> newInstance(
-                T server,
-                ClientConnectionFactory<?, C> connections) {
-            return new FromRequestFactory<T,C>(server, connections);
-        }
-        
-        public FromRequestFactory(
-                T server,
-                ClientConnectionFactory<?, C> connections) {
-            super(server, connections);
-        }
-        
-        @Override
-        public ClientConnectionExecutor<C> get(ConnectMessage.Request request) {
-            C connection;
-            try {
-                connection = second().connect(first().get()).get();
-            } catch (Exception e) {
-                throw Throwables.propagate(e);
-            }
-            ClientConnectionExecutor<C> instance = 
-                    ClientConnectionExecutor.newInstance(
-                            request, connection);
-            return instance;
-        }
-    }
+        final DefaultsFactory<Session, ConnectMessage.Request> requestFactory = ConnectMessage.Request.factory(timeOut, zxids);
+        final ParameterizedFactory<ConnectMessage.Request, ClientConnectionExecutor<C>> delegate = 
+                FromRequestFactory.create(
+                        FixedClientConnectionFactory.create(view.get(), connections));
+        return newInstance(
+                view,
+                new DefaultsFactory<Session, ClientConnectionExecutor<C>>() {
+                    @Override
+                    public ClientConnectionExecutor<C> get() {
+                        return delegate.get(requestFactory.get());
+                    }
 
+                    @Override
+                    public ClientConnectionExecutor<C> get(Session value) {
+                        return delegate.get(requestFactory.get(value));
+                    }
+                }, 
+                zxids);
+    }
+    
+    public static <V, T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> ServerViewFactory<V,T,C> newInstance(
+            T view,
+            DefaultsFactory<V, ClientConnectionExecutor<C>> delegate,
+            ZxidTracker zxids) {
+        return new ServerViewFactory<V,T,C>(view, delegate, zxids);
+    }
+    
     public static class FixedClientConnectionFactory<C extends Connection<?>> extends Pair<SocketAddress, ClientConnectionFactory<?,C>> implements Factory<C> {
         
-        public static <C extends Connection<?>> FixedClientConnectionFactory<C> newInstance(
+        public static <C extends Connection<?>> FixedClientConnectionFactory<C> create(
                 SocketAddress address,
                 ClientConnectionFactory<?,C> connectionFactory) {
             return new FixedClientConnectionFactory<C>(address, connectionFactory);
@@ -79,43 +73,62 @@ public class ServerViewFactory<T extends ServerView.Address<? extends SocketAddr
             }
         }
     }
+
+    public static class FromRequestFactory<C extends Connection<? super Message.ClientSession>> implements DefaultsFactory<ConnectMessage.Request, ClientConnectionExecutor<C>> {
     
-    protected final DefaultsFactory<Session, ConnectMessage.Request> requestFactory;
-    protected final ZxidTracker zxids;
-    protected final FromRequestFactory<T,C> delegate;
+        public static <C extends Connection<? super Message.ClientSession>> FromRequestFactory<C> create(
+                Factory<C> connections) {
+            return new FromRequestFactory<C>(connections);
+        }
+        
+        protected final Factory<C> connections;
+        
+        public FromRequestFactory(
+                Factory<C> connections) {
+            this.connections = connections;
+        }
+
+        @Override
+        public ClientConnectionExecutor<C> get() {
+            return get(ConnectMessage.Request.NewRequest.newInstance());
+        }
+        
+        @Override
+        public ClientConnectionExecutor<C> get(ConnectMessage.Request request) {
+            C connection;
+            try {
+                connection = connections.get();
+            } catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+            ClientConnectionExecutor<C> instance = 
+                    ClientConnectionExecutor.newInstance(
+                            request, connection);
+            return instance;
+        }
+    }
+
+    protected final DefaultsFactory<V,ClientConnectionExecutor<C>> delegate;
     
     protected ServerViewFactory(
-            DefaultsFactory<Session, ConnectMessage.Request> requestFactory,
-            ZxidTracker zxids,
-            FromRequestFactory<T,C> delegate) {
-        this.zxids = zxids;
-        this.requestFactory = requestFactory;
+            T view,
+            DefaultsFactory<V, ClientConnectionExecutor<C>> delegate,
+            ZxidTracker zxids) {
+        super(view, zxids);
         this.delegate = delegate;
     }
     
-    public T address() {
-        return delegate.first();
-    }
-    
-    public ClientConnectionFactory<?,C> connections() {
-        return delegate.second();
-    }
-
-    public ZxidTracker zxids() {
-        return zxids;
-    }
-
     @Override
     public ClientConnectionExecutor<C> get() {
-        ClientConnectionExecutor<C> instance =  delegate.get(requestFactory.get());
-        ZxidTracker.ZxidListener.create(zxids(), instance.get());
+        ClientConnectionExecutor<C> instance =  delegate.get();
+        ZxidTracker.ZxidListener.create(second(), instance.get());
         return instance;
     }
 
     @Override
-    public ClientConnectionExecutor<C> get(Session session) {
-        ClientConnectionExecutor<C> instance = delegate.get(requestFactory.get(session));
-        ZxidTracker.ZxidListener.create(zxids(), instance.get());
+    public ClientConnectionExecutor<C> get(V value) {
+        ClientConnectionExecutor<C> instance = delegate.get(value);
+        ZxidTracker.ZxidListener.create(second(), instance.get());
         return instance;
     }
 }

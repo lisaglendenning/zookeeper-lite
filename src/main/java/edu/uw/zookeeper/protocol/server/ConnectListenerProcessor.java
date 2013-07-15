@@ -27,13 +27,14 @@ public class ConnectListenerProcessor implements Processor<Pair<ConnectMessage.R
     @Override
     public ConnectMessage.Response apply(Pair<ConnectMessage.Request, Publisher> input) throws Exception {
         ConnectMessage.Response response = delegate.apply(input.first());
+        Publisher publisher = input.second();
         if (response instanceof ConnectMessage.Response.Valid) {
-            Publisher prev = listeners.put(response.getSessionId(), input.second());
+            Publisher prev = listeners.put(response.getSessionId(), publisher);
             if (prev != null) {
                 // TODO
             }
         }
-        input.second().post(response);
+        publisher.post(response);
         return response;
     }
 }

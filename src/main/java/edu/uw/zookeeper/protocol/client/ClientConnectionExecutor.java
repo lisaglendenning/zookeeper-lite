@@ -3,13 +3,11 @@ package edu.uw.zookeeper.protocol.client;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
-import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
@@ -26,8 +24,8 @@ import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ClientConnectionExecutor<C extends Connection<? super Message.ClientSession>>
-    extends AbstractActor<PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>>>
-    implements ClientExecutor<Operation.Request, Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>,
+    extends AbstractActor<PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>>>
+    implements ClientExecutor<Operation.Request, Operation.ProtocolRequest<?>, Message.ServerResponse<?>>,
         Publisher,
         Reference<C> {
 
@@ -46,44 +44,48 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
             Executor executor,
             AssignXidProcessor xids,
             C connection) {
+        return newInstance(
+                ConnectTask.create(connection, request),
+                executor,
+                xids,
+                connection);
+    }
+
+    public static <C extends Connection<? super Message.ClientSession>> ClientConnectionExecutor<C> newInstance(
+            ListenableFuture<ConnectMessage.Response> session,
+            Executor executor,
+            AssignXidProcessor xids,
+            C connection) {
         return new ClientConnectionExecutor<C>(
-                request,
+                session,
                 connection,
                 xids,
                 executor);
     }
     
     protected final C connection;
-    protected final ConnectTask connectTask;
+    protected final ListenableFuture<ConnectMessage.Response> session;
     protected final AssignXidProcessor xids;
     protected final BlockingQueue<PendingTask> pending;
     protected final BlockingQueue<Message.ServerResponse<?>> received;
     
     protected ClientConnectionExecutor(
-            ConnectMessage.Request request,
+            ListenableFuture<ConnectMessage.Response> session,
             C connection,
             AssignXidProcessor xids,
             Executor executor) {
-        super(executor, AbstractActor.<PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>>>newQueue(), AbstractActor.newState());
+        super(executor, AbstractActor.<PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>>>newQueue(), AbstractActor.newState());
         this.connection = connection;
         this.xids = xids;
         this.pending = new LinkedBlockingQueue<PendingTask>();
         this.received = new LinkedBlockingQueue<Message.ServerResponse<?>>();
-        this.connectTask = ConnectTask.create(connection, request);
+        this.session = session;
                 
         connection.register(this);
     }
 
-    public Session session() {
-        if (connectTask.isDone()) {
-            try {
-                return connectTask.get();
-            } catch (Exception e) {
-                throw Throwables.propagate(e);
-            }
-        } else {
-            return Session.uninitialized();
-        }
+    public ListenableFuture<ConnectMessage.Response> session() {
+        return session;
     }
     
     @Override
@@ -92,15 +94,15 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
     
     @Override
-    public ListenableFuture<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> submit(Operation.Request request) {
-        Promise<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> promise = SettableFuturePromise.create();
+    public ListenableFuture<Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>> submit(Operation.Request request) {
+        Promise<Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>> promise = SettableFuturePromise.create();
         return submit(request, promise);
     }
 
     @Override
-    public ListenableFuture<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> submit(
-            Operation.Request request, Promise<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> promise) {
-        PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> task = PromiseTask.of(request, promise);
+    public ListenableFuture<Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>> submit(
+            Operation.Request request, Promise<Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>> promise) {
+        PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>> task = PromiseTask.of(request, promise);
         send(task);
         return task;
     }
@@ -173,14 +175,14 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     
     protected void applyReceived(PendingTask task, Message.ServerResponse<?> response) {
         if ((task != null) && (task.task().getXid() == response.getXid())) {
-            Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>> result = 
-                    Pair.<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>create(task.task(), response);
+            Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>> result = 
+                    Pair.<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>create(task.task(), response);
             task.set(result);
         }
     }
 
     @Override
-    protected boolean apply(PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> input) {
+    protected boolean apply(PromiseTask<Operation.Request, Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>> input) {
         PendingTask task;
         try {
             Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
@@ -232,12 +234,12 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
 
     protected static class PendingTask
-        extends PromiseTask<Message.ClientRequest<?>, Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>>
+        extends PromiseTask<Message.ClientRequest<?>, Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>>
         implements FutureCallback<Object> {
     
         public PendingTask(
                 Message.ClientRequest<?> task,
-                Promise<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> delegate) {
+                Promise<Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>> delegate) {
             super(task, delegate);
         }
     
@@ -256,7 +258,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         }
 
         @Override
-        public Promise<Pair<Operation.ProtocolRequest<?>, Operation.ProtocolResponse<?>>> delegate() {
+        public Promise<Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>> delegate() {
             return delegate;
         }
     } 

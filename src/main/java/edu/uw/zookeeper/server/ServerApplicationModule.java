@@ -5,6 +5,8 @@ import java.util.AbstractMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
+import org.apache.zookeeper.KeeperException;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
@@ -13,6 +15,7 @@ import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
+import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
@@ -21,9 +24,11 @@ import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Ping;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.SessionOperation;
+import edu.uw.zookeeper.protocol.proto.IDisconnectRequest;
+import edu.uw.zookeeper.protocol.proto.IDisconnectResponse;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.*;
@@ -114,13 +119,29 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
     }
     
     public static TxnRequestProcessor<Records.Request, Records.Response> defaultTxnProcessor(
-            final ZNodeDataTrie trie,
+            ZNodeDataTrie trie,
             final SessionTable sessions) {
         Map<OpCode, TxnRequestProcessor<?,?>> processors = Maps.newEnumMap(OpCode.class);
         processors = ZNodeDataTrie.Operators.of(trie, processors);
-        processors.put(OpCode.CLOSE_SESSION, DisconnectTableProcessor.newInstance(sessions));
-        processors.put(OpCode.PING, PingProcessor.getInstance());
-        System.out.println(processors);
+        processors.put(OpCode.CLOSE_SESSION, 
+                new TxnRequestProcessor<IDisconnectRequest, IDisconnectResponse>() {
+                    private final DisconnectTableProcessor delegate = DisconnectTableProcessor.newInstance(sessions);
+                    @Override
+                    public IDisconnectResponse apply(
+                            TxnOperation.Request<IDisconnectRequest> request)
+                            throws KeeperException {
+                        return delegate.apply(request);
+                    }
+        });
+        processors.put(OpCode.PING, 
+                new TxnRequestProcessor<Ping.Request, Ping.Response>() {
+            @Override
+            public Ping.Response apply(
+                    TxnOperation.Request<Ping.Request> request)
+                    throws KeeperException {
+                return PingProcessor.getInstance().apply(request.getRecord());
+            }
+        });
         ByOpcodeTxnRequestProcessor processor = ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(processors));
         return processor;
     }
@@ -140,7 +161,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
                         ToTxnRequestProcessor.create(AssignZxidProcessor.newInstance(zxids)), 
                         ProtocolResponseProcessor.create(
                                 defaultTxnProcessor(dataTrie, sessions)));
-        TaskExecutor<SessionOperation.Request<Records.Request>, Operation.ProtocolResponse<Records.Response>> sessionExecutor = 
+        TaskExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> sessionExecutor = 
                 ExpiringSessionRequestExecutor.newInstance(sessions, executor, listeners, processor);
         return ServerTaskExecutor.newInstance(anonymousExecutor, connectExecutor, sessionExecutor);
     }
