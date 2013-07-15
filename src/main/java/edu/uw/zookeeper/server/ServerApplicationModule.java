@@ -15,6 +15,7 @@ import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
+import edu.uw.zookeeper.data.EphemeralProcessor;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
 import edu.uw.zookeeper.net.Connection;
@@ -143,7 +144,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
             }
         });
         ByOpcodeTxnRequestProcessor processor = ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(processors));
-        return processor;
+        return EphemeralProcessor.newInstance(processor);
     }
     
     public static ServerTaskExecutor defaultServerExecutor(

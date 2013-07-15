@@ -83,6 +83,26 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             return operators;
         }
 
+        @Operational(OpCode.CHECK)
+        public static class CheckOperator extends AbstractOperator<ICheckVersionRequest, ICheckVersionResponse> {
+        
+            public CheckOperator(ZNodeDataTrie trie) {
+                super(trie);
+            }
+        
+            @Override
+            public ICheckVersionResponse apply(TxnOperation.Request<ICheckVersionRequest> request)
+                    throws KeeperException {
+                ICheckVersionRequest record = request.getRecord();
+                ZNodeLabel.Path path = getPath(record);
+                ZNodeStateNode node = getNode(get(), path);
+                if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
+                    throw new KeeperException.BadVersionException(path.toString());
+                }
+                return Operations.Responses.check().setStat(node.asStat()).build();      
+            }
+        }
+
         @Operational({OpCode.CREATE, OpCode.CREATE2})
         public static class CreateOperator extends AbstractOperator<Records.Request, Records.Response> {
     
@@ -286,36 +306,6 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 ZNodeLabel.Path path = getPath(record);
                 getNode(get(), path);
                 return Operations.Responses.sync().setPath(path).build();        
-            }
-        }
-        
-        @Operational(OpCode.CHECK)
-        public static class CheckOperator extends AbstractOperator<ICheckVersionRequest, ICheckVersionResponse> {
-    
-            public CheckOperator(ZNodeDataTrie trie) {
-                super(trie);
-            }
-    
-            @Override
-            public ICheckVersionResponse apply(TxnOperation.Request<ICheckVersionRequest> request)
-                    throws KeeperException {
-                // TODO
-                throw new UnsupportedOperationException();       
-            }
-        }
-        
-        @Operational(OpCode.MULTI)
-        public static class MultiOperator extends AbstractOperator<IMultiRequest, IMultiResponse> {
-    
-            public MultiOperator(ZNodeDataTrie trie) {
-                super(trie);
-            }
-    
-            @Override
-            public IMultiResponse apply(TxnOperation.Request<IMultiRequest> request)
-                    throws KeeperException {
-                // TODO
-                throw new UnsupportedOperationException();       
             }
         }
     }

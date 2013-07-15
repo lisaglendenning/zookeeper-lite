@@ -114,6 +114,43 @@ public abstract class Operations {
                 return (C) this;
             }
         }
+
+        public static class Check extends AbstractPath<ICheckVersionRequest, Check> {
+
+            public static Check fromRecord(ICheckVersionRequest request) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                int version = request.getVersion();
+                return new Check(path, version);
+            }
+            
+            protected int version;
+            
+            public Check() {
+                super(OpCode.CHECK);
+                this.version = -1;
+            }
+
+            public Check(ZNodeLabel.Path path, int version) {
+                super(OpCode.DELETE, path);
+                this.version = version;
+            }
+            
+            public int getVersion() {
+                return version;
+            }
+            
+            public Check setVersion(int version) {
+                this.version = version;
+                return this;
+            }
+            
+            @Override
+            public ICheckVersionRequest build() {
+                ICheckVersionRequest record = new ICheckVersionRequest(
+                        getPath().toString(), getVersion());
+                return record;
+            }
+        }
         
         public static class Create extends AbstractData<Records.Request, Create> {
             
@@ -579,32 +616,49 @@ public abstract class Operations {
         public static AbstractBuilder<? extends Records.Request> fromRecord(Records.Request record) {
             AbstractBuilder<? extends Records.Request> builder = null;
             switch (record.getOpcode()) {
+            case CHECK:
+                builder = Check.fromRecord((ICheckVersionRequest) record);
+                break;
             case CREATE:
             case CREATE2:
                 builder = Create.fromRecord(record);
+                break;
             case DELETE:
                 builder = Delete.fromRecord((IDeleteRequest) record);
+                break;
             case EXISTS:
                 builder = Exists.fromRecord((IExistsRequest) record);
+                break;
             case GET_ACL:
                 builder = GetAcl.fromRecord((IGetACLRequest) record);
+                break;
             case GET_CHILDREN:
             case GET_CHILDREN2:
                 builder = GetChildren.fromRecord(record);
+                break;
             case GET_DATA:
                 builder = GetData.fromRecord((IGetDataRequest) record);
+                break;
             case MULTI:
                 builder = Multi.fromRecord((IMultiRequest) record);
+                break;
             case SET_ACL:
                 builder = SetAcl.fromRecord((ISetACLRequest) record);
+                break;
             case SET_DATA:
                 builder = SetData.fromRecord((ISetDataRequest) record);
+                break;
             case SYNC:
                 builder = Sync.fromRecord((ISyncRequest) record);
+                break;
             default:
                 break;
             }
             return builder;
+        }
+
+        public static Check check() {
+            return new Check();
         }
         
         public static Create create() {
@@ -680,7 +734,28 @@ public abstract class Operations {
                 return (C) this;
             }
         }
-        
+
+        public static class Check extends AbstractStat<ICheckVersionResponse, Check> {
+
+            public static Check fromRecord(ICheckVersionResponse record) {
+                Stat stat = record.getStat();
+                return new Check(stat);
+            }
+            
+            public Check() {
+                super(OpCode.CHECK);
+            }
+            
+            public Check(Stat stat) {
+                super(OpCode.CHECK, stat);
+            }
+            
+            @Override
+            public ICheckVersionResponse build() {
+                return new ICheckVersionResponse(getStat());
+            }
+        }
+    
         public static class Create extends AbstractStat<Records.Response, Create> implements PathBuilder<Records.Response> {
 
             public static Create fromRecord(Records.Response record) {
@@ -1089,34 +1164,52 @@ public abstract class Operations {
         public static AbstractBuilder<? extends Records.Response> fromRecord(Records.Response record) {
             AbstractBuilder<? extends Records.Response> builder = null;
             switch (record.getOpcode()) {
+            case CHECK:
+                builder = Check.fromRecord((ICheckVersionResponse) record);
+                break;
             case CREATE:
             case CREATE2:
                 builder = Create.fromRecord(record);
+                break;
             case DELETE:
                 builder = Delete.getInstance();
+                break;
             case EXISTS:
                 builder = Exists.fromRecord((IExistsResponse) record);
+                break;
             case GET_ACL:
                 builder = GetAcl.fromRecord((IGetACLResponse) record);
+                break;
             case GET_CHILDREN:
             case GET_CHILDREN2:
                 builder = GetChildren.fromRecord(record);
+                break;
             case GET_DATA:
                 builder = GetData.fromRecord((IGetDataResponse) record);
+                break;
             case MULTI:
                 builder = Multi.fromRecord((IMultiResponse) record);
+                break;
             case NOTIFICATION:
                 builder = Notification.fromRecord((IWatcherEvent) record);
+                break;
             case SET_ACL:
                 builder = SetAcl.fromRecord((ISetACLResponse) record);
+                break;
             case SET_DATA:
                 builder = SetData.fromRecord((ISetDataResponse) record);
+                break;
             case SYNC:
                 builder = Sync.fromRecord((ISyncResponse) record);
+                break;
             default:
                 break;
             }
             return builder;
+        }
+
+        public static Check check() {
+            return new Check();
         }
         
         public static Create create() {

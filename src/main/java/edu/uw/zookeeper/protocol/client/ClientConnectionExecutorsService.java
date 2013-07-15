@@ -9,6 +9,8 @@ import com.google.common.util.concurrent.AbstractIdleService;
 
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.DefaultsFactory;
 
@@ -81,7 +83,8 @@ public class ClientConnectionExecutorsService<V, C extends Connection<Operation.
                 client.unregister(this);
             } catch (IllegalArgumentException e) {}
             try {
-                DisconnectTask.<Void>create(null, client.get()).get();
+                client.submit(Records.Requests.getInstance().get(OpCode.CLOSE_SESSION)).get();
+                client.get().close().get();
             } finally {
                 client.stop();
             }
