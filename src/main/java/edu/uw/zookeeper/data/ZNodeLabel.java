@@ -263,6 +263,17 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             }
             return builder.toString();
         }
+        
+        public static String parentOf(String path) {
+            int lastSlash = path.lastIndexOf(ZNodeLabel.SLASH);
+            if (lastSlash == -1) {
+                return "";
+            } else if (lastSlash == 0) {
+                return (path.length() > 1) ? "/" : "";
+            } else {
+                return path.substring(0, lastSlash);
+            }
+        }
 
         public static enum Reserved implements Singleton<Path> {
             ROOT(new Path(Character.toString(SLASH))), 

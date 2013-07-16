@@ -7,46 +7,42 @@ import org.apache.zookeeper.Watcher.Event.KeeperState;
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.util.Event;
+import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
+import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 @Event
 public class WatchEvent {
 
-    public static WatchEvent created(ZNodeLabel.Path path) {
-        return of(EventType.NodeCreated, KeeperState.SyncConnected, path);
+    public static WatchEvent of(Operation.ProtocolResponse<IWatcherEvent> message) {
+        return new WatchEvent(
+                message.getZxid(),
+                EventType.fromInt(message.getRecord().getType()), 
+                KeeperState.fromInt(message.getRecord().getState()),
+                ZNodeLabel.Path.of(message.getRecord().getPath()));
     }
 
-    public static WatchEvent deleted(ZNodeLabel.Path path) {
-        return of(EventType.NodeDeleted, KeeperState.SyncConnected, path);
-    }
-
-    public static WatchEvent data(ZNodeLabel.Path path) {
-        return of(EventType.NodeDataChanged, KeeperState.SyncConnected, path);
-    }
-
-    public static WatchEvent children(ZNodeLabel.Path path) {
-        return of(EventType.NodeChildrenChanged, KeeperState.SyncConnected, path);
+    public static WatchEvent of(long zxid, EventType eventType, KeeperState keeperState, ZNodeLabel.Path path) {
+        return new WatchEvent(zxid, eventType, keeperState, path);
     }
     
-    public static WatchEvent valueOf(IWatcherEvent message) {
-        return new WatchEvent(EventType.fromInt(message.getType()), 
-                KeeperState.fromInt(message.getState()),
-                ZNodeLabel.Path.of(message.getPath()));
-    }
-
-    public static WatchEvent of(EventType eventType, KeeperState keeperState, ZNodeLabel.Path path) {
-        return new WatchEvent(eventType, keeperState, path);
-    }
-    
+    private final long zxid;
     private final ZNodeLabel.Path path;
     private final KeeperState keeperState;
     private final EventType eventType;
     
-    public WatchEvent(EventType eventType, KeeperState keeperState, ZNodeLabel.Path path) {
+    public WatchEvent(long zxid, EventType eventType, KeeperState keeperState, ZNodeLabel.Path path) {
         this.keeperState = keeperState;
         this.eventType = eventType;
         this.path = path;
+        this.zxid = zxid;
+    }
+    
+    public long getZxid() {
+        return zxid;
     }
     
     public KeeperState getState() {
@@ -61,11 +57,14 @@ public class WatchEvent {
         return path;
     }
 
-    public IWatcherEvent asRecord() {
-        return new IWatcherEvent(
-                getType().getIntValue(), 
-                getState().getIntValue(), 
-                getPath().toString());
+    public Message.ServerResponse<IWatcherEvent> toMessage() {
+        return ProtocolResponseMessage.of(
+                OpCodeXid.NOTIFICATION.getXid(), 
+                getZxid(),
+                new IWatcherEvent(
+                    getType().getIntValue(), 
+                    getState().getIntValue(), 
+                    getPath().toString()));
     }
 
     @Override
@@ -84,11 +83,12 @@ public class WatchEvent {
         WatchEvent other = (WatchEvent) obj;
         return Objects.equal(getType(), other.getType())
                 && Objects.equal(getState(), other.getState())
-                && Objects.equal(getPath(), other.getPath());
+                && Objects.equal(getPath(), other.getPath())
+                && Objects.equal(getZxid(), other.getZxid());
     }
     
     @Override
     public int hashCode() {
-        return Objects.hashCode(getType(), getState(), getPath());
+        return Objects.hashCode(getZxid(), getType(), getState(), getPath());
     }
 }

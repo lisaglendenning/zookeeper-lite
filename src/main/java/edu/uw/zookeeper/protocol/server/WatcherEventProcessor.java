@@ -5,6 +5,8 @@ import java.util.Set;
 
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.collect.HashMultimap;
@@ -12,12 +14,15 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 
 import edu.uw.zookeeper.data.TxnOperation;
+import edu.uw.zookeeper.data.WatchEvent;
 import edu.uw.zookeeper.data.ZNodeLabel;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
-import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Processors.ForwardingProcessor;
 import edu.uw.zookeeper.util.Publisher;
@@ -51,11 +56,6 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         return new IWatcherEvent(type, state, path);
     }
     
-    public static String parentOf(String path) {
-        int lastSlash = path.indexOf(ZNodeLabel.SLASH);
-        return (lastSlash > 0) ? path.substring(0, lastSlash) : "";
-    }
-    
     protected final Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate;
     protected final Watches dataWatches;
     protected final Watches childWatches;
@@ -70,10 +70,10 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
     
     @Override
     public Records.Response apply(TxnOperation.Request<Records.Request> input) {
-        return apply(input.getSessionId(), input.getRecord(), delegate().apply(input));
+        return apply(input.getZxid(), input.getSessionId(), input.getRecord(), delegate().apply(input));
     }
     
-    protected Records.Response apply(Long session, Records.Request request, Records.Response response) {
+    protected Records.Response apply(long zxid, Long session, Records.Request request, Records.Response response) {
         switch (request.getOpcode()) {
         case GET_DATA:
         case EXISTS:
@@ -89,14 +89,25 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
             break;
         case CREATE:
         case CREATE2:
-        case DELETE:
         {
             if (! (response instanceof Operation.Error)) {
                 String path = ((Records.PathGetter) response).getPath();
-                String parent = parentOf(path);
-                dataWatches.post((response.getOpcode() == OpCode.DELETE) ? deleted(path) : created(path));
+                String parent = ZNodeLabel.Path.parentOf(path);
+                dataWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, created(path)));
                 if (parent.length() > 0) {
-                    childWatches.post(children(parent));
+                    childWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, children(parent)));
+                }
+            }
+            break;
+        }
+        case DELETE:
+        {
+            if (! (response instanceof Operation.Error)) {
+                String path = ((Records.PathGetter) request).getPath();
+                String parent = ZNodeLabel.Path.parentOf(path);
+                dataWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, deleted(path)));
+                if (parent.length() > 0) {
+                    childWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, children(parent)));
                 }
             }
             break;
@@ -104,8 +115,8 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         case SET_DATA:
         {
             if (! (response instanceof Operation.Error)) {
-                String path = ((Records.PathGetter) response).getPath();
-                dataWatches.post(data(path));
+                String path = ((Records.PathGetter) request).getPath();
+                dataWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, data(path)));
             }
             break;
         }
@@ -114,7 +125,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
             Iterator<Records.MultiOpRequest> requests = ((IMultiRequest) request).iterator();
             Iterator<Records.MultiOpResponse> responses = ((IMultiResponse) response).iterator();
             while (requests.hasNext()) {
-                apply(session, requests.next(), responses.next());
+                apply(zxid, session, requests.next(), responses.next());
             }
             break;
         }
@@ -141,16 +152,21 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         protected final SetMultimap<String, Long> byPath;
         protected final SetMultimap<Long, String> bySession;
         protected final Function<Long, Publisher> publishers;
+        protected final Logger logger;
         
         public Watches(
                 Function<Long, Publisher> publishers) {
+            this.logger = LoggerFactory.getLogger(getClass());
             this.byPath = Multimaps.synchronizedSetMultimap(HashMultimap.<String, Long>create());
             this.bySession = Multimaps.synchronizedSetMultimap(HashMultimap.<Long, String>create());
             this.publishers = publishers;
         }
         
-        public void post(IWatcherEvent event) {
-            String path = event.getPath();
+        public void post(Message.ServerResponse<IWatcherEvent> event) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("{}", WatchEvent.of(event));
+            }
+            String path = event.getRecord().getPath();
             for (Long session: byPath.removeAll(path)) {
                 bySession.remove(session, path);
                 Publisher publisher = publishers.apply(session);
