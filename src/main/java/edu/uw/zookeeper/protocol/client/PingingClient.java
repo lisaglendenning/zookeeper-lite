@@ -35,7 +35,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                     @Override
                     public PingingClient<I,T,C> get(Pair<Pair<Class<I>, T>, C> value) {
                         return new PingingClient<I,T,C>(
-                                PingingParameters.newInstance(defaultTimeOut),
+                                PingingParameters.create(defaultTimeOut),
                                 executor,
                                 value.first().second(),
                                 value.second());
@@ -43,36 +43,45 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                 };
     }
     
-    protected static long now() {
-        return System.currentTimeMillis();
-    }
-
     protected static final TimeUnit TIME_UNIT = TimeUnit.MILLISECONDS;
 
     public static class PingingParameters {
 
-        public static PingingParameters newInstance(TimeValue timeOut) {
-            return new PingingParameters(timeOut, now());
+        public static PingingParameters create(TimeValue timeOut) {
+            return new PingingParameters(timeOut, System.currentTimeMillis());
         }
         
         private final AtomicReference<TimeValue> timeOut;
         private final AtomicLong nextTimeOut;
         
-        public PingingParameters(TimeValue timeOut, long now) {
-            this.timeOut = new AtomicReference<TimeValue>(checkNotNull(timeOut));
-            this.nextTimeOut = new AtomicLong(now + timeOut.value(TIME_UNIT));
+        protected PingingParameters(TimeValue timeOut, long now) {
+            this.timeOut = new AtomicReference<TimeValue>(checkNotNull(timeOut).convert(TIME_UNIT));
+            this.nextTimeOut = new AtomicLong(now + timeOut.value());
         }
         
-        public AtomicReference<TimeValue> timeOut() {
-            return timeOut;
-        }
-        
-        public AtomicLong nextTimeOut() {
-            return nextTimeOut;
+        public long getTimeOut() {
+            return timeOut.get().value();
         }
 
-        public void touch() {
-            nextTimeOut.set(now() + timeOut.get().value(TIME_UNIT));
+        public long setTimeOut(TimeValue timeOut) {
+            return this.timeOut.getAndSet(timeOut.convert(TIME_UNIT)).value();
+        }
+        
+        public long getNextTimeOut() {
+            return nextTimeOut.get();
+        }
+
+        public long touch() {
+            this.nextTimeOut.set(now() + getTimeOut());
+            return nextTimeOut.get();
+        }
+        
+        public long now() {
+            return System.currentTimeMillis();
+        }
+        
+        public long remaining() {
+            return getNextTimeOut() - now();
         }
     }
 
@@ -119,7 +128,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
     @Subscribe
     public void handleCreateSessionResponse(ConnectMessage.Response message) {
         if (message instanceof ConnectMessage.Response.Valid) {
-            pingParameters.timeOut().set(message.toParameters().timeOut());
+            pingParameters.setTimeOut(message.toParameters().timeOut());
             pingParameters.touch();
             pingTask.schedule();
         } else {
@@ -185,13 +194,14 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
             }
 
             // should ping now, or ok to wait a while?
-            if (pingParameters().nextTimeOut().get() - now() > pingParameters().timeOut().get().value(TIME_UNIT) / 2) {
+            if (pingParameters().remaining() > pingParameters().getTimeOut() / 2) {
                 schedule();
                 return;
             }
 
             Ping.Request ping = Ping.Request.newInstance();
             Operation.ProtocolRequest<Ping.Request> message = ProtocolRequestMessage.from(ping);
+            pingParameters().touch();
             try {
                 delegate().write(message);
             } catch (Exception e) {
@@ -207,10 +217,10 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         }
 
         public void schedule() {
-            if (pingParameters().timeOut().get().value() != Session.Parameters.NEVER_TIMEOUT) {
+            if (pingParameters().getTimeOut() != Session.Parameters.NEVER_TIMEOUT) {
                 if (pingingState.compareAndSet(PingingState.WAITING, PingingState.SCHEDULED)) {
                     // somewhat arbitrary, but better than just a fixed interval...
-                    long tick = Math.max((pingParameters().nextTimeOut().get() - now()) / 2, 0);
+                    long tick = Math.max(pingParameters().remaining() / 2, 0);
                     future.set(executor.schedule(this, tick, TIME_UNIT));
                 }
             }
