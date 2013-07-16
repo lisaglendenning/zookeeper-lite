@@ -140,7 +140,7 @@ public class IntraVmTest {
             e.start().get();
         }
         
-        GetEvent<IntraVmConnection<?>> clientConnectionEvent = GetEvent.newInstance(clientConnections);
+        GetEvent<IntraVmConnection<InetSocketAddress>> clientConnectionEvent = GetEvent.newInstance(clientConnections);
         GetEvent<IntraVmConnection<InetSocketAddress>> serverConnectionEvent = GetEvent.newInstance(serverConnections);
         IntraVmConnection<InetSocketAddress> client = clientConnections.connect(serverConnections.listenAddress()).get();
         assertSame(client, Iterables.getOnlyElement(clientConnections));
