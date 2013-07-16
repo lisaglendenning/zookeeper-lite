@@ -28,14 +28,14 @@ public class ToTxnRequestProcessor implements Processor<SessionOperation.Request
     }
     
     @Override
+    public AssignZxidProcessor get() {
+        return zxids;
+    }
+
+    @Override
     public TxnOperation.Request<Records.Request> apply(SessionOperation.Request<Records.Request> input) {
         long time = getTime();
         long zxid = get().apply(input.getRecord().getOpcode());
         return TxnRequest.of(time, zxid, input);
-    }
-
-    @Override
-    public AssignZxidProcessor get() {
-        return zxids;
     }
 }

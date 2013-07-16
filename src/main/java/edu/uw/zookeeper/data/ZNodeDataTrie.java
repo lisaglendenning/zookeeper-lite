@@ -124,7 +124,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                     throw new KeeperException.NoChildrenForEphemeralsException(parentPath.toString());
                 }
                 CreateMode mode = CreateMode.fromFlag(record.getFlags());
-                if (! mode.isSequential() && (getNode(get(), path) != null)) {
+                if (! mode.isSequential() && (get().get(path) != null)) {
                     throw new KeeperException.NodeExistsException(path.toString());
                 }
                 
