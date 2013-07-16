@@ -16,24 +16,20 @@ import org.junit.runners.JUnit4;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import edu.uw.zookeeper.GetEvent;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ConnectionFactory;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.EventBusPublisher;
-import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.ForwardingPromise;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.SettableFuturePromise;
 
 @RunWith(JUnit4.class)
 public class IntraVmTest {
@@ -122,43 +118,6 @@ public class IntraVmTest {
                     IntraVmConnectionEndpoint.create(addresses.get(), publishers.get(), executors.get()));
         }
     };
-    
-    public static class GetEvent<T> extends ForwardingPromise<T> {
-
-        public static <T> GetEvent<T> newInstance(
-                Eventful eventful) {
-            Promise<T> delegate = SettableFuturePromise.create();
-            return newInstance(eventful, delegate);
-        }
-        
-        public static <T> GetEvent<T> newInstance(
-                Eventful eventful,
-                Promise<T> delegate) {
-            return new GetEvent<T>(eventful, delegate);
-        }
-        
-        protected final Promise<T> delegate;
-        protected final Eventful eventful;
-        
-        public GetEvent(
-                Eventful eventful,
-                Promise<T> delegate) {
-            this.eventful = eventful;
-            this.delegate = delegate;
-            eventful.register(this);
-        }
-        
-        @Subscribe
-        public void handleEvent(T event) {
-            eventful.unregister(this);
-            set(event);
-        }
-
-        @Override
-        protected Promise<T> delegate() {
-            return delegate;
-        }
-    }
     
     @Test(timeout=5000)
     public void test() throws InterruptedException, ExecutionException {

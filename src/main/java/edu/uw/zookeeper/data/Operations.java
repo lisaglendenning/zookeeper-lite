@@ -179,7 +179,7 @@ public abstract class Operations {
             }
 
             public Create(OpCode opcode, ZNodeLabel.Path path, byte[] data, CreateMode mode, List<Acls.Acl> acl) {
-                super(opcode);
+                super(opcode, path, data);
                 this.mode = mode;
                 this.acl = acl;
             }
