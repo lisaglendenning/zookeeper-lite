@@ -3,6 +3,7 @@ package edu.uw.zookeeper.netty;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +14,6 @@ import edu.uw.zookeeper.protocol.Decoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.MessageList;
 import io.netty.handler.codec.ByteToMessageDecoder;
 
 public class DecoderHandler<O> extends ByteToMessageDecoder {
@@ -39,7 +39,7 @@ public class DecoderHandler<O> extends ByteToMessageDecoder {
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf input,
-            MessageList<Object> output) throws IOException {
+            List<Object> output) throws IOException {
         while (input.isReadable()) {
             O out = decoder.decode(input).orNull();
             if (out != null) {

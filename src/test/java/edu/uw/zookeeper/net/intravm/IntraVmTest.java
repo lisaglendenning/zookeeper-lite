@@ -97,6 +97,13 @@ public class IntraVmTest {
     }
     
     public static class EndpointFactory<T extends SocketAddress> implements Factory<Pair<IntraVmConnectionEndpoint<T>, IntraVmConnectionEndpoint<T>>> {
+        public static <T extends SocketAddress> EndpointFactory<T> newInstance(
+                Factory<T> addresses,
+                Factory<? extends Publisher> publishers, 
+                Factory<? extends Executor> executors) {
+            return new EndpointFactory<T>(addresses, publishers, executors);
+        }
+           
         protected final Factory<T> addresses;
         protected final Factory<? extends Publisher> publishers;
         protected final Factory<? extends Executor> executors;
@@ -155,7 +162,7 @@ public class IntraVmTest {
     
     @Test(timeout=5000)
     public void test() throws InterruptedException, ExecutionException {
-        testEndpoints(new EndpointFactory<InetSocketAddress>(loopbackAddresses(1), eventBusPublishers(), sameThreadExecutors()));
+        testEndpoints(EndpointFactory.newInstance(loopbackAddresses(1), eventBusPublishers(), sameThreadExecutors()));
     }
     
     protected void testEndpoints(Factory<Pair<IntraVmConnectionEndpoint<InetSocketAddress>, IntraVmConnectionEndpoint<InetSocketAddress>>> endpointFactory) throws InterruptedException, ExecutionException {

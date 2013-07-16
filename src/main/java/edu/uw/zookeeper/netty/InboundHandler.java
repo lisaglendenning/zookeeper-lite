@@ -11,7 +11,7 @@ import edu.uw.zookeeper.util.Publisher;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.MessageList;
+import io.netty.util.ReferenceCountUtil;
 
 public class InboundHandler extends ChannelInboundHandlerAdapter {
 
@@ -39,10 +39,8 @@ public class InboundHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void messageReceived(ChannelHandlerContext ctx, MessageList<Object> input) throws IOException {
-        for (int i=0; i<input.size(); ++i) {
-            post(input.get(i));
-        }
-        input.releaseAllAndRecycle();
+    public void channelRead(ChannelHandlerContext ctx, Object message) throws IOException {
+        post(message);
+        ReferenceCountUtil.release(message);
     }
 }
