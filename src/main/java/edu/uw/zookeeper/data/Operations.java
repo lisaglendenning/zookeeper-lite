@@ -854,6 +854,38 @@ public abstract class Operations {
                 return new IExistsResponse(getStat());
             }
         }
+        
+        public static class Error extends AbstractBuilder<IErrorResponse> {
+
+            public static Error fromRecord(IErrorResponse record) {
+                return new Error(record.getError());
+            }
+            
+            protected KeeperException.Code error;
+            
+            public Error() {
+                this(KeeperException.Code.OK);
+            }
+
+            public Error(KeeperException.Code error) {
+                super(OpCode.ERROR);
+                this.error = error;
+            }
+            
+            public KeeperException.Code getError() {
+                return error;
+            }
+
+            public Error setError(KeeperException.Code error) {
+                this.error = error;
+                return this;
+            }
+
+            @Override
+            public IErrorResponse build() {
+                return new IErrorResponse(getError());
+            }
+        }
     
         public static class GetAcl extends AbstractStat<IGetACLResponse, GetAcl> {
 
@@ -1174,6 +1206,9 @@ public abstract class Operations {
             case DELETE:
                 builder = Delete.getInstance();
                 break;
+            case ERROR:
+                builder = Error.fromRecord((IErrorResponse) record);
+                break;
             case EXISTS:
                 builder = Exists.fromRecord((IExistsResponse) record);
                 break;
@@ -1220,6 +1255,10 @@ public abstract class Operations {
             return Delete.getInstance();
         }
     
+        public static Error error() {
+            return new Error();
+        }
+        
         public static Exists exists() {
             return new Exists();
         }

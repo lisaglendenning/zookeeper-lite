@@ -3,10 +3,14 @@ package edu.uw.zookeeper.server;
 import java.net.SocketAddress;
 import java.util.AbstractMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
+
+import javax.annotation.Nullable;
 
 import org.apache.zookeeper.KeeperException;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
@@ -15,7 +19,6 @@ import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.data.EphemeralProcessor;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
 import edu.uw.zookeeper.net.Connection;
@@ -119,11 +122,16 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         };
     }
     
-    public static TxnRequestProcessor<Records.Request, Records.Response> defaultTxnProcessor(
+    public static Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> defaultTxnProcessor(
             ZNodeDataTrie trie,
-            final SessionTable sessions) {
+            final SessionTable sessions,
+            Function<Long, Publisher> publishers) {
         Map<OpCode, TxnRequestProcessor<?,?>> processors = Maps.newEnumMap(OpCode.class);
         processors = ZNodeDataTrie.Operators.of(trie, processors);
+        processors.put(OpCode.MULTI, 
+                ZNodeDataTrie.MultiOperator.of(
+                        trie, 
+                        ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(processors))));
         processors.put(OpCode.CLOSE_SESSION, 
                 new TxnRequestProcessor<IDisconnectRequest, IDisconnectResponse>() {
                     private final DisconnectTableProcessor delegate = DisconnectTableProcessor.newInstance(sessions);
@@ -143,8 +151,12 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
                 return PingProcessor.getInstance().apply(request.getRecord());
             }
         });
-        ByOpcodeTxnRequestProcessor processor = ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(processors));
-        return EphemeralProcessor.newInstance(processor);
+        return EphemeralProcessor.create(
+                WatcherEventProcessor.create(
+                        RequestErrorProcessor.create(
+                                ByOpcodeTxnRequestProcessor.create(
+                                        ImmutableMap.copyOf(processors))), 
+                        publishers));
     }
     
     public static ServerTaskExecutor defaultServerExecutor(
@@ -152,16 +164,23 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
             Executor executor,
             Generator<Long> zxids,
             ExpiringSessionTable sessions) {
-        Map<Long, Publisher> listeners = new MapMaker().makeMap();
+        final ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
         TaskExecutor<FourLetterRequest, FourLetterResponse> anonymousExecutor = 
                 ServerTaskExecutor.ProcessorExecutor.of(FourLetterRequestProcessor.getInstance());
         TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> connectExecutor = 
                 ServerTaskExecutor.ProcessorExecutor.of(ConnectListenerProcessor.newInstance(ConnectTableProcessor.create(sessions, zxids), listeners));
         Processor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> processor = 
                 Processors.bridge(
-                        ToTxnRequestProcessor.create(AssignZxidProcessor.newInstance(zxids)), 
+                        ToTxnRequestProcessor.create(
+                                AssignZxidProcessor.newInstance(zxids)), 
                         ProtocolResponseProcessor.create(
-                                defaultTxnProcessor(dataTrie, sessions)));
+                                defaultTxnProcessor(dataTrie, sessions,
+                                        new Function<Long, Publisher>() {
+                                            @Override
+                                            public @Nullable Publisher apply(@Nullable Long input) {
+                                                return listeners.get(input);
+                                            }
+                                })));
         TaskExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> sessionExecutor = 
                 ExpiringSessionRequestExecutor.newInstance(sessions, executor, listeners, processor);
         return ServerTaskExecutor.newInstance(anonymousExecutor, connectExecutor, sessionExecutor);

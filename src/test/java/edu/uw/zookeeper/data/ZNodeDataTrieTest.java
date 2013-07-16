@@ -13,6 +13,5 @@ public class ZNodeDataTrieTest {
     @Test
     public void test() {
         ZNodeDataTrie trie = ZNodeDataTrie.newInstance();
-        TxnRequestProcessor<Records.Request, Records.Response> operator = ZNodeDataTrie.operator(trie);
     }
 }

@@ -55,7 +55,7 @@ public class WatchPromiseTrie implements Reference<ZNodeLabelTrie<WatchPromiseTr
     }
 
     @Subscribe
-    public void handleEvent(WatchEvent event) {
+    public void handleWatchEvent(WatchEvent event) {
         WatchPromiseNode node = get().get(event.getPath());
         if (node != null) {
             List<Promise<WatchEvent>> watches = node.notify(event);

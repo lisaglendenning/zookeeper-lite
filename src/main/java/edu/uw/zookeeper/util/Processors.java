@@ -11,6 +11,16 @@ import com.google.common.collect.Lists;
 
 public abstract class Processors {
     
+    public static interface UncheckedProcessor<V,T> extends Processor<V,T> {
+        @Override
+        public T apply(V input);
+    }
+
+    public static interface CheckedProcessor<V,T,E extends Exception> extends Processor<V,T> {
+        @Override
+        public T apply(V input) throws E;
+    }
+    
     public static <T> Identity<T> identity() {
         return new Identity<T>();
     }

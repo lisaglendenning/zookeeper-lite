@@ -17,7 +17,7 @@ import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionOperation;
-import edu.uw.zookeeper.protocol.SessionOperationRequest;
+import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractActor;
@@ -226,7 +226,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
             } else {
                 @SuppressWarnings("unchecked")
                 Message.ClientRequest<Records.Request> request = (Message.ClientRequest<Records.Request>) input;
-                Futures.addCallback(sessionExecutor.submit(SessionOperationRequest.of(session.id(), request, request)), this);
+                Futures.addCallback(sessionExecutor.submit(SessionRequest.of(session.id(), request, request)), this);
             }
             return true;
         }

@@ -6,19 +6,20 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Processor;
+import edu.uw.zookeeper.util.Processors;
 
 public class ProtocolResponseProcessor implements Processor<TxnOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> {
 
     public static ProtocolResponseProcessor create(
-            TxnRequestProcessor<Records.Request, Records.Response> processor) {
+            Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> processor) {
         return new ProtocolResponseProcessor(processor);
     }
     
-    protected final RequestErrorProcessor<TxnOperation.Request<Records.Request>> delegate;
+    protected final Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate;
     
     public ProtocolResponseProcessor(
-            TxnRequestProcessor<Records.Request, Records.Response> delegate) {
-        this.delegate = RequestErrorProcessor.create(delegate);
+            Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate) {
+        this.delegate = delegate;
     }
     
     @Override

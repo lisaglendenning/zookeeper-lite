@@ -14,8 +14,12 @@ import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import edu.uw.zookeeper.data.ZNodeLabel;
+import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
+import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.proto.*;
 import edu.uw.zookeeper.protocol.server.ByOpcodeTxnRequestProcessor;
 import edu.uw.zookeeper.protocol.server.TxnRequestProcessor;
@@ -309,11 +313,76 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             }
         }
     }
+    
+    @Operational(OpCode.MULTI)        
+    public static class MultiOperator extends AbstractOperator<IMultiRequest, IMultiResponse> {
 
-    public static TxnRequestProcessor<Records.Request, Records.Response> operator(ZNodeDataTrie trie) {
-        return ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(Operators.of(trie)));
+        public static MultiOperator of(ZNodeDataTrie trie) {
+            return of(trie, ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(Operators.of(trie))));
+        }
+        
+        public static MultiOperator of(ZNodeDataTrie trie, TxnRequestProcessor<Records.Request, Records.Response> delegate) {
+            return new MultiOperator(trie, delegate);
+        }
+        
+        protected final TxnRequestProcessor<Records.Request, Records.Response> delegate;
+        
+        protected MultiOperator(
+                ZNodeDataTrie trie,
+                TxnRequestProcessor<Records.Request, Records.Response> delegate) {
+            super(trie);
+            this.delegate = delegate;
+        }
+
+        @Override
+        public IMultiResponse apply(TxnOperation.Request<IMultiRequest> input)
+                throws KeeperException {
+            IErrorResponse error = null;
+            List<Records.MultiOpResponse> results = Lists.newArrayList();
+            for (Records.MultiOpRequest request: input.getRecord()) {
+                Records.MultiOpResponse result;
+                if (error != null) {
+                    result = error;
+                } else {
+                    Operation.ProtocolRequest<Records.Request> nestedRequest = ProtocolRequestMessage.of(input.getXid(), (Records.Request) request);
+                    TxnOperation.Request<Records.Request> nested = TxnRequest.of(
+                            input.getTime(), 
+                            input.getZxid(), 
+                            SessionRequest.of(input.getSessionId(), nestedRequest, nestedRequest));
+                    try {
+                        switch (request.getOpcode()) {
+                        case CHECK:
+                            break;
+                        case CREATE:
+                        case CREATE2:
+                            break;
+                        case DELETE:
+                            break;
+                        case SET_DATA:
+                            break;
+                        default:
+                            throw new AssertionError(request.toString());
+                        }
+                        
+                        result = (Records.MultiOpResponse) delegate.apply(nested);
+                    } catch (KeeperException e) {
+                        assert (error == null);
+                        error = Operations.Responses.error().setError(KeeperException.Code.RUNTIMEINCONSISTENCY).build();
+                        Records.MultiOpResponse[] oldResults = new Records.MultiOpResponse[results.size()];
+                        results.clear();
+                        for (Records.MultiOpResponse oldResult: oldResults) {
+                            results.add(error);
+                        }
+                        // FIXME: rollback effects!!
+                        throw new UnsupportedOperationException();
+                    }
+                }
+                results.add(result);
+            }
+            return new IMultiResponse(results);
+        }
     }
-
+    
     public static class ZNodeData {
 
         public static byte[] emptyBytes() {

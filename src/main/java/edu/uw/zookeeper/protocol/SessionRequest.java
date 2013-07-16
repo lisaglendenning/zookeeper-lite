@@ -4,18 +4,18 @@ import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class SessionOperationRequest<T extends Records.Request> implements SessionOperation.Request<T> {
+public class SessionRequest<T extends Records.Request> implements SessionOperation.Request<T> {
 
-    public static <T extends Records.Request> SessionOperationRequest<T> of(
+    public static <T extends Records.Request> SessionRequest<T> of(
             long sessionId, Operation.RequestId xid, Operation.RecordHolder<T> record) {
-        return new SessionOperationRequest<T>(sessionId, xid, record);
+        return new SessionRequest<T>(sessionId, xid, record);
     }
     
     protected final long sessionId;
     protected final Operation.RequestId xid;
     protected final Operation.RecordHolder<T> record;
     
-    public SessionOperationRequest(
+    public SessionRequest(
             long sessionId, Operation.RequestId xid, Operation.RecordHolder<T> record) {
         this.sessionId = sessionId;
         this.xid = xid;
@@ -50,10 +50,10 @@ public class SessionOperationRequest<T extends Records.Request> implements Sessi
         if (this == obj) {
             return true;
         }
-        if (! (obj instanceof SessionOperationRequest)) {
+        if (! (obj instanceof SessionRequest)) {
             return false;
         }
-        SessionOperationRequest<?> other = (SessionOperationRequest<?>) obj;
+        SessionRequest<?> other = (SessionRequest<?>) obj;
         return Objects.equal(getSessionId(), other.getSessionId())
                 && Objects.equal(getRecord(), other.getRecord())
                 && Objects.equal(getXid(), other.getXid());

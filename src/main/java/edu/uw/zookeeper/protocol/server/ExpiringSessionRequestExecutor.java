@@ -9,7 +9,7 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.SessionOperation;
-import edu.uw.zookeeper.protocol.SessionOperationRequest;
+import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.server.ExpiringSessionTable;
@@ -52,7 +52,7 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
         case SESSION_EXPIRED:
         {
             Operation.ProtocolRequest<Records.Request> request = ProtocolRequestMessage.of(0, Records.Requests.getInstance().get(OpCode.CLOSE_SESSION));
-            submit(SessionOperationRequest.of(event.session().id(), request, request));
+            submit(SessionRequest.of(event.session().id(), request, request));
             break;
         }
         default:
