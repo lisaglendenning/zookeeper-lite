@@ -1,6 +1,7 @@
 package edu.uw.zookeeper;
 
 import com.google.common.eventbus.Subscribe;
+import com.google.common.reflect.TypeToken;
 
 import edu.uw.zookeeper.util.Eventful;
 import edu.uw.zookeeper.util.ForwardingPromise;
@@ -21,6 +22,8 @@ public class GetEvent<T> extends ForwardingPromise<T> {
         return new GetEvent<T>(eventful, delegate);
     }
     
+    @SuppressWarnings("serial")
+    protected final TypeToken<T> type = new TypeToken<T>(getClass()) {};
     protected final Promise<T> delegate;
     protected final Eventful eventful;
     
@@ -34,8 +37,10 @@ public class GetEvent<T> extends ForwardingPromise<T> {
     
     @Subscribe
     public void handleEvent(T event) {
-        eventful.unregister(this);
-        set(event);
+        if (type.getRawType().isAssignableFrom(event.getClass())) {
+            eventful.unregister(this);
+            set(event);
+        }
     }
 
     @Override

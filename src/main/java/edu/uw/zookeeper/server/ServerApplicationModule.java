@@ -153,7 +153,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         });
         return EphemeralProcessor.create(
                 WatcherEventProcessor.create(
-                        RequestErrorProcessor.create(
+                        RequestErrorProcessor.<TxnOperation.Request<Records.Request>>create(
                                 ByOpcodeTxnRequestProcessor.create(
                                         ImmutableMap.copyOf(processors))), 
                         publishers));
