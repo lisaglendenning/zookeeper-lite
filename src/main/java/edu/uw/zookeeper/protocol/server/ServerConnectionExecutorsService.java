@@ -37,7 +37,12 @@ public class ServerConnectionExecutorsService<C extends Connection<Message.Serve
         this.connections = connections;
         this.factory = factory;
         this.handlers = new MapMaker().makeMap();
+        
         connections.register(this);
+    }
+    
+    public ServerConnectionFactory<Message.Server, C> connections() {
+        return connections;
     }
 
     @Subscribe

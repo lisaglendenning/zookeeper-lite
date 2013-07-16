@@ -132,6 +132,13 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     @Subscribe
     public void handleResponse(Message.ServerResponse<?> message) throws InterruptedException {
         if ((state.get() != State.TERMINATED) && !pending.isEmpty()) {
+            receive(message);
+        }
+    }
+    
+    protected void receive(Message.ServerResponse<?> message) throws InterruptedException {
+        // ignore pings
+        if (message.getXid() != OpCodeXid.PING.getXid()) {
             received.put(message);
             schedule();
         }
