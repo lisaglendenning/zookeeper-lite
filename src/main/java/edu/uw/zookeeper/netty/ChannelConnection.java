@@ -158,6 +158,11 @@ public class ChannelConnection<I>
         }
         return task;
     }
+    
+    @Override
+    public void flush() {
+        get().flush();
+    }
 
     @Override
     public ListenableFuture<Connection<I>> close() {
@@ -220,9 +225,16 @@ public class ChannelConnection<I>
             super(ChannelConnection.this, new OutboundQueue(), AbstractActor.newState());
         }
 
+        @Override
+        protected void doRun() throws Exception {
+            super.doRun();
+            
+            get().flush();
+        }
+        
         @SuppressWarnings("unchecked")
         @Override
-        public boolean apply(PromiseTask<? extends I, ? extends I> input) throws Exception {
+        protected boolean apply(PromiseTask<? extends I, ? extends I> input) throws Exception {
             Connection.State state = ChannelConnection.this.state();
             switch (state) {
             case CONNECTION_CLOSING:

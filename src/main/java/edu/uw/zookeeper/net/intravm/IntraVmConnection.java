@@ -99,6 +99,11 @@ public class IntraVmConnection<T extends SocketAddress> implements Connection<Ob
     }
 
     @Override
+    public void flush() {
+        remoteEndpoint.schedule();
+    }
+
+    @Override
     public ListenableFuture<Connection<Object>> close() {
         if (Connection.State.CONNECTION_CLOSING == state.apply(Connection.State.CONNECTION_CLOSING).orNull()) {
             execute(closeTask);

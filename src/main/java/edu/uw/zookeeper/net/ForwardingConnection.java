@@ -56,6 +56,11 @@ public abstract class ForwardingConnection<I> implements Connection<I> {
     }
 
     @Override
+    public void flush() {
+        delegate().flush();
+    }
+
+    @Override
     public ListenableFuture<Connection<I>> close() {
         return Futures.transform(
                 delegate().close(), 

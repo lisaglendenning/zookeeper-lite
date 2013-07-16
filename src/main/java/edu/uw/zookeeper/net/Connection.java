@@ -101,6 +101,11 @@ public interface Connection<I> extends Publisher, Executor {
      * @return ListenableFuture that returns {@code message}
      */
     <T extends I> ListenableFuture<T> write(T message);
+    
+    /**
+     * Trigger a flush of written messages.
+     */
+    void flush();
 
     /**
      * Transition Connection to CONNECTION_CLOSING.
