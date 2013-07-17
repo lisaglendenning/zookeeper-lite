@@ -75,6 +75,6 @@ public class IMultiResponse extends ICodedRecord<EmptyRecord> implements Records
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(Records.iterableToBeanString(this)).toString();
+        return Objects.toStringHelper(this).addValue(Records.iteratorToBeanString(iterator())).toString();
     }
 }
