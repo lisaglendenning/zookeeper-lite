@@ -10,13 +10,14 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 
-public class ServerConnectionExecutorsService<C extends Connection<Message.Server>> extends AbstractIdleService implements Iterable<ServerConnectionExecutor<C>> {
+public class ServerConnectionExecutorsService<C extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> extends AbstractIdleService implements Iterable<ServerConnectionExecutor<C>> {
 
-    public static <C extends Connection<Message.Server>> ServerConnectionExecutorsService<C> newInstance(
+    public static <C extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> ServerConnectionExecutorsService<C> newInstance(
             ServerConnectionFactory<Message.Server, C> connections,
             ServerTaskExecutor server) {
         return new ServerConnectionExecutorsService<C>(

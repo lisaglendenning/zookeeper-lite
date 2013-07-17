@@ -93,12 +93,12 @@ public abstract class AbstractActor<I> implements Actor<I> {
 
     @Override
     public boolean stop() {
-        boolean stop = (state.get() != State.TERMINATED)
+        boolean stopped = (state.get() != State.TERMINATED)
                 && (state.getAndSet(State.TERMINATED) != State.TERMINATED);
-        if (stop) {
+        if (stopped) {
             doStop();
         }
-        return stop;
+        return stopped;
     }
     
     protected void doStop() {

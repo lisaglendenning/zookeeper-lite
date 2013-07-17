@@ -7,6 +7,7 @@ import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.ForwardingQueue;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
@@ -19,6 +20,8 @@ import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -35,10 +38,10 @@ import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 import edu.uw.zookeeper.util.TaskExecutor;
 
-public class ServerConnectionExecutor<C extends Connection<Message.Server>>
-        implements Publisher, Reference<C>, FutureCallback<Object> {
+public class ServerConnectionExecutor<C extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>
+        implements Publisher, Reference<C> {
 
-    public static <C extends Connection<Message.Server>> ServerConnectionExecutor<C> newInstance(
+    public static <C extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> ServerConnectionExecutor<C> newInstance(
             C connection,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
@@ -47,7 +50,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
                 connection, connection, connection, anonymousExecutor, connectExecutor, sessionExecutor);
     }
     
-    public static <C extends Connection<Message.Server>> ParameterizedFactory<C, ServerConnectionExecutor<C>> factory(
+    public static <C extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> ParameterizedFactory<C, ServerConnectionExecutor<C>> factory(
             final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
             final TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
@@ -99,18 +102,24 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         return connection;
     }
     
-    @Override
-    public void onSuccess(Object result) {
-    }
-
-    @Override
-    public void onFailure(Throwable t) {
-        logger.debug("Stopping", t);
-        
+    public boolean stop(Throwable t) {
+        boolean stopped = false;
         Actor<?>[] actors = { inbound, outbound };
         for (Actor<?> actor: actors) {
-            actor.stop();
+            stopped = stopped || actor.stop();
         }
+        if (logger.isDebugEnabled()) {
+            if (stopped) {
+                if (t != null) {
+                    logger.debug("ERROR {}", this, t);
+                } else {
+                    logger.debug("DISCONNECTED {}", this);
+                }
+            } else if (t != null) {
+                logger.debug("Ignoring {} {}", this, t);
+            }
+        }
+        return stopped;
     }
     
     @Override
@@ -126,6 +135,20 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
     @Override
     public void unregister(Object handler) {
         outbound.unregister(handler);
+    }
+    
+    @Override
+    public String toString() {
+        long sessionId = Session.UNINITIALIZED_ID;
+        if (session.isDone()) {
+            try {
+                sessionId = session.get().getSessionId();
+            } catch (Exception e) {}
+        }
+        return Objects.toStringHelper(this)
+                .add("session", String.format("0x%08x", sessionId))
+                .add("connection", get())
+                .toString();
     }
     
     protected static class ThrottlableMailbox<T> extends ForwardingQueue<T> {
@@ -192,14 +215,16 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         @Subscribe
         public void handleTransitionEvent(Automaton.Transition<?> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
-                onFailure(new KeeperException.ConnectionLossException());
+                Throwable t = 
+                        (ProtocolState.DISCONNECTED == connection.codec().state()) ? null : new KeeperException.ConnectionLossException();
+                ServerConnectionExecutor.this.stop(t);
             }
         }
 
         @Override
         public void onSuccess(Object result) {  
             if (result instanceof FourLetterResponse) {
-                outbound.send(result);
+                outbound.post(result);
             } else if (result instanceof ConnectMessage.Response) {
                 session.set((ConnectMessage.Response) result);
                 if (result instanceof ConnectMessage.Response.Valid) {
@@ -213,7 +238,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
 
         @Override
         public void onFailure(Throwable t) {
-            ServerConnectionExecutor.this.onFailure(t);
+            ServerConnectionExecutor.this.stop(t);
         }
     
         @Subscribe
@@ -263,7 +288,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
 
         @Override
         public void onFailure(Throwable t) {
-            ServerConnectionExecutor.this.onFailure(t);
+            ServerConnectionExecutor.this.stop(t);
         }
         
         @Override
@@ -271,14 +296,21 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
             // ordering constraint: messages are written in the order
             // that they were enqueued in outbound
             if (input instanceof Message.Server) {
-                try {
-                    Futures.addCallback(connection.write((Message.Server) input), this);
-                } catch (Throwable t) {
-                    onFailure(t);
-                    return false;
+                switch (connection.state()) {
+                case CONNECTION_OPENING:
+                case CONNECTION_OPENED:
+                    try {
+                        Futures.addCallback(connection.write((Message.Server) input), this);
+                    } catch (Throwable t) {
+                        onFailure(t);
+                    }
+                    break;
+                default:
+                    logger.debug("Dropping {} ({})", input, ServerConnectionExecutor.this);
+                    break;
                 }
             } else if (Session.State.SESSION_EXPIRED == input) {
-                onFailure(new KeeperException.SessionExpiredException());
+                ServerConnectionExecutor.this.stop(new KeeperException.SessionExpiredException());
             }
             
             return super.apply(input);
@@ -292,7 +324,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
             case CONNECTION_OPENING:
             case CONNECTION_OPENED:
             {
-                logger.debug("Closing connection {}", connection);
+                logger.debug("Closing {}", ServerConnectionExecutor.this);
                 connection.close();
                 break;
             }
