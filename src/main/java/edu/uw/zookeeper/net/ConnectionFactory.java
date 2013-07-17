@@ -2,7 +2,7 @@ package edu.uw.zookeeper.net;
 
 import com.google.common.util.concurrent.Service;
 
-import edu.uw.zookeeper.util.Eventful;
+import edu.uw.zookeeper.util.Publisher;
 
 /**
  * Collection of Connections.
@@ -12,5 +12,5 @@ import edu.uw.zookeeper.util.Eventful;
  * <li> C when a new C is added
  * </ul>
  */
-public interface ConnectionFactory<I, C extends Connection<I>> extends Iterable<C>, Eventful, Service {
+public interface ConnectionFactory<I, C extends Connection<I>> extends Iterable<C>, Publisher, Service {
 }

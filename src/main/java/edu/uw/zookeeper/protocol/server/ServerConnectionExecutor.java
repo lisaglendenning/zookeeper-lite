@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.protocol.server;
 
 import java.util.Queue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
@@ -10,6 +11,8 @@ import com.google.common.collect.ForwardingQueue;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
@@ -25,9 +28,11 @@ import edu.uw.zookeeper.util.Actor;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.PublisherActor;
 import edu.uw.zookeeper.util.Reference;
+import edu.uw.zookeeper.util.SettableFuturePromise;
 import edu.uw.zookeeper.util.TaskExecutor;
 
 public class ServerConnectionExecutor<C extends Connection<Message.Server>>
@@ -66,7 +71,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
     protected final C connection;
     protected final InboundActor inbound;
     protected final OutboundActor outbound;
-    protected volatile Session session;
+    protected final Promise<ConnectMessage.Response> session;
     
     public ServerConnectionExecutor(
             Publisher publisher,
@@ -80,9 +85,13 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         this.anonymousExecutor = anonymousExecutor;
         this.connectExecutor = connectExecutor;
         this.sessionExecutor = sessionExecutor;
-        this.session = Session.uninitialized();
+        this.session = SettableFuturePromise.create();
         this.outbound = new OutboundActor(publisher, executor);
         this.inbound = new InboundActor(executor);
+    }
+
+    public ListenableFuture<ConnectMessage.Response> session() {
+        return session;
     }
     
     @Override
@@ -148,7 +157,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         
         @Override
         public T poll() {
-            return  throttled ? null : super.poll();
+            return throttled ? null : super.poll();
         }
     
         @Override
@@ -192,9 +201,8 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
             if (result instanceof FourLetterResponse) {
                 outbound.send(result);
             } else if (result instanceof ConnectMessage.Response) {
-                Session session = ((ConnectMessage.Response) result).toSession();
-                if (session.initialized()) {
-                    ServerConnectionExecutor.this.session = session;
+                session.set((ConnectMessage.Response) result);
+                if (result instanceof ConnectMessage.Response.Valid) {
                     throttle(false);
                 } else {
                     // if the response is Invalid, we want the response
@@ -215,7 +223,7 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
         }
     
         @Override
-        protected boolean apply(Message.Client input) {
+        protected boolean apply(Message.Client input) throws InterruptedException, ExecutionException {
             // ordering constraint: requests are submitted in the same
             // order that they are received
             if (input instanceof FourLetterRequest) {
@@ -226,7 +234,8 @@ public class ServerConnectionExecutor<C extends Connection<Message.Server>>
             } else {
                 @SuppressWarnings("unchecked")
                 Message.ClientRequest<Records.Request> request = (Message.ClientRequest<Records.Request>) input;
-                Futures.addCallback(sessionExecutor.submit(SessionRequest.of(session.id(), request, request)), this);
+                long sessionId = session().get().getSessionId();
+                Futures.addCallback(sessionExecutor.submit(SessionRequest.of(sessionId, request, request)), this);
             }
             return true;
         }

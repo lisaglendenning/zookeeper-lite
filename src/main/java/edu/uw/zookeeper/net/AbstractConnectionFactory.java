@@ -30,6 +30,11 @@ public abstract class AbstractConnectionFactory<I, C extends Connection<I>> exte
     }
 
     @Override
+    public void post(Object event) {
+        publisher.post(event);
+    }
+
+    @Override
     public void register(Object object) {
         publisher.register(object);
     }
@@ -64,10 +69,6 @@ public abstract class AbstractConnectionFactory<I, C extends Connection<I>> exte
         ListenableFuture<List<Connection<I>>> allFutures = Futures
                 .allAsList(futures);
         allFutures.get();
-    }
-
-    protected void post(Object event) {
-        publisher.post(event);
     }
 
     protected abstract boolean remove(C connection);

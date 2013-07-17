@@ -202,7 +202,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         try {
             // task needs to be in the queue before calling write
             pending.add(task);
-            ListenableFuture<?> future = connection.write(task.task());
+            ListenableFuture<?> future = get().write(task.task());
             Futures.addCallback(future, task);
         } catch (Throwable t) {
             task.setException(t);
@@ -230,8 +230,14 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         super.doStop();
     
         try {
-            connection.unregister(this);
+            get().unregister(this);
         } catch (IllegalArgumentException e) {}
+        
+        if (! session.isDone()) {
+            session.cancel(true);
+        }
+        
+        get().close();
         
         PendingTask next = null;
         while ((next = pending.poll()) != null) {
