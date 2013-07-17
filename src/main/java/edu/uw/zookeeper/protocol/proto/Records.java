@@ -7,6 +7,7 @@ import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
 import java.io.IOException;
 import java.lang.reflect.Array;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -297,7 +298,11 @@ public abstract class Records {
                 } else if (value.getClass().isArray()) {
                     value = String.format("%s{%d}", value.getClass().getComponentType(), Array.getLength(value));
                 } else if (value instanceof Iterable) {
-                    value = iterableToBeanString((Iterable<?>) value);
+                    Iterator<?> itr = ((Iterable<?>) value).iterator();
+                    if (itr.hasNext() && (itr.next() instanceof Record)) {
+                        itr = ((Iterable<?>) value).iterator();
+                        value = iteratorToBeanString(itr);
+                    }
                 }
             }
             helper.add(pd.getName(), value);
@@ -305,12 +310,12 @@ public abstract class Records {
         return helper.toString();
     }
     
-    public static String iterableToBeanString(Iterable<?> value) {
+    public static String iteratorToBeanString(Iterator<?> value) {
         StringBuilder sb = new StringBuilder().append('[');
         return Joiner.on(',').appendTo(
                 sb,
                 Iterators.transform(
-                        value.iterator(), 
+                        value, 
                         ToBeanString.TO_BEAN_STRING))
                 .append(']').toString();
     }
