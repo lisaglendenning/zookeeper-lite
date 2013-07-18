@@ -1,15 +1,15 @@
 package edu.uw.zookeeper.util;
 
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import com.google.common.collect.ForwardingQueue;
 
 public class FutureQueue<V extends Future<?>> extends ForwardingQueue<V> {
 
     public static <V extends Future<?>> FutureQueue<V> create() {
-        return create(new LinkedBlockingQueue<V>());
+        return create(new ConcurrentLinkedQueue<V>());
     }
 
     public static <V extends Future<?>> FutureQueue<V> create(Queue<V> delegate) {
@@ -39,8 +39,7 @@ public class FutureQueue<V extends Future<?>> extends ForwardingQueue<V> {
     
     @Override
     public synchronized V poll() {
-        V next = peek();
-        if (next != null) {
+        if (peek() != null) {
             return super.poll();
         } else {
             return null;

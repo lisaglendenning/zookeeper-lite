@@ -21,7 +21,6 @@ import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
-import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -215,8 +214,16 @@ public class ServerConnectionExecutor<C extends ProtocolCodecConnection<Message.
         @Subscribe
         public void handleTransitionEvent(Automaton.Transition<?> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
-                Throwable t = 
-                        (ProtocolState.DISCONNECTED == connection.codec().state()) ? null : new KeeperException.ConnectionLossException();
+                Throwable t;
+                switch (connection.codec().state()) {
+                case ANONYMOUS:
+                case DISCONNECTED:
+                    t = null;
+                    break;
+                default:
+                    t = new KeeperException.ConnectionLossException();
+                    break;
+                }
                 ServerConnectionExecutor.this.stop(t);
             }
         }

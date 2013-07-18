@@ -9,6 +9,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import org.apache.zookeeper.KeeperException;
 
+import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
@@ -24,7 +25,7 @@ import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
-public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> implements Callable<ListenableFuture<ZNodeLabel.Path>> {
+public class TreeFetcher<T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> implements AsyncFunction<ZNodeLabel.Path, V> {
     
     public static class Parameters {
         
@@ -50,7 +51,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Opera
             this.getStat = getStat;
         }
         
-        public boolean watch() {
+        public boolean getWatch() {
             return watch;
         }
         
@@ -67,49 +68,52 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Opera
         }
     }
     
-    public static class Builder<T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> {
+    public static class Builder<T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> {
     
-        public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> Builder<T,V> create() {
-            return new Builder<T,V>();
+        public static <T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> Builder<T,U,V> create() {
+            return new Builder<T,U,V>();
         }
         
-        protected volatile ZNodeLabel.Path root;
-        protected volatile ClientExecutor<Operation.Request, T, V> client;
+        public static <V> Callable<V> nullResult() {
+            return new Callable<V>() {
+                @Override
+                public V call() throws Exception {
+                    return null;
+                }
+            };
+        }
+        
+        protected volatile ClientExecutor<Operation.Request, T, U> client;
         protected volatile Executor executor;
         protected volatile Set<OpCode> operations; 
         protected volatile boolean watch;
+        protected volatile Callable<V> result;
         
         public Builder() {
-            this(ZNodeLabel.Path.root(), 
-                    null, MoreExecutors.sameThreadExecutor(), EnumSet.noneOf(OpCode.class), false);
+            this(null, 
+                    MoreExecutors.sameThreadExecutor(), 
+                    EnumSet.noneOf(OpCode.class), 
+                    false,
+                    Builder.<V>nullResult());
         }
         
         public Builder(
-                ZNodeLabel.Path root, 
-                ClientExecutor<Operation.Request, T, V> client, 
+                ClientExecutor<Operation.Request, T, U> client, 
                 Executor executor,
                 Set<OpCode> operations, 
-                boolean watch) {
-            this.root = root;
+                boolean watch,
+                Callable<V> result) {
             this.client = client;
             this.watch = watch;
             this.operations = Collections.synchronizedSet(operations);
+            this.result = result;
         }
         
-        public ZNodeLabel.Path getRoot() {
-            return root;
-        }
-    
-        public Builder<T,V> setRoot(ZNodeLabel.Path root) {
-            this.root = root;
-            return this;
-        }
-        
-        public ClientExecutor<Operation.Request, T, V> getClient() {
+        public ClientExecutor<Operation.Request, T, U> getClient() {
             return client;
         }
     
-        public Builder<T,V> setClient(ClientExecutor<Operation.Request, T, V> client) {
+        public Builder<T,U,V> setClient(ClientExecutor<Operation.Request, T, U> client) {
             this.client = client;
             return this;
         }
@@ -118,7 +122,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Opera
             return executor;
         }
     
-        public Builder<T,V> setExecutor(Executor executor) {
+        public Builder<T,U,V> setExecutor(Executor executor) {
             this.executor = executor;
             return this;
         }
@@ -133,7 +137,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Opera
             return false;
         }
         
-        public Builder<T,V> setStat(boolean getStat) {
+        public Builder<T,U,V> setStat(boolean getStat) {
             OpCode[] ops = { OpCode.EXISTS, OpCode.GET_CHILDREN2 };
             if (getStat) {
                 for (OpCode op: ops) {
@@ -152,7 +156,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Opera
             return operations.contains(op);
         }
         
-        public Builder<T,V> setData(boolean getData) {
+        public Builder<T,U,V> setData(boolean getData) {
             OpCode op = OpCode.GET_DATA;
             if (getData) {
                 operations.add(op);
@@ -167,7 +171,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Opera
             return operations.contains(op);
         }
         
-        public Builder<T,V> setAcl(boolean getAcl) {
+        public Builder<T,U,V> setAcl(boolean getAcl) {
             OpCode op = OpCode.GET_ACL;
             if (getAcl) {
                 operations.add(op);
@@ -181,115 +185,111 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Opera
             return watch;
         }
         
-        public Builder<T,V> setWatch(boolean watch) {
+        public Builder<T,U,V> setWatch(boolean watch) {
             this.watch = watch;
             return this;
         }
+
+        public Callable<V> getResult() {
+            return result;
+        }
         
-        public TreeFetcher<T,V> build() {
+        public Builder<T,U,V> setResult(Callable<V> result) {
+            this.result = result;
+            return this;
+        }
+        
+        public TreeFetcher<T,U,V> build() {
             Parameters parameters = Parameters.of(operations, watch);
-            return TreeFetcher.newInstance(parameters, root, client, executor);
+            return TreeFetcher.newInstance(parameters, client, executor, result);
         }
     }
 
-    public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> TreeFetcher<T,V> newInstance(
+    public static <T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> TreeFetcher<T,U,V> newInstance(
             Parameters parameters,
-            ZNodeLabel.Path root,
-            ClientExecutor<Operation.Request, T, V> client,
-            Executor executor) {
-        Promise<ZNodeLabel.Path> promise = SettableFuturePromise.create();
-        return newInstance(
-                parameters, 
-                root, 
-                client, 
-                executor,
-                promise);
-    }
-
-    public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> TreeFetcher<T,V> newInstance(
-            Parameters parameters,
-            ZNodeLabel.Path root,
-            ClientExecutor<Operation.Request, T, V> client,
+            ClientExecutor<Operation.Request, T, U> client,
             Executor executor,
-            Promise<ZNodeLabel.Path> promise) {
-        return new TreeFetcher<T,V>(
-                parameters, 
-                root, 
+            Callable<V> result) {
+        return new TreeFetcher<T,U,V>(
+                parameters,
                 client, 
-                promise, 
+                result,
                 executor);
     }
     
     protected final Executor executor;
-    protected final ClientExecutor<Operation.Request, T, V> client;
+    protected final ClientExecutor<Operation.Request, T, U> client;
     protected final Parameters parameters;
-    protected final ZNodeLabel.Path root;
-    protected final Promise<ZNodeLabel.Path> promise;
+    protected final Callable<V> result;
     
     protected TreeFetcher(
             Parameters parameters,
-            ZNodeLabel.Path root,
-            ClientExecutor<Operation.Request, T, V> client,
-            Promise<ZNodeLabel.Path> promise,
+            ClientExecutor<Operation.Request, T, U> client,
+            Callable<V> result,
             Executor executor) {
         this.parameters = checkNotNull(parameters);
-        this.root = checkNotNull(root);
         this.client = checkNotNull(client);
-        this.promise = checkNotNull(promise);
+        this.result = checkNotNull(result);
         this.executor = checkNotNull(executor);
     }
 
     
     @Override
-    public ListenableFuture<ZNodeLabel.Path> call() {
-        TreeFetcherActor<T,V> actor = newActor();
+    public ListenableFuture<V> apply(ZNodeLabel.Path root) {
+        TreeFetcherActor<T,U,V> actor = newActor();
         actor.send(root);
         return actor.future();
     }
     
-    protected TreeFetcherActor<T,V> newActor() {
-        return TreeFetcherActor.newInstance(parameters, root, client, executor, promise);
+    protected TreeFetcherActor<T,U,V> newActor() {
+        Promise<V> promise = SettableFuturePromise.create();
+        return TreeFetcherActor.newInstance(parameters, client, result, executor, promise);
     }
 
-    public static class TreeFetcherActor<T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> extends AbstractActor<ZNodeLabel.Path> {
+    public static class TreeFetcherActor<T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> extends AbstractActor<ZNodeLabel.Path> {
 
-        public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> TreeFetcherActor<T,V> newInstance(
+        public static <T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> TreeFetcherActor<T,U,V> newInstance(
                 Parameters parameters,
-                ZNodeLabel.Path root,
-                ClientExecutor<Operation.Request, T, V> client,
+                ClientExecutor<Operation.Request, T, U> client,
+                Callable<V> result,
                 Executor executor,
-                Promise<ZNodeLabel.Path> promise) {
-            return new TreeFetcherActor<T,V>(
+                Promise<V> promise) {
+            return new TreeFetcherActor<T,U,V>(
                     promise, 
-                    parameters, 
-                    root, 
-                    client, 
+                    parameters,
+                    client,
+                    result,
                     executor);
         }
         
-        protected final ClientExecutor<Operation.Request, T, V> client;
-        protected final Parameters parameters;
+        protected final ClientExecutor<Operation.Request, T, U> client;
+        protected final FutureQueue<ListenableFuture<Pair<T,U>>> pending;
         protected final Task task;
-        protected final FutureQueue<ListenableFuture<Pair<T,V>>> pending;
+        protected final Operations.Requests.GetChildren getChildrenBuilder;
+        protected final Operations.Requests.GetData getDataBuilder;
+        protected final Operations.Requests.GetAcl getAclBuilder;
         
         protected TreeFetcherActor(
-                Promise<ZNodeLabel.Path> promise,
+                Promise<V> promise,
                 Parameters parameters,
-                ZNodeLabel.Path root,
-                ClientExecutor<Operation.Request, T, V> client,
+                ClientExecutor<Operation.Request, T, U> client,
+                Callable<V> result,
                 Executor executor) {
             super(executor, AbstractActor.<ZNodeLabel.Path>newQueue(), AbstractActor.newState());
-            this.parameters = checkNotNull(parameters);
             this.client = checkNotNull(client);
-            this.task = new Task(root, promise);
+            this.task = new Task(result, promise);
             this.pending = FutureQueue.create();
+            this.getChildrenBuilder = 
+                    Operations.Requests.getChildren().setWatch(parameters.getWatch()).setStat(parameters.getStat());
+            this.getDataBuilder = parameters.getData()
+                    ? Operations.Requests.getData().setWatch(parameters.getWatch())
+                            : null;
+            this.getAclBuilder = parameters.getAcl()
+                    ? Operations.Requests.getAcl() 
+                            : null;
         }
         
-        public ZNodeLabel.Path root() {
-            return task.task();
-        }
-
-        public ListenableFuture<ZNodeLabel.Path> future() {
+        public ListenableFuture<V> future() {
             return task;
         }
 
@@ -311,9 +311,9 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Opera
         }
 
         protected void doPending() throws Exception {
-            ListenableFuture<Pair<T,V>> future;
+            ListenableFuture<Pair<T,U>> future;
             while ((future = pending.poll()) != null) {
-                Pair<T,V> result;
+                Pair<T,U> result;
                 try {
                     result = future.get();
                 } catch (Exception e) {
@@ -326,7 +326,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Opera
             }
         }
 
-        protected void applyPendingResult(Pair<T,V> result) throws Exception {
+        protected void applyPendingResult(Pair<T,U> result) throws Exception {
             Records.Request request = result.first().getRecord();
             Records.Response reply = Operations.maybeError(result.second().getRecord(), KeeperException.Code.NONODE, request.toString());
             if (reply instanceof Records.ChildrenGetter) {
@@ -339,26 +339,21 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Opera
 
         @Override
         protected boolean apply(ZNodeLabel.Path input) throws Exception {
-            Operations.Requests.GetChildren getChildrenBuilder = 
-                    Operations.Requests.getChildren().setPath(input).setWatch(parameters.watch());
-            if (parameters.getStat()) {
-                getChildrenBuilder.setStat(true);
-            }
-            ListenableFuture<Pair<T,V>> future = client.submit(getChildrenBuilder.build());
+            ListenableFuture<Pair<T,U>> future = 
+                    client.submit(getChildrenBuilder.setPath(input).build());
             pending.add(future);
             future.addListener(this, executor);
             
-            if (parameters.getData()) {
+            if (getDataBuilder != null) {
                 future = client.submit(
-                        Operations.Requests.getData()
-                        .setPath(input).setWatch(parameters.watch()).build());
+                        getDataBuilder.setPath(input).build());
                 pending.add(future);
                 future.addListener(this, executor);
             }
                 
-            if (parameters.getAcl()) {
-                future = client.submit(Operations.Requests.getAcl()
-                        .setPath(input).build());
+            if (getAclBuilder != null) {
+                future = client.submit(
+                        getAclBuilder.setPath(input).build());
                 pending.add(future);
                 future.addListener(this, executor);
             }
@@ -386,18 +381,22 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, V extends Opera
             task.complete();
         }
         
-        protected class Task extends PromiseTask<ZNodeLabel.Path, ZNodeLabel.Path> {
+        protected class Task extends PromiseTask<Callable<V>, V> {
 
-            protected Task(ZNodeLabel.Path task, Promise<ZNodeLabel.Path> delegate) {
+            protected Task(Callable<V> task, Promise<V> delegate) {
                 super(task, delegate);
             }
             
             protected boolean complete() {
-                boolean completed = ! isDone();
-                if (completed) {
-                    completed = set(task());
+                boolean doComplete = ! isDone();
+                if (doComplete) {
+                    try {
+                        doComplete = set(task().call());
+                    } catch (Throwable t) {
+                        doComplete = setException(t);
+                    }
                 }
-                return completed;
+                return doComplete;
             }
             
             @Override

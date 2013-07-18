@@ -1,8 +1,8 @@
 package edu.uw.zookeeper.protocol.client;
 
-import java.util.concurrent.BlockingQueue;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
-import java.util.concurrent.LinkedBlockingQueue;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -66,8 +66,8 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     protected final C connection;
     protected final ListenableFuture<ConnectMessage.Response> session;
     protected final AssignXidProcessor xids;
-    protected final BlockingQueue<PendingTask> pending;
-    protected final BlockingQueue<Message.ServerResponse<?>> received;
+    protected final Queue<PendingTask> pending;
+    protected final Queue<Message.ServerResponse<?>> received;
     
     protected ClientConnectionExecutor(
             ListenableFuture<ConnectMessage.Response> session,
@@ -77,8 +77,8 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         super(executor, AbstractActor.<PromiseTask<Operation.Request, Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>>>newQueue(), AbstractActor.newState());
         this.connection = connection;
         this.xids = xids;
-        this.pending = new LinkedBlockingQueue<PendingTask>();
-        this.received = new LinkedBlockingQueue<Message.ServerResponse<?>>();
+        this.pending = new ConcurrentLinkedQueue<PendingTask>();
+        this.received = new ConcurrentLinkedQueue<Message.ServerResponse<?>>();
         this.session = session;
                 
         connection.register(this);
@@ -139,7 +139,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     protected void receive(Message.ServerResponse<?> message) throws InterruptedException {
         // ignore pings
         if (message.getXid() != OpCodeXid.PING.getXid()) {
-            received.put(message);
+            received.add(message);
             schedule();
         }
     }

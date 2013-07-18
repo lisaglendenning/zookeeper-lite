@@ -4,7 +4,7 @@ import io.netty.buffer.ByteBuf;
 
 import java.io.IOException;
 import java.util.Queue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -56,9 +56,9 @@ public class ClientProtocolCodec
         return new ClientProtocolCodec(automaton, encoder, decoder, pending.get());
     }
     
-    public static class Pending implements Function<Integer, OpCode>, Reference<Queue<Pair<Integer, OpCode>>> {
+    protected static class Pending implements Function<Integer, OpCode>, Reference<Queue<Pair<Integer, OpCode>>> {
         public static Pending newInstance() {
-            return new Pending(new LinkedBlockingQueue<Pair<Integer, OpCode>>());
+            return new Pending(new ConcurrentLinkedQueue<Pair<Integer, OpCode>>());
         }
         
         // must be thread-safe

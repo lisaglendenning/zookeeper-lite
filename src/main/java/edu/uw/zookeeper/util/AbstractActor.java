@@ -3,8 +3,8 @@ package edu.uw.zookeeper.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.common.base.Throwables;
@@ -12,7 +12,7 @@ import com.google.common.base.Throwables;
 public abstract class AbstractActor<I> implements Actor<I> {
     
     public static <I> Queue<I> newQueue() {
-        return new LinkedBlockingQueue<I>();
+        return new ConcurrentLinkedQueue<I>();
     }
     
     public static AtomicReference<State> newState() {
