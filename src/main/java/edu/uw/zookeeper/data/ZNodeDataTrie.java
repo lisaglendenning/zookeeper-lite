@@ -368,11 +368,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                     } catch (KeeperException e) {
                         assert (error == null);
                         error = Operations.Responses.error().setError(KeeperException.Code.RUNTIMEINCONSISTENCY).build();
-                        Records.MultiOpResponse[] oldResults = new Records.MultiOpResponse[results.size()];
-                        results.clear();
-                        for (Records.MultiOpResponse oldResult: oldResults) {
-                            results.add(error);
-                        }
+                        // NOTE: save partial results...
                         // FIXME: rollback effects!!
                         throw new UnsupportedOperationException();
                     }

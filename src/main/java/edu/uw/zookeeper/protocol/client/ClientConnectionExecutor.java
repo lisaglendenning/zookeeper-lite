@@ -14,6 +14,7 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.AbstractActor;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Pair;
@@ -24,8 +25,8 @@ import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ClientConnectionExecutor<C extends Connection<? super Message.ClientSession>>
-    extends AbstractActor<PromiseTask<Operation.Request, Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>>>
-    implements ClientExecutor<Operation.Request, Message.ClientRequest<?>, Message.ServerResponse<?>>,
+    extends AbstractActor<PromiseTask<Operation.Request, Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>>>
+    implements ClientExecutor<Operation.Request, Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>,
         Publisher,
         Reference<C> {
 
@@ -67,18 +68,18 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     protected final ListenableFuture<ConnectMessage.Response> session;
     protected final AssignXidProcessor xids;
     protected final Queue<PendingTask> pending;
-    protected final Queue<Message.ServerResponse<?>> received;
+    protected final Queue<Message.ServerResponse<Records.Response>> received;
     
     protected ClientConnectionExecutor(
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             AssignXidProcessor xids,
             Executor executor) {
-        super(executor, AbstractActor.<PromiseTask<Operation.Request, Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>>>newQueue(), AbstractActor.newState());
+        super(executor, AbstractActor.<PromiseTask<Operation.Request, Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>>>newQueue(), AbstractActor.newState());
         this.connection = connection;
         this.xids = xids;
         this.pending = new ConcurrentLinkedQueue<PendingTask>();
-        this.received = new ConcurrentLinkedQueue<Message.ServerResponse<?>>();
+        this.received = new ConcurrentLinkedQueue<Message.ServerResponse<Records.Response>>();
         this.session = session;
                 
         connection.register(this);
@@ -94,15 +95,15 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
     
     @Override
-    public ListenableFuture<Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>> submit(Operation.Request request) {
-        Promise<Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>> promise = SettableFuturePromise.create();
+    public ListenableFuture<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> submit(Operation.Request request) {
+        Promise<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> promise = SettableFuturePromise.create();
         return submit(request, promise);
     }
 
     @Override
-    public ListenableFuture<Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>> submit(
-            Operation.Request request, Promise<Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>> promise) {
-        PromiseTask<Operation.Request, Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>> task = PromiseTask.of(request, promise);
+    public ListenableFuture<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> submit(
+            Operation.Request request, Promise<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> promise) {
+        PromiseTask<Operation.Request, Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> task = PromiseTask.of(request, promise);
         send(task);
         return task;
     }
@@ -130,13 +131,13 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
 
     @Subscribe
-    public void handleResponse(Message.ServerResponse<?> message) throws InterruptedException {
+    public void handleResponse(Message.ServerResponse<Records.Response> message) throws InterruptedException {
         if ((state.get() != State.TERMINATED) && !pending.isEmpty()) {
             receive(message);
         }
     }
     
-    protected void receive(Message.ServerResponse<?> message) throws InterruptedException {
+    protected void receive(Message.ServerResponse<Records.Response> message) throws InterruptedException {
         // ignore pings
         if (message.getXid() != OpCodeXid.PING.getXid()) {
             received.add(message);
@@ -165,7 +166,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         PendingTask task = null;
         while (((task = pending.peek()) != null) 
                 || !received.isEmpty()) {
-            Message.ServerResponse<?> response = null;
+            Message.ServerResponse<Records.Response> response = null;
             while (((task == null) || !task.isDone()) 
                     && ((response = received.poll()) != null)) {
                 applyReceived(task, response);
@@ -180,19 +181,20 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         }
     }
     
-    protected void applyReceived(PendingTask task, Message.ServerResponse<?> response) {
+    protected void applyReceived(PendingTask task, Message.ServerResponse<Records.Response> response) {
         if ((task != null) && (task.task().getXid() == response.getXid())) {
-            Pair<Message.ClientRequest<?>, Message.ServerResponse<?>> result = 
-                    Pair.<Message.ClientRequest<?>, Message.ServerResponse<?>>create(task.task(), response);
+            Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>> result = 
+                    Pair.<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>create(task.task(), response);
             task.set(result);
         }
     }
 
     @Override
-    protected boolean apply(PromiseTask<Operation.Request, Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>> input) {
+    protected boolean apply(PromiseTask<Operation.Request, Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> input) {
         PendingTask task;
         try {
-            Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
+            @SuppressWarnings("unchecked")
+            Message.ClientRequest<Records.Request> message = (Message.ClientRequest<Records.Request>) xids.apply(input.task());
             task = new PendingTask(message, input);
         } catch (Throwable t) {
             input.setException(t);
@@ -247,12 +249,12 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
 
     protected static class PendingTask
-        extends PromiseTask<Message.ClientRequest<?>, Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>>
+        extends PromiseTask<Message.ClientRequest<Records.Request>, Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>>
         implements FutureCallback<Object> {
     
         public PendingTask(
-                Message.ClientRequest<?> task,
-                Promise<Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>> delegate) {
+                Message.ClientRequest<Records.Request> task,
+                Promise<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> delegate) {
             super(task, delegate);
         }
     
@@ -271,7 +273,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         }
 
         @Override
-        public Promise<Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>> delegate() {
+        public Promise<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> delegate() {
             return delegate;
         }
     } 

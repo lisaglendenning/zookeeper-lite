@@ -53,20 +53,20 @@ import edu.uw.zookeeper.util.SettableFuturePromise;
 /**
  * Only caches the results of operations submitted through this wrapper.
  */
-public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> 
+public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> 
         implements ClientExecutor<Operation.Request, T, V> {
 
-    public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<SimpleZNodeCache, T, V> newInstance(
+    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<SimpleZNodeCache, T, V> newInstance(
             Publisher publisher, ClientExecutor<Operation.Request, T, V> client) {
         return newInstance(publisher, client, SimpleZNodeCache.root());
     }
     
-    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<E,T,V> newInstance(
+    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,T,V> newInstance(
             Publisher publisher, ClientExecutor<Operation.Request, T, V> client, E root) {
         return newInstance(publisher, client, ZNodeLabelTrie.of(root));
     }
     
-    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<E,T,V> newInstance(
+    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,T,V> newInstance(
             Publisher publisher, ClientExecutor<Operation.Request, T, V> client, ZNodeLabelTrie<E> trie) {
         return new ZNodeViewCache<E,T,V>(publisher, client, trie);
     }
@@ -396,12 +396,16 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T ext
     public ListenableFuture<Pair<T,V>> submit(Operation.Request request, Promise<Pair<T,V>> promise) {
         return client.submit(request, new PromiseWrapper(promise));
     }
+
+    public boolean contains(ZNodeLabel.Path path) {
+        return get(path) != null;
+    }
     
     public E get(ZNodeLabel.Path path) {
         return trie().get(path);
     }
     
-    public void handleResult(Pair<? extends Operation.ProtocolRequest<?>, ? extends Operation.ProtocolResponse<?>> result) {
+    public void handleResult(Pair<? extends Operation.ProtocolRequest<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> result) {
         Long zxid = result.second().getZxid();
         lastZxid.update(zxid);
         Records.Response response = result.second().getRecord();
@@ -524,9 +528,9 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T ext
                 Iterator<MultiOpResponse> responses = responseRecord.iterator();
                 while (requests.hasNext()) {
                     checkArgument(responses.hasNext());
-                    Pair<ProtocolRequestMessage<MultiOpRequest>, ProtocolResponseMessage<MultiOpResponse>> nestedResult = Pair.create(
-                            ProtocolRequestMessage.of(xid, requests.next()), 
-                            ProtocolResponseMessage.of(xid, zxid, responses.next()));
+                    Pair<ProtocolRequestMessage<Records.Request>, ProtocolResponseMessage<Records.Response>> nestedResult = Pair.create(
+                            ProtocolRequestMessage.of(xid, (Records.Request) requests.next()), 
+                            ProtocolResponseMessage.of(xid, zxid, (Records.Response) responses.next()));
                     handleResult(nestedResult);
                 }
             } else {

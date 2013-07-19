@@ -13,6 +13,7 @@ import org.apache.zookeeper.Watcher.Event.KeeperState;
 import org.apache.zookeeper.data.Stat;
 
 import com.google.common.base.Functions;
+import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -1304,48 +1305,48 @@ public abstract class Operations {
         }
     }
 
-    public static Records.Response unlessError(Records.Response reply) throws KeeperException {
-        return Operations.unlessError(reply, "Unexpected Error");
+    public static Records.Response unlessError(Records.Response response) throws KeeperException {
+        return Operations.unlessError(response, "Unexpected Error");
     }
 
-    public static Records.Response unlessError(Records.Response reply, String message) throws KeeperException {
-        if (reply instanceof Operation.Error) {
-            KeeperException.Code error = ((Operation.Error) reply).getError();
+    public static Records.Response unlessError(Records.Response response, String message) throws KeeperException {
+        if (response instanceof Operation.Error) {
+            KeeperException.Code error = ((Operation.Error) response).getError();
             throw KeeperException.create(error, message);
         } else {
-            return reply;
+            return response;
         }
     }
 
-    public static Operation.Error expectError(Records.Response reply, KeeperException.Code expected) throws KeeperException {
-        return Operations.expectError(reply, expected, "Expected Error " + expected.toString());
+    public static Operation.Error expectError(Records.Response response, KeeperException.Code expected) throws KeeperException {
+        return Operations.expectError(response, expected, "Expected Error " + expected.toString());
     }
 
-    public static Operation.Error expectError(Records.Response reply, KeeperException.Code expected, String message) throws KeeperException {
-        if (reply instanceof Operation.Error) {
-            Operation.Error errorReply = (Operation.Error) reply;
-            KeeperException.Code error = errorReply.getError();
-            if (expected != error) {
-                throw KeeperException.create(error, message);
+    public static Operation.Error expectError(Records.Response response, KeeperException.Code expected, String message) throws KeeperException {
+        if (response instanceof Operation.Error) {
+            Operation.Error error = (Operation.Error) response;
+            if (expected != error.getError()) {
+                throw KeeperException.create(error.getError(), message);
             }
-            return errorReply;
+            return error;
         } else {
-            throw new IllegalArgumentException("Unexpected Response " + reply.toString());
+            throw new IllegalArgumentException("Unexpected Response " + response.toString());
         }
     }
 
-    public static Records.Response maybeError(Records.Response reply, KeeperException.Code expected) throws KeeperException {
-        return Operations.maybeError(reply, expected, "Expected Error " + expected.toString());
+    public static Optional<Operation.Error> maybeError(Records.Response response, KeeperException.Code expected) throws KeeperException {
+        return Operations.maybeError(response, expected, "Expected Error " + expected.toString());
     }
 
-    public static Records.Response maybeError(Records.Response reply, KeeperException.Code expected, String message) throws KeeperException {
-        if (reply instanceof Operation.Error) {
-            KeeperException.Code error = ((Operation.Error) reply).getError();
-            if (expected != error) {
-                throw KeeperException.create(error, message);
+    public static Optional<Operation.Error> maybeError(Records.Response response, KeeperException.Code expected, String message) throws KeeperException {
+        if (response instanceof Operation.Error) {
+            Operation.Error error = (Operation.Error) response;
+            if (expected != error.getError()) {
+                throw KeeperException.create(error.getError(), message);
             }
+            return Optional.of(error);
         }
-        return reply;
+        return Optional.absent();
     }
 
     private Operations() {}

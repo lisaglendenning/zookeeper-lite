@@ -25,7 +25,7 @@ import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 
-public class TreeFetcher<T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> implements AsyncFunction<ZNodeLabel.Path, V> {
+public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> implements AsyncFunction<ZNodeLabel.Path, V> {
     
     public static class Parameters {
         
@@ -68,9 +68,9 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, U extends Opera
         }
     }
     
-    public static class Builder<T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> {
+    public static class Builder<T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> {
     
-        public static <T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> Builder<T,U,V> create() {
+        public static <T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> Builder<T,U,V> create() {
             return new Builder<T,U,V>();
         }
         
@@ -205,7 +205,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, U extends Opera
         }
     }
 
-    public static <T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> TreeFetcher<T,U,V> newInstance(
+    public static <T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> TreeFetcher<T,U,V> newInstance(
             Parameters parameters,
             ClientExecutor<Operation.Request, T, U> client,
             Executor executor,
@@ -246,9 +246,9 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, U extends Opera
         return TreeFetcherActor.newInstance(parameters, client, result, executor, promise);
     }
 
-    public static class TreeFetcherActor<T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> extends AbstractActor<ZNodeLabel.Path> {
+    public static class TreeFetcherActor<T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> extends AbstractActor<ZNodeLabel.Path> {
 
-        public static <T extends Operation.ProtocolRequest<?>, U extends Operation.ProtocolResponse<?>, V> TreeFetcherActor<T,U,V> newInstance(
+        public static <T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> TreeFetcherActor<T,U,V> newInstance(
                 Parameters parameters,
                 ClientExecutor<Operation.Request, T, U> client,
                 Callable<V> result,
@@ -328,10 +328,11 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<?>, U extends Opera
 
         protected void applyPendingResult(Pair<T,U> result) throws Exception {
             Records.Request request = result.first().getRecord();
-            Records.Response reply = Operations.maybeError(result.second().getRecord(), KeeperException.Code.NONODE, request.toString());
-            if (reply instanceof Records.ChildrenGetter) {
+            Records.Response response = result.second().getRecord();
+            Operations.maybeError(response, KeeperException.Code.NONODE, request.toString());
+            if (response instanceof Records.ChildrenGetter) {
                 ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
-                for (String child: ((Records.ChildrenGetter) reply).getChildren()) {
+                for (String child: ((Records.ChildrenGetter) response).getChildren()) {
                     send(ZNodeLabel.Path.of(path, ZNodeLabel.Component.of(child)));
                 }
             }

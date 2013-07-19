@@ -264,7 +264,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             return builder.toString();
         }
         
-        public static String parentOf(String path) {
+        public static String headOf(String path) {
             int lastSlash = path.lastIndexOf(ZNodeLabel.SLASH);
             if (lastSlash == -1) {
                 return "";
@@ -272,6 +272,15 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
                 return (path.length() > 1) ? "/" : "";
             } else {
                 return path.substring(0, lastSlash);
+            }
+        }
+
+        public static String tailOf(String path) {
+            int lastSlash = path.lastIndexOf(ZNodeLabel.SLASH);
+            if ((lastSlash == -1) || (lastSlash == path.length() - 1)) {
+                return "";
+            } else {
+                return path.substring(lastSlash + 1);
             }
         }
 

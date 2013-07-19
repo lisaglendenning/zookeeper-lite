@@ -92,7 +92,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         {
             if (! (response instanceof Operation.Error)) {
                 String path = ((Records.PathGetter) response).getPath();
-                String parent = ZNodeLabel.Path.parentOf(path);
+                String parent = ZNodeLabel.Path.headOf(path);
                 dataWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, created(path)));
                 if (parent.length() > 0) {
                     childWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, children(parent)));
@@ -104,7 +104,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         {
             if (! (response instanceof Operation.Error)) {
                 String path = ((Records.PathGetter) request).getPath();
-                String parent = ZNodeLabel.Path.parentOf(path);
+                String parent = ZNodeLabel.Path.headOf(path);
                 dataWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, deleted(path)));
                 if (parent.length() > 0) {
                     childWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, children(parent)));

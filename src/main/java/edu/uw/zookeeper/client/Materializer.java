@@ -26,9 +26,9 @@ import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Reference;
 
-public class Materializer<T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> extends ZNodeViewCache<Materializer.MaterializedNode, T, V> {
+public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> extends ZNodeViewCache<Materializer.MaterializedNode, T, V> {
 
-    public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> Materializer<T,V> newInstance(
+    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> Materializer<T,V> newInstance(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
             Publisher publisher,
@@ -36,8 +36,40 @@ public class Materializer<T extends Operation.ProtocolRequest<?>, V extends Oper
         return new Materializer<T,V>(schema, codec, publisher, client);
     }
     
-    public static class MaterializedNode extends ZNodeViewCache.AbstractNodeCache<MaterializedNode> implements Reference<StampedReference<? extends Object>> {
+    public static <I extends Operation.Request, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> 
+    ListenableFuture<Pair<T,V>> submit(ClientExecutor<I, T,V> client, I request) {
+        return client.submit(request);
+    }
+    
+    protected final Schema schema;
+    protected final Serializers.ByteCodec<Object> codec;
+    protected final Operator operator;
+    
+    public Materializer(
+            Schema schema, 
+            Serializers.ByteCodec<Object> codec, 
+            Publisher publisher,
+            ClientExecutor<Operation.Request, T, V> client) {
+        super(publisher, client, ZNodeLabelTrie.of(MaterializedNode.root(schema, codec)));
+        this.schema = schema;
+        this.codec = codec;
+        this.operator = new Operator();
+    }
+    
+    public Schema schema() {
+        return schema;
+    }
+    
+    public Serializers.ByteCodec<Object> codec() {
+        return codec;
+    }
+    
+    public Operator operator() {
+        return operator;
+    }
 
+    public static class MaterializedNode extends ZNodeViewCache.AbstractNodeCache<MaterializedNode> implements Reference<StampedReference<? extends Object>> {
+    
         public static MaterializedNode root(Schema schema, Serializers.ByteCodec<Object> codec) {
             return new MaterializedNode(Optional.<ZNodeLabelTrie.Pointer<MaterializedNode>>absent(), schema.root(), codec);
         }
@@ -52,7 +84,7 @@ public class Materializer<T extends Operation.ProtocolRequest<?>, V extends Oper
                 Serializers.ByteCodec<Object> codec) {
             this(parent, schemaNode, codec, StampedReference.of(0L, null));
         }
-
+    
         protected MaterializedNode(
                 Optional<ZNodeLabelTrie.Pointer<MaterializedNode>> parent, 
                 Schema.SchemaNode schemaNode, 
@@ -71,12 +103,12 @@ public class Materializer<T extends Operation.ProtocolRequest<?>, V extends Oper
         public Serializers.ByteCodec<Object> codec() {
             return codec;
         }
-
+    
         @Override
         public StampedReference<Object> get() {
             return instance.get();
         }
-
+    
         @Override
         public <T extends Records.ZNodeView> StampedReference<T> update(View view, StampedReference<T> value) {
             StampedReference<T> result = super.update(view, value);
@@ -139,10 +171,10 @@ public class Materializer<T extends Operation.ProtocolRequest<?>, V extends Oper
                     .add("views", viewStr).toString();
         }
     }
-    
-    public static class Operator<T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> implements Reference<Materializer<T,V>> {
+
+    public class Operator implements Reference<Materializer<T,V>> {
         
-        public static class Submitter<C extends Operations.Builder<? extends Operation.Request>, T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> implements Reference<C> {
+        public class Submitter<C extends Operations.Builder<? extends Operation.Request>> implements Reference<C> {
             protected final C builder;
             protected final ClientExecutor<Operation.Request, T, V> client;
             
@@ -161,112 +193,83 @@ public class Materializer<T extends Operation.ProtocolRequest<?>, V extends Oper
             }
         }
         
-        protected final Materializer<T,V> materializer;
-        
-        public Operator(Materializer<T,V> materializer) {
-            this.materializer = materializer;
-        }
-
+        public Operator() {}
+    
         @Override
         public Materializer<T,V> get() {
-            return materializer;
+            return Materializer.this;
         }
-
-        public Submitter<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, Object>, T, V> create(ZNodeLabel.Path path) {
+    
+        public Submitter<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, Object>> create(ZNodeLabel.Path path) {
             return create(path, null);
         }
         
-        public Submitter<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, Object>, T, V> create(ZNodeLabel.Path path, Object data) {
+        public Submitter<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, Object>> create(ZNodeLabel.Path path, Object data) {
             Schema.SchemaNode node = get().schema().match(path);
             Operations.Requests.Create create = Operations.Requests.create().setPath(path);
             if (node != null) {
                 create.setMode(node.get().getCreateMode()).setAcl(Schema.inheritedAcl(node));
             }
-            return new Submitter<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, Object>, T, V>(
+            return new Submitter<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, Object>>(
                     Operations.Requests.serialized(create, get().codec(), data), get());
         }
         
-        public Submitter<Operations.Requests.Delete, T, V> delete(ZNodeLabel.Path path) {
-            return new Submitter<Operations.Requests.Delete, T, V>(
+        public Submitter<Operations.Requests.Delete> delete(ZNodeLabel.Path path) {
+            return new Submitter<Operations.Requests.Delete>(
                     Operations.Requests.delete().setPath(path), get());
         }
-
-        public Submitter<Operations.Requests.Exists, T, V> exists(ZNodeLabel.Path path) {
+    
+        public Submitter<Operations.Requests.Exists> exists(ZNodeLabel.Path path) {
             return exists(path, false);
         }
-
-        public Submitter<Operations.Requests.Exists, T, V> exists(ZNodeLabel.Path path, boolean watch) {
-            return new Submitter<Operations.Requests.Exists, T, V>(
+    
+        public Submitter<Operations.Requests.Exists> exists(ZNodeLabel.Path path, boolean watch) {
+            return new Submitter<Operations.Requests.Exists>(
                     Operations.Requests.exists().setPath(path).setWatch(watch), get());
         }
-
-        public Submitter<Operations.Requests.GetAcl, T, V> getAcl(ZNodeLabel.Path path) {
-            return new Submitter<Operations.Requests.GetAcl, T, V>(
+    
+        public Submitter<Operations.Requests.GetAcl> getAcl(ZNodeLabel.Path path) {
+            return new Submitter<Operations.Requests.GetAcl>(
                     Operations.Requests.getAcl().setPath(path), get());
         }
         
-        public Submitter<Operations.Requests.GetChildren, T, V> getChildren(ZNodeLabel.Path path) {
+        public Submitter<Operations.Requests.GetChildren> getChildren(ZNodeLabel.Path path) {
             return getChildren(path, false);
         }
-
-        public Submitter<Operations.Requests.GetChildren, T, V> getChildren(ZNodeLabel.Path path, boolean watch) {
-            return new Submitter<Operations.Requests.GetChildren, T, V>(
+    
+        public Submitter<Operations.Requests.GetChildren> getChildren(ZNodeLabel.Path path, boolean watch) {
+            return new Submitter<Operations.Requests.GetChildren>(
                     Operations.Requests.getChildren().setPath(path).setWatch(watch), get());
         }
-
-        public Submitter<Operations.Requests.GetData, T, V> getData(ZNodeLabel.Path path) {
+    
+        public Submitter<Operations.Requests.GetData> getData(ZNodeLabel.Path path) {
             return getData(path, false);
         }
-
-        public Submitter<Operations.Requests.GetData, T, V> getData(ZNodeLabel.Path path, boolean watch) {
-            return new Submitter<Operations.Requests.GetData, T, V>(
+    
+        public Submitter<Operations.Requests.GetData> getData(ZNodeLabel.Path path, boolean watch) {
+            return new Submitter<Operations.Requests.GetData>(
                     Operations.Requests.getData().setPath(path).setWatch(watch), get());
         }
         
-        public Submitter<Operations.Requests.Multi, T, V> multi() {
-            return new Submitter<Operations.Requests.Multi, T, V>(
+        public Submitter<Operations.Requests.Multi> multi() {
+            return new Submitter<Operations.Requests.Multi>(
                     Operations.Requests.multi(), get());
         }
-
-        public Submitter<Operations.Requests.SetAcl, T, V> setAcl(ZNodeLabel.Path path) {
-            return new Submitter<Operations.Requests.SetAcl, T, V>(
+    
+        public Submitter<Operations.Requests.SetAcl> setAcl(ZNodeLabel.Path path) {
+            return new Submitter<Operations.Requests.SetAcl>(
                     Operations.Requests.setAcl().setPath(path), get());
         }
-
-        public Submitter<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, Object>, T, V> setData(ZNodeLabel.Path path, Object data) {
+    
+        public Submitter<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, Object>> setData(ZNodeLabel.Path path, Object data) {
             Operations.Requests.SetData setData = Operations.Requests.setData().setPath(path);
-            return new Submitter<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, Object>, T, V>(
+            return new Submitter<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, Object>>(
                     Operations.Requests.serialized(setData, get().codec(), data), get());
         }
         
-        public Submitter<Operations.Requests.Sync, T, V> sync(ZNodeLabel.Path path) {
-            return new Submitter<Operations.Requests.Sync, T, V>(
+        public Submitter<Operations.Requests.Sync> sync(ZNodeLabel.Path path) {
+            return new Submitter<Operations.Requests.Sync>(
                     Operations.Requests.sync().setPath(path), get());
         }
-    }
-    
-    protected final Schema schema;
-    protected final Serializers.ByteCodec<Object> codec;
-    
-    public Materializer(
-            Schema schema, 
-            Serializers.ByteCodec<Object> codec, 
-            Publisher publisher,
-            ClientExecutor<Operation.Request, T, V> client) {
-        super(publisher, client, ZNodeLabelTrie.of(MaterializedNode.root(schema, codec)));
-        this.schema = schema;
-        this.codec = codec;
-    }
-    
-    public Schema schema() {
-        return schema;
-    }
-    
-    public Serializers.ByteCodec<Object> codec() {
-        return codec;
-    }
-    
-    public Operator<T,V> operator() {
-        return new Operator<T,V>(this);
     }
 }

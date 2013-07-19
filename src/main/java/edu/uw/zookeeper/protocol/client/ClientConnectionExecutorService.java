@@ -21,7 +21,7 @@ import edu.uw.zookeeper.util.Reference;
  * Wraps a lazily-instantiated ClientConnectionExecutor in a Service.
  */
 public class ClientConnectionExecutorService<C extends Connection<? super Operation.Request>> extends AbstractIdleService 
-        implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Message.ClientRequest<?>, Message.ServerResponse<?>> {
+        implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>> {
 
     public static <C extends Connection<? super Operation.Request>> ClientConnectionExecutorService<C> newInstance(
             Factory<ClientConnectionExecutor<C>> factory) {
@@ -79,12 +79,12 @@ public class ClientConnectionExecutorService<C extends Connection<? super Operat
     }
 
     @Override
-    public ListenableFuture<Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>> submit(Operation.Request request) {
+    public ListenableFuture<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> submit(Operation.Request request) {
         return get().submit(request);
     }
 
     @Override
-    public ListenableFuture<Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>> submit(Operation.Request request, Promise<Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>> promise) {
+    public ListenableFuture<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> submit(Operation.Request request, Promise<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> promise) {
         return get().submit(request, promise);
     }
 
