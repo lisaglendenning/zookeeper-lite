@@ -37,26 +37,26 @@ import edu.uw.zookeeper.util.Reference;
 import edu.uw.zookeeper.util.SettableFuturePromise;
 import edu.uw.zookeeper.util.TaskExecutor;
 
-public class ServerConnectionExecutor<C extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>
-        implements Publisher, Reference<C> {
+public class ServerConnectionExecutor<C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>>
+        implements Publisher, Reference<T> {
 
-    public static <C extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> ServerConnectionExecutor<C> newInstance(
-            C connection,
+    public static <C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> ServerConnectionExecutor<C,T> newInstance(
+            T connection,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
             TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
-        return new ServerConnectionExecutor<C>(
+        return new ServerConnectionExecutor<C,T>(
                 connection, connection, connection, anonymousExecutor, connectExecutor, sessionExecutor);
     }
     
-    public static <C extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> ParameterizedFactory<C, ServerConnectionExecutor<C>> factory(
+    public static <C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> ParameterizedFactory<T, ServerConnectionExecutor<C,T>> factory(
             final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
             final TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
-        return new ParameterizedFactory<C, ServerConnectionExecutor<C>>() {
+        return new ParameterizedFactory<T, ServerConnectionExecutor<C,T>>() {
             @Override
-            public ServerConnectionExecutor<C> get(C connection) {
-                ServerConnectionExecutor<C> instance = ServerConnectionExecutor.newInstance(
+            public ServerConnectionExecutor<C,T> get(T connection) {
+                ServerConnectionExecutor<C,T> instance = ServerConnectionExecutor.newInstance(
                         connection, 
                         anonymousExecutor, 
                         connectExecutor, 
@@ -70,7 +70,7 @@ public class ServerConnectionExecutor<C extends ProtocolCodecConnection<Message.
     protected final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor;
     protected final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor;
     protected final TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> sessionExecutor;
-    protected final C connection;
+    protected final T connection;
     protected final InboundActor inbound;
     protected final OutboundActor outbound;
     protected final Promise<ConnectMessage.Response> session;
@@ -78,7 +78,7 @@ public class ServerConnectionExecutor<C extends ProtocolCodecConnection<Message.
     public ServerConnectionExecutor(
             Publisher publisher,
             Executor executor,
-            C connection,
+            T connection,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
             TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
@@ -97,7 +97,7 @@ public class ServerConnectionExecutor<C extends ProtocolCodecConnection<Message.
     }
     
     @Override
-    public C get() {
+    public T get() {
         return connection;
     }
     

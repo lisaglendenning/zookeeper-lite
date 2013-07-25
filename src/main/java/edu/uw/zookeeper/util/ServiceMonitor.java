@@ -71,12 +71,11 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     }
 
 
-    protected final Logger logger = LoggerFactory
-            .getLogger(ServiceMonitor.class);
-    private final Executor listenerExecutor;
-    private final Optional<Executor> thisExecutor;
-    private final CopyOnWriteArrayList<Service> services;
-    private volatile boolean stopOnTerminate;
+    protected final Logger logger;
+    protected final Executor listenerExecutor;
+    protected final Optional<Executor> thisExecutor;
+    protected final CopyOnWriteArrayList<Service> services;
+    protected volatile boolean stopOnTerminate;
 
     protected ServiceMonitor() {
         this(Optional.<Executor>absent());
@@ -92,10 +91,65 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             Executor listenerExecutor,
             boolean stopOnTerminate,
             List<Service> services) {
+        this.logger = LoggerFactory.getLogger(getClass());
         this.stopOnTerminate = stopOnTerminate;
         this.thisExecutor = thisExecutor;
         this.services = Lists.newCopyOnWriteArrayList(services);
         this.listenerExecutor = listenerExecutor;
+    }
+
+    @Override
+    public Iterator<Service> iterator() {
+        return services.iterator();
+    }
+
+    public boolean stopOnTerminate() {
+        return this.stopOnTerminate;
+    }
+
+    public void stopOnTerminate(boolean value) {
+        this.stopOnTerminate = value;
+    }
+
+    public boolean isAddable() {
+        switch (state()) {
+        case NEW:
+        case STARTING:
+        case RUNNING:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    public boolean add(Service service) {
+        checkState(isAddable(), state());
+        if (services.addIfAbsent(checkNotNull(service))) {
+            logger.debug("Added Service: {}", service);
+            monitor(service);
+            notifyChange();
+            return true;
+        }
+        return false;
+    }
+    
+    public boolean addOnStart(Service service) {
+        checkState(isAddable(), state());
+        if (service.state() == Service.State.NEW) {
+            service.addListener(new ServiceDelayedRegister(service), listenerExecutor);
+            return true;
+        } else {
+            return add(service);
+        }
+    }
+
+    public boolean remove(Service service) {
+        if (services.remove(service)) {
+            logger.debug("Removed Service: {}", service);
+            notifyChange();
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -107,67 +161,20 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         }
     }
 
-    public boolean stopOnTerminate() {
-        return this.stopOnTerminate;
-    }
-
-    public synchronized boolean stopOnTerminate(boolean value) {
-        boolean prev = this.stopOnTerminate;
-        this.stopOnTerminate = value;
-        return prev;
-    }
-
     @Override
-    public Iterator<Service> iterator() {
-        return services.iterator();
-    }
-
-    public boolean isAddable() {
-        Service.State state = state();
-        return (state == Service.State.NEW || state == Service.State.STARTING || state == Service.State.RUNNING);
-    }
-
-    public boolean add(Service service) {
-        checkState(isAddable(), state());
-        if (services.addIfAbsent(checkNotNull(service))) {
-            monitor(service);
-            notifyChange();
-            return true;
-        }
-        return false;
-    }
-    
-    public void addOnStart(Service service) {
-        checkState(isAddable(), state());
-        if (service.state() == Service.State.NEW) {
-            service.addListener(new ServiceDelayedRegister(service), listenerExecutor);
-        } else {
-            add(service);
-        }
-    }
-
-    public boolean remove(Service service) {
-        if (services.remove(service)) {
-            notifyChange();
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    protected void startUp() throws Exception {
+    protected void startUp() throws ServiceException {
         logger.info("Starting up");
         try {
             startServices();
             monitor(this);
-        } catch (Exception e) {
+        } catch (ServiceException e) {
             shutDown();
             throw e;
         }
     }
 
     @Override
-    protected void shutDown() throws Exception {
+    protected void shutDown() throws ServiceException {
         logger.info("Shutting down");
         stopServices();
     }
@@ -187,6 +194,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     protected void startServices() throws ServiceException {
         // start all currently monitored services
         // after this, services will be started by monitor()
+        // If any service fails during start up, fail everything
         for (Service service : services) {
             switch (service.state()) {
             case NEW:
@@ -220,7 +228,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
                 try {
                     service.stop().get();
                 } catch (Throwable t) {
-                    logger.error("Error stopping Service {}", service, t);
+                    logger.error("Error stopping Service: {}", service, t);
                     // only keep the first error?
                     if (cause == null) {
                         cause = new ServiceException(service, t);
@@ -255,11 +263,13 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             State state = service.state();
             if (state == State.FAILED) {
                 // stop all services if one service failed
+                logger.debug("Service failed: {}", service, service.failureCause());
                 stop = true;
                 break;
             } else if (stopOnTerminate && (state == State.STOPPING || state == State.TERMINATED)) {
                 // if stopOnTerminate policy is true, then stop the world
                 // if one service stops
+                logger.debug("Service stopped: {}", service);
                 stop = true;
                 break;
             } else if (state == State.NEW) {
@@ -274,14 +284,14 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         return !stop;
     }
     
-    public class ServiceDelayedRegister implements Service.Listener, Reference<Service> {
+    protected abstract class ServiceListener implements Service.Listener, Reference<Service> {
 
-        protected final Service service;
+        private final Service service;
         
-        public ServiceDelayedRegister(Service service) {
+        public ServiceListener(Service service) {
             this.service = service;
         }
-        
+
         @Override
         public Service get() {
             return service;
@@ -289,7 +299,6 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
         @Override
         public void starting() {
-            ServiceMonitor.this.add(get());
         }
 
         @Override
@@ -308,19 +317,26 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         public void failed(State from, Throwable failure) {
         }
     }
+    
+    protected class ServiceDelayedRegister extends ServiceListener {
 
+        public ServiceDelayedRegister(Service service) {
+            super(service);
+        }
+        
+        @Override
+        public void starting() {
+            ServiceMonitor.this.add(get());
+        }
+    }
 
     /**
      * Logs Service state changes and notifies ServiceMonitor of significant changes.
      */
-    private class ServiceMonitorListener implements Service.Listener {
-    
-        private final Logger logger = LoggerFactory
-                .getLogger(ServiceMonitorListener.class);
-        private final Service service;
-    
+    protected class ServiceMonitorListener extends ServiceListener {
+
         public ServiceMonitorListener(Service service) {
-            this.service = service;
+            super(service);
         }
     
         private void log(Service.State nextState,
@@ -333,9 +349,9 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
                     + (throwable.isPresent() ? String.format(" %s",
                             throwable.get()) : "") + ": {}";
             if (nextState == Service.State.FAILED) {
-                logger.warn(str, service);
+                logger.warn(str, get());
             } else {
-                logger.debug(str, service);
+                logger.debug(str, get());
             }
         }
     
@@ -352,7 +368,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         @Override
         public void failed(State arg0, Throwable arg1) {
             log(Service.State.FAILED, Optional.of(arg0), Optional.of(arg1));
-            if (service != ServiceMonitor.this) {
+            if (get() != ServiceMonitor.this) {
                 notifyChange();
             }
         }
@@ -360,7 +376,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         @Override
         public void running() {
             log(Service.State.RUNNING);
-            if (service == ServiceMonitor.this) {
+            if (get() == ServiceMonitor.this) {
                 notifyChange();
             }
         }
@@ -379,10 +395,9 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         @Override
         public void terminated(State arg0) {
             log(Service.State.TERMINATED, arg0);
-            if (service != ServiceMonitor.this) {
+            if (get() != ServiceMonitor.this) {
                 notifyChange();
             }
         }
-    
     }
 }

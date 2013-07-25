@@ -2,7 +2,6 @@ package edu.uw.zookeeper.server;
 
 import static com.google.common.base.Preconditions.*;
 
-import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
 
 import org.slf4j.Logger;
@@ -11,12 +10,10 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Maps;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.event.SessionStateEvent;
-import edu.uw.zookeeper.util.ForwardingEventful;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.TimeValue;
 
-public class ConcurrentSessionTable extends ForwardingEventful implements SessionTable {
+public class ConcurrentSessionTable extends SessionTableAdapter implements SessionTable {
 
     public static ConcurrentSessionTable newInstance(Publisher publisher,
             SessionParametersPolicy policy) {
@@ -24,6 +21,7 @@ public class ConcurrentSessionTable extends ForwardingEventful implements Sessio
     }
 
     protected final Logger logger;
+    protected final Publisher publisher;
     protected final SessionParametersPolicy policy;
     protected final ConcurrentMap<Long, Session> sessions;
 
@@ -33,15 +31,10 @@ public class ConcurrentSessionTable extends ForwardingEventful implements Sessio
 
     protected ConcurrentSessionTable(Publisher publisher, SessionParametersPolicy policy,
             ConcurrentMap<Long, Session> sessions) {
-        super(publisher);
         this.logger = LoggerFactory.getLogger(getClass());
+        this.publisher = publisher;
         this.policy = policy;
         this.sessions = sessions;
-    }
-
-    @Override
-    public Iterator<Session> iterator() {
-        return sessions.values().iterator();
     }
 
     @Override
@@ -60,12 +53,7 @@ public class ConcurrentSessionTable extends ForwardingEventful implements Sessio
         if (session.initialized()) {
             // TODO: maybe disallow session renewal if it is expired or not in the table?
             checkArgument(policy.validatePassword(session.id(), session.parameters().password()));
-            Session prev = sessions.put(session.id(), session);
-            if (prev != null) {
-                if (logger.isDebugEnabled()) {
-                    logger.debug("Updating Session {} to {}", session, prev);
-                }
-            }
+            put(session);
             return session;
         } else {
             return validate(session.parameters());
@@ -82,31 +70,43 @@ public class ConcurrentSessionTable extends ForwardingEventful implements Sessio
     }
 
     @Override
-    public Session get(long id) {
-        return sessions.get(id);
-    }
-
-    @Override
     public Session remove(long id) {
-        Session session = sessions.remove(id);
-        if (session != null) {
-            if (logger.isDebugEnabled()) {
+        Session session = super.remove(id);
+        if (logger.isDebugEnabled()) {
+            if (session != null) {
                 logger.debug("Removed session: {}", session);
             }
-            post(SessionStateEvent
-                    .create(session, Session.State.SESSION_CLOSED));
         }
         return session;
     }
 
     protected Session newSession(long id, Session.Parameters parameters) {
         Session session = Session.create(id, parameters);
-        Session prev = sessions.put(id, session);
+        Session prev = put(session);
         assert (prev == null);
-        if (logger.isDebugEnabled()) {
-            logger.debug("Created session: {}", session);
-        }
-        post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
         return session;
+    }
+    
+    @Override
+    protected Session put(Session session) {
+        Session prev = super.put(session);
+        if (logger.isDebugEnabled()) {
+            if (prev == null) {
+                logger.debug("Created session: {}", session);
+            } else {
+                logger.debug("Updating session: {} to {}", session, prev);
+            }
+        }
+        return prev;
+    }
+
+    @Override
+    protected ConcurrentMap<Long, Session> sessions() {
+        return sessions;
+    }
+
+    @Override
+    protected Publisher publisher() {
+        return publisher;
     }
 }

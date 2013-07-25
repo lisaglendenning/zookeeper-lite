@@ -159,16 +159,12 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
                         publishers));
     }
     
-    public static ServerTaskExecutor defaultServerExecutor(
-            ZNodeDataTrie dataTrie,
+    public static ExpiringSessionRequestExecutor defaultSessionExecutor(
             Executor executor,
             Generator<Long> zxids,
+            ZNodeDataTrie dataTrie,
+            final Map<Long, Publisher> listeners,
             ExpiringSessionTable sessions) {
-        final ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
-        TaskExecutor<FourLetterRequest, FourLetterResponse> anonymousExecutor = 
-                ServerTaskExecutor.ProcessorExecutor.of(FourLetterRequestProcessor.getInstance());
-        TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> connectExecutor = 
-                ServerTaskExecutor.ProcessorExecutor.of(ConnectListenerProcessor.newInstance(ConnectTableProcessor.create(sessions, zxids), listeners));
         Processor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> processor = 
                 Processors.bridge(
                         ToTxnRequestProcessor.create(
@@ -181,8 +177,19 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
                                                 return listeners.get(input);
                                             }
                                 })));
-        TaskExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> sessionExecutor = 
-                ExpiringSessionRequestExecutor.newInstance(sessions, executor, listeners, processor);
+        return ExpiringSessionRequestExecutor.newInstance(sessions, executor, listeners, processor);
+    }
+    
+    public static ServerTaskExecutor defaultServerExecutor(
+            Generator<Long> zxids,
+            SessionTable sessions,
+            Map<Long, Publisher> listeners,
+            TaskExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> sessionExecutor) {
+        TaskExecutor<FourLetterRequest, FourLetterResponse> anonymousExecutor = 
+                ServerTaskExecutor.ProcessorExecutor.of(FourLetterRequestProcessor.getInstance());
+        TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> connectExecutor = 
+                ServerTaskExecutor.ProcessorExecutor.of(ConnectListenerProcessor.newInstance(
+                        ConnectTableProcessor.create(sessions, zxids), listeners));
         return ServerTaskExecutor.newInstance(anonymousExecutor, connectExecutor, sessionExecutor);
     }
     
@@ -197,8 +204,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
                 DefaultSessionParametersPolicy.create(runtime.configuration());
         ExpiringSessionTable sessions = 
                 ExpiringSessionTable.newInstance(runtime.publisherFactory().get(), policy);
-        ExpiringSessionService expires = 
-                monitorsFactory.apply(ExpiringSessionService.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
+        monitorsFactory.apply(ExpiringSessionService.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
 
         ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
                 nettyServer.get(
@@ -210,13 +216,19 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         
         ZxidEpochIncrementer zxids = ZxidEpochIncrementer.fromZero();
         ZNodeDataTrie dataTrie = ZNodeDataTrie.newInstance();
-        ServerTaskExecutor serverExecutor = defaultServerExecutor(
-                dataTrie,
+        ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
+        ExpiringSessionRequestExecutor sessionExecutor = defaultSessionExecutor(
                 runtime.executors().asListeningExecutorServiceFactory().get(),
                 zxids,
+                dataTrie,
+                listeners,
                 sessions);
-        ServerConnectionExecutorsService<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> server = 
-                monitorsFactory.apply(ServerConnectionExecutorsService.newInstance(serverConnections, serverExecutor));
+        ServerTaskExecutor serverExecutor = defaultServerExecutor(
+                zxids,
+                sessions,
+                listeners,
+                sessionExecutor);
+        monitorsFactory.apply(ServerConnectionExecutorsService.newInstance(serverConnections, serverExecutor));
         
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
