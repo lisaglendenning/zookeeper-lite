@@ -90,17 +90,17 @@ public class ClientConnectionExecutorService<C extends Connection<? super Operat
 
     @Override
     public void post(Object object) {
-        get().post(object);
+        client.post(object);
     }
 
     @Override
     public void register(Object object) {
-        get().register(object);
+        client.register(object);
     }
 
     @Override
     public void unregister(Object object) {
-        get().unregister(object);
+        client.unregister(object);
     }
 
     @Subscribe

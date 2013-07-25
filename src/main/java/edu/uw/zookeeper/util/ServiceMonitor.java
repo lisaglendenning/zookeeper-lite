@@ -11,8 +11,10 @@ import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -58,39 +60,33 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         return new ServiceMonitor();
     }
     
-    public static ServiceMonitor newInstance(Executor executor) {
-        return new ServiceMonitor(Optional.of(executor));
-    }
-    
     public static ServiceMonitor newInstance(
-            Optional<Executor> thisExecutor, 
+            Executor thisExecutor, 
             Executor listenerExecutor,
             boolean stopOnTerminate,
-            List<Service> services) {
+            Iterable<Service> services) {
         return new ServiceMonitor(thisExecutor, listenerExecutor, stopOnTerminate, services);
     }
 
 
     protected final Logger logger;
     protected final Executor listenerExecutor;
-    protected final Optional<Executor> thisExecutor;
+    protected final Executor thisExecutor;
     protected final CopyOnWriteArrayList<Service> services;
-    protected volatile boolean stopOnTerminate;
+    protected final boolean stopOnTerminate;
 
     protected ServiceMonitor() {
-        this(Optional.<Executor>absent());
-    }
-
-    protected ServiceMonitor(Optional<Executor> thisExecutor) {
-        this(thisExecutor,
-                MoreExecutors.sameThreadExecutor(), true, ImmutableList.<Service>of());
+        this(MoreExecutors.sameThreadExecutor(),
+                MoreExecutors.sameThreadExecutor(), 
+                true, 
+                ImmutableList.<Service>of());
     }
     
     protected ServiceMonitor(
-            Optional<Executor> thisExecutor, 
+            Executor thisExecutor, 
             Executor listenerExecutor,
             boolean stopOnTerminate,
-            List<Service> services) {
+            Iterable<Service> services) {
         this.logger = LoggerFactory.getLogger(getClass());
         this.stopOnTerminate = stopOnTerminate;
         this.thisExecutor = thisExecutor;
@@ -107,10 +103,6 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         return this.stopOnTerminate;
     }
 
-    public void stopOnTerminate(boolean value) {
-        this.stopOnTerminate = value;
-    }
-
     public boolean isAddable() {
         switch (state()) {
         case NEW:
@@ -123,17 +115,21 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     }
 
     public boolean add(Service service) {
+        checkNotNull(service);
         checkState(isAddable(), state());
-        if (services.addIfAbsent(checkNotNull(service))) {
-            logger.debug("Added Service: {}", service);
+        if (services.addIfAbsent(service)) {
+            logger.debug("Service added: {}", service);
             monitor(service);
             notifyChange();
+            // TODO: check if still running
             return true;
+        } else {
+            return false;
         }
-        return false;
     }
     
     public boolean addOnStart(Service service) {
+        checkNotNull(service);
         checkState(isAddable(), state());
         if (service.state() == Service.State.NEW) {
             service.addListener(new ServiceDelayedRegister(service), listenerExecutor);
@@ -144,26 +140,27 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     }
 
     public boolean remove(Service service) {
-        if (services.remove(service)) {
-            logger.debug("Removed Service: {}", service);
+        boolean removed = services.remove(service);
+        if (removed) {
+            logger.debug("Service removed: {}", service);
             notifyChange();
-            return true;
         }
-        return false;
+        return removed;
+    }
+    
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).addValue(Iterators.toString(iterator())).toString();
     }
 
     @Override
     protected Executor executor() {
-        if (thisExecutor.isPresent()) {
-            return thisExecutor.get();
-        } else {
-            return super.executor();
-        }
+        return thisExecutor;
     }
 
     @Override
     protected void startUp() throws ServiceException {
-        logger.info("Starting up");
+        logger.info("Starting: {}", this);
         try {
             startServices();
             monitor(this);
@@ -175,7 +172,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     @Override
     protected void shutDown() throws ServiceException {
-        logger.info("Shutting down");
+        logger.info("Stopping: {}", this);
         stopServices();
     }
 
@@ -195,11 +192,12 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         // start all currently monitored services
         // after this, services will be started by monitor()
         // If any service fails during start up, fail everything
-        for (Service service : services) {
+        for (Service service : this) {
             switch (service.state()) {
             case NEW:
                 // there may be dependencies between services
                 // so don't start them concurrently
+                logger.debug("Starting Service: {}", service);
                 try {
                     service.start().get();
                 } catch (Throwable t) {
@@ -218,8 +216,9 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     protected void stopServices() throws ServiceException {
         // stop all services in reverse order
+        List<Service> reversed = Lists.reverse(services);
         ServiceException cause = null;
-        for (Service service : Lists.reverse(services)) {
+        for (Service service : reversed) {
             switch (service.state()) {
             case NEW:
             case STARTING:
@@ -245,7 +244,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             if (cause != null) {
                 throw cause;
             } else {
-                for (Service service : Lists.reverse(services)) {
+                for (Service service : reversed) {
                     if (service.state() == State.FAILED) {
                         throw new ServiceException(service, service.failureCause());
                     }
@@ -256,7 +255,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     protected boolean monitorTasks() {
         boolean stop = true; // stop if there are no services to monitor!
-        for (Service service : services) {
+        for (Service service : this) {
             if (service == this) {
                 continue;
             }
@@ -366,8 +365,8 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         }
     
         @Override
-        public void failed(State arg0, Throwable arg1) {
-            log(Service.State.FAILED, Optional.of(arg0), Optional.of(arg1));
+        public void failed(State prevState, Throwable t) {
+            log(Service.State.FAILED, Optional.of(prevState), Optional.of(t));
             if (get() != ServiceMonitor.this) {
                 notifyChange();
             }
@@ -387,14 +386,14 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         }
     
         @Override
-        public void stopping(State arg0) {
-            log(Service.State.STOPPING, arg0);
+        public void stopping(State prevState) {
+            log(Service.State.STOPPING, prevState);
     
         }
     
         @Override
-        public void terminated(State arg0) {
-            log(Service.State.TERMINATED, arg0);
+        public void terminated(State prevState) {
+            log(Service.State.TERMINATED, prevState);
             if (get() != ServiceMonitor.this) {
                 notifyChange();
             }
