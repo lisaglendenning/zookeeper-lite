@@ -177,6 +177,15 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
             this.path = pathOf(parent);
         }
         
+        public boolean remove() {
+            if (parent().isPresent()) {
+                E node = parent().orNull().get().remove(parent().orNull().label());
+                return (node != null);
+            } else {
+                return false;
+            }
+        }
+        
         @Override
         protected Map<ZNodeLabel.Component, E> delegate() {
             return children;
@@ -257,6 +266,19 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
                 ZNodeLabel.Component component = (ZNodeLabel.Component) label;
                 delegate().putIfAbsent(component, newChild(component));
                 return get(k);
+            }
+        }
+        
+        public boolean remove(Object k, Object v) {
+            return delegate().remove(k, v);
+        }
+
+        @Override
+        public boolean remove() {
+            if (parent().isPresent()) {
+                return parent().orNull().get().remove(parent().orNull().label(), this);
+            } else {
+                return false;
             }
         }
         
