@@ -2,6 +2,7 @@ package edu.uw.zookeeper.protocol.server;
 
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 
 import com.google.common.collect.MapMaker;
 import com.google.common.eventbus.Subscribe;
@@ -38,10 +39,13 @@ public class ServerConnectionExecutorsService<C extends Connection<? super Messa
         this.connections = connections;
         this.factory = factory;
         this.handlers = new MapMaker().makeMap();
-        
-        connections.register(this);
     }
     
+    @Override
+    public Iterator<ServerConnectionExecutor<C,T>> iterator() {
+        return handlers.values().iterator();
+    }
+
     public ServerConnectionFactory<Message.Server, T> connections() {
         return connections;
     }
@@ -51,7 +55,20 @@ public class ServerConnectionExecutorsService<C extends Connection<? super Messa
         new ConnectionListener(connection, factory.get(connection));
     }
 
+    @Override
+    protected void startUp() throws InterruptedException, ExecutionException {
+        connections.register(this);
+        connections.start().get();
+    }
+
+    @Override
+    protected void shutDown() throws InterruptedException, ExecutionException {
+        connections.stop().get();
+        connections.unregister(this);
+    }
+
     protected class ConnectionListener extends Pair<T, ServerConnectionExecutor<C,T>> {
+        
         public ConnectionListener(T connection, ServerConnectionExecutor<C,T> handler) {
             super(connection, handler);
             if (handlers.putIfAbsent(connection, handler) != null) {
@@ -69,20 +86,5 @@ public class ServerConnectionExecutorsService<C extends Connection<? super Messa
                 handlers.remove(first(), second());
             }
         }
-    }
-
-    @Override
-    protected void startUp() throws Exception {
-        connections.start().get();
-    }
-
-    @Override
-    protected void shutDown() throws Exception {
-        connections.stop().get();
-    }
-
-    @Override
-    public Iterator<ServerConnectionExecutor<C,T>> iterator() {
-        return handlers.values().iterator();
     }
 }

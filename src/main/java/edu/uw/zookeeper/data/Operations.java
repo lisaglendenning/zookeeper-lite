@@ -433,11 +433,11 @@ public abstract class Operations {
             
             @Override
             public IMultiRequest build() {
-                IMultiRequest record = new IMultiRequest();
-                for (AbstractBuilder<? extends Records.Request> e: builders) {
-                    record.add((Records.MultiOpRequest) e.build());
+                ImmutableList.Builder<Records.MultiOpRequest> ops = ImmutableList.builder();
+                for (Builder<? extends Records.Request> builder: this) {
+                    ops.add((Records.MultiOpRequest) builder.build());
                 }
-                return record;
+                return new IMultiRequest(ops.build());
             }
         }
 
@@ -1043,11 +1043,11 @@ public abstract class Operations {
             
             @Override
             public IMultiResponse build() {
-                IMultiResponse record = new IMultiResponse();
-                for (Builder<? extends Records.Response> e: builders) {
-                    record.add((Records.MultiOpResponse) e.build());
+                ImmutableList.Builder<Records.MultiOpResponse> ops = ImmutableList.builder();
+                for (Builder<? extends Records.Response> builder: this) {
+                    ops.add((Records.MultiOpResponse) builder.build());
                 }
-                return record;
+                return new IMultiResponse(ops.build());
             }
         }
         
