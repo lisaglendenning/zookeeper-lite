@@ -26,7 +26,9 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
     
     @Serializes(from=String.class, to=ZNodeLabel.class)
     public static ZNodeLabel of(String label) {
-        if (label.indexOf(SLASH) >= 0) {
+        if (label.length() == 0) {
+            return None.getInstance();
+        } else if (label.indexOf(SLASH) >= 0) {
             return Path.of(label);
         } else {
             return Component.of(label);
