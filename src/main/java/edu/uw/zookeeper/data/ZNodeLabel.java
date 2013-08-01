@@ -33,6 +33,36 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
         }
     }
     
+    public static class None extends ZNodeLabel {
+
+        public static None getInstance() {
+            return Holder.getInstance();
+        }
+        
+        protected static enum Holder implements Singleton<None> {
+            NONE(new None());
+            
+            public static None getInstance() {
+                return NONE.get();
+            }
+            
+            private final None instance;
+            
+            private Holder(None instance) {
+                this.instance = instance;
+            }
+            
+            @Override
+            public None get() {
+                return instance;
+            }
+        }
+        
+        protected None() {
+            super("");
+        }
+    }
+    
     public static class Component extends ZNodeLabel {
 
         protected static final Set<String> ILLEGAL_COMPONENTS = 
@@ -332,7 +362,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
         public ZNodeLabel head() {
             // TODO: memoize since we are immutable
             if (isRoot()) {
-                return null;
+                return None.getInstance();
             }
             int lastSlash = toString().lastIndexOf(SLASH);
             // we are canonicalized
@@ -348,10 +378,10 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             }
         }
 
-        public Component tail() {
+        public ZNodeLabel tail() {
             // TODO: memoize since we are immutable
             if (isRoot()) {
-                return null;
+                return None.getInstance();
             }
             int lastSlash = toString().lastIndexOf(SLASH);
             // we are canonicalized

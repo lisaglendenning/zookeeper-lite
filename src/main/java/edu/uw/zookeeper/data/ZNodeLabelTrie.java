@@ -32,9 +32,9 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
     public static ZNodeLabel toLabel(Object obj) {
         ZNodeLabel label;
         if (obj instanceof ZNodeLabel) {
-            label = (ZNodeLabel)obj;
+            label = (ZNodeLabel) obj;
         } else if (obj instanceof String) {
-            label = ZNodeLabel.of((String)obj);
+            label = ZNodeLabel.of((String) obj);
         } else {
             throw new ClassCastException();
         }
@@ -524,11 +524,10 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
     @Override
     public E put(ZNodeLabel.Path k, E v) {
         E parent = get(k.head());
-        if (parent != null) {
-            return parent.put(k.tail(), v);
-        } else {
+        if (parent == null) {
             throw new IllegalStateException();
         }
+        return parent.put((ZNodeLabel.Component) k.tail(), v);
     }
 
     @Override

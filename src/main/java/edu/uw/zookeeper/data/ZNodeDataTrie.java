@@ -142,7 +142,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 Stats.ChildrenStat childrenStat = Stats.ChildrenStat.newInstance(request.getZxid());
                 ZNodeState state = ZNodeState.newInstance(createStat, data, acl, childrenStat);
                 
-                ZNodeStateNode node = parent.add(path.tail(), state);
+                ZNodeStateNode node = parent.add((ZNodeLabel.Component) path.tail(), state);
                 Operations.Responses.Create builder = 
                         Operations.Responses.create().setPath(path);
                 if (OpCode.CREATE2 == request.getRecord().getOpcode()) {

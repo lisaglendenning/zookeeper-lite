@@ -500,6 +500,6 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
         if (parent == null) {
             throw new IllegalStateException();
         }
-        return parent.add(path.tail(), schema);
+        return parent.add((ZNodeLabel.Component) path.tail(), schema);
     }
 }
