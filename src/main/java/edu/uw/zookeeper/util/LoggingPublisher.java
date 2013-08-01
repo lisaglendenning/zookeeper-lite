@@ -6,14 +6,47 @@ import com.google.common.base.Function;
 
 public class LoggingPublisher implements Publisher, Reference<Publisher> {
 
-    protected final Logger logger;
+    public static LoggingPublisher create(
+            Logger logger, 
+            Function<Object, String> message,
+            Publisher delegate) {
+        return new LoggingPublisher(Logging.create(logger, message), delegate);
+    }
+
+    public static class Logging extends Factories.Holder<Logger> {
+
+        public static Logging create(
+                Logger logger,
+                Function<Object, String> message) {
+            return new Logging(logger, message);
+        }
+
+        protected final Function<Object, String> message;
+        
+        public Logging(
+                Logger logger,
+                Function<Object, String> message) {
+            super(logger);
+            this.message = message;
+        }
+
+        public void log(Object event) {
+            if (get().isTraceEnabled()) {
+                get().trace(message.apply(event));
+            }
+        }
+    }
+
+    protected final Logging logging;
     protected final Publisher delegate;
-    protected final Function<Object, String> message;
     
-    public LoggingPublisher(Logger logger, Publisher delegate, Function<Object, String> message) {
-        this.logger = logger;
+    public LoggingPublisher(Logging logging, Publisher delegate) {
+        this.logging = logging;
         this.delegate = delegate;
-        this.message = message;
+    }
+    
+    public Logging getLogging() {
+        return logging;
     }
     
     @Override
@@ -33,9 +66,7 @@ public class LoggingPublisher implements Publisher, Reference<Publisher> {
 
     @Override
     public void post(Object event) {
-        if (logger.isTraceEnabled()) {
-            logger.trace(message.apply(event));
-        }
+        getLogging().log(event);
         get().post(event);
     }
     

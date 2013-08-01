@@ -88,12 +88,12 @@ public class ChannelConnection<I>
         this.logger = LoggerFactory.getLogger(getClass());
         this.channel = checkNotNull(channel);
         this.publisher = PublisherActor.newInstance(
-                new LoggingPublisher(logger, publisher, new Function<Object, String>() {
+                LoggingPublisher.create(logger, new Function<Object, String>() {
                     @Override
                     public String apply(@Nullable Object input) {
-                        return String.format("Posting: %s (%s)", input, ChannelConnection.this);
+                        return String.format("POSTING: %s (%s)", input, ChannelConnection.this);
                     }
-                }), 
+                }, publisher), 
                 this);
         this.state = ConnectionStateHandler.newAutomaton(this);
         this.outbound = new OutboundActor();

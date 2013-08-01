@@ -42,12 +42,12 @@ public class IntraVmConnectionEndpoint<T extends SocketAddress> extends Abstract
         this.logger = LoggerFactory.getLogger(getClass());
         this.address = address;
         this.publisher = PublisherActor.newInstance(
-                new LoggingPublisher(logger, publisher, new Function<Object, String>() {
+                LoggingPublisher.create(logger, new Function<Object, String>() {
                     @Override
                     public String apply(@Nullable Object input) {
-                        return String.format("Posting: %s (%s)", input, IntraVmConnectionEndpoint.this);
+                        return String.format("POSTING: %s (%s)", input, IntraVmConnectionEndpoint.this);
                     }
-                }), executor);
+                }, publisher), executor);
         this.stopped = SettableFuturePromise.create();
     }
     

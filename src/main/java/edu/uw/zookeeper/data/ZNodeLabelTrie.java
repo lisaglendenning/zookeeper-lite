@@ -580,7 +580,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return Objects.toStringHelper("")
                 .addValue(Iterators.toString(iterator()))
                 .toString();
     }
