@@ -455,7 +455,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
     public E longestPrefix(ZNodeLabel label) {
         E floor = root();
         if (label instanceof ZNodeLabel.Path) {
-            for (ZNodeLabel.Component component: (ZNodeLabel.Path)label) {
+            for (ZNodeLabel.Component component: (ZNodeLabel.Path) label) {
                 E next = floor.get(component);
                 if (next == null) {
                     break;

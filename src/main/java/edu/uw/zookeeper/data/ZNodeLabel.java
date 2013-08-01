@@ -1,6 +1,6 @@
 package edu.uw.zookeeper.data;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.*;
 
 import java.util.Iterator;
 import java.util.Set;
@@ -405,15 +405,25 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
         }
         
         public boolean prefixOf(ZNodeLabel.Path other) {
+            checkState(this.isAbsolute());
+            checkArgument(other.isAbsolute());
+            
+            if (isRoot()) {
+                return true;
+            }
+            
             String myPath = toString();
             String otherPath = other.toString();
-            if (otherPath.startsWith(myPath)) {
-                int length = myPath.length();
-                if ((length == otherPath.length()) || SLASH == otherPath.charAt(length)) {
-                    return true;
-                }
+            if (! otherPath.startsWith(myPath)) {
+                return false;
             }
-            return false;
+            
+            int length = myPath.length();
+            if ((length == otherPath.length()) || (SLASH == otherPath.charAt(length))) {
+                return true;
+            } else {
+                return false;
+            }
         }
         
         @Override
