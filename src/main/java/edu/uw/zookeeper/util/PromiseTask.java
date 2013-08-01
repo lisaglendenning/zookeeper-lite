@@ -20,7 +20,7 @@ public class PromiseTask<T,V> extends ForwardingPromise<V> {
     protected final T task;
     protected final Promise<V> delegate;
 
-    protected PromiseTask(T task, Promise<V> delegate) {
+    public PromiseTask(T task, Promise<V> delegate) {
         super();
         this.task = task;
         this.delegate = delegate;
