@@ -23,7 +23,7 @@ import edu.uw.zookeeper.util.TimeValue;
 public class EnsembleViewFactory<V extends ServerView.Address<? extends SocketAddress>, T> implements DefaultsFactory<V, T> {
 
     public static <V extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> EnsembleViewFactory<V, ServerViewFactory<Session, V, C>> newInstance(
-            ClientConnectionFactory<?, C> connections,
+            ClientConnectionFactory<C> connections,
             Class<V> type,
             EnsembleView<V> view, 
             TimeValue timeOut) {
@@ -93,16 +93,16 @@ public class EnsembleViewFactory<V extends ServerView.Address<? extends SocketAd
     public static class ServerViewFactories<V extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> implements ParameterizedFactory<V, ServerViewFactory<Session, V, C>> {
 
         public static <T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> ServerViewFactories<T,C> newInstance(
-                ClientConnectionFactory<?,C> connections,
+                ClientConnectionFactory<C> connections,
                 TimeValue timeOut) {
             return new ServerViewFactories<T,C>(connections, timeOut);
         }
         
-        protected final ClientConnectionFactory<?, C> connections;
+        protected final ClientConnectionFactory<C> connections;
         protected final TimeValue timeOut;
         
         protected ServerViewFactories(
-                ClientConnectionFactory<?,C> connections,
+                ClientConnectionFactory<C> connections,
                 TimeValue timeOut) {
             this.connections = connections;
             this.timeOut = timeOut;

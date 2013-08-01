@@ -12,5 +12,5 @@ import edu.uw.zookeeper.util.Publisher;
  * <li> C when a new C is added
  * </ul>
  */
-public interface ConnectionFactory<I, C extends Connection<I>> extends Iterable<C>, Publisher, Service {
+public interface ConnectionFactory<C extends Connection<?>> extends Iterable<C>, Publisher, Service {
 }

@@ -34,7 +34,7 @@ public class IntraVmTest {
     }
 
     public static <T extends SocketAddress> Function<SocketAddress, IntraVmConnection<T>> connector(
-            final IntraVmServerConnectionFactory<T,?,?> server) {
+            final IntraVmServerConnectionFactory<T,?> server) {
         return new Function<SocketAddress, IntraVmConnection<T>>() {
             @Override
             public IntraVmConnection<T> apply(SocketAddress input) {
@@ -43,7 +43,7 @@ public class IntraVmTest {
         };
     }
     
-    public static <I, C extends Connection<I>> IntraVmServerConnectionFactory<InetSocketAddress, I, C> newServerFactory(
+    public static <C extends Connection<?>> IntraVmServerConnectionFactory<InetSocketAddress, C> newServerFactory(
             int port,
             ParameterizedFactory<IntraVmConnection<InetSocketAddress>, C> connectionFactory) {
         return IntraVmServerConnectionFactory.newInstance(
@@ -53,8 +53,8 @@ public class IntraVmTest {
                 connectionFactory);
     }
     
-    public static <T extends SocketAddress, I, C extends Connection<I>> IntraVmClientConnectionFactory<T,I,C> newClientFactory(
-            IntraVmServerConnectionFactory<T, ?, ?> server,
+    public static <T extends SocketAddress, C extends Connection<?>> IntraVmClientConnectionFactory<T,C> newClientFactory(
+            IntraVmServerConnectionFactory<T, ?> server,
             ParameterizedFactory<IntraVmConnection<T>, C> connectionFactory) {
         return IntraVmClientConnectionFactory.newInstance(
                 connector(server), 
@@ -65,12 +65,12 @@ public class IntraVmTest {
     @Test(timeout=5000)
     public void test() throws InterruptedException, ExecutionException {
         IdentityFactory<IntraVmConnection<InetSocketAddress>> connectionFactory = identityFactory();
-        IntraVmServerConnectionFactory<InetSocketAddress, Object, IntraVmConnection<InetSocketAddress>> serverConnections = 
+        IntraVmServerConnectionFactory<InetSocketAddress, IntraVmConnection<InetSocketAddress>> serverConnections = 
                 newServerFactory(0, connectionFactory);
-        IntraVmClientConnectionFactory<InetSocketAddress, Object, IntraVmConnection<InetSocketAddress>> clientConnections = 
+        IntraVmClientConnectionFactory<InetSocketAddress, IntraVmConnection<InetSocketAddress>> clientConnections = 
                 newClientFactory(serverConnections, connectionFactory);
-        ConnectionFactory<?,?>[] connections = { clientConnections, serverConnections };
-        for (ConnectionFactory<?,?> e: connections) {
+        ConnectionFactory<?>[] connections = { clientConnections, serverConnections };
+        for (ConnectionFactory<?> e: connections) {
             e.start().get();
         }
         
@@ -103,7 +103,7 @@ public class IntraVmTest {
         assertEquals(Connection.State.CONNECTION_CLOSED, client.state());
         assertEquals(Connection.State.CONNECTION_CLOSED, server.state());
         
-        for (ConnectionFactory<?,?> e: connections) {
+        for (ConnectionFactory<?> e: connections) {
             e.stop().get();
             assertEquals(0, Iterables.size(e));
         }

@@ -11,7 +11,7 @@ import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
 
-public abstract class IntraVmConnectionFactory<T extends SocketAddress, I, C extends Connection<I>> extends AbstractConnectionFactory<I,C> {
+public abstract class IntraVmConnectionFactory<T extends SocketAddress, C extends Connection<?>> extends AbstractConnectionFactory<C> {
 
     protected final ParameterizedFactory<IntraVmConnection<T>, C> connectionFactory;
     protected final Set<C> connections;

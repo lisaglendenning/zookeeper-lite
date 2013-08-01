@@ -40,7 +40,7 @@ public class NettyClientModule {
         this.bootstrapFactory = bootstrapFactory;
     }
     
-    public <I, O, T extends Codec<I,Optional<O>>, C extends Connection<I>> Factory<ChannelClientConnectionFactory<I,C>> get(
+    public <I, O, T extends Codec<I,Optional<O>>, C extends Connection<?>> Factory<ChannelClientConnectionFactory<C>> get(
             ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
             ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
         ParameterizedFactory<Channel, C> factory = 

@@ -206,12 +206,12 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
                 ExpiringSessionTable.newInstance(runtime.publisherFactory().get(), policy);
         monitorsFactory.apply(ExpiringSessionService.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
 
-        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
+        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
                 nettyServer.get(
                         codecFactory(),
                         connectionFactory());
         ServerInetAddressView address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
-        ServerConnectionFactory<Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
+        ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
                 monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         
         ZxidEpochIncrementer zxids = ZxidEpochIncrementer.fromZero();

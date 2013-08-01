@@ -6,6 +6,6 @@ import java.net.SocketAddress;
 import com.google.common.util.concurrent.ListenableFuture;
 
 
-public interface ClientConnectionFactory<I, C extends Connection<I>> extends ConnectionFactory<I,C> {
+public interface ClientConnectionFactory<C extends Connection<?>> extends ConnectionFactory<C> {
     ListenableFuture<C> connect(SocketAddress remoteAddress);
 }

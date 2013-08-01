@@ -192,7 +192,7 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
         ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory = codecFactory();
         ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> pingingFactory = 
                 PingingClient.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
-        ClientConnectionFactory<Operation.Request, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = 
+        ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = 
                 monitorsFactory.apply(
                     clientModule.get(
                             codecFactory, pingingFactory).get());

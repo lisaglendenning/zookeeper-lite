@@ -19,7 +19,7 @@ import edu.uw.zookeeper.util.ParameterizedFactory;
 public class ServerConnectionExecutorsService<C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> extends AbstractIdleService implements Iterable<ServerConnectionExecutor<C,T>> {
 
     public static <C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> ServerConnectionExecutorsService<C,T> newInstance(
-            ServerConnectionFactory<Message.Server, T> connections,
+            ServerConnectionFactory<T> connections,
             ServerTaskExecutor server) {
         return new ServerConnectionExecutorsService<C,T>(
                 connections, 
@@ -29,12 +29,12 @@ public class ServerConnectionExecutorsService<C extends Connection<? super Messa
                         server.getSessionExecutor()));
     }
 
-    protected final ServerConnectionFactory<Message.Server, T> connections;
+    protected final ServerConnectionFactory<T> connections;
     protected final ParameterizedFactory<T, ServerConnectionExecutor<C,T>> factory;
     protected final ConcurrentMap<T, ServerConnectionExecutor<C,T>> handlers;
     
     public ServerConnectionExecutorsService(
-            ServerConnectionFactory<Message.Server, T> connections,
+            ServerConnectionFactory<T> connections,
             ParameterizedFactory<T, ServerConnectionExecutor<C,T>> factory) {
         this.connections = connections;
         this.factory = factory;
@@ -46,7 +46,7 @@ public class ServerConnectionExecutorsService<C extends Connection<? super Messa
         return handlers.values().iterator();
     }
 
-    public ServerConnectionFactory<Message.Server, T> connections() {
+    public ServerConnectionFactory<T> connections() {
         return connections;
     }
 

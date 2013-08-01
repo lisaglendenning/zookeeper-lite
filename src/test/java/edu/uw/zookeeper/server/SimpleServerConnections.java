@@ -26,7 +26,7 @@ public class SimpleServerConnections extends ServerConnectionExecutorsService<In
         };
     }
     
-    public static IntraVmServerConnectionFactory<InetSocketAddress, Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>> newServerConnectionFactory(int port) {
+    public static IntraVmServerConnectionFactory<InetSocketAddress, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>> newServerConnectionFactory(int port) {
         ParameterizedFactory<IntraVmConnection<InetSocketAddress>, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>> codecFactory = codecFactory();
         return IntraVmTest.newServerFactory(port, codecFactory);
     }
@@ -43,18 +43,18 @@ public class SimpleServerConnections extends ServerConnectionExecutorsService<In
     }
     
     public SimpleServerConnections(
-            IntraVmServerConnectionFactory<InetSocketAddress, Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>> connections,
+            IntraVmServerConnectionFactory<InetSocketAddress, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>> connections,
             ParameterizedFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>, ServerConnectionExecutor<IntraVmConnection<InetSocketAddress>, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>>> factory) {
         super(connections, factory);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public IntraVmServerConnectionFactory<InetSocketAddress, Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>> connections() {
-        return (IntraVmServerConnectionFactory<InetSocketAddress, Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>>) connections;
+    public IntraVmServerConnectionFactory<InetSocketAddress, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>> connections() {
+        return (IntraVmServerConnectionFactory<InetSocketAddress, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>>) connections;
     }
     
-    public <I, C extends Connection<I>> IntraVmClientConnectionFactory<InetSocketAddress, I, C> clients(
+    public <I, C extends Connection<I>> IntraVmClientConnectionFactory<InetSocketAddress, C> clients(
             ParameterizedFactory<IntraVmConnection<InetSocketAddress>, C> connectionFactory) {
         return IntraVmTest.newClientFactory(connections(), connectionFactory);
     }

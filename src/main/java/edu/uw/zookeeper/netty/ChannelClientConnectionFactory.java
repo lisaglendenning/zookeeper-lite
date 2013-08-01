@@ -23,10 +23,10 @@ import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.PromiseTask;
 import edu.uw.zookeeper.util.Publisher;
 
-public class ChannelClientConnectionFactory<I, C extends Connection<I>> extends ChannelConnectionFactory<I,C>
-        implements ClientConnectionFactory<I,C> {
+public class ChannelClientConnectionFactory<C extends Connection<?>> extends ChannelConnectionFactory<C>
+        implements ClientConnectionFactory<C> {
     
-    public static <I, C extends Connection<I>> ClientFactoryBuilder<I,C> factory(
+    public static <C extends Connection<?>> ClientFactoryBuilder<C> factory(
             Factory<Publisher> publisherFactory,
             ParameterizedFactory<Channel, C> connectionFactory,
             Factory<Bootstrap> bootstrapFactory) {
@@ -36,13 +36,13 @@ public class ChannelClientConnectionFactory<I, C extends Connection<I>> extends 
                 bootstrapFactory);
     }
     
-    public static class ClientFactoryBuilder<I, C extends Connection<I>> extends FactoryBuilder<I,C> implements Factory<ChannelClientConnectionFactory<I,C>> {
+    public static class ClientFactoryBuilder<C extends Connection<?>> extends FactoryBuilder<C> implements Factory<ChannelClientConnectionFactory<C>> {
 
-        public static <I, C extends Connection<I>> ClientFactoryBuilder<I,C> newInstance(
+        public static <C extends Connection<?>> ClientFactoryBuilder<C> newInstance(
                 Factory<Publisher> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 Factory<Bootstrap> bootstrapFactory) {
-            return new ClientFactoryBuilder<I,C>(publisherFactory, connectionFactory, bootstrapFactory);
+            return new ClientFactoryBuilder<C>(publisherFactory, connectionFactory, bootstrapFactory);
         }
         
         private final Factory<Bootstrap> bootstrapFactory;
@@ -56,7 +56,7 @@ public class ChannelClientConnectionFactory<I, C extends Connection<I>> extends 
         }
 
         @Override
-        public ChannelClientConnectionFactory<I,C> get() {
+        public ChannelClientConnectionFactory<C> get() {
             return ChannelClientConnectionFactory.newInstance(
                     publisherFactory.get(), 
                     connectionFactory, 
@@ -64,7 +64,7 @@ public class ChannelClientConnectionFactory<I, C extends Connection<I>> extends 
         }
     }
 
-    public static <I, C extends Connection<I>> ChannelClientConnectionFactory<I,C> newInstance(
+    public static <C extends Connection<?>> ChannelClientConnectionFactory<C> newInstance(
             Publisher publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             Bootstrap bootstrap) {
@@ -76,12 +76,12 @@ public class ChannelClientConnectionFactory<I, C extends Connection<I>> extends 
                 bootstrap);
     }
     
-    public static <I, C extends Connection<I>> ChannelClientConnectionFactory<I,C> newInstance(
+    public static <C extends Connection<?>> ChannelClientConnectionFactory<C> newInstance(
             Publisher publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             ChannelGroup channels,
             Bootstrap bootstrap) {
-        return new ChannelClientConnectionFactory<I,C>(
+        return new ChannelClientConnectionFactory<C>(
                 publisher, 
                 connectionFactory,
                 channels,

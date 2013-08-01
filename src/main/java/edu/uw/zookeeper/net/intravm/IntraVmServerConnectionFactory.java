@@ -9,14 +9,14 @@ import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
 
-public class IntraVmServerConnectionFactory<T extends SocketAddress, I, C extends Connection<I>> extends IntraVmConnectionFactory<T,I,C> implements ServerConnectionFactory<I,C> {
+public class IntraVmServerConnectionFactory<T extends SocketAddress, C extends Connection<?>> extends IntraVmConnectionFactory<T,C> implements ServerConnectionFactory<C> {
 
-    public static <T extends SocketAddress, I, C extends Connection<I>> IntraVmServerConnectionFactory<T,I,C> newInstance(
+    public static <T extends SocketAddress, C extends Connection<?>> IntraVmServerConnectionFactory<T,C> newInstance(
             T listenAddress,
             Publisher publisher,
             Factory<Pair<IntraVmConnectionEndpoint<T>, IntraVmConnectionEndpoint<T>>> endpointFactory,
             ParameterizedFactory<IntraVmConnection<T>, C> connectionFactory) {
-        return new IntraVmServerConnectionFactory<T,I,C>(listenAddress, publisher, endpointFactory, connectionFactory);
+        return new IntraVmServerConnectionFactory<T,C>(listenAddress, publisher, endpointFactory, connectionFactory);
     }
     
     protected final Factory<Pair<IntraVmConnectionEndpoint<T>, IntraVmConnectionEndpoint<T>>> endpointFactory;

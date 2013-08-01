@@ -4,6 +4,6 @@ import java.net.SocketAddress;
 
 import edu.uw.zookeeper.net.ConnectionFactory;
 
-public interface ServerConnectionFactory<I, C extends Connection<I>> extends ConnectionFactory<I,C> {
+public interface ServerConnectionFactory<C extends Connection<?>> extends ConnectionFactory<C> {
     SocketAddress listenAddress();
 }

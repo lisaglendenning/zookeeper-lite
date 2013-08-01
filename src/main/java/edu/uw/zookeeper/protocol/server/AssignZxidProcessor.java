@@ -10,7 +10,7 @@ public class AssignZxidProcessor implements
         Generator<Long> {
 
     public static AssignZxidProcessor newInstance() {
-        return newInstance(ZxidIncrementer.fromZero());
+        return newInstance(ZxidEpochIncrementer.fromZero());
     }
 
     public static AssignZxidProcessor newInstance(

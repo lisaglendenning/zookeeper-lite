@@ -72,10 +72,10 @@ public abstract class ForwardingConnection<I> implements Connection<I> {
                 });
     }
 
-    protected abstract Connection<? super I> delegate();
-    
     @Override
     public String toString() {
         return delegate().toString();
     }
+
+    protected abstract Connection<? super I> delegate();
 }

@@ -17,8 +17,8 @@ import edu.uw.zookeeper.net.ConnectionFactory;
 import edu.uw.zookeeper.util.Automaton;
 import edu.uw.zookeeper.util.Publisher;
 
-public abstract class AbstractConnectionFactory<I, C extends Connection<I>> extends AbstractIdleService
-        implements ConnectionFactory<I,C>, Service {
+public abstract class AbstractConnectionFactory<C extends Connection<?>> extends AbstractIdleService
+        implements ConnectionFactory<C>, Service {
 
     protected final Logger logger;
     protected final Publisher publisher;
@@ -62,11 +62,11 @@ public abstract class AbstractConnectionFactory<I, C extends Connection<I>> exte
 
     @Override
     protected void shutDown() throws Exception {
-        List<ListenableFuture<Connection<I>>> futures = Lists.newArrayList();
-        for (Connection<I> connection : this) {
+        List<ListenableFuture<?>> futures = Lists.newArrayList();
+        for (C connection : this) {
             futures.add(connection.close());
         }
-        ListenableFuture<List<Connection<I>>> allFutures = Futures
+        ListenableFuture<List<Object>> allFutures = Futures
                 .allAsList(futures);
         allFutures.get();
     }

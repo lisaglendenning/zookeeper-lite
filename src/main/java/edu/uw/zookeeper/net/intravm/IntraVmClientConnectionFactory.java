@@ -11,13 +11,13 @@ import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
 
-public class IntraVmClientConnectionFactory<T extends SocketAddress, I, C extends Connection<I>> extends IntraVmConnectionFactory<T,I,C> implements ClientConnectionFactory<I,C> {
+public class IntraVmClientConnectionFactory<T extends SocketAddress, C extends Connection<?>> extends IntraVmConnectionFactory<T,C> implements ClientConnectionFactory<C> {
 
-    public static <T extends SocketAddress, I, C extends Connection<I>> IntraVmClientConnectionFactory<T, I,C> newInstance(
+    public static <T extends SocketAddress, C extends Connection<?>> IntraVmClientConnectionFactory<T, C> newInstance(
             Function<SocketAddress, IntraVmConnection<T>> connector,
             Publisher publisher,
             ParameterizedFactory<IntraVmConnection<T>, C> connectionFactory) {
-        return new IntraVmClientConnectionFactory<T, I,C>(connector, publisher, connectionFactory);
+        return new IntraVmClientConnectionFactory<T, C>(connector, publisher, connectionFactory);
     }
     
     protected final Function<SocketAddress, IntraVmConnection<T>> connector;

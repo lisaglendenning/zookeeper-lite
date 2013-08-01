@@ -36,16 +36,16 @@ import edu.uw.zookeeper.util.SettableFuturePromise;
 public class ChannelConnection<I> 
         implements Connection<I>, Publisher, Reference<Channel>, Executor {
     
-    public static <I, O, T extends Codec<I,Optional<O>>, C extends Connection<I>> FromCodecFactory<I,O,T,C> factory(
+    public static <I, O, T extends Codec<I,Optional<O>>, C extends Connection<?>> FromCodecFactory<I,O,T,C> factory(
             Factory<? extends Publisher> publisherFactory,
             ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
             ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
         return FromCodecFactory.newInstance(publisherFactory, codecFactory, connectionFactory);
     }
 
-    public static class FromCodecFactory<I, O, T extends Codec<I,Optional<O>>, C extends Connection<I>> implements ParameterizedFactory<Channel, C> {
+    public static class FromCodecFactory<I, O, T extends Codec<I,Optional<O>>, C extends Connection<?>> implements ParameterizedFactory<Channel, C> {
 
-        public static <I, O, T extends Codec<I,Optional<O>>, C extends Connection<I>> FromCodecFactory<I,O,T,C> newInstance(
+        public static <I, O, T extends Codec<I,Optional<O>>, C extends Connection<?>> FromCodecFactory<I,O,T,C> newInstance(
                 Factory<? extends Publisher> publisherFactory,
                 ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
                 ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {

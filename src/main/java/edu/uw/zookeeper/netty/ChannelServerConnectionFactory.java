@@ -19,11 +19,11 @@ import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
 
-public class ChannelServerConnectionFactory<I, C extends Connection<I>> 
-        extends ChannelConnectionFactory<I, C>
-        implements ServerConnectionFactory<I, C> {
+public class ChannelServerConnectionFactory<C extends Connection<?>> 
+        extends ChannelConnectionFactory<C>
+        implements ServerConnectionFactory<C> {
     
-    public static <I, C extends Connection<I>> DefaultServerFactoryBuilder<I,C> defaultsFactory(
+    public static <C extends Connection<?>> DefaultServerFactoryBuilder<C> defaultsFactory(
             Factory<Publisher> publisherFactory,
             ParameterizedFactory<Channel, C> connectionFactory,
             Factory<ServerBootstrap> serverBootstrapFactory) {
@@ -31,7 +31,7 @@ public class ChannelServerConnectionFactory<I, C extends Connection<I>>
                 publisherFactory, connectionFactory, serverBootstrapFactory);
     }
     
-    public static <I, C extends Connection<I>> ParameterizedServerFactoryBuilder<I,C> parameterizedFactory(
+    public static <C extends Connection<?>> ParameterizedServerFactoryBuilder<C> parameterizedFactory(
             Factory<Publisher> publisherFactory,
             ParameterizedFactory<Channel, C> connectionFactory,
             ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory) {
@@ -39,13 +39,13 @@ public class ChannelServerConnectionFactory<I, C extends Connection<I>>
                 publisherFactory, connectionFactory, serverBootstrapFactory);
     }
 
-    public static class DefaultServerFactoryBuilder<I, C extends Connection<I>> extends FactoryBuilder<I,C> implements Factory<ChannelServerConnectionFactory<I,C>> {
+    public static class DefaultServerFactoryBuilder<C extends Connection<?>> extends FactoryBuilder<C> implements Factory<ChannelServerConnectionFactory<C>> {
 
-        public static <I, C extends Connection<I>> DefaultServerFactoryBuilder<I,C> newInstance(
+        public static <C extends Connection<?>> DefaultServerFactoryBuilder<C> newInstance(
                 Factory<Publisher> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 Factory<ServerBootstrap> serverBootstrapFactory) {
-            return new DefaultServerFactoryBuilder<I,C>(
+            return new DefaultServerFactoryBuilder<C>(
                     publisherFactory, connectionFactory, serverBootstrapFactory);
         }
         
@@ -60,7 +60,7 @@ public class ChannelServerConnectionFactory<I, C extends Connection<I>>
         }
 
         @Override
-        public ChannelServerConnectionFactory<I,C> get() {
+        public ChannelServerConnectionFactory<C> get() {
             return ChannelServerConnectionFactory.newInstance(
                     publisherFactory.get(), 
                     connectionFactory, 
@@ -68,13 +68,13 @@ public class ChannelServerConnectionFactory<I, C extends Connection<I>>
         }
     }
     
-    public static class ParameterizedServerFactoryBuilder<I, C extends Connection<I>> extends FactoryBuilder<I,C> implements ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<I,C>> {
+    public static class ParameterizedServerFactoryBuilder<C extends Connection<?>> extends FactoryBuilder<C> implements ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<C>> {
 
-        public static <I, C extends Connection<I>> ParameterizedServerFactoryBuilder<I,C> newInstance(
+        public static <C extends Connection<?>> ParameterizedServerFactoryBuilder<C> newInstance(
                 Factory<Publisher> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory) {
-            return new ParameterizedServerFactoryBuilder<I,C>(
+            return new ParameterizedServerFactoryBuilder<C>(
                     publisherFactory, connectionFactory, serverBootstrapFactory);
         }
         
@@ -89,7 +89,7 @@ public class ChannelServerConnectionFactory<I, C extends Connection<I>>
         }
 
         @Override
-        public ChannelServerConnectionFactory<I,C> get(SocketAddress address) {
+        public ChannelServerConnectionFactory<C> get(SocketAddress address) {
             return ChannelServerConnectionFactory.newInstance(
                     publisherFactory.get(), 
                     connectionFactory, 
@@ -97,7 +97,7 @@ public class ChannelServerConnectionFactory<I, C extends Connection<I>>
         }
     }
 
-    public static <I, C extends Connection<I>> ChannelServerConnectionFactory<I,C> newInstance(
+    public static <C extends Connection<?>> ChannelServerConnectionFactory<C> newInstance(
             Publisher publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             ServerBootstrap bootstrap) {
@@ -109,12 +109,12 @@ public class ChannelServerConnectionFactory<I, C extends Connection<I>>
                 bootstrap);
     }
     
-    public static <I, C extends Connection<I>> ChannelServerConnectionFactory<I,C> newInstance(
+    public static <C extends Connection<?>> ChannelServerConnectionFactory<C> newInstance(
             Publisher publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             ChannelGroup channels,
             ServerBootstrap bootstrap) {
-        return new ChannelServerConnectionFactory<I,C>(
+        return new ChannelServerConnectionFactory<C>(
                 publisher, 
                 connectionFactory,
                 channels,

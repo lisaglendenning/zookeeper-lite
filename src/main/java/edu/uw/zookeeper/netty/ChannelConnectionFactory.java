@@ -16,9 +16,9 @@ import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
 
-public abstract class ChannelConnectionFactory<I, C extends Connection<I>> extends AbstractConnectionFactory<I,C> {
+public abstract class ChannelConnectionFactory<C extends Connection<?>> extends AbstractConnectionFactory<C> {
     
-    protected static abstract class FactoryBuilder<I, C extends Connection<I>> {
+    protected static abstract class FactoryBuilder<C extends Connection<?>> {
 
         protected final Factory<Publisher> publisherFactory;
         protected final ParameterizedFactory<Channel, C> connectionFactory;
