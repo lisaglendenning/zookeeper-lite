@@ -40,10 +40,8 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
             ImmutableSet.copyOf(
                     EnumSet.of(        
                             OpCode.CHECK, 
-                            OpCode.CREATE, 
-                            OpCode.CREATE2,
-                            OpCode.GET_CHILDREN, 
-                            OpCode.GET_CHILDREN2, 
+                            OpCode.CREATE,
+                            OpCode.GET_CHILDREN,
                             OpCode.DELETE, 
                             OpCode.EXISTS, 
                             OpCode.GET_DATA, 
@@ -103,13 +101,11 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
         // no easy way to get a dictionary?
         public static final String LOWER_ALPHA = "abcdefghijklmnopqrstuvwxyz";
         public static final String UPPER_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        public static final String DIGITS = "1234567890";
-        public static final String SYMBOLS = "._- ";
+        public static final String SYMBOLS = "._-";
         public static final char[] ALPHABET = 
                 new StringBuilder()
                 .append(LOWER_ALPHA)
                 .append(UPPER_ALPHA)
-                .append(DIGITS)
                 .append(SYMBOLS)
                 .toString().toCharArray();
         
