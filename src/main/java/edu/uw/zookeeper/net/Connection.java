@@ -8,7 +8,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.util.Publisher;
+import edu.uw.zookeeper.common.Publisher;
 
 /**
  * Asynchronous communication channel.

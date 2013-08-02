@@ -19,9 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
+import edu.uw.zookeeper.common.Singleton;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.*;
-import edu.uw.zookeeper.util.Singleton;
 
 public abstract class Operations {
 

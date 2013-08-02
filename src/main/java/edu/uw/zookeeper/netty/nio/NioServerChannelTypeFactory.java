@@ -2,7 +2,7 @@ package edu.uw.zookeeper.netty.nio;
 
 import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import edu.uw.zookeeper.util.Singleton;
+import edu.uw.zookeeper.common.Singleton;
 
 public enum NioServerChannelTypeFactory implements Singleton<Class<? extends ServerChannel>> {
     INSTANCE;

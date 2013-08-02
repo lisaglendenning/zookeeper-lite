@@ -13,7 +13,7 @@ import org.apache.logging.log4j.LogManager;
 import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 
-import edu.uw.zookeeper.util.AbstractPair;
+import edu.uw.zookeeper.common.AbstractPair;
 
 
 public class Frame extends AbstractPair<IntHeader, ByteBuf> implements Encodable {

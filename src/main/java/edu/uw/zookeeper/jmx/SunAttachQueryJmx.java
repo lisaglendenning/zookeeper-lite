@@ -13,7 +13,7 @@ import com.google.common.base.Throwables;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 
-import edu.uw.zookeeper.util.DefaultsFactory;
+import edu.uw.zookeeper.common.DefaultsFactory;
 
 public enum SunAttachQueryJmx implements DefaultsFactory<String, JMXServiceURL> {
     SUN_ATTACH_QUERY_JMX;

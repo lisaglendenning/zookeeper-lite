@@ -4,7 +4,7 @@ import java.util.concurrent.ThreadFactory;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.common.ParameterizedFactory;
 
 public enum DaemonThreadFactory implements ParameterizedFactory<ThreadFactory, ThreadFactory> {
     INSTANCE;

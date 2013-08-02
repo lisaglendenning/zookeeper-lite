@@ -13,11 +13,11 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.GetEvent;
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.EventBusPublisher;
+import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ConnectionFactory;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.EventBusPublisher;
-import edu.uw.zookeeper.util.ParameterizedFactory;
 
 @RunWith(JUnit4.class)
 public class IntraVmTest {

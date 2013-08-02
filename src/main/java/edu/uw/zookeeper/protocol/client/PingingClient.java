@@ -12,6 +12,10 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Stateful;
+import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Message;
@@ -21,10 +25,6 @@ import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Stateful;
-import edu.uw.zookeeper.util.TimeValue;
 
 public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<?, ?>, C extends Connection<? super Operation.Request>> extends ProtocolCodecConnection<I, T, C> {
 

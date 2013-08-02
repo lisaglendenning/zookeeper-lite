@@ -6,6 +6,7 @@ import org.apache.jute.Record;
 
 import com.google.common.base.Objects;
 
+import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.proto.IOpCodeXidRecord;
 import edu.uw.zookeeper.protocol.proto.IPingRequest;
 import edu.uw.zookeeper.protocol.proto.IPingResponse;
@@ -14,7 +15,6 @@ import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.Operational;
 import edu.uw.zookeeper.protocol.proto.OperationalXid;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.TimeValue;
 
 @Operational(value=OpCode.PING)
 @OperationalXid(value=OpCodeXid.PING)

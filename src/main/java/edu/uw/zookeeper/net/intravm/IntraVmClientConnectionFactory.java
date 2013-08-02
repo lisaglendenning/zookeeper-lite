@@ -6,10 +6,10 @@ import com.google.common.base.Function;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Publisher;
 
 public class IntraVmClientConnectionFactory<T extends SocketAddress, C extends Connection<?>> extends IntraVmConnectionFactory<T,C> implements ClientConnectionFactory<C> {
 

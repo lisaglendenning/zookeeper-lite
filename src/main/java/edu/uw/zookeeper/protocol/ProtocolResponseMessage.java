@@ -9,6 +9,7 @@ import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Function;
 
+import edu.uw.zookeeper.common.AbstractPair;
 import edu.uw.zookeeper.protocol.proto.ByteBufInputArchive;
 import edu.uw.zookeeper.protocol.proto.ByteBufOutputArchive;
 import edu.uw.zookeeper.protocol.proto.IErrorResponse;
@@ -16,7 +17,6 @@ import edu.uw.zookeeper.protocol.proto.IReplyHeader;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.AbstractPair;
 
 
 public class ProtocolResponseMessage<T extends Records.Response> extends AbstractPair<IReplyHeader, T> implements Message.ServerResponse<T> {

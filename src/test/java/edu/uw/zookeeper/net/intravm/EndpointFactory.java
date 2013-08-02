@@ -10,11 +10,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
-import edu.uw.zookeeper.util.EventBusPublisher;
-import edu.uw.zookeeper.util.Factories;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Publisher;
+import edu.uw.zookeeper.common.EventBusPublisher;
+import edu.uw.zookeeper.common.Factories;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Publisher;
 
 public class EndpointFactory<T extends SocketAddress> implements Factory<Pair<IntraVmConnectionEndpoint<T>, IntraVmConnectionEndpoint<T>>> {
 

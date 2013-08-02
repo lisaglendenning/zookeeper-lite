@@ -9,8 +9,8 @@ import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
+import edu.uw.zookeeper.common.Factories;
 import edu.uw.zookeeper.data.Serializes;
-import edu.uw.zookeeper.util.Factories;
 
 public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAddress> implements ServerView.Address<InetSocketAddress> {
 

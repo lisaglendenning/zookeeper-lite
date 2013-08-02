@@ -22,7 +22,14 @@ import com.google.common.base.Optional;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.util.Event;
+import edu.uw.zookeeper.common.AbstractPair;
+import edu.uw.zookeeper.common.Event;
+import edu.uw.zookeeper.common.ForwardingPromise;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.Reference;
+import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.StampedReference;
 import edu.uw.zookeeper.data.StampedReference.Updater;
 import edu.uw.zookeeper.data.ZNodeLabel;
@@ -42,13 +49,6 @@ import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
-import edu.uw.zookeeper.util.AbstractPair;
-import edu.uw.zookeeper.util.ForwardingPromise;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.Reference;
-import edu.uw.zookeeper.util.SettableFuturePromise;
 
 /**
  * Only caches the results of operations submitted through this wrapper.

@@ -7,8 +7,8 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.ParameterizedFactory;
 
 public class SimpleBootstrapFactory implements ParameterizedFactory<Factory<? extends EventLoopGroup>, Bootstrap> {
 

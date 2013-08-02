@@ -1,9 +1,9 @@
 package edu.uw.zookeeper.protocol.server;
 
 
+import edu.uw.zookeeper.common.Generator;
+import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.protocol.proto.OpCode;
-import edu.uw.zookeeper.util.Generator;
-import edu.uw.zookeeper.util.Processor;
 
 public class AssignZxidProcessor implements
         Processor<OpCode, Long>,

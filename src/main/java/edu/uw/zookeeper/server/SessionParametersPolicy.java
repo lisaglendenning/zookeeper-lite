@@ -1,6 +1,6 @@
 package edu.uw.zookeeper.server;
 
-import edu.uw.zookeeper.util.TimeValue;
+import edu.uw.zookeeper.common.TimeValue;
 
 public interface SessionParametersPolicy {
 

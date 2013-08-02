@@ -15,13 +15,14 @@ import java.util.concurrent.ConcurrentMap;
 
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
+
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.PromiseTask;
+import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.PromiseTask;
-import edu.uw.zookeeper.util.Publisher;
 
 public class ChannelClientConnectionFactory<C extends Connection<?>> extends ChannelConnectionFactory<C>
         implements ClientConnectionFactory<C> {
@@ -103,16 +104,13 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
 
     @Override
     public ListenableFuture<C> connect(SocketAddress remoteAddress) {
-        logger.debug("Connecting to {}", remoteAddress);
-        ChannelFuture channelFuture = bootstrap.connect(remoteAddress);
-        ConnectListener listener = new ConnectListener(channelFuture);
-        return listener;
+        logger.debug(Logging.NETTY_MARKER, "CONNECTING {}", remoteAddress);
+        return new ConnectListener(bootstrap.connect(remoteAddress));
     }
 
     @Override
     protected void shutDown() throws Exception {
-        // TODO: cancel pending connections?
-        initializer.byChannel.clear();
+        initializer.shutDown();
         super.shutDown();
     }
 
@@ -129,6 +127,11 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
         @Override
         public void initChannel(Channel channel) throws Exception {
             byChannel.put(channel, newChannel(channel));
+        }
+        
+        public void shutDown() {
+            // TODO: cancel pending connections?
+            byChannel.clear();
         }
     }
 

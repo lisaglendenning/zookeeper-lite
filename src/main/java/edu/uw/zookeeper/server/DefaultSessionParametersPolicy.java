@@ -13,9 +13,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.typesafe.config.ConfigUtil;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.util.ConfigurableTime;
-import edu.uw.zookeeper.util.Configuration;
-import edu.uw.zookeeper.util.TimeValue;
+import edu.uw.zookeeper.common.ConfigurableTime;
+import edu.uw.zookeeper.common.Configuration;
+import edu.uw.zookeeper.common.TimeValue;
 
 public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
 

@@ -7,12 +7,12 @@ import com.google.common.collect.MapMaker;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.DefaultsFactory;
 
 /**
  * Wraps a ClientConnectionExecutor Factory in a Service.

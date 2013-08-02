@@ -5,13 +5,13 @@ import org.apache.zookeeper.data.Stat;
 
 import com.google.common.base.Objects;
 
+import edu.uw.zookeeper.common.Singleton;
 import edu.uw.zookeeper.protocol.proto.IStat;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.proto.Records.AclStatGetter;
 import edu.uw.zookeeper.protocol.proto.Records.ChildrenStatGetter;
 import edu.uw.zookeeper.protocol.proto.Records.CreateStatGetter;
 import edu.uw.zookeeper.protocol.proto.Records.DataStatGetter;
-import edu.uw.zookeeper.util.Singleton;
 
 
 public class Stats {

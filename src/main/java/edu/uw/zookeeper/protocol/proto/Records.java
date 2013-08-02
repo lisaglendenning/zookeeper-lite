@@ -29,8 +29,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 
+import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.util.ParameterizedFactory;
 
 
 /**

@@ -7,8 +7,8 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.ParameterizedFactory;
 
 // TODO: refactor overlap with SimpleBootstrapFactory
 public class SimpleServerBootstrapFactory implements ParameterizedFactory<Factory<? extends EventLoopGroup>, ServerBootstrap> {

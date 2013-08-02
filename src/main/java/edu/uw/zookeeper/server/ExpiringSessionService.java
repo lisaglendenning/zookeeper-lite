@@ -6,11 +6,12 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.typesafe.config.Config;
-import edu.uw.zookeeper.util.ConfigurableTime;
-import edu.uw.zookeeper.util.Configuration;
-import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.Reference;
-import edu.uw.zookeeper.util.TimeValue;
+
+import edu.uw.zookeeper.common.ConfigurableTime;
+import edu.uw.zookeeper.common.Configuration;
+import edu.uw.zookeeper.common.DefaultsFactory;
+import edu.uw.zookeeper.common.Reference;
+import edu.uw.zookeeper.common.TimeValue;
 
 public class ExpiringSessionService extends AbstractIdleService implements
         Runnable, Reference<ExpiringSessionTable> {

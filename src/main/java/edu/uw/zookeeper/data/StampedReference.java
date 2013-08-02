@@ -4,8 +4,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import edu.uw.zookeeper.util.AbstractPair;
-import edu.uw.zookeeper.util.Reference;
+import edu.uw.zookeeper.common.AbstractPair;
+import edu.uw.zookeeper.common.Reference;
 
 public class StampedReference<T> extends AbstractPair<Long, T> implements Reference<T> {
 

@@ -13,6 +13,9 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 
+import edu.uw.zookeeper.common.Processors;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.Processors.ForwardingProcessor;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.WatchEvent;
 import edu.uw.zookeeper.data.ZNodeLabel;
@@ -24,9 +27,6 @@ import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.Processors.ForwardingProcessor;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.Processors;
 
 public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Request<Records.Request>, Records.Response> implements Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> {
 

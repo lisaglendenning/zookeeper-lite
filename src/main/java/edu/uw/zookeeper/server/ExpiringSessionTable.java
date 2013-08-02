@@ -8,8 +8,8 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.collect.Maps;
 
 import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.event.SessionStateEvent;
-import edu.uw.zookeeper.util.Publisher;
 
 public class ExpiringSessionTable extends ConcurrentSessionTable {
 

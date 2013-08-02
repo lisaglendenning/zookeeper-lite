@@ -6,8 +6,8 @@ import java.util.Map;
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.event.SessionStateEvent;
-import edu.uw.zookeeper.util.Publisher;
 
 public abstract class SessionTableAdapter implements SessionTable {
 

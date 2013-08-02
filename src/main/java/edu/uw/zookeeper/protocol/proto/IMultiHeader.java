@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.proto.MultiHeader;
 
-import edu.uw.zookeeper.util.Singleton;
+import edu.uw.zookeeper.common.Singleton;
 
 public class IMultiHeader extends IRecord<MultiHeader> implements Records.Header {
     

@@ -8,7 +8,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
-import edu.uw.zookeeper.util.TimeValue;
+import edu.uw.zookeeper.common.TimeValue;
 
 public class Session {
 

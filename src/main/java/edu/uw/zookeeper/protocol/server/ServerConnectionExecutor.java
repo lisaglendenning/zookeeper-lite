@@ -15,6 +15,17 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.common.AbstractActor;
+import edu.uw.zookeeper.common.Actor;
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.PublisherActor;
+import edu.uw.zookeeper.common.Reference;
+import edu.uw.zookeeper.common.SettableFuturePromise;
+import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
@@ -25,17 +36,6 @@ import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.AbstractActor;
-import edu.uw.zookeeper.util.Actor;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.PublisherActor;
-import edu.uw.zookeeper.util.Reference;
-import edu.uw.zookeeper.util.SettableFuturePromise;
-import edu.uw.zookeeper.util.TaskExecutor;
 
 public class ServerConnectionExecutor<C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>>
         implements Publisher, Reference<T> {

@@ -2,12 +2,12 @@ package edu.uw.zookeeper.net.intravm;
 
 import java.net.SocketAddress;
 
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Publisher;
 
 public class IntraVmServerConnectionFactory<T extends SocketAddress, C extends Connection<?>> extends IntraVmConnectionFactory<T,C> implements ServerConnectionFactory<C> {
 

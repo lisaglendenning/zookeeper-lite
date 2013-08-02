@@ -2,7 +2,7 @@ package edu.uw.zookeeper.net;
 
 import com.google.common.util.concurrent.Service;
 
-import edu.uw.zookeeper.util.Publisher;
+import edu.uw.zookeeper.common.Publisher;
 
 /**
  * Collection of Connections.

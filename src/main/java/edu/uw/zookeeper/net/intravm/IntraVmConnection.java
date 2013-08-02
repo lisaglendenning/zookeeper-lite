@@ -8,13 +8,13 @@ import com.google.common.base.Optional;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.common.Actor;
+import edu.uw.zookeeper.common.Automatons;
+import edu.uw.zookeeper.common.ForwardingPromise;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.util.Actor;
-import edu.uw.zookeeper.util.Automatons;
-import edu.uw.zookeeper.util.ForwardingPromise;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class IntraVmConnection<T extends SocketAddress> implements Connection<Object> {
     

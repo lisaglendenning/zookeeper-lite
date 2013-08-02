@@ -10,7 +10,7 @@ import org.apache.jute.Record;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.util.Reference;
+import edu.uw.zookeeper.common.Reference;
 
 public class IRecord<T extends Record> implements Reference<T>, Record {
 

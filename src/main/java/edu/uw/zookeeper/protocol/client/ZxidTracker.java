@@ -4,10 +4,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.common.eventbus.Subscribe;
 
+import edu.uw.zookeeper.common.Eventful;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.util.Eventful;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Reference;
 
 public class ZxidTracker implements Reference<Long>  {
     

@@ -1,10 +1,11 @@
 package edu.uw.zookeeper.protocol.server;
 
 import java.util.Map;
+
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Processor;
+import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.protocol.ConnectMessage;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Processor;
-import edu.uw.zookeeper.util.Publisher;
 
 public class ConnectListenerProcessor implements Processor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> {
 

@@ -5,17 +5,17 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.client.ClientExecutor;
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.Reference;
 
 /**
  * Wraps a lazily-instantiated ClientConnectionExecutor in a Service.

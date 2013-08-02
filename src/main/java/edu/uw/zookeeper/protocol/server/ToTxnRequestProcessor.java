@@ -1,11 +1,11 @@
 package edu.uw.zookeeper.protocol.server;
 
+import edu.uw.zookeeper.common.Processor;
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.TxnRequest;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.Processor;
-import edu.uw.zookeeper.util.Reference;
 
 public class ToTxnRequestProcessor implements Processor<SessionOperation.Request<Records.Request>, TxnOperation.Request<Records.Request>>, Reference<AssignZxidProcessor> {
 

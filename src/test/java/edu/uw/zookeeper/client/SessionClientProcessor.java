@@ -1,13 +1,13 @@
 package edu.uw.zookeeper.client;
 
+import edu.uw.zookeeper.common.Generator;
+import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.client.XidIncrementer;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.Generator;
-import edu.uw.zookeeper.util.Processors;
 
 public class SessionClientProcessor implements Processors.UncheckedProcessor<Records.Request, SessionOperation.Request<Records.Request>>, Generator<Integer> {
 

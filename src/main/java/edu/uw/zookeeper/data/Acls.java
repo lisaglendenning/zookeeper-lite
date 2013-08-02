@@ -15,9 +15,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import edu.uw.zookeeper.common.AbstractPair;
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.AbstractPair;
-import edu.uw.zookeeper.util.Reference;
 
 public abstract class Acls {
     

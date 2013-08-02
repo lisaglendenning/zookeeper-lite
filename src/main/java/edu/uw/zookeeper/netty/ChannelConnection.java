@@ -8,30 +8,28 @@ import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
-import javax.annotation.Nullable;
-
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ForwardingQueue;
 import com.google.common.util.concurrent.ListenableFuture;
+
+import edu.uw.zookeeper.common.AbstractActor;
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.LoggingPublisher;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.PromiseTask;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.PublisherActor;
+import edu.uw.zookeeper.common.Reference;
+import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Codec;
-import edu.uw.zookeeper.util.AbstractActor;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.LoggingPublisher;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.PromiseTask;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.PublisherActor;
-import edu.uw.zookeeper.util.Reference;
-import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ChannelConnection<I> 
         implements Connection<I>, Publisher, Reference<Channel>, Executor {
@@ -88,12 +86,7 @@ public class ChannelConnection<I>
         this.logger = LogManager.getLogger(getClass());
         this.channel = checkNotNull(channel);
         this.publisher = PublisherActor.newInstance(
-                LoggingPublisher.create(logger, new Function<Object, String>() {
-                    @Override
-                    public String apply(@Nullable Object input) {
-                        return String.format("POSTING: %s (%s)", input, ChannelConnection.this);
-                    }
-                }, publisher), 
+                LoggingPublisher.create(logger, publisher, this), 
                 this);
         this.state = ConnectionStateHandler.newAutomaton(this);
         this.outbound = new OutboundActor();
@@ -102,9 +95,9 @@ public class ChannelConnection<I>
     protected <O> void attach(
             Class<I> inputType,
             Codec<I, Optional<O>> codec) {
-        OutboundHandler.attach(get(), inputType, codec);
-        ConnectionStateHandler.attach(get(), state);
-        DecoderHandler.attach(get(), codec);
+        OutboundHandler.attach(get(), inputType, codec, logger);
+        ConnectionStateHandler.attach(get(), state, logger);
+        DecoderHandler.attach(get(), codec, logger);
         InboundHandler.attach(get(), this);
     }
     
@@ -166,9 +159,7 @@ public class ChannelConnection<I>
 
     @Override
     public ListenableFuture<Connection<I>> close() {
-        if(state.apply(State.CONNECTION_CLOSING).orNull() == State.CONNECTION_CLOSING) {
-            logger.debug("Closing: {}", this);
-        }
+        state.apply(State.CONNECTION_CLOSING);
         ChannelFuture future = get().close();
         ChannelFutureWrapper<Connection<I>> wrapper = ChannelFutureWrapper
                 .of(future, (Connection<I>) this);
@@ -193,7 +184,7 @@ public class ChannelConnection<I>
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .add("channel", get()).toString();
+                .addValue(get()).toString();
     }
     
     protected class OutboundQueue extends ForwardingQueue<PromiseTask<? extends I, ? extends I>> {

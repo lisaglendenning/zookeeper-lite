@@ -3,9 +3,9 @@ package edu.uw.zookeeper;
 
 import com.google.common.base.Throwables;
 
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.Serializes;
 import edu.uw.zookeeper.data.Serializers;
-import edu.uw.zookeeper.util.Reference;
 
 public abstract class ServerAddressView {
 

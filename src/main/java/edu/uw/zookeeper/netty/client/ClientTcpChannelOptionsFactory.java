@@ -5,7 +5,7 @@ import java.util.Map;
 import io.netty.channel.ChannelOption;
 import com.google.common.collect.ImmutableMap;
 
-import edu.uw.zookeeper.util.Singleton;
+import edu.uw.zookeeper.common.Singleton;
 
 
 public enum ClientTcpChannelOptionsFactory implements Singleton<Map<ChannelOption<?>, ?>> {

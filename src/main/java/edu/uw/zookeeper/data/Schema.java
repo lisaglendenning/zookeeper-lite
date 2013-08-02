@@ -20,9 +20,9 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.ZNodeLabel.Component;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Reference;
 
 
 public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {

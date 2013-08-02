@@ -3,18 +3,17 @@ package edu.uw.zookeeper.netty;
 import static com.google.common.base.Preconditions.*;
 
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.Set;
 
 import com.google.common.collect.Sets;
 
 import io.netty.channel.Channel;
 import io.netty.channel.group.ChannelGroup;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.AbstractConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Publisher;
 
 public abstract class ChannelConnectionFactory<C extends Connection<?>> extends AbstractConnectionFactory<C> {
     
@@ -50,18 +49,19 @@ public abstract class ChannelConnectionFactory<C extends Connection<?>> extends 
         return channels;
     }
     
-    protected C newChannel(Channel channel) {
-        channels.add(channel);
-        logger.trace("Added Channel: {}", channel);
-        C connection = connectionFactory.get(channel);
-        add(connection);
-        return connection;
+    @Override
+    protected Set<C> connections() {
+        return connections;
     }
     
-    @Override
-    protected boolean add(C connection) {
-        connections.add(connection);
-        return super.add(connection);
+    protected C newChannel(Channel channel) {
+        if (channels.add(channel)) {
+            C connection = connectionFactory.get(channel);
+            add(connection);
+            return connection;
+        } else {
+            return null;
+        }
     }
 
     @Override
@@ -69,15 +69,5 @@ public abstract class ChannelConnectionFactory<C extends Connection<?>> extends 
         super.shutDown();
         // probably unnecessary?
         channels.close().await();
-    }
-    
-    @Override
-    public Iterator<C> iterator() {
-        return connections.iterator();
-    }
-    
-    @Override
-    protected boolean remove(C connection) {
-        return connections.remove(connection);
     }
 }

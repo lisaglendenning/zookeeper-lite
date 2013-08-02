@@ -13,12 +13,12 @@ import com.google.common.collect.MapMaker;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.common.DefaultsFactory;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.TimeValue;
 
 public class EnsembleViewFactory<V extends ServerView.Address<? extends SocketAddress>, T> implements DefaultsFactory<V, T> {
 

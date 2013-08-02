@@ -8,14 +8,14 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 
 import edu.uw.zookeeper.RuntimeModule;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.netty.ChannelConnection;
 import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Codec;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Publisher;
 
 public class NettyServerModule {
 

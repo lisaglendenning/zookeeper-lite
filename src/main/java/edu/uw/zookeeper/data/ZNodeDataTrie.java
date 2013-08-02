@@ -15,6 +15,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
@@ -22,7 +24,6 @@ import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.proto.*;
 import edu.uw.zookeeper.protocol.server.ByOpcodeTxnRequestProcessor;
 import edu.uw.zookeeper.protocol.server.TxnRequestProcessor;
-import edu.uw.zookeeper.util.Reference;
 
 public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> {
 

@@ -6,12 +6,12 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.PromiseTask;
+import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.PromiseTask;
-import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ConnectTask
     extends PromiseTask<ConnectMessage.Request, ConnectMessage.Response> 

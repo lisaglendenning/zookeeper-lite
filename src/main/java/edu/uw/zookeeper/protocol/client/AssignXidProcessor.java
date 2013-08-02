@@ -2,12 +2,12 @@ package edu.uw.zookeeper.protocol.client;
 
 import com.google.common.base.Function;
 
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.Generator;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.Generator;
 
 public class AssignXidProcessor implements
         Generator<Integer>,

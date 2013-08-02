@@ -10,6 +10,11 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
+import edu.uw.zookeeper.common.Automatons;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.Reference;
+import edu.uw.zookeeper.common.Stateful;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Decoder;
 import edu.uw.zookeeper.protocol.Encoder;
@@ -21,11 +26,6 @@ import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
-import edu.uw.zookeeper.util.Automatons;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.Reference;
-import edu.uw.zookeeper.util.Stateful;
 
 /**
  * Implemented for the case where encode is called by a different thread than decode,

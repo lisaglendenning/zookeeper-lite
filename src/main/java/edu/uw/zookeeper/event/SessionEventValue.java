@@ -4,7 +4,7 @@ package edu.uw.zookeeper.event;
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.util.AbstractPair;
+import edu.uw.zookeeper.common.AbstractPair;
 
 public class SessionEventValue<T> extends AbstractPair<Session, T> implements
         SessionEvent {

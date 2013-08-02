@@ -4,7 +4,7 @@ import io.netty.buffer.ByteBuf;
 
 import java.io.IOException;
 
-import edu.uw.zookeeper.util.Singleton;
+import edu.uw.zookeeper.common.Singleton;
 
 public class EncodableEncoder implements Encoder<Encodable> {
     

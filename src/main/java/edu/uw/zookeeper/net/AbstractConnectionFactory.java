@@ -2,6 +2,8 @@ package edu.uw.zookeeper.net;
 
 import static com.google.common.base.Preconditions.*;
 
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -12,10 +14,11 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Service;
+
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ConnectionFactory;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Publisher;
 
 public abstract class AbstractConnectionFactory<C extends Connection<?>> extends AbstractIdleService
         implements ConnectionFactory<C>, Service {
@@ -43,17 +46,33 @@ public abstract class AbstractConnectionFactory<C extends Connection<?>> extends
     public void unregister(Object object) {
         publisher.unregister(object);
     }
+    
+    @Override
+    public Iterator<C> iterator() {
+        return connections().iterator();
+    }
 
     protected boolean add(C connection) {
-        new RemoveConnectionOnClose(connection);
-        State state = state();
-        if (state != State.RUNNING) {
-            connection.close();
-            throw new IllegalStateException(state.toString());
+        boolean added = connections().add(connection);
+        if (added) {
+            new RemoveConnectionOnClose(connection);
+            State state = state();
+            if (state != State.RUNNING) {
+                connection.close();
+                throw new IllegalStateException(state.toString());
+            }
+            logger.trace(Logging.NET_MARKER, "ADDED {}", connection);
+            post(connection);
         }
-        post(connection);
-        logger.trace("Added Connection: {}", connection);
-        return true;
+        return added;
+    }
+    
+    protected boolean remove(C connection) {
+        boolean removed = connections().remove(connection);
+        if (removed) {
+            logger.trace(Logging.NET_MARKER, "REMOVED {}", connection);
+        }
+        return removed;
     }
     
     @Override
@@ -71,7 +90,7 @@ public abstract class AbstractConnectionFactory<C extends Connection<?>> extends
         allFutures.get();
     }
 
-    protected abstract boolean remove(C connection);
+    protected abstract Collection<C> connections();
 
     protected class RemoveConnectionOnClose {
     

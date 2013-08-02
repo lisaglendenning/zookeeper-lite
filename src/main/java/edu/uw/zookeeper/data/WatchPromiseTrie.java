@@ -14,12 +14,12 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.Reference;
+import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.ZNodeLabel.Component;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.SimplePointer;
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.Reference;
-import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class WatchPromiseTrie implements Reference<ZNodeLabelTrie<WatchPromiseTrie.WatchPromiseNode>> {
 

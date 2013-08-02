@@ -17,7 +17,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 
-import edu.uw.zookeeper.util.Singleton;
+import edu.uw.zookeeper.common.Singleton;
 
 //TODO: check if unicode is handled correctly
 public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel> {

@@ -19,6 +19,7 @@ import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
+import edu.uw.zookeeper.common.*;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
 import edu.uw.zookeeper.net.Connection;
@@ -36,7 +37,6 @@ import edu.uw.zookeeper.protocol.proto.IDisconnectResponse;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.*;
-import edu.uw.zookeeper.util.*;
 
 public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModule, Application> {
     INSTANCE;

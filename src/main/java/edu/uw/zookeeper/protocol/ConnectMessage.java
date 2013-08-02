@@ -9,6 +9,10 @@ import org.apache.jute.Record;
 
 import com.google.common.base.Objects;
 
+import edu.uw.zookeeper.common.DefaultsFactory;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Reference;
+import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.proto.ByteBufInputArchive;
 import edu.uw.zookeeper.protocol.proto.ByteBufOutputArchive;
 import edu.uw.zookeeper.protocol.proto.IConnectRequest;
@@ -17,10 +21,6 @@ import edu.uw.zookeeper.protocol.proto.ICodedRecord;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Operational;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Reference;
-import edu.uw.zookeeper.util.TimeValue;
 
 @Operational(value=OpCode.CREATE_SESSION)
 public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> extends ICodedRecord<T>

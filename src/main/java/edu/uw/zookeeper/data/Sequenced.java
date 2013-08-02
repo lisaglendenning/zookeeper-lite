@@ -4,7 +4,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import edu.uw.zookeeper.util.AbstractPair;
+import edu.uw.zookeeper.common.AbstractPair;
 
 public class Sequenced<T extends CharSequence & Comparable<? super T>> extends AbstractPair<T, Integer> implements Comparable<Sequenced<T>> {
 

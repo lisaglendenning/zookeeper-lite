@@ -6,7 +6,7 @@ import org.apache.jute.Record;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.util.Singleton;
+import edu.uw.zookeeper.common.Singleton;
 
 public final class EmptyRecord implements Record {
 

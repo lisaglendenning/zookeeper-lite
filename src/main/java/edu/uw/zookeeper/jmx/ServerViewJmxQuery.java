@@ -22,9 +22,9 @@ import edu.uw.zookeeper.EnsembleRole;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerRoleView;
 import edu.uw.zookeeper.ServerView;
+import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.data.ZNodeLabelTrie;
-import edu.uw.zookeeper.util.DefaultsFactory;
 
 public abstract class ServerViewJmxQuery {
 

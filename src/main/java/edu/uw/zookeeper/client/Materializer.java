@@ -13,6 +13,9 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.Schema;
 import edu.uw.zookeeper.data.Serializers;
@@ -22,9 +25,6 @@ import edu.uw.zookeeper.data.ZNodeLabelTrie;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.Reference;
 
 public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> extends ZNodeViewCache<Materializer.MaterializedNode, T, V> {
 

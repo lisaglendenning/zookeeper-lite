@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.util.Generator;
+import edu.uw.zookeeper.common.Generator;
 
 /**
  * Generates increasing xid starting with 1.

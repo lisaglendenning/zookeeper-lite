@@ -3,22 +3,20 @@ package edu.uw.zookeeper.net.intravm;
 import java.net.SocketAddress;
 import java.util.concurrent.Executor;
 
-import javax.annotation.Nullable;
-
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.util.AbstractActor;
-import edu.uw.zookeeper.util.LoggingPublisher;
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.PublisherActor;
-import edu.uw.zookeeper.util.SettableFuturePromise;
+import edu.uw.zookeeper.common.AbstractActor;
+import edu.uw.zookeeper.common.LoggingPublisher;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.PublisherActor;
+import edu.uw.zookeeper.common.SettableFuturePromise;
+import edu.uw.zookeeper.net.Logging;
 
 public class IntraVmConnectionEndpoint<T extends SocketAddress> extends AbstractActor<Optional<Object>> implements Publisher, Executor {
 
@@ -42,12 +40,7 @@ public class IntraVmConnectionEndpoint<T extends SocketAddress> extends Abstract
         this.logger = LogManager.getLogger(getClass());
         this.address = address;
         this.publisher = PublisherActor.newInstance(
-                LoggingPublisher.create(logger, new Function<Object, String>() {
-                    @Override
-                    public String apply(@Nullable Object input) {
-                        return String.format("POSTING: %s (%s)", input, IntraVmConnectionEndpoint.this);
-                    }
-                }, publisher), executor);
+                LoggingPublisher.create(logger, publisher, this), executor);
         this.stopped = SettableFuturePromise.create();
     }
     
@@ -98,7 +91,7 @@ public class IntraVmConnectionEndpoint<T extends SocketAddress> extends Abstract
     protected void doStop() {
         if (logger.isTraceEnabled()) {
             for (Object next: mailbox.toArray()) {
-                logger.trace("Dropping {}", next);
+                logger.trace(Logging.NET_MARKER, "DROPPING {}", next);
             }
         }
         mailbox.clear();

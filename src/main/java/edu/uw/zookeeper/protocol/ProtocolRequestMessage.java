@@ -3,12 +3,12 @@ package edu.uw.zookeeper.protocol;
 import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 
+import edu.uw.zookeeper.common.AbstractPair;
 import edu.uw.zookeeper.protocol.proto.ByteBufInputArchive;
 import edu.uw.zookeeper.protocol.proto.ByteBufOutputArchive;
 import edu.uw.zookeeper.protocol.proto.IRequestHeader;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.AbstractPair;
 
 
 public class ProtocolRequestMessage<T extends Records.Request> extends AbstractPair<IRequestHeader, T> implements Message.ClientRequest<T> {

@@ -4,7 +4,7 @@ import java.util.concurrent.ThreadFactory;
 
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import edu.uw.zookeeper.util.DefaultsFactory;
+import edu.uw.zookeeper.common.DefaultsFactory;
 
 public enum NioEventLoopGroupFactory implements DefaultsFactory<ThreadFactory, EventLoopGroup> {
 

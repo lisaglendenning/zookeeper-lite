@@ -4,7 +4,7 @@ import io.netty.buffer.ByteBuf;
 
 import java.nio.charset.Charset;
 
-import edu.uw.zookeeper.util.Reference;
+import edu.uw.zookeeper.common.Reference;
 
 public abstract class ByteBufArchive implements Reference<ByteBuf> {
 

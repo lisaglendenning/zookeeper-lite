@@ -19,10 +19,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
+import edu.uw.zookeeper.common.DefaultsFactory;
+import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.data.ZNodeLabelTrie;
-import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.Factory;
 
 public abstract class Jmx {
     

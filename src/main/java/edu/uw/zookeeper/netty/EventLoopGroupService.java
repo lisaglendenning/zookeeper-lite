@@ -14,11 +14,11 @@ import io.netty.channel.EventLoopGroup;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.AbstractIdleService;
 
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.ServiceMonitor;
-import edu.uw.zookeeper.util.Singleton;
-import edu.uw.zookeeper.util.TimeValue;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.ServiceMonitor;
+import edu.uw.zookeeper.common.Singleton;
+import edu.uw.zookeeper.common.TimeValue;
 
 public class EventLoopGroupService<T extends EventLoopGroup> extends AbstractIdleService implements Singleton<T> {
 

@@ -5,17 +5,17 @@ import com.google.common.base.Throwables;
 
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.common.DefaultsFactory;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
-import edu.uw.zookeeper.util.DefaultsFactory;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.TimeValue;
 
 public class ServerViewFactory<V, T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> extends Pair<T, ZxidTracker> implements DefaultsFactory<V, ClientConnectionExecutor<C>> {
 

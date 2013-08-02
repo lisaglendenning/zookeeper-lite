@@ -2,9 +2,9 @@ package edu.uw.zookeeper.net;
 
 import com.google.common.eventbus.Subscribe;
 
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Eventful;
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Eventful;
+import edu.uw.zookeeper.common.Pair;
 
 public class UnregisterOnClose extends Pair<Object, Eventful> {
 

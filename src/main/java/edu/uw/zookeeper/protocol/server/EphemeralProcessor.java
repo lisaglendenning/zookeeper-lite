@@ -8,6 +8,8 @@ import com.google.common.collect.MapMaker;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 
+import edu.uw.zookeeper.common.Processors;
+import edu.uw.zookeeper.common.Processors.ForwardingProcessor;
 import edu.uw.zookeeper.data.CreateFlag;
 import edu.uw.zookeeper.data.CreateMode;
 import edu.uw.zookeeper.data.Stats;
@@ -20,8 +22,6 @@ import edu.uw.zookeeper.protocol.proto.IMultiRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.Processors;
-import edu.uw.zookeeper.util.Processors.ForwardingProcessor;
 
 public class EphemeralProcessor extends ForwardingProcessor<TxnOperation.Request<Records.Request>, Records.Response> implements Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> {
 

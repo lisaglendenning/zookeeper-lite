@@ -8,10 +8,10 @@ import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Automatons;
+import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.data.Serializes;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Automatons;
 
 public class ServerRoleView<T extends SocketAddress, C extends ServerView.Address<T>> 
         extends Pair<C,Automaton<EnsembleRole, EnsembleRole>> 

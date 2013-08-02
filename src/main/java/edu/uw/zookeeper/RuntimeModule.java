@@ -3,10 +3,10 @@ package edu.uw.zookeeper;
 import java.util.concurrent.ThreadFactory;
 
 import edu.uw.zookeeper.AbstractMain.ListeningExecutorServiceFactory;
-import edu.uw.zookeeper.util.Configuration;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.ServiceMonitor;
+import edu.uw.zookeeper.common.Configuration;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.ServiceMonitor;
 
 public interface RuntimeModule {
 

@@ -13,11 +13,11 @@ import io.netty.channel.group.DefaultChannelGroup;
 
 import java.net.SocketAddress;
 
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
-import edu.uw.zookeeper.util.Factory;
-import edu.uw.zookeeper.util.ParameterizedFactory;
-import edu.uw.zookeeper.util.Publisher;
 
 public class ChannelServerConnectionFactory<C extends Connection<?>> 
         extends ChannelConnectionFactory<C>
@@ -145,18 +145,16 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
     @Override
     public SocketAddress listenAddress() {
         // unfortunately we can't just ask the bootstrap for our address...
-        SocketAddress listenAddress = null;
-        if (serverChannel != null) {
-            listenAddress = serverChannel.localAddress();
-        }
-        return listenAddress;
+        checkState(isRunning());
+        assert (serverChannel != null);
+        return serverChannel.localAddress();
     }
 
     @Override
     protected void startUp() throws Exception {
         assert (serverChannel == null);
         serverChannel = (ServerChannel) serverBootstrap().bind().sync().channel();
-        logger.info("Listening on {}", serverChannel.localAddress());
+        logger.info(Logging.NETTY_MARKER, "Server listening to {}", serverChannel.localAddress());
         serverChannel.closeFuture().addListener(new CloseListener());
         super.startUp();
     }

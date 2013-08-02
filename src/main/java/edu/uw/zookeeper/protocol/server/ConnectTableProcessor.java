@@ -4,10 +4,10 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.common.Processor;
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.server.SessionTable;
-import edu.uw.zookeeper.util.Processor;
-import edu.uw.zookeeper.util.Reference;
 
 public class ConnectTableProcessor 
         implements Processor<ConnectMessage.Request, ConnectMessage.Response> {

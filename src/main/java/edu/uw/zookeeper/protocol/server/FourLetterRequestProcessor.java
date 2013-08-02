@@ -1,8 +1,8 @@
 package edu.uw.zookeeper.protocol.server;
 
+import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
-import edu.uw.zookeeper.util.Processor;
 
 /**
  * TODO

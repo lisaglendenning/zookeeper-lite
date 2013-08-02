@@ -2,6 +2,7 @@ package edu.uw.zookeeper.server;
 
 import java.net.InetSocketAddress;
 
+import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.intravm.IntraVmClientConnectionFactory;
 import edu.uw.zookeeper.net.intravm.IntraVmConnection;
@@ -13,7 +14,6 @@ import edu.uw.zookeeper.protocol.server.ServerConnectionExecutor;
 import edu.uw.zookeeper.protocol.server.ServerConnectionExecutorsService;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
-import edu.uw.zookeeper.util.ParameterizedFactory;
 
 public class SimpleServerConnections extends ServerConnectionExecutorsService<IntraVmConnection<InetSocketAddress>, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, IntraVmConnection<InetSocketAddress>>> {
 

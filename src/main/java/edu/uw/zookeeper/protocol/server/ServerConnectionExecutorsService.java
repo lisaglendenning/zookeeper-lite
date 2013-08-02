@@ -8,13 +8,13 @@ import com.google.common.collect.MapMaker;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.ParameterizedFactory;
 
 public class ServerConnectionExecutorsService<C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> extends AbstractIdleService implements Iterable<ServerConnectionExecutor<C,T>> {
 

@@ -1,13 +1,12 @@
 package edu.uw.zookeeper.netty;
 
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
 
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Automatons;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.Stateful;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Automatons;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.Stateful;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -22,15 +21,20 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
         return state;
     }
 
-    public static ConnectionStateHandler attach(Channel channel, Automaton<Connection.State, Connection.State> state) {
-        ConnectionStateHandler handler = newInstance(state);
+    public static ConnectionStateHandler attach(
+            Channel channel, 
+            Automaton<Connection.State, Connection.State> state,
+            Logger logger) {
+        ConnectionStateHandler handler = create(state, logger);
         channel.pipeline().addLast(
                 ConnectionStateHandler.class.getName(), handler);
         return handler;
     }
 
-    public static ConnectionStateHandler newInstance(Automaton<Connection.State, Connection.State> state) {
-        return new ConnectionStateHandler(state);
+    public static ConnectionStateHandler create(
+            Automaton<Connection.State, Connection.State> state,
+            Logger logger) {
+        return new ConnectionStateHandler(state, logger);
     }
     
     public static Automaton<Connection.State, Connection.State> newAutomaton(Publisher publisher) {
@@ -40,8 +44,10 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
     protected final Logger logger;
     protected final Automaton<Connection.State, Connection.State> automaton;
 
-    private ConnectionStateHandler(Automaton<Connection.State, Connection.State> automaton) {
-        this.logger = LogManager.getLogger(getClass());
+    private ConnectionStateHandler(
+            Automaton<Connection.State, Connection.State> automaton,
+            Logger logger) {
+        this.logger = logger;
         this.automaton = automaton;
     }
 
@@ -71,20 +77,10 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
             throws Exception {
-        logger.warn("Exception in channel {}", ctx.channel(), cause);
+        logger.warn(Logging.NETTY_MARKER, "EXCEPTION {}", ctx.channel(), cause);
         ctx.close();
         super.exceptionCaught(ctx, cause);
     }
-
-    /* Probably don't need this?
-    @Override
-    public void messageReceived(ChannelHandlerContext ctx, MessageList<Object> msgs)
-            throws Exception {
-        if (state() == Connection.State.CONNECTION_OPENING) {
-            automaton.apply(Connection.State.CONNECTION_OPENED);
-        }
-        super.messageReceived(ctx, msgs);
-    }*/
 
     @Override
     public void close(ChannelHandlerContext ctx, ChannelPromise future)

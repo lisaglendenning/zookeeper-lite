@@ -10,6 +10,9 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 
+import edu.uw.zookeeper.common.Automatons;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.Stateful;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Decoder;
 import edu.uw.zookeeper.protocol.Encodable;
@@ -21,9 +24,6 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
-import edu.uw.zookeeper.util.Automatons;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.Stateful;
 
 public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Message.Client> {
     

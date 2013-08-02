@@ -3,8 +3,8 @@ package edu.uw.zookeeper.netty;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.PromiseTask;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.PromiseTask;
 
 public class ChannelFutureWrapper<V> extends PromiseTask<ChannelFuture, V> implements ChannelFutureListener {
 

@@ -6,8 +6,8 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.TimeValue;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.TimeValue;
 
 public class SimpleSessionTable extends SessionTableAdapter {
 

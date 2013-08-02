@@ -3,10 +3,10 @@ package edu.uw.zookeeper;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.reflect.TypeToken;
 
-import edu.uw.zookeeper.util.Eventful;
-import edu.uw.zookeeper.util.ForwardingPromise;
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.SettableFuturePromise;
+import edu.uw.zookeeper.common.Eventful;
+import edu.uw.zookeeper.common.ForwardingPromise;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.SettableFuturePromise;
 
 public class GetEvent<T> extends ForwardingPromise<T> {
 

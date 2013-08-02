@@ -2,11 +2,11 @@ package edu.uw.zookeeper.protocol.server;
 
 import org.apache.zookeeper.KeeperException;
 
+import edu.uw.zookeeper.common.Processors;
+import edu.uw.zookeeper.common.Processors.ForwardingProcessor;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.IErrorResponse;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.util.Processors;
-import edu.uw.zookeeper.util.Processors.ForwardingProcessor;
 
 public class RequestErrorProcessor<I extends Operation.Request> extends ForwardingProcessor<I, Records.Response> implements Processors.UncheckedProcessor<I, Records.Response> {
 
