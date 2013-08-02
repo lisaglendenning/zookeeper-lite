@@ -83,7 +83,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
             };
         }
         
-        protected volatile ClientExecutor<Operation.Request, T, U> client;
+        protected volatile ClientExecutor<? super Records.Request, T, U> client;
         protected volatile Executor executor;
         protected volatile Set<OpCode> operations; 
         protected volatile boolean watch;
@@ -98,7 +98,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
         }
         
         public Builder(
-                ClientExecutor<Operation.Request, T, U> client, 
+                ClientExecutor<? super Records.Request, T, U> client, 
                 Executor executor,
                 Set<OpCode> operations, 
                 boolean watch,
@@ -109,11 +109,11 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
             this.result = result;
         }
         
-        public ClientExecutor<Operation.Request, T, U> getClient() {
+        public ClientExecutor<? super Records.Request, T, U> getClient() {
             return client;
         }
     
-        public Builder<T,U,V> setClient(ClientExecutor<Operation.Request, T, U> client) {
+        public Builder<T,U,V> setClient(ClientExecutor<? super Records.Request, T, U> client) {
             this.client = client;
             return this;
         }
@@ -207,7 +207,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
 
     public static <T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> TreeFetcher<T,U,V> newInstance(
             Parameters parameters,
-            ClientExecutor<Operation.Request, T, U> client,
+            ClientExecutor<? super Records.Request, T, U> client,
             Executor executor,
             Callable<V> result) {
         return new TreeFetcher<T,U,V>(
@@ -218,13 +218,13 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
     }
     
     protected final Executor executor;
-    protected final ClientExecutor<Operation.Request, T, U> client;
+    protected final ClientExecutor<? super Records.Request, T, U> client;
     protected final Parameters parameters;
     protected final Callable<V> result;
     
     protected TreeFetcher(
             Parameters parameters,
-            ClientExecutor<Operation.Request, T, U> client,
+            ClientExecutor<? super Records.Request, T, U> client,
             Callable<V> result,
             Executor executor) {
         this.parameters = checkNotNull(parameters);
@@ -250,7 +250,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
 
         public static <T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> TreeFetcherActor<T,U,V> newInstance(
                 Parameters parameters,
-                ClientExecutor<Operation.Request, T, U> client,
+                ClientExecutor<? super Records.Request, T, U> client,
                 Callable<V> result,
                 Executor executor,
                 Promise<V> promise) {
@@ -262,7 +262,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
                     executor);
         }
         
-        protected final ClientExecutor<Operation.Request, T, U> client;
+        protected final ClientExecutor<? super Records.Request, T, U> client;
         protected final FutureQueue<ListenableFuture<Pair<T,U>>> pending;
         protected final Task task;
         protected final Operations.Requests.GetChildren getChildrenBuilder;
@@ -272,7 +272,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
         protected TreeFetcherActor(
                 Promise<V> promise,
                 Parameters parameters,
-                ClientExecutor<Operation.Request, T, U> client,
+                ClientExecutor<? super Records.Request, T, U> client,
                 Callable<V> result,
                 Executor executor) {
             super(executor, AbstractActor.<ZNodeLabel.Path>newQueue(), AbstractActor.newState());
