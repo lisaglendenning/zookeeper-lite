@@ -178,7 +178,7 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
             while (true) {
                 opcode = BASIC_OPCODES[random.nextInt(BASIC_OPCODES.length)];
                 if (opcode == OpCode.DELETE) {
-                    if (!client.trie().get(path).isEmpty()) {
+                    if (path.isRoot() || !client.trie().get(path).isEmpty()) {
                         continue;
                     }
                 } else if ((opcode == OpCode.CREATE) || (opcode == OpCode.CREATE2)) {
