@@ -27,6 +27,15 @@ import edu.uw.zookeeper.protocol.proto.Records;
 
 public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> implements Callable<ListenableFuture<Pair<T,V>>> {
 
+    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> RandomCacheOperationClient<T,V> create(
+            ZNodeViewCache<?,? super Records.Request,T,V> client) {
+        Random random = new Random();
+        RandomLabel labels = RandomLabel.create(random, Range.closedOpen(1, 9));
+        RandomData datum = RandomData.create(random, Range.closedOpen(0, 1024));
+        RandomOperation operations = RandomOperation.create(random, labels, datum, client);
+        return new RandomCacheOperationClient<T,V>(operations, client);
+    }
+    
     protected static final ImmutableSet<OpCode> BASIC_OPCODE_SET = 
             ImmutableSet.copyOf(
                     EnumSet.of(        
@@ -77,9 +86,7 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
         protected RandomArray(Random random, Range<Integer> lengthBounds) {
             super(random);
             this.minLength = lengthBounds.lowerEndpoint();
-            checkArgument(minLength > 0);
             this.lengthRange = lengthBounds.upperEndpoint() - minLength;
-            checkArgument(lengthRange > 0);
         }
         
         public int nextLength() {
@@ -110,6 +117,8 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
         
         public RandomLabel(Random random, Range<Integer> lengthBounds, char[] alphabet) {
             super(random, lengthBounds);
+            checkArgument(minLength > 0);
+            checkArgument(lengthRange > 0);
             this.alphabet = alphabet;
         }
         
@@ -145,6 +154,14 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
     
     public static class RandomOperation extends Randomizer<Records.Request> {
 
+        public static RandomOperation create(
+                Random random, 
+                Randomizer<ZNodeLabel.Component> labels, 
+                Randomizer<byte[]> datum, 
+                ZNodeViewCache<?,?,?,?> client) {
+            return new RandomOperation(random, labels, datum, client);
+        }
+        
         protected final ZNodeViewCache<?,?,?,?> client;
         protected final Set<ZNodeLabel.Path> paths;
         protected final Randomizer<ZNodeLabel.Component> labels;
@@ -172,8 +189,13 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
             assert (! paths.isEmpty());
             ZNodeLabel.Path path = Iterables.get(paths, random.nextInt(paths.size()));
             ZNodeViewCache.NodeCache<?> node = client.trie().get(path);
-            StampedReference<Records.StatGetter> stat = node.asView(ZNodeViewCache.View.STAT);
-            int version = (stat == null) ? Stats.VERSION_ANY : stat.get().getStat().getVersion();
+            while (node == null) {
+                path = Iterables.get(paths, random.nextInt(paths.size()));
+                node = client.trie().get(path);
+            }
+            StampedReference<Records.StatGetter> statView = node.asView(ZNodeViewCache.View.STAT);
+            Records.StatGetter stat = (statView == null) ? null : statView.get();
+            int version = (stat == null) ? Stats.VERSION_ANY : stat.getStat().getVersion();
             OpCode opcode;
             while (true) {
                 opcode = BASIC_OPCODES[random.nextInt(BASIC_OPCODES.length)];
@@ -183,7 +205,7 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
                     }
                 } else if ((opcode == OpCode.CREATE) || (opcode == OpCode.CREATE2)) {
                     if ((stat == null) 
-                            || (stat.get().getStat().getEphemeralOwner() != Stats.CreateStat.ephemeralOwnerNone())) {
+                            || (stat.getStat().getEphemeralOwner() != Stats.CreateStat.ephemeralOwnerNone())) {
                         continue;
                     }
                 }
