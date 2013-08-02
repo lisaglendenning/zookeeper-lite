@@ -5,5 +5,5 @@ import org.apache.logging.log4j.MarkerManager;
 
 public abstract class Logging {
 
-    public static final Marker NET_MARKER = MarkerManager.getMarker(Logging.class.getPackage().getName());
+    public static final Marker NET_MARKER = MarkerManager.getMarker("edu.uw.zookeeper.net");
 }
