@@ -4,8 +4,8 @@ import static com.google.common.base.Preconditions.*;
 
 import java.io.IOException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import edu.uw.zookeeper.util.Publisher;
 import io.netty.channel.Channel;
@@ -30,7 +30,7 @@ public class InboundHandler extends ChannelInboundHandlerAdapter {
 
     protected InboundHandler(Publisher publisher) {
         super();
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.publisher = checkNotNull(publisher);
     }
     

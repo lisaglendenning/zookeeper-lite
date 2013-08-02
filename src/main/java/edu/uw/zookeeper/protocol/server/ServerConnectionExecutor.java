@@ -4,8 +4,8 @@ import java.util.Queue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import org.apache.zookeeper.KeeperException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ForwardingQueue;
@@ -82,7 +82,7 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
             TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.connection = connection;
         this.anonymousExecutor = anonymousExecutor;
         this.connectExecutor = connectExecutor;

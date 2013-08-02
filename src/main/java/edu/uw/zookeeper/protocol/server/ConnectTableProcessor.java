@@ -1,7 +1,7 @@
 package edu.uw.zookeeper.protocol.server;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -18,7 +18,7 @@ public class ConnectTableProcessor
         return new ConnectTableProcessor(sessions, lastZxid, false);
     }
     
-    protected final Logger logger = LoggerFactory
+    protected final Logger logger = LogManager
             .getLogger(ConnectTableProcessor.class);
     protected final SessionTable sessions;
     protected final Reference<Long> lastZxid;

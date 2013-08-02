@@ -14,8 +14,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -354,7 +354,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T ext
     
     protected ZNodeViewCache(
             Publisher publisher, ClientExecutor<Operation.Request, T, V> client, ZNodeLabelTrie<E> trie) {
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.trie = trie;
         this.client = client;
         this.lastZxid = ZxidTracker.create();

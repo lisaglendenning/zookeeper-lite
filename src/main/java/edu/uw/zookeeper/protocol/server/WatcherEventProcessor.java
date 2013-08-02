@@ -5,8 +5,8 @@ import java.util.Set;
 
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Function;
 import com.google.common.collect.HashMultimap;
@@ -156,7 +156,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         
         public Watches(
                 Function<Long, Publisher> publishers) {
-            this.logger = LoggerFactory.getLogger(getClass());
+            this.logger = LogManager.getLogger(getClass());
             this.byPath = Multimaps.synchronizedSetMultimap(HashMultimap.<String, Long>create());
             this.bySession = Multimaps.synchronizedSetMultimap(HashMultimap.<Long, String>create());
             this.publishers = publishers;

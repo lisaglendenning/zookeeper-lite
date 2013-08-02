@@ -1,7 +1,7 @@
 package edu.uw.zookeeper.protocol.server;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.proto.IDisconnectRequest;
@@ -22,7 +22,7 @@ public class DisconnectTableProcessor implements Processor<SessionOperation.Requ
     protected final SessionTable sessions;
 
     protected DisconnectTableProcessor(SessionTable sessions) {
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.sessions = sessions;
     }
 

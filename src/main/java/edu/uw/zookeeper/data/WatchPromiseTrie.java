@@ -5,8 +5,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import org.apache.zookeeper.Watcher;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Lists;
@@ -31,7 +31,7 @@ public class WatchPromiseTrie implements Reference<ZNodeLabelTrie<WatchPromiseTr
     protected final ZNodeLabelTrie<WatchPromiseNode> trie;
     
     protected WatchPromiseTrie() {
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.trie = ZNodeLabelTrie.of(WatchPromiseNode.root());
     }
     

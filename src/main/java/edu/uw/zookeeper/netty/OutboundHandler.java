@@ -2,8 +2,8 @@ package edu.uw.zookeeper.netty;
 
 import java.io.IOException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import edu.uw.zookeeper.protocol.Encoder;
 import io.netty.buffer.ByteBuf;
@@ -30,7 +30,7 @@ public class OutboundHandler<I> extends MessageToByteEncoder<I> {
 
     protected OutboundHandler(Class<I> type, Encoder<? super I> encoder) {
         super(type, true);
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.encoder = encoder;
     }
 

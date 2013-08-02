@@ -6,8 +6,8 @@ import java.util.List;
 
 import javax.management.remote.JMXServiceURL;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Throwables;
 import com.sun.tools.attach.VirtualMachine;
@@ -27,7 +27,7 @@ public enum SunAttachQueryJmx implements DefaultsFactory<String, JMXServiceURL> 
     public static final String ZOOKEEPER_PACKAGE =
             "org.apache.zookeeper.server";
     
-    private final Logger logger = LoggerFactory.getLogger(SunAttachQueryJmx.class);
+    private final Logger logger = LogManager.getLogger(SunAttachQueryJmx.class);
     
     public JMXServiceURL get(String id) {
         // From http://docs.oracle.com/javase/6/docs/technotes/guides/management/agent.html

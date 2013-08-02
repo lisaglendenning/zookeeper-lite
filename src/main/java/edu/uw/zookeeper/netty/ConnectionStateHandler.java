@@ -1,7 +1,7 @@
 package edu.uw.zookeeper.netty;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.util.Automaton;
@@ -41,7 +41,7 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
     protected final Automaton<Connection.State, Connection.State> automaton;
 
     private ConnectionStateHandler(Automaton<Connection.State, Connection.State> automaton) {
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.automaton = automaton;
     }
 

@@ -3,14 +3,13 @@ package edu.uw.zookeeper.protocol.server;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
 
-import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.KeeperException;
-
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 
+import edu.uw.zookeeper.data.CreateFlag;
+import edu.uw.zookeeper.data.CreateMode;
 import edu.uw.zookeeper.data.Stats;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.TxnRequest;
@@ -63,13 +62,8 @@ public class EphemeralProcessor extends ForwardingProcessor<TxnOperation.Request
         case CREATE:
         case CREATE2:
         {
-            CreateMode mode;
-            try {
-                mode = CreateMode.fromFlag(((Records.CreateModeGetter) request).getFlags());
-            } catch (KeeperException e) {
-                throw new IllegalArgumentException(request.toString());
-            }
-            if (mode.isEphemeral()) {
+            CreateMode mode = CreateMode.valueOf(((Records.CreateModeGetter) request).getFlags());
+            if (mode.contains(CreateFlag.EPHEMERAL)) {
                 String path = ((Records.PathGetter) response).getPath();
                 bySession.put(session, path);
                 byPath.put(path, session);

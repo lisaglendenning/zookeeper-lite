@@ -6,6 +6,8 @@ See [zookeeper-proxy](http://github.com/lisaglendenning/zookeeper-proxy) for a s
 
 zookeeper-lite is a Maven project. Build requires [zookeeper-lite-deps](http://github.com/lisaglendenning/zookeeper-lite-deps).
 
-Uses SLF4J for logging. Apache Log4J2 is configured as the SLF4J backend in test scope.
+## Configuration
+
+Uses [Apache Log4J2](http://logging.apache.org/log4j/2.x/) for logging.
 
 Uses [com.typesafe.config](https://github.com/typesafehub/config) for configuration. 

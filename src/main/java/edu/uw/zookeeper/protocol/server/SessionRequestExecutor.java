@@ -3,8 +3,8 @@ package edu.uw.zookeeper.protocol.server;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -36,7 +36,7 @@ public class SessionRequestExecutor extends AbstractActor<PromiseTask<SessionOpe
             Map<Long, Publisher> listeners,
             Processor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> processor) {
         super(executor, AbstractActor.<PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>>newQueue(), AbstractActor.newState());
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.listeners = listeners;
         this.processor = processor;
     }

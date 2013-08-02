@@ -2,8 +2,8 @@ package edu.uw.zookeeper.util;
 
 import static com.google.common.base.Preconditions.*;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Monitor;
@@ -47,7 +47,7 @@ public class ServiceApplication implements Application {
     }
 
 
-    private final Logger logger = LoggerFactory
+    private final Logger logger = LogManager
             .getLogger(ServiceApplication.class);
     private final Service service;
     private boolean completed;

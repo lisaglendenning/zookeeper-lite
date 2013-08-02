@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
-import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Objects;
@@ -123,17 +122,17 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 if (parent.state().getCreate().isEphemeral()) {
                     throw new KeeperException.NoChildrenForEphemeralsException(parentPath.toString());
                 }
-                CreateMode mode = CreateMode.fromFlag(record.getFlags());
-                if (! mode.isSequential() && (get().get(path) != null)) {
+                CreateMode mode = CreateMode.valueOf(record.getFlags());
+                if (! mode.contains(CreateFlag.SEQUENTIAL) && (get().get(path) != null)) {
                     throw new KeeperException.NodeExistsException(path.toString());
                 }
                 
                 int cversion = parent.state().getChildren().getAndIncrement(request.getZxid());
-                if (mode.isSequential()) {
+                if (mode.contains(CreateFlag.SEQUENTIAL)) {
                     path = ZNodeLabel.Path.of(Sequenced.toString(path, cversion));
                 }
                 
-                long ephemeralOwner = mode.isEphemeral() ? request.getSessionId() : Stats.CreateStat.ephemeralOwnerNone();
+                long ephemeralOwner = mode.contains(CreateFlag.EPHEMERAL) ? request.getSessionId() : Stats.CreateStat.ephemeralOwnerNone();
                 Stats.CreateStat createStat = Stats.CreateStat.of(request.getZxid(), request.getTime(), ephemeralOwner);
                 byte[] bytes = record.getData();
                 bytes = (bytes == null) ? ZNodeData.emptyBytes() : bytes;

@@ -5,8 +5,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.IOException;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Optional;
 
@@ -33,7 +33,7 @@ public class DecoderHandler<O> extends ByteToMessageDecoder {
 
     protected DecoderHandler(Decoder<Optional<O>> decoder) {
         super();
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.decoder = checkNotNull(decoder);
     }
 

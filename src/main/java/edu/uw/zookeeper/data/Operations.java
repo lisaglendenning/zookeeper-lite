@@ -6,10 +6,10 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
+import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 
 import com.google.common.base.Functions;
@@ -160,12 +160,7 @@ public abstract class Operations {
                 OpCode opcode = request.getOpcode();
                 ZNodeLabel.Path path = ZNodeLabel.Path.of(record.getPath());
                 byte[] data = record.getData();
-                CreateMode mode;
-                try {
-                    mode = CreateMode.fromFlag(record.getFlags());
-                } catch (KeeperException e) {
-                    throw new IllegalArgumentException(e);
-                }
+                CreateMode mode = CreateMode.valueOf(record.getFlags());
                 List<Acls.Acl> acl = Acls.Acl.fromRecordList(record.getAcl());
                 return new Create(opcode, path, data, mode, acl);
             }
@@ -217,9 +212,13 @@ public abstract class Operations {
             
             @Override
             public Records.Request build() {
+                String path = getPath().toString();
+                byte[] data = getData();
+                List<ACL> acls = Acls.Acl.asRecordList(getAcl());
+                int mode = getMode().intValue();
                 Records.Request record = getStat() 
-                        ? new ICreate2Request(getPath().toString(), getData(), Acls.Acl.asRecordList(getAcl()), getMode().toFlag()) 
-                        : new ICreateRequest(getPath().toString(), getData(), Acls.Acl.asRecordList(getAcl()), getMode().toFlag());
+                        ? new ICreate2Request(path, data, acls, mode) 
+                        : new ICreateRequest(path, data, acls, mode);
                 return record;
             }
         }

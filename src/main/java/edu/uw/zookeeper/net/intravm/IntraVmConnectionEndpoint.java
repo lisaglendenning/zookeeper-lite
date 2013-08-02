@@ -5,8 +5,8 @@ import java.util.concurrent.Executor;
 
 import javax.annotation.Nullable;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -39,7 +39,7 @@ public class IntraVmConnectionEndpoint<T extends SocketAddress> extends Abstract
             Publisher publisher,
             Executor executor) {
         super(executor, AbstractActor.<Optional<Object>>newQueue(), newState());
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.address = address;
         this.publisher = PublisherActor.newInstance(
                 LoggingPublisher.create(logger, new Function<Object, String>() {

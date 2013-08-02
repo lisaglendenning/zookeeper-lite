@@ -1,7 +1,7 @@
 package edu.uw.zookeeper.protocol;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.eventbus.Subscribe;
 import edu.uw.zookeeper.net.Connection;
@@ -26,7 +26,7 @@ public class ProtocolCodecConnection<I, T extends ProtocolCodec<?, ?>, C extends
             C connection) {
         this.codec = codec;
         this.connection = connection;
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         
         register(this);
     }

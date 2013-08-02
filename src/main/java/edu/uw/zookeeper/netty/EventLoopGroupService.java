@@ -6,8 +6,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import io.netty.channel.EventLoopGroup;
 
@@ -65,7 +65,7 @@ public class EventLoopGroupService<T extends EventLoopGroup> extends AbstractIdl
 
     private static final TimeValue DEFAULT_WAIT_INTERVAL = TimeValue.create(30L, TimeUnit.SECONDS);
 
-    private final Logger logger = LoggerFactory
+    private final Logger logger = LogManager
             .getLogger(EventLoopGroupService.class);
     private final Optional<Executor> thisExecutor;
     private final T group;

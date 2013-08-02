@@ -8,8 +8,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -87,7 +87,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             Executor listenerExecutor,
             boolean stopOnTerminate,
             Iterable<Service> services) {
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.stopOnTerminate = stopOnTerminate;
         this.thisExecutor = thisExecutor;
         this.services = Lists.newCopyOnWriteArrayList(services);

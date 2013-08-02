@@ -7,8 +7,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.AbstractIdleService;
@@ -26,7 +26,7 @@ public class ExecutorServiceMonitor<T extends ExecutorService> extends AbstractI
     }
     private static final TimeValue DEFAULT_WAIT_INTERVAL = TimeValue.create(30L, TimeUnit.SECONDS);
     
-    private final Logger logger = LoggerFactory
+    private final Logger logger = LogManager
             .getLogger(ExecutorServiceMonitor.class);
     private final TimeValue waitInterval;
     private final Optional<Executor> thisExecutor;

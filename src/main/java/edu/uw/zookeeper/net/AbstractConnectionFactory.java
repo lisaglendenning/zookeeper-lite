@@ -3,8 +3,8 @@ package edu.uw.zookeeper.net;
 import static com.google.common.base.Preconditions.*;
 
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.Subscribe;
@@ -25,7 +25,7 @@ public abstract class AbstractConnectionFactory<C extends Connection<?>> extends
 
     protected AbstractConnectionFactory(Publisher publisher) {
         super();
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.publisher = checkNotNull(publisher);
     }
 

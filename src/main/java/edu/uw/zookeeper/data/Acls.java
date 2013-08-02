@@ -35,7 +35,7 @@ public abstract class Acls {
                     return p;
                 }
             }
-            return null;
+            throw new IllegalArgumentException(String.valueOf(value));
         }
         
         private final int value;

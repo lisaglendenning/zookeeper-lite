@@ -7,8 +7,8 @@ import io.netty.buffer.Unpooled;
 
 import java.io.IOException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Range;
@@ -114,7 +114,7 @@ public class Frame extends AbstractPair<IntHeader, ByteBuf> implements Encodable
             return new FramedDecoder<T>(frameDecoder, messageDecoder);
         }
         
-        private final Logger logger = LoggerFactory
+        private final Logger logger = LogManager
                 .getLogger(FramedDecoder.class);
         private final FrameDecoder frameDecoder;
         private final Decoder<T> messageDecoder;

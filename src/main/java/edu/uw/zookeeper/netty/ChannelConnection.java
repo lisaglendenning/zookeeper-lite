@@ -10,8 +10,8 @@ import java.util.concurrent.RejectedExecutionException;
 
 import javax.annotation.Nullable;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -85,7 +85,7 @@ public class ChannelConnection<I>
     protected ChannelConnection(
             Channel channel,
             Publisher publisher) {
-        this.logger = LoggerFactory.getLogger(getClass());
+        this.logger = LogManager.getLogger(getClass());
         this.channel = checkNotNull(channel);
         this.publisher = PublisherActor.newInstance(
                 LoggingPublisher.create(logger, new Function<Object, String>() {
