@@ -10,6 +10,8 @@ import java.util.concurrent.Executor;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -68,6 +70,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         return new ServiceMonitor(thisExecutor, listenerExecutor, stopOnTerminate, services);
     }
 
+    public static final Marker SERVICE_MONITOR_MARKER = MarkerManager.getMarker("EDU_UW_ZOOKEEPER_SERVICE_MONITOR");
 
     protected final Logger logger;
     protected final Executor listenerExecutor;
@@ -118,7 +121,6 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         checkNotNull(service);
         checkState(isAddable(), state());
         if (services.addIfAbsent(service)) {
-            logger.debug("Service added: {}", service);
             monitor(service);
             notifyChange();
             // TODO: check if still running
@@ -142,7 +144,6 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     public boolean remove(Service service) {
         boolean removed = services.remove(service);
         if (removed) {
-            logger.debug("Service removed: {}", service);
             notifyChange();
         }
         return removed;
@@ -150,7 +151,8 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(Iterators.toString(iterator())).toString();
+        return Objects.toStringHelper(this)
+                .addValue(Iterators.toString(iterator())).toString();
     }
 
     @Override
@@ -160,7 +162,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     @Override
     protected void startUp() throws ServiceException {
-        logger.info("Starting: {}", this);
+        logger.info(SERVICE_MONITOR_MARKER, "STARTING {}", this);
         try {
             startServices();
             monitor(this);
@@ -172,7 +174,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     @Override
     protected void shutDown() throws ServiceException {
-        logger.info("Stopping: {}", this);
+        logger.info(SERVICE_MONITOR_MARKER, "STOPPING {}", this);
         stopServices();
     }
 
@@ -197,7 +199,6 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             case NEW:
                 // there may be dependencies between services
                 // so don't start them concurrently
-                logger.debug("Starting Service: {}", service);
                 try {
                     service.start().get();
                 } catch (Throwable t) {
@@ -227,10 +228,11 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
                 try {
                     service.stop().get();
                 } catch (Throwable t) {
-                    logger.error("Error stopping Service: {}", service, t);
                     // only keep the first error?
                     if (cause == null) {
                         cause = new ServiceException(service, t);
+                    } else {
+                        logger.warn("Ignoring error {} for {}", t, service);
                     }
                 }
                 break;
@@ -262,13 +264,11 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             State state = service.state();
             if (state == State.FAILED) {
                 // stop all services if one service failed
-                logger.debug("Service failed: {}", service, service.failureCause());
                 stop = true;
                 break;
             } else if (stopOnTerminate && (state == State.STOPPING || state == State.TERMINATED)) {
                 // if stopOnTerminate policy is true, then stop the world
                 // if one service stops
-                logger.debug("Service stopped: {}", service);
                 stop = true;
                 break;
             } else if (state == State.NEW) {
@@ -283,11 +283,11 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         return !stop;
     }
     
-    protected abstract class ServiceListener implements Service.Listener, Reference<Service> {
+    protected abstract class ServiceListenerAdapter implements Service.Listener, Reference<Service> {
 
         private final Service service;
         
-        public ServiceListener(Service service) {
+        public ServiceListenerAdapter(Service service) {
             this.service = service;
         }
 
@@ -317,7 +317,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         }
     }
     
-    protected class ServiceDelayedRegister extends ServiceListener {
+    protected class ServiceDelayedRegister extends ServiceListenerAdapter {
 
         public ServiceDelayedRegister(Service service) {
             super(service);
@@ -332,36 +332,26 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     /**
      * Logs Service state changes and notifies ServiceMonitor of significant changes.
      */
-    protected class ServiceMonitorListener extends ServiceListener {
+    protected class ServiceMonitorListener extends ServiceListenerAdapter {
 
         public ServiceMonitorListener(Service service) {
             super(service);
-        }
-    
-        private void log(Service.State nextState,
-                Optional<Service.State> prevState,
-                Optional<Throwable> throwable) {
-            checkArgument(nextState != null);
-            String str = nextState.toString()
-                    + (prevState.isPresent() ? String.format(" (%s)",
-                            prevState.get()) : "")
-                    + (throwable.isPresent() ? String.format(" %s",
-                            throwable.get()) : "") + ": {}";
-            if (nextState == Service.State.FAILED) {
-                logger.warn(str, get());
-            } else {
-                logger.debug(str, get());
+            
+            // log current state
+            Service.State state = get().state();
+            switch (state) {
+            case NEW:
+                break;
+            case STARTING:
+            case RUNNING:
+            case STOPPING:
+            case TERMINATED:
+                log(state);
+                break;
+            case FAILED:
+                log(state, Optional.<Service.State>absent(), Optional.of(get().failureCause()));
+                break;
             }
-        }
-    
-        private void log(Service.State nextState) {
-            this.log(nextState, Optional.<Service.State> absent(),
-                    Optional.<Throwable> absent());
-        }
-    
-        private void log(Service.State nextState, Service.State prevState) {
-            this.log(nextState, Optional.of(prevState),
-                    Optional.<Throwable> absent());
         }
     
         @Override
@@ -396,6 +386,33 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             log(Service.State.TERMINATED, prevState);
             if (get() != ServiceMonitor.this) {
                 notifyChange();
+            }
+        }
+
+        private void log(Service.State nextState) {
+            this.log(nextState, Optional.<Service.State> absent(),
+                    Optional.<Throwable> absent());
+        }
+
+        private void log(Service.State nextState, Service.State prevState) {
+            this.log(nextState, Optional.of(prevState),
+                    Optional.<Throwable> absent());
+        }
+
+        private void log(Service.State nextState,
+                Optional<Service.State> prevState,
+                Optional<Throwable> throwable) {
+            if (logger.isWarnEnabled()) {
+                String str = String.format("[%s]", nextState.toString())
+                        + (prevState.isPresent() ? String.format(" ([%s])",
+                                prevState.get()) : "")
+                        + (throwable.isPresent() ? String.format(" [%s]",
+                                throwable.get()) : "") + ": {}";
+                if (nextState == Service.State.FAILED) {
+                    logger.warn(SERVICE_MONITOR_MARKER, str, get());
+                } else {
+                    logger.debug(SERVICE_MONITOR_MARKER, str, get());
+                }
             }
         }
     }
