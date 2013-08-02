@@ -2,31 +2,33 @@ package edu.uw.zookeeper.common;
 
 import org.apache.logging.log4j.Logger;
 
+import com.google.common.collect.ImmutableList;
+
 public class LoggingPublisher implements Publisher, Reference<Publisher> {
 
     public static LoggingPublisher create(
             Logger logger,
             Publisher delegate,
-            Object self) {
-        return new LoggingPublisher(logger, delegate, self);
+            Object...params) {
+        return new LoggingPublisher(logger, delegate, params);
     }
 
-    protected final Logger logger;
-    protected final Publisher delegate;
-    protected final Object self;
+    private final Logger logger;
+    private final Publisher delegate;
+    private final Object[] params;
     
-    public LoggingPublisher(Logger logger, Publisher delegate, Object self) {
+    public LoggingPublisher(Logger logger, Publisher delegate, Object...params) {
         this.logger = logger;
         this.delegate = delegate;
-        this.self = self;
+        this.params = params;
     }
     
     public Logger getLogger() {
         return logger;
     }
     
-    public Object getSelf() {
-        return self;
+    public ImmutableList<Object> getParams() {
+        return ImmutableList.copyOf(params);
     }
     
     @Override
@@ -46,9 +48,19 @@ public class LoggingPublisher implements Publisher, Reference<Publisher> {
 
     @Override
     public void post(Object event) {
-        getLogger().entry(event, self);
+        if (logger.isTraceEnabled()) {
+            int nparams = this.params.length + 1;
+            Object[] params = new Object[nparams];
+            params[0] = event;
+            for (int i=1; i<nparams; ++i) {
+                params[i] = this.params[i-1];
+            }
+            getLogger().entry(params);
+        }
         get().post(event);
-        getLogger().exit();
+        if (logger.isTraceEnabled()) {
+            getLogger().exit();
+        }
     }
     
     @Override

@@ -26,10 +26,17 @@ public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionO
         Processors.UncheckedProcessor<SessionOperation.Request<Records.Request>, Pair<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>> {
 
     public static ZNodeDataTrieExecutor create() {
-        return new ZNodeDataTrieExecutor(
+        return create(
                 ZNodeDataTrie.newInstance(),
                 ZxidIncrementer.fromZero(),
                 EventBusPublisher.newInstance());
+    }
+
+    public static ZNodeDataTrieExecutor create(
+            ZNodeDataTrie trie,
+            Generator<Long> zxids,
+            Publisher publisher) {
+        return new ZNodeDataTrieExecutor(trie, zxids, publisher);
     }
     
     protected final Publisher publisher;
@@ -69,8 +76,9 @@ public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionO
     public synchronized Pair<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> apply(SessionOperation.Request<Records.Request> input) {
         TxnOperation.Request<Records.Request> request = txnProcessor.apply(input);
         Message.ServerResponse<Records.Response> response = ProtocolResponseMessage.of(request.getXid(), request.getZxid(), operator.apply(request));
-        post(response);
-        return Pair.create(input, response);
+        Pair<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> result = Pair.create(input, response);
+        post(result);
+        return result;
     }
 
     @Override
