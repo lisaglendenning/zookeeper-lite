@@ -44,11 +44,11 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
     protected static final OpCode[] BASIC_OPCODES = BASIC_OPCODE_SET.toArray(new OpCode[0]);
     
     protected final RandomOperation operations;
-    protected final ZNodeViewCache<?,T,V> client;
+    protected final ZNodeViewCache<?,? super Records.Request,T,V> client;
     
     public RandomCacheOperationClient(
             RandomOperation operations,
-            ZNodeViewCache<?,T,V> client) {
+            ZNodeViewCache<?,? super Records.Request,T,V> client) {
         this.operations = operations;
         this.client = client;
     }
@@ -145,7 +145,7 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
     
     public static class RandomOperation extends Randomizer<Records.Request> {
 
-        protected final ZNodeViewCache<?, ?, ?> client;
+        protected final ZNodeViewCache<?,?,?,?> client;
         protected final Set<ZNodeLabel.Path> paths;
         protected final Randomizer<ZNodeLabel.Component> labels;
         protected final Randomizer<byte[]> datum;
@@ -154,7 +154,7 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
                 Random random, 
                 Randomizer<ZNodeLabel.Component> labels, 
                 Randomizer<byte[]> datum, 
-                ZNodeViewCache<?, ?, ?> client) {
+                ZNodeViewCache<?,?,?,?> client) {
             super(random);
             this.labels = labels;
             this.datum = datum;

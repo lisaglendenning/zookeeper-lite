@@ -53,22 +53,22 @@ import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
 /**
  * Only caches the results of operations submitted through this wrapper.
  */
-public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> 
-        implements ClientExecutor<Operation.Request, T, V> {
+public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> 
+        implements ClientExecutor<I, T, V> {
 
-    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<SimpleZNodeCache, T, V> newInstance(
-            Publisher publisher, ClientExecutor<Operation.Request, T, V> client) {
+    public static <I extends Operation.Request, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<SimpleZNodeCache, I, T, V> newInstance(
+            Publisher publisher, ClientExecutor<I, T, V> client) {
         return newInstance(publisher, client, SimpleZNodeCache.root());
     }
     
-    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,T,V> newInstance(
-            Publisher publisher, ClientExecutor<Operation.Request, T, V> client, E root) {
+    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,I,T,V> newInstance(
+            Publisher publisher, ClientExecutor<I, T, V> client, E root) {
         return newInstance(publisher, client, ZNodeLabelTrie.of(root));
     }
     
-    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,T,V> newInstance(
-            Publisher publisher, ClientExecutor<Operation.Request, T, V> client, ZNodeLabelTrie<E> trie) {
-        return new ZNodeViewCache<E,T,V>(publisher, client, trie);
+    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,I,T,V> newInstance(
+            Publisher publisher, ClientExecutor<I, T, V> client, ZNodeLabelTrie<E> trie) {
+        return new ZNodeViewCache<E,I,T,V>(publisher, client, trie);
     }
 
     public static enum View {
@@ -349,11 +349,11 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T ext
     protected final Logger logger;
     protected final ZxidTracker lastZxid;
     protected final ZNodeLabelTrie<E> trie;
-    protected final ClientExecutor<Operation.Request, T, V> client;
+    protected final ClientExecutor<? super I, T, V> client;
     protected final Publisher publisher;
     
     protected ZNodeViewCache(
-            Publisher publisher, ClientExecutor<Operation.Request, T, V> client, ZNodeLabelTrie<E> trie) {
+            Publisher publisher, ClientExecutor<? super I, T, V> client, ZNodeLabelTrie<E> trie) {
         this.logger = LogManager.getLogger(getClass());
         this.trie = trie;
         this.client = client;
@@ -365,7 +365,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T ext
         return lastZxid;
     }
     
-    public ClientExecutor<Operation.Request, T, V> client() {
+    public ClientExecutor<? super I, T, V> client() {
         return client;
     }
     
@@ -388,12 +388,12 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, T ext
     }
 
     @Override
-    public ListenableFuture<Pair<T,V>> submit(Operation.Request request) {
+    public ListenableFuture<Pair<T,V>> submit(I request) {
         return client.submit(request, new PromiseWrapper());
     }
     
     @Override
-    public ListenableFuture<Pair<T,V>> submit(Operation.Request request, Promise<Pair<T,V>> promise) {
+    public ListenableFuture<Pair<T,V>> submit(I request, Promise<Pair<T,V>> promise) {
         return client.submit(request, new PromiseWrapper(promise));
     }
 

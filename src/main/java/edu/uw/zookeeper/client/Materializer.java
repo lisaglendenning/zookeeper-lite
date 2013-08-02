@@ -26,7 +26,7 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> extends ZNodeViewCache<Materializer.MaterializedNode, T, V> {
+public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> extends ZNodeViewCache<Materializer.MaterializedNode, Records.Request, T, V> {
 
     public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> Materializer<T,V> newInstance(
             Schema schema, 
@@ -37,7 +37,7 @@ public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, 
     }
     
     public static <I extends Operation.Request, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> 
-    ListenableFuture<Pair<T,V>> submit(ClientExecutor<I, T,V> client, I request) {
+    ListenableFuture<Pair<T,V>> submit(ClientExecutor<I, T, V> client, I request) {
         return client.submit(request);
     }
     
@@ -49,7 +49,7 @@ public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, 
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
             Publisher publisher,
-            ClientExecutor<Operation.Request, T, V> client) {
+            ClientExecutor<? super Records.Request, T, V> client) {
         super(publisher, client, ZNodeLabelTrie.of(MaterializedNode.root(schema, codec)));
         this.schema = schema;
         this.codec = codec;
@@ -174,11 +174,11 @@ public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, 
 
     public class Operator implements Reference<Materializer<T,V>> {
         
-        public class Submitter<C extends Operations.Builder<? extends Operation.Request>> implements Reference<C> {
+        public class Submitter<C extends Operations.Builder<? extends Records.Request>> implements Reference<C> {
             protected final C builder;
-            protected final ClientExecutor<Operation.Request, T, V> client;
+            protected final ClientExecutor<? super Records.Request, T, V> client;
             
-            public Submitter(C builder, ClientExecutor<Operation.Request, T, V> client) {
+            public Submitter(C builder, ClientExecutor<? super Records.Request, T, V> client) {
                 this.builder = builder;
                 this.client = client;
             }
