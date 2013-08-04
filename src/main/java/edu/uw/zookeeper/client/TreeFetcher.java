@@ -33,6 +33,10 @@ import edu.uw.zookeeper.protocol.proto.Records;
 
 public class TreeFetcher<U extends Operation.ProtocolResponse<Records.Response>, V> implements AsyncFunction<ZNodeLabel.Path, V> {
     
+    public static <U extends Operation.ProtocolResponse<Records.Response>, V> Builder<U,V> builder() {
+        return Builder.create();
+    }
+    
     public static class Parameters {
         
         public static Parameters of(Set<OpCode> operations, boolean watch) {

@@ -134,13 +134,13 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
 
     @Subscribe
-    public void handleResponse(Message.ServerResponse<Records.Response> response) {
+    public void handleResponse(Message.ServerResponse<Records.Response> message) {
         if (state() != State.TERMINATED) {
             PendingMessageTask next = pending.peek();
             if (next != null) {
-                if (next.task().getXid() == response.getXid()) {
-                    next = pending.poll();
-                    next.set(response);
+                if (next.task().getXid() == message.getXid()) {
+                    pending.remove(next);
+                    next.set(message);
                 }
             }
         }
@@ -148,7 +148,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
 
     @Override
     protected boolean apply(PromiseTask<Operation.Request, Message.ServerResponse<Records.Response>> input) throws Exception {
-        if (! input.isDone()) {
+        if ((state() != State.TERMINATED) && ! input.isDone()) {
             Message.ClientRequest<?> message;
             try { 
                 message = (Message.ClientRequest<?>) xids.apply(input.task());
@@ -224,6 +224,11 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         public void onFailure(Throwable t) {
             setException(t);
             pending.remove(this);
+        }
+        
+        @Override
+        public Promise<Message.ServerResponse<Records.Response>> delegate() {
+            return delegate;
         }
     } 
     
