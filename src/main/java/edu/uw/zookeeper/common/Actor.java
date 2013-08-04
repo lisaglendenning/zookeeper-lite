@@ -9,6 +9,4 @@ public interface Actor<I> extends Runnable, Stateful<Actor.State> {
     void send(I message);
     
     boolean stop();
-
-    boolean schedule();
 }

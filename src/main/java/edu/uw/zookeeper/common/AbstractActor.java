@@ -9,9 +9,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.common.base.Throwables;
 
+
 public abstract class AbstractActor<I> implements Actor<I> {
     
-    public static <I> Queue<I> newQueue() {
+    public static <I> ConcurrentLinkedQueue<I> newQueue() {
         return new ConcurrentLinkedQueue<I>();
     }
     
@@ -64,7 +65,11 @@ public abstract class AbstractActor<I> implements Actor<I> {
     }
 
     protected boolean runEnter() {
-        return state.compareAndSet(State.SCHEDULED, State.RUNNING);
+        if (schedule()) {
+            return false;
+        } else {
+            return state.compareAndSet(State.SCHEDULED, State.RUNNING);
+        }
     }
 
     protected void doRun() throws Exception {
@@ -77,10 +82,7 @@ public abstract class AbstractActor<I> implements Actor<I> {
     }
 
     protected boolean apply(I input) throws Exception {
-        if (State.TERMINATED == state()) {
-            return false;
-        }
-        return true;
+        return (State.TERMINATED != state());
     }
 
     protected void runExit() {
@@ -105,13 +107,12 @@ public abstract class AbstractActor<I> implements Actor<I> {
         mailbox.clear();
     }
 
-    @Override
     public boolean schedule() {
-        boolean schedule = state.compareAndSet(State.WAITING, State.SCHEDULED);
-        if (schedule) {
+        boolean scheduled = state.compareAndSet(State.WAITING, State.SCHEDULED);
+        if (scheduled) {
             doSchedule();
         }
-        return schedule;
+        return scheduled;
     }
     
     protected void doSchedule() {

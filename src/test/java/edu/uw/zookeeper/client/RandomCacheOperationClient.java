@@ -15,7 +15,6 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.data.CreateMode;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.StampedReference;
@@ -25,15 +24,15 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> implements Callable<ListenableFuture<Pair<T,V>>> {
+public class RandomCacheOperationClient<V extends Operation.ProtocolResponse<Records.Response>> implements Callable<ListenableFuture<V>> {
 
-    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> RandomCacheOperationClient<T,V> create(
-            ZNodeViewCache<?,? super Records.Request,T,V> client) {
+    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> RandomCacheOperationClient<V> create(
+            ZNodeViewCache<?,? super Records.Request,V> client) {
         Random random = new Random();
         RandomLabel labels = RandomLabel.create(random, Range.closedOpen(1, 9));
         RandomData datum = RandomData.create(random, Range.closedOpen(0, 1024));
         RandomOperation operations = RandomOperation.create(random, labels, datum, client);
-        return new RandomCacheOperationClient<T,V>(operations, client);
+        return new RandomCacheOperationClient<V>(operations, client);
     }
     
     protected static final ImmutableSet<OpCode> BASIC_OPCODE_SET = 
@@ -51,17 +50,17 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
     protected static final OpCode[] BASIC_OPCODES = BASIC_OPCODE_SET.toArray(new OpCode[0]);
     
     protected final RandomOperation operations;
-    protected final ZNodeViewCache<?,? super Records.Request,T,V> client;
+    protected final ZNodeViewCache<?,? super Records.Request,V> client;
     
     public RandomCacheOperationClient(
             RandomOperation operations,
-            ZNodeViewCache<?,? super Records.Request,T,V> client) {
+            ZNodeViewCache<?,? super Records.Request,V> client) {
         this.operations = operations;
         this.client = client;
     }
     
     @Override
-    public ListenableFuture<Pair<T,V>> call() {
+    public ListenableFuture<V> call() {
         return client.submit(operations.next());
     }
     
@@ -154,11 +153,11 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
                 Random random, 
                 Randomizer<ZNodeLabel.Component> labels, 
                 Randomizer<byte[]> datum, 
-                ZNodeViewCache<?,?,?,?> client) {
+                ZNodeViewCache<?,?,?> client) {
             return new RandomOperation(random, labels, datum, client);
         }
         
-        protected final ZNodeViewCache<?,?,?,?> client;
+        protected final ZNodeViewCache<?,?,?> client;
         protected final Set<ZNodeLabel.Path> paths;
         protected final Randomizer<ZNodeLabel.Component> labels;
         protected final Randomizer<byte[]> datum;
@@ -167,7 +166,7 @@ public class RandomCacheOperationClient<T extends Operation.ProtocolRequest<Reco
                 Random random, 
                 Randomizer<ZNodeLabel.Component> labels, 
                 Randomizer<byte[]> datum, 
-                ZNodeViewCache<?,?,?,?> client) {
+                ZNodeViewCache<?,?,?> client) {
             super(random);
             this.labels = labels;
             this.datum = datum;

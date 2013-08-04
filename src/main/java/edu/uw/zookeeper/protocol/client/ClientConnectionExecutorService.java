@@ -7,7 +7,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Factory;
-import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Reference;
@@ -21,7 +20,7 @@ import edu.uw.zookeeper.protocol.proto.Records;
  * Wraps a lazily-instantiated ClientConnectionExecutor in a Service.
  */
 public class ClientConnectionExecutorService<C extends Connection<? super Operation.Request>> extends AbstractIdleService 
-        implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>> {
+        implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Message.ServerResponse<Records.Response>> {
 
     public static <C extends Connection<? super Operation.Request>> ClientConnectionExecutorService<C> newInstance(
             Factory<ClientConnectionExecutor<C>> factory) {
@@ -79,12 +78,12 @@ public class ClientConnectionExecutorService<C extends Connection<? super Operat
     }
 
     @Override
-    public ListenableFuture<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> submit(Operation.Request request) {
+    public ListenableFuture<Message.ServerResponse<Records.Response>> submit(Operation.Request request) {
         return get().submit(request);
     }
 
     @Override
-    public ListenableFuture<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> submit(Operation.Request request, Promise<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>> promise) {
+    public ListenableFuture<Message.ServerResponse<Records.Response>> submit(Operation.Request request, Promise<Message.ServerResponse<Records.Response>> promise) {
         return get().submit(request, promise);
     }
 

@@ -4,18 +4,24 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executor;
-import org.apache.zookeeper.KeeperException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
+import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.AbstractActor;
-import edu.uw.zookeeper.common.FutureQueue;
+import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
@@ -25,7 +31,7 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> implements AsyncFunction<ZNodeLabel.Path, V> {
+public class TreeFetcher<U extends Operation.ProtocolResponse<Records.Response>, V> implements AsyncFunction<ZNodeLabel.Path, V> {
     
     public static class Parameters {
         
@@ -68,10 +74,10 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
         }
     }
     
-    public static class Builder<T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> {
+    public static class Builder<U extends Operation.ProtocolResponse<Records.Response>, V> {
     
-        public static <T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> Builder<T,U,V> create() {
-            return new Builder<T,U,V>();
+        public static <U extends Operation.ProtocolResponse<Records.Response>, V> Builder<U,V> create() {
+            return new Builder<U,V>();
         }
         
         public static <V> Callable<V> nullResult() {
@@ -83,50 +89,42 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
             };
         }
         
-        protected volatile ClientExecutor<? super Records.Request, T, U> client;
-        protected volatile Executor executor;
+        protected volatile ClientExecutor<? super Records.Request, U> client;
         protected volatile Set<OpCode> operations; 
         protected volatile boolean watch;
         protected volatile Callable<V> result;
+        protected volatile Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> processor;
         
         public Builder() {
             this(null, 
-                    MoreExecutors.sameThreadExecutor(), 
                     EnumSet.noneOf(OpCode.class), 
                     false,
+                    TreeProcessor.<U>create(),
                     Builder.<V>nullResult());
         }
         
         public Builder(
-                ClientExecutor<? super Records.Request, T, U> client, 
-                Executor executor,
+                ClientExecutor<? super Records.Request, U> client, 
                 Set<OpCode> operations, 
                 boolean watch,
+                Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> processor,
                 Callable<V> result) {
             this.client = client;
             this.watch = watch;
             this.operations = Collections.synchronizedSet(operations);
+            this.processor = processor;
             this.result = result;
         }
         
-        public ClientExecutor<? super Records.Request, T, U> getClient() {
+        public ClientExecutor<? super Records.Request, U> getClient() {
             return client;
         }
     
-        public Builder<T,U,V> setClient(ClientExecutor<? super Records.Request, T, U> client) {
+        public Builder<U,V> setClient(ClientExecutor<? super Records.Request, U> client) {
             this.client = client;
             return this;
         }
         
-        public Executor getExecutor() {
-            return executor;
-        }
-    
-        public Builder<T,U,V> setExecutor(Executor executor) {
-            this.executor = executor;
-            return this;
-        }
-    
         public boolean getStat() {
             OpCode[] ops = { OpCode.EXISTS, OpCode.GET_CHILDREN2 };
             for (OpCode op: ops) {
@@ -137,7 +135,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
             return false;
         }
         
-        public Builder<T,U,V> setStat(boolean getStat) {
+        public Builder<U,V> setStat(boolean getStat) {
             OpCode[] ops = { OpCode.EXISTS, OpCode.GET_CHILDREN2 };
             if (getStat) {
                 for (OpCode op: ops) {
@@ -156,7 +154,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
             return operations.contains(op);
         }
         
-        public Builder<T,U,V> setData(boolean getData) {
+        public Builder<U,V> setData(boolean getData) {
             OpCode op = OpCode.GET_DATA;
             if (getData) {
                 operations.add(op);
@@ -171,7 +169,7 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
             return operations.contains(op);
         }
         
-        public Builder<T,U,V> setAcl(boolean getAcl) {
+        public Builder<U,V> setAcl(boolean getAcl) {
             OpCode op = OpCode.GET_ACL;
             if (getAcl) {
                 operations.add(op);
@@ -185,8 +183,17 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
             return watch;
         }
         
-        public Builder<T,U,V> setWatch(boolean watch) {
+        public Builder<U,V> setWatch(boolean watch) {
             this.watch = watch;
+            return this;
+        }
+        
+        public Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> getProcessor() {
+            return processor;
+        }
+        
+        public Builder<U,V> setProcessor(Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> processor) {
+            this.processor = processor;
             return this;
         }
 
@@ -194,180 +201,145 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
             return result;
         }
         
-        public Builder<T,U,V> setResult(Callable<V> result) {
+        public Builder<U,V> setResult(Callable<V> result) {
             this.result = result;
             return this;
         }
         
-        public TreeFetcher<T,U,V> build() {
+        public TreeFetcher<U,V> build() {
             Parameters parameters = Parameters.of(operations, watch);
-            return TreeFetcher.newInstance(parameters, client, executor, result);
+            return TreeFetcher.newInstance(parameters, client, processor, result);
         }
     }
 
-    public static <T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> TreeFetcher<T,U,V> newInstance(
+    public static <U extends Operation.ProtocolResponse<Records.Response>, V> TreeFetcher<U,V> newInstance(
             Parameters parameters,
-            ClientExecutor<? super Records.Request, T, U> client,
-            Executor executor,
+            ClientExecutor<? super Records.Request, U> client,
+            Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> processor,
             Callable<V> result) {
-        return new TreeFetcher<T,U,V>(
+        return new TreeFetcher<U,V>(
                 parameters,
                 client, 
-                result,
-                executor);
+                processor,
+                result);
     }
-    
-    protected final Executor executor;
-    protected final ClientExecutor<? super Records.Request, T, U> client;
+
     protected final Parameters parameters;
+    protected final ClientExecutor<? super Records.Request, U> client;
+    protected final Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> processor;
     protected final Callable<V> result;
     
     protected TreeFetcher(
             Parameters parameters,
-            ClientExecutor<? super Records.Request, T, U> client,
-            Callable<V> result,
-            Executor executor) {
+            ClientExecutor<? super Records.Request, U> client,
+            Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> processor,
+            Callable<V> result) {
         this.parameters = checkNotNull(parameters);
         this.client = checkNotNull(client);
+        this.processor = checkNotNull(processor);
         this.result = checkNotNull(result);
-        this.executor = checkNotNull(executor);
     }
 
-    
     @Override
     public ListenableFuture<V> apply(ZNodeLabel.Path root) {
-        TreeFetcherActor<T,U,V> actor = newActor();
+        TreeFetcherActor actor = new TreeFetcherActor(SettableFuturePromise.<V>create());
         actor.send(root);
         return actor.future();
     }
     
-    protected TreeFetcherActor<T,U,V> newActor() {
-        Promise<V> promise = SettableFuturePromise.create();
-        return TreeFetcherActor.newInstance(parameters, client, result, executor, promise);
-    }
-
-    public static class TreeFetcherActor<T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> extends AbstractActor<ZNodeLabel.Path> {
-
-        public static <T extends Operation.ProtocolRequest<Records.Request>, U extends Operation.ProtocolResponse<Records.Response>, V> TreeFetcherActor<T,U,V> newInstance(
-                Parameters parameters,
-                ClientExecutor<? super Records.Request, T, U> client,
-                Callable<V> result,
-                Executor executor,
-                Promise<V> promise) {
-            return new TreeFetcherActor<T,U,V>(
-                    promise, 
-                    parameters,
-                    client,
-                    result,
-                    executor);
+    public static class ChildToPath implements Function<String, ZNodeLabel.Path> {
+        
+        private final ZNodeLabel.Path parent;
+        
+        public ChildToPath(ZNodeLabel.Path parent) {
+            this.parent = parent;
         }
         
-        protected final ClientExecutor<? super Records.Request, T, U> client;
-        protected final FutureQueue<ListenableFuture<Pair<T,U>>> pending;
-        protected final Task task;
-        protected final Operations.Requests.GetChildren getChildrenBuilder;
-        protected final Operations.Requests.GetData getDataBuilder;
-        protected final Operations.Requests.GetAcl getAclBuilder;
+        @Override
+        public ZNodeLabel.Path apply(String input) {
+            return ZNodeLabel.Path.of(parent, ZNodeLabel.Component.of(input));
+        }
+    }
+    
+    public static class TreeProcessor<U extends Operation.ProtocolResponse<Records.Response>> implements Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> {
+
+        public static <U extends Operation.ProtocolResponse<Records.Response>> TreeProcessor<U> create() {
+            return new TreeProcessor<U>();
+        }
         
-        protected TreeFetcherActor(
-                Promise<V> promise,
-                Parameters parameters,
-                ClientExecutor<? super Records.Request, T, U> client,
-                Callable<V> result,
-                Executor executor) {
-            super(executor, AbstractActor.<ZNodeLabel.Path>newQueue(), AbstractActor.newState());
-            this.client = checkNotNull(client);
-            this.task = new Task(result, promise);
-            this.pending = FutureQueue.create();
-            this.getChildrenBuilder = 
-                    Operations.Requests.getChildren().setWatch(parameters.getWatch()).setStat(parameters.getStat());
-            this.getDataBuilder = parameters.getData()
-                    ? Operations.Requests.getData().setWatch(parameters.getWatch())
-                            : null;
-            this.getAclBuilder = parameters.getAcl()
-                    ? Operations.Requests.getAcl() 
-                            : null;
+        @Override
+        public Iterator<ZNodeLabel.Path> apply(Pair<Records.Request, ListenableFuture<U>> input) throws InterruptedException, ExecutionException {
+            Records.Response response = input.second().get().getRecord();
+            if (response instanceof Records.ChildrenGetter) {
+                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) input.first()).getPath());
+                return Iterators.transform(
+                        ((Records.ChildrenGetter) response).getChildren().iterator(),
+                        new ChildToPath(path));
+            } else {
+                return Iterators.emptyIterator();
+            }
+        }
+    }
+
+    protected class TreeFetcherActor implements Actor<ZNodeLabel.Path> {
+
+        protected final AtomicReference<State> state;
+        protected final ImmutableList<Operations.PathBuilder<? extends Records.Request, ?>> builders;
+        protected final Set<Pending> pending;
+        protected final Result result;
+        
+        public TreeFetcherActor(
+                Promise<V> promise) {
+            this.state = AbstractActor.newState();
+            this.result = new Result(TreeFetcher.this.result, promise);
+            this.pending = Collections.synchronizedSet(Sets.<Pending>newHashSet());
+            ImmutableList.Builder<Operations.PathBuilder<? extends Records.Request, ?>> builders = ImmutableList.builder();
+            builders.add(
+                    Operations.Requests.getChildren()
+                    .setWatch(parameters.getWatch()).setStat(parameters.getStat()));
+            if (parameters.getData()) {
+                builders.add(
+                        Operations.Requests.getData().setWatch(parameters.getWatch()));
+            }
+            if (parameters.getAcl()) {
+                builders.add(
+                        Operations.Requests.getAcl());
+            }
+            this.builders = builders.build();
+            this.result.addListener(this, MoreExecutors.sameThreadExecutor());
         }
         
         public ListenableFuture<V> future() {
-            return task;
+            return result;
+        }
+        
+        @Override
+        public State state() {
+            return state.get();
         }
 
         @Override
-        protected boolean runEnter() {
-            if (State.WAITING == state.get()) {
-                schedule();
-                return false;
-            } else {
-                return super.runEnter();
-            }
-        }
-
-        @Override
-        protected void doRun() throws Exception {
-            doPending();
-            
-            super.doRun();
-        }
-
-        protected void doPending() throws Exception {
-            ListenableFuture<Pair<T,U>> future;
-            while ((future = pending.poll()) != null) {
-                Pair<T,U> result;
-                try {
-                    result = future.get();
-                } catch (Exception e) {
-                    task.setException(e);
-                    stop();
-                    return;
-                }
-                
-                applyPendingResult(result);
-            }
-        }
-
-        protected void applyPendingResult(Pair<T,U> result) throws Exception {
-            Records.Request request = result.first().getRecord();
-            Records.Response response = result.second().getRecord();
-            Operations.maybeError(response, KeeperException.Code.NONODE, request.toString());
-            if (response instanceof Records.ChildrenGetter) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
-                for (String child: ((Records.ChildrenGetter) response).getChildren()) {
-                    send(ZNodeLabel.Path.of(path, ZNodeLabel.Component.of(child)));
+        public synchronized void send(ZNodeLabel.Path input) {
+            if (state() != State.TERMINATED) {
+                // synchronized because builders aren't thread-safe
+                for (Operations.PathBuilder<? extends Records.Request, ?> b: builders) {
+                    Records.Request request = b.setPath(input).build();
+                    ListenableFuture<U> future = client.submit(request);
+                    Pending task = new Pending(request, future);
+                    pending.add(task);
+                    future.addListener(task, MoreExecutors.sameThreadExecutor());
+                    if (state() == State.TERMINATED) {
+                        task.second().cancel(true);
+                        break;
+                    }
                 }
             }
         }
-
+        
         @Override
-        protected boolean apply(ZNodeLabel.Path input) throws Exception {
-            ListenableFuture<Pair<T,U>> future = 
-                    client.submit(getChildrenBuilder.setPath(input).build());
-            pending.add(future);
-            future.addListener(this, executor);
-            
-            if (getDataBuilder != null) {
-                future = client.submit(
-                        getDataBuilder.setPath(input).build());
-                pending.add(future);
-                future.addListener(this, executor);
-            }
-                
-            if (getAclBuilder != null) {
-                future = client.submit(
-                        getAclBuilder.setPath(input).build());
-                pending.add(future);
-                future.addListener(this, executor);
-            }
-            
-            return true;
-        }
-
-        @Override
-        protected void runExit() {
-            if (state.compareAndSet(State.RUNNING, State.WAITING)) {
-                if (!mailbox.isEmpty() || !pending.isEmpty()) {
-                    schedule();
-                } else if (pending.delegate().isEmpty()) {
+        public void run() {
+            if (state() != State.TERMINATED) {
+                if (result.isDone() || pending.isEmpty()) {
                     // We're done!
                     stop();
                 }
@@ -375,16 +347,53 @@ public class TreeFetcher<T extends Operation.ProtocolRequest<Records.Request>, U
         }
         
         @Override
-        protected void doStop() {
-            super.doStop();
+        public boolean stop() {
+            boolean stopped = (state.get() != State.TERMINATED)
+                    && (state.getAndSet(State.TERMINATED) != State.TERMINATED);
+            if (stopped) {
+                synchronized (pending) {
+                    for (Pending p: pending) {
+                        p.second().cancel(true);
+                    }
+                }
+                pending.clear();
+                result.complete();
+            }
+            return stopped;
+        }
+
+        protected void handlePending(Pending task) {
+            if (task.second().isDone()) {
+                if (state() != State.TERMINATED) {
+                    try {
+                        Iterator<ZNodeLabel.Path> paths = processor.apply(task);
+                        while (paths.hasNext()) {
+                            send(paths.next());
+                        }
+                    } catch (Exception e) {
+                        result.setException(e);
+                    }
+                }
+                pending.remove(task);
+                run();
+            }
+        }
+
+        protected class Pending extends Pair<Records.Request, ListenableFuture<U>> implements Runnable {
+
+            public Pending(Records.Request request, ListenableFuture<U> future) {
+                super(request, future);
+            }
             
-            pending.clear();
-            task.complete();
+            @Override
+            public void run() {
+                handlePending(this);
+            }
         }
         
-        protected class Task extends PromiseTask<Callable<V>, V> {
+        protected class Result extends PromiseTask<Callable<V>, V> {
 
-            protected Task(Callable<V> task, Promise<V> delegate) {
+            protected Result(Callable<V> task, Promise<V> delegate) {
                 super(task, delegate);
             }
             

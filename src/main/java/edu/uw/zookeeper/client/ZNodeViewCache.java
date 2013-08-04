@@ -24,9 +24,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.AbstractPair;
 import edu.uw.zookeeper.common.Event;
-import edu.uw.zookeeper.common.ForwardingPromise;
-import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.SettableFuturePromise;
@@ -38,7 +37,6 @@ import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.SimplePointer;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
-import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 import edu.uw.zookeeper.protocol.proto.IGetACLResponse;
 import edu.uw.zookeeper.protocol.proto.IGetDataResponse;
@@ -53,22 +51,22 @@ import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
 /**
  * Only caches the results of operations submitted through this wrapper.
  */
-public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> 
-        implements ClientExecutor<I, T, V> {
+public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<Records.Response>> 
+        implements ClientExecutor<I, V> {
 
-    public static <I extends Operation.Request, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<SimpleZNodeCache, I, T, V> newInstance(
-            Publisher publisher, ClientExecutor<I, T, V> client) {
+    public static <I extends Operation.Request, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<SimpleZNodeCache,I,V> newInstance(
+            Publisher publisher, ClientExecutor<I,V> client) {
         return newInstance(publisher, client, SimpleZNodeCache.root());
     }
     
-    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,I,T,V> newInstance(
-            Publisher publisher, ClientExecutor<I, T, V> client, E root) {
+    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,I,V> newInstance(
+            Publisher publisher, ClientExecutor<I,V> client, E root) {
         return newInstance(publisher, client, ZNodeLabelTrie.of(root));
     }
     
-    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,I,T,V> newInstance(
-            Publisher publisher, ClientExecutor<I, T, V> client, ZNodeLabelTrie<E> trie) {
-        return new ZNodeViewCache<E,I,T,V>(publisher, client, trie);
+    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,I,V> newInstance(
+            Publisher publisher, ClientExecutor<I,V> client, ZNodeLabelTrie<E> trie) {
+        return new ZNodeViewCache<E,I,V>(publisher, client, trie);
     }
 
     public static enum View {
@@ -320,28 +318,30 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
     }
     
     // wrapper so that we can apply changes to the cache before our client sees them
-    protected class PromiseWrapper extends ForwardingPromise<Pair<T,V>> {
+    protected class PromiseWrapper extends PromiseTask<I,V> {
 
-        protected final Promise<Pair<T,V>> delegate;
-        
-        protected PromiseWrapper() {
-            this(SettableFuturePromise.<Pair<T,V>>create());
+        protected PromiseWrapper(I task) {
+            this(task, SettableFuturePromise.<V>create());
         }
 
-        protected PromiseWrapper(Promise<Pair<T,V>> delegate) {
-            this.delegate = delegate;
+        protected PromiseWrapper(I task, Promise<V> delegate) {
+            super(task, delegate);
         }
         
         @Override
-        public boolean set(Pair<T,V> result) {
+        public boolean set(V result) {
             if (! isDone()) {
-                handleResult(result);
+                Records.Request request = (Records.Request)
+                        ((task() instanceof Records.Request) ?
+                                task() :
+                                    ((Operation.RecordHolder<?>) task()).getRecord());
+                handleResult(request, result);
             }
             return super.set(result);
         }
         
         @Override
-        protected Promise<Pair<T,V>> delegate() {
+        protected Promise<V> delegate() {
             return delegate;
         }
     }
@@ -349,11 +349,11 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
     protected final Logger logger;
     protected final ZxidTracker lastZxid;
     protected final ZNodeLabelTrie<E> trie;
-    protected final ClientExecutor<? super I, T, V> client;
+    protected final ClientExecutor<? super I, V> client;
     protected final Publisher publisher;
     
     protected ZNodeViewCache(
-            Publisher publisher, ClientExecutor<? super I, T, V> client, ZNodeLabelTrie<E> trie) {
+            Publisher publisher, ClientExecutor<? super I, V> client, ZNodeLabelTrie<E> trie) {
         this.logger = LogManager.getLogger(getClass());
         this.trie = trie;
         this.client = client;
@@ -365,7 +365,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         return lastZxid;
     }
     
-    public ClientExecutor<? super I, T, V> client() {
+    public ClientExecutor<? super I, V> client() {
         return client;
     }
     
@@ -388,13 +388,13 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
     }
 
     @Override
-    public ListenableFuture<Pair<T,V>> submit(I request) {
-        return client.submit(request, new PromiseWrapper());
+    public ListenableFuture<V> submit(I request) {
+        return client.submit(request, new PromiseWrapper(request));
     }
     
     @Override
-    public ListenableFuture<Pair<T,V>> submit(I request, Promise<Pair<T,V>> promise) {
-        return client.submit(request, new PromiseWrapper(promise));
+    public ListenableFuture<V> submit(I request, Promise<V> promise) {
+        return client.submit(request, new PromiseWrapper(request, promise));
     }
 
     public boolean contains(ZNodeLabel.Path path) {
@@ -405,11 +405,10 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         return trie().get(path);
     }
     
-    public void handleResult(Pair<? extends Operation.ProtocolRequest<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> result) {
-        Long zxid = result.second().getZxid();
+    protected void handleResult(Records.Request request, Operation.ProtocolResponse<?> result) {
+        Long zxid = result.getZxid();
         lastZxid.update(zxid);
-        Records.Response response = result.second().getRecord();
-        Records.Request request = result.first().getRecord();
+        Records.Response response = result.getRecord();
         
         if (response instanceof Operation.Error 
                 && (KeeperException.Code.NONODE == ((Operation.Error)response).getError())) {
@@ -521,17 +520,15 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         case MULTI:
         {
             if (! (response instanceof Operation.Error)) {
-                int xid = result.first().getXid();
+                int xid = result.getXid();
                 IMultiRequest requestRecord = (IMultiRequest) request;
                 IMultiResponse responseRecord = (IMultiResponse) response;
                 Iterator<MultiOpRequest> requests = requestRecord.iterator();
                 Iterator<MultiOpResponse> responses = responseRecord.iterator();
                 while (requests.hasNext()) {
                     checkArgument(responses.hasNext());
-                    Pair<ProtocolRequestMessage<Records.Request>, ProtocolResponseMessage<Records.Response>> nestedResult = Pair.create(
-                            ProtocolRequestMessage.of(xid, (Records.Request) requests.next()), 
-                            ProtocolResponseMessage.of(xid, zxid, (Records.Response) responses.next()));
-                    handleResult(nestedResult);
+                     handleResult(requests.next(),
+                            ProtocolResponseMessage.of(xid, zxid, responses.next()));
                 }
             } else {
                 // TODO ?

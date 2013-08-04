@@ -6,7 +6,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Generator;
-import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.Publisher;
@@ -22,8 +21,8 @@ import edu.uw.zookeeper.protocol.server.RequestErrorProcessor;
 import edu.uw.zookeeper.protocol.server.ToTxnRequestProcessor;
 import edu.uw.zookeeper.protocol.server.ZxidIncrementer;
 
-public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionOperation.Request<Records.Request>, SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>,
-        Processors.UncheckedProcessor<SessionOperation.Request<Records.Request>, Pair<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>> {
+public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>,
+        Processors.UncheckedProcessor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> {
 
     public static ZNodeDataTrieExecutor create() {
         return create(
@@ -58,27 +57,26 @@ public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionO
     }
     
     @Override
-    public ListenableFuture<Pair<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>> submit(
+    public ListenableFuture<Message.ServerResponse<Records.Response>> submit(
             SessionOperation.Request<Records.Request> request) {
-        return submit(request, SettableFuturePromise.<Pair<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>>create());
+        return submit(request, SettableFuturePromise.<Message.ServerResponse<Records.Response>>create());
     }
 
     @Override
-    public synchronized ListenableFuture<Pair<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>> submit(
+    public synchronized ListenableFuture<Message.ServerResponse<Records.Response>> submit(
             SessionOperation.Request<Records.Request> request,
-            Promise<Pair<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>> promise) {
-        Pair<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> result = apply(request);
+            Promise<Message.ServerResponse<Records.Response>> promise) {
+        Message.ServerResponse<Records.Response> result = apply(request);
         promise.set(result);
         return promise;
     }
     
     @Override
-    public synchronized Pair<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> apply(SessionOperation.Request<Records.Request> input) {
+    public synchronized Message.ServerResponse<Records.Response> apply(SessionOperation.Request<Records.Request> input) {
         TxnOperation.Request<Records.Request> request = txnProcessor.apply(input);
         Message.ServerResponse<Records.Response> response = ProtocolResponseMessage.of(request.getXid(), request.getZxid(), operator.apply(request));
-        Pair<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> result = Pair.create(input, response);
-        post(result);
-        return result;
+        post(response);
+        return response;
     }
 
     @Override

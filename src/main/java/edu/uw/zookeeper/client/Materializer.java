@@ -13,7 +13,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.Operations;
@@ -26,18 +25,18 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> extends ZNodeViewCache<Materializer.MaterializedNode, Records.Request, T, V> {
+public class Materializer<V extends Operation.ProtocolResponse<Records.Response>> extends ZNodeViewCache<Materializer.MaterializedNode, Records.Request, V> {
 
-    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> Materializer<T,V> newInstance(
+    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> Materializer<V> newInstance(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
             Publisher publisher,
-            ClientExecutor<Operation.Request, T, V> client) {
-        return new Materializer<T,V>(schema, codec, publisher, client);
+            ClientExecutor<? super Records.Request, V> client) {
+        return new Materializer<V>(schema, codec, publisher, client);
     }
     
-    public static <I extends Operation.Request, T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> 
-    ListenableFuture<Pair<T,V>> submit(ClientExecutor<I, T, V> client, I request) {
+    public static <I extends Operation.Request, V extends Operation.ProtocolResponse<Records.Response>> 
+    ListenableFuture<V> submit(ClientExecutor<I, V> client, I request) {
         return client.submit(request);
     }
     
@@ -49,7 +48,7 @@ public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, 
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
             Publisher publisher,
-            ClientExecutor<? super Records.Request, T, V> client) {
+            ClientExecutor<? super Records.Request, V> client) {
         super(publisher, client, ZNodeLabelTrie.of(MaterializedNode.root(schema, codec)));
         this.schema = schema;
         this.codec = codec;
@@ -172,13 +171,13 @@ public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, 
         }
     }
 
-    public class Operator implements Reference<Materializer<T,V>> {
+    public class Operator implements Reference<Materializer<V>> {
         
         public class Submitter<C extends Operations.Builder<? extends Records.Request>> implements Reference<C> {
             protected final C builder;
-            protected final ClientExecutor<? super Records.Request, T, V> client;
+            protected final ClientExecutor<? super Records.Request, V> client;
             
-            public Submitter(C builder, ClientExecutor<? super Records.Request, T, V> client) {
+            public Submitter(C builder, ClientExecutor<? super Records.Request, V> client) {
                 this.builder = builder;
                 this.client = client;
             }
@@ -188,7 +187,7 @@ public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, 
                 return builder;
             }
             
-            public ListenableFuture<Pair<T, V>> submit() {
+            public ListenableFuture<V> submit() {
                 return client.submit(builder.build());
             }
         }
@@ -196,7 +195,7 @@ public class Materializer<T extends Operation.ProtocolRequest<Records.Request>, 
         public Operator() {}
     
         @Override
-        public Materializer<T,V> get() {
+        public Materializer<V> get() {
             return Materializer.this;
         }
     

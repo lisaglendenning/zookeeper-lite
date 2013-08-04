@@ -15,7 +15,6 @@ import edu.uw.zookeeper.client.ZNodeViewCache;
 import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.LoggingPublisher;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.ZxidIncrementer;
 
@@ -30,9 +29,9 @@ public class ZNodeDataTrieTest {
                 ZNodeDataTrie.newInstance(),
                 ZxidIncrementer.fromZero(),
                 LoggingPublisher.create(logger, EventBusPublisher.newInstance()));
-        ZNodeViewCache<?, Records.Request, SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> cache = 
+        ZNodeViewCache<?, Records.Request, Message.ServerResponse<Records.Response>> cache = 
                 ZNodeViewCache.newInstance(executor, SessionClientExecutor.create(1, executor));
-        RandomCacheOperationClient<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> client = RandomCacheOperationClient.create(cache);
+        RandomCacheOperationClient<Message.ServerResponse<Records.Response>> client = RandomCacheOperationClient.create(cache);
         int noperations = 100;
         for (int i=0; i<noperations; ++i) {
             client.call().get();
