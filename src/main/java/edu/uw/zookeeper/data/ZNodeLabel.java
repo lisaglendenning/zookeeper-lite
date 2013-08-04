@@ -368,7 +368,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             }
             int lastSlash = toString().lastIndexOf(SLASH);
             // we are canonicalized
-            assert (lastSlash >= 0) && (lastSlash < length() - 2) : toString();
+            assert (lastSlash >= 0) && (lastSlash < length() - 1) : toString();
             if (lastSlash == 0) {
                 return root();
             }
@@ -387,7 +387,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             }
             int lastSlash = toString().lastIndexOf(SLASH);
             // we are canonicalized
-            assert (lastSlash >= 0) && (lastSlash < length() - 2) : toString();
+            assert (lastSlash >= 0) && (lastSlash < length() - 1) : toString();
             String tail = toString().substring(lastSlash + 1);
             return new Component(tail);
         }
