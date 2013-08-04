@@ -40,9 +40,4 @@ public interface Operation {
     
     public static interface ProtocolResponse<T extends Records.Response> extends Response, RequestId, ResponseId, RecordHolder<T> {
     }
-    
-    public static interface Result<T extends Request, V extends Response> extends Operation {
-        T getRequest();
-        V getResponse();
-    }
 }
