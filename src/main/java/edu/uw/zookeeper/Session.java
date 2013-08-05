@@ -23,6 +23,10 @@ public class Session {
         return new Session(id, parameters);
     }
     
+    public static String toString(long id) {
+        return String.format("0x%s", Long.toHexString(id));
+    }
+    
     private final long id;
     private final Parameters parameters;
 
@@ -45,8 +49,7 @@ public class Session {
 
     @Override
     public String toString() {
-        String idStr = String.format("0x%s", Long.toHexString(id()));
-        return Objects.toStringHelper(this).add("id", idStr)
+        return Objects.toStringHelper(this).add("id", toString(id()))
                 .add("parameters", parameters()).toString();
     }
 

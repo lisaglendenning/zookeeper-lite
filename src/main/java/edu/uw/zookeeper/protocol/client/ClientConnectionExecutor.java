@@ -1,15 +1,19 @@
 package edu.uw.zookeeper.protocol.client;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.google.common.base.Objects;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.AbstractActor;
 import edu.uw.zookeeper.common.Automaton;
@@ -71,7 +75,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     protected final C connection;
     protected final ListenableFuture<ConnectMessage.Response> session;
     protected final AssignXidProcessor xids;
-    protected final ConcurrentLinkedQueue<PendingMessageTask> pending;
+    protected final ConcurrentLinkedQueue<PendingResponseTask> pending;
     
     protected ClientConnectionExecutor(
             ListenableFuture<ConnectMessage.Response> session,
@@ -136,14 +140,29 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     @Subscribe
     public void handleResponse(Message.ServerResponse<Records.Response> message) {
         if (state() != State.TERMINATED) {
-            PendingMessageTask next = pending.peek();
-            if (next != null) {
-                if (next.task().getXid() == message.getXid()) {
-                    pending.remove(next);
-                    next.set(message);
-                }
+            PendingResponseTask next = pending.peek();
+            if ((next != null) && (next.task().getXid() == message.getXid())) {
+                pending.remove(next);
+                next.set(message);
+            } else {
+                logger.debug("{} != {} ({})", next, message, this);
             }
         }
+    }
+    
+    @Override
+    public String toString() {
+        String sessionStr = null;
+        if (session().isDone()) {
+            try {
+                sessionStr = Session.toString(session().get().getSessionId());
+            } catch (CancellationException e) {
+                sessionStr = "cancelled";
+            } catch (Exception e) {
+                sessionStr = e.toString();
+            }
+        }
+        return Objects.toStringHelper(this).add("session", sessionStr).add("connection", get()).toString();
     }
 
     @Override
@@ -158,22 +177,16 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
             }
 
             // mark pings as done on write because ZooKeeper doesn't care about their ordering
-            FutureCallback<Object> callback;
+            MessageTask task;
             if (message.getXid() == OpCodeXid.PING.getXid()) {
-                callback = new SetOnCallbackTask(input);
+                task = new SetOnCallbackTask(message, input);
             } else {
                 // task needs to be in the queue before calling write
-                PendingMessageTask task = new PendingMessageTask(message, input);
-                callback = task;
-                pending.add(task);
+                PendingResponseTask p = new PendingResponseTask(message, input);
+                task = p;
+                pending.add(p);
             }
-            
-            try {
-                ListenableFuture<?> future = get().write(message);
-                Futures.addCallback(future, callback);
-            } catch (Throwable t) {
-                callback.onFailure(t);
-            }
+            task.call();
         }
         
         return super.apply(input);
@@ -193,17 +206,66 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
 
         get().close();
         
-        PendingMessageTask next = null;
+        PendingResponseTask next = null;
         while ((next = pending.poll()) != null) {
             next.cancel(true);
         }
     }
 
-    protected class PendingMessageTask
+    protected abstract class MessageTask
         extends PromiseTask<Message.ClientRequest<?>, Message.ServerResponse<Records.Response>>
-        implements FutureCallback<Object> {
+        implements FutureCallback<Object>, Callable<ListenableFuture<?>> {
 
-        public PendingMessageTask(
+        protected volatile ListenableFuture<?> writeFuture;
+        
+        public MessageTask(
+                Message.ClientRequest<?> task,
+                Promise<Message.ServerResponse<Records.Response>> delegate) {
+            super(task, delegate);
+            this.writeFuture = null;
+        }
+        
+        @Override
+        public ListenableFuture<?> call() {
+            try {
+                writeFuture = ClientConnectionExecutor.this.get().write(task());
+                Futures.addCallback(writeFuture, this);
+            } catch (Throwable t) {
+                onFailure(t);
+            }
+            return writeFuture;
+        }
+        
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning) {
+            boolean doCancel = super.cancel(mayInterruptIfRunning);
+            if (doCancel) {
+                if (writeFuture != null) {
+                    writeFuture.cancel(mayInterruptIfRunning);
+                }
+            }
+            return doCancel;
+        }
+
+        @Override
+        public void onSuccess(Object result) {
+            assert (task() == result);
+        }
+        
+        @Override
+        public void onFailure(Throwable t) {
+            setException(t);
+        }
+        
+        @Override
+        public Promise<Message.ServerResponse<Records.Response>> delegate() {
+            return delegate;
+        }
+    } 
+    
+    protected class PendingResponseTask extends MessageTask {
+
+        public PendingResponseTask(
                 Message.ClientRequest<?> task,
                 Promise<Message.ServerResponse<Records.Response>> delegate) {
             super(task, delegate);
@@ -216,38 +278,26 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         }
         
         @Override
-        public void onSuccess(Object result) {
-            assert (task() == result);
-        }
-        
-        @Override
-        public void onFailure(Throwable t) {
-            setException(t);
-            pending.remove(this);
-        }
-        
-        @Override
-        public Promise<Message.ServerResponse<Records.Response>> delegate() {
-            return delegate;
+        public boolean setException(Throwable t) {
+            boolean doSet = super.setException(t);
+            if (doSet) {
+                pending.remove(this);
+            }
+            return doSet;
         }
     } 
     
-    protected static class SetOnCallbackTask implements FutureCallback<Object> {
+    protected class SetOnCallbackTask extends MessageTask {
 
-        protected final Promise<?> promise;
-        
-        public SetOnCallbackTask(Promise<?> promise) {
-            this.promise = promise;
+        public SetOnCallbackTask(
+                Message.ClientRequest<?> task,
+                Promise<Message.ServerResponse<Records.Response>> delegate) {
+            super(task, delegate);
         }
 
         @Override
         public void onSuccess(Object result) {
-            promise.set(null);
-        }
-
-        @Override
-        public void onFailure(Throwable t) {
-            promise.setException(t);
+            set(null);
         }
     }
 }
