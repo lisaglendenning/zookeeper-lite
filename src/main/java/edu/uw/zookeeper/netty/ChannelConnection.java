@@ -4,20 +4,20 @@ import static com.google.common.base.Preconditions.*;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import java.net.SocketAddress;
-import java.util.Queue;
+import java.nio.channels.ClosedChannelException;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
-import com.google.common.collect.ForwardingQueue;
+import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.common.AbstractActor;
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.ExecutorActor;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.LoggingPublisher;
 import edu.uw.zookeeper.common.Pair;
@@ -74,9 +74,9 @@ public class ChannelConnection<I>
         }
     }
 
+    protected final Logger logger;
     protected final PublisherActor publisher;
     protected final Automaton<Connection.State, Connection.State> state;
-    protected final Logger logger;
     protected final Channel channel;
     protected final OutboundActor outbound;
 
@@ -95,16 +95,16 @@ public class ChannelConnection<I>
     protected <O> void attach(
             Class<I> inputType,
             Codec<I, Optional<O>> codec) {
-        OutboundHandler.attach(get(), inputType, codec, logger);
-        ConnectionStateHandler.attach(get(), state, logger);
-        DecoderHandler.attach(get(), codec, logger);
-        InboundHandler.attach(get(), this);
+        OutboundHandler.attach(channel, inputType, codec, logger);
+        ConnectionStateHandler.attach(channel, state, logger);
+        DecoderHandler.attach(channel, codec, logger);
+        InboundHandler.attach(channel, this);
     }
     
     @Override
     public void execute(Runnable runnable) {
-        if (get().isRegistered()) {
-            get().eventLoop().execute(runnable);
+        if (channel.isRegistered()) {
+            channel.eventLoop().execute(runnable);
         } else {
             executeNow(runnable);
         }
@@ -121,46 +121,40 @@ public class ChannelConnection<I>
 
     @Override
     public State state() {
-        return this.state.state();
+        return state.state();
     }
 
     @Override
     public SocketAddress localAddress() {
-        return get().localAddress();
+        return channel.localAddress();
     }
 
     @Override
     public SocketAddress remoteAddress() {
-        return get().remoteAddress();
+        return channel.remoteAddress();
     }
 
     @Override
     public void read() {
-        get().read();
+        channel.read();
     }
 
     @Override
     public <T extends I> ListenableFuture<T> write(T message) {
-        Promise<T> promise = SettableFuturePromise.create();
-        PromiseTask<T,T> task = PromiseTask.of(message, promise);
-        try {
-            outbound.send(task);
-        } catch (RejectedExecutionException e) {
-            task.cancel(true);
-            throw e;
-        }
+        PromiseTask<T,T> task = PromiseTask.of(message, SettableFuturePromise.<T>create());
+        outbound.send(task);
         return task;
     }
     
     @Override
     public void flush() {
-        get().flush();
+        channel.flush();
     }
 
     @Override
     public ListenableFuture<Connection<I>> close() {
         state.apply(State.CONNECTION_CLOSING);
-        ChannelFuture future = get().close();
+        ChannelFuture future = channel.close();
         ChannelFutureWrapper<Connection<I>> wrapper = ChannelFutureWrapper
                 .of(future, (Connection<I>) this);
         return wrapper;
@@ -186,61 +180,78 @@ public class ChannelConnection<I>
         return Objects.toStringHelper(this)
                 .addValue(get()).toString();
     }
-    
-    protected class OutboundQueue extends ForwardingQueue<PromiseTask<? extends I, ? extends I>> {
 
-        protected final Queue<PromiseTask<? extends I, ? extends I>> delegate;
+    protected class OutboundActor extends ExecutorActor<PromiseTask<? extends I, ? extends I>> {
+
+        protected final ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>> mailbox;
+        protected volatile boolean doFlush;
         
-        public OutboundQueue() {
-            this.delegate = AbstractActor.newQueue();
-        }
-
-        @Override
-        public void clear() {
-            PromiseTask<? extends I, ? extends I> next;
-            while ((next = poll()) != null) {
-                if (! next.isDone()) {
-                    next.cancel(true);
-                }
-            }
-        }
-
-        @Override
-        protected Queue<PromiseTask<? extends I, ? extends I>> delegate() {
-            return delegate;
-        }
-    }
-
-    protected class OutboundActor extends AbstractActor<PromiseTask<? extends I, ? extends I>> {
         public OutboundActor() {
-            super(ChannelConnection.this, new OutboundQueue(), AbstractActor.newState());
+            this.mailbox = new ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>>();
+            this.doFlush = false;
+        }
+        
+        @Override
+        protected ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>> mailbox() {
+            return mailbox;
         }
 
         @Override
-        protected void doRun() throws Exception {
-            super.doRun();
+        protected Executor executor() {
+            return ChannelConnection.this;
+        }
+
+        @Override
+        protected void doRun() {
+            try {
+                super.doRun();
+            } catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
             
-            get().flush();
+            if (doFlush) {
+                doFlush = false;
+                get().flush();
+            }
         }
         
         @SuppressWarnings("unchecked")
         @Override
-        protected boolean apply(PromiseTask<? extends I, ? extends I> input) throws Exception {
-            Connection.State state = ChannelConnection.this.state();
-            switch (state) {
-            case CONNECTION_CLOSING:
-            case CONNECTION_CLOSED:
-                input.setException(new IllegalStateException(state.toString()));
-                break;
-            default:
-                break;
-            }
-            I task = input.task();
+        protected boolean apply(PromiseTask<? extends I, ? extends I> input) {
             if (! input.isDone()) {
-                ChannelFuture future = get().write(task);
-                ChannelFutureWrapper.of(future, task, (Promise<I>) input);
+                if (state() != State.TERMINATED) {
+                    Connection.State state = ChannelConnection.this.state();
+                    switch (state) {
+                        case CONNECTION_CLOSING:
+                        case CONNECTION_CLOSED:
+                        {
+                            input.setException(new ClosedChannelException());
+                            break;
+                        }
+                        default:
+                        {
+                            I task = input.task();
+                            ChannelFuture future = get().write(task);
+                            ChannelFutureWrapper.of(future, task, (Promise<I>) input);
+                            doFlush = true;
+                            break;
+                        }
+                    }
+                } else {
+                    input.cancel(true);
+                }
             }
-            return true;
+            return (state() != State.TERMINATED);
+        }
+        
+        @Override
+        protected void doStop() {
+            PromiseTask<? extends I, ? extends I> next;
+            while ((next = mailbox.poll()) != null) {
+                if (! next.isDone()) {
+                    next.cancel(true);
+                }
+            }
         }
     }
 }

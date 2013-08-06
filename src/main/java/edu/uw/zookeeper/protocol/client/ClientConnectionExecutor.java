@@ -3,11 +3,13 @@ package edu.uw.zookeeper.protocol.client;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -15,8 +17,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.client.ClientExecutor;
-import edu.uw.zookeeper.common.AbstractActor;
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.ExecutorActor;
 import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
@@ -29,10 +31,11 @@ import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.Records;
+import edu.uw.zookeeper.protocol.proto.Records.Response;
 
 
 public class ClientConnectionExecutor<C extends Connection<? super Message.ClientSession>>
-    extends AbstractActor<PromiseTask<Operation.Request, Message.ServerResponse<Records.Response>>>
+    extends ExecutorActor<PromiseTask<Operation.Request, Message.ServerResponse<Records.Response>>>
     implements ClientExecutor<Operation.Request, Message.ServerResponse<Records.Response>>,
         Publisher,
         Reference<C> {
@@ -42,52 +45,48 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
             C connection) {
         return newInstance(
                 request,
-                connection,
                 AssignXidProcessor.newInstance(),
                 connection);
     }
 
     public static <C extends Connection<? super Message.ClientSession>> ClientConnectionExecutor<C> newInstance(
             ConnectMessage.Request request,
-            Executor executor,
             AssignXidProcessor xids,
             C connection) {
         return newInstance(
                 ConnectTask.create(connection, request),
-                executor,
                 xids,
                 connection);
     }
 
     public static <C extends Connection<? super Message.ClientSession>> ClientConnectionExecutor<C> newInstance(
             ListenableFuture<ConnectMessage.Response> session,
-            Executor executor,
             AssignXidProcessor xids,
             C connection) {
         return new ClientConnectionExecutor<C>(
                 session,
-                connection,
                 xids,
-                executor);
+                connection);
     }
     
     protected final Logger logger;
     protected final C connection;
     protected final ListenableFuture<ConnectMessage.Response> session;
     protected final AssignXidProcessor xids;
+    protected final ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<Response>>> mailbox;
     protected final ConcurrentLinkedQueue<PendingResponseTask> pending;
     
     protected ClientConnectionExecutor(
             ListenableFuture<ConnectMessage.Response> session,
-            C connection,
             AssignXidProcessor xids,
-            Executor executor) {
-        super(executor, AbstractActor.<PromiseTask<Operation.Request, Message.ServerResponse<Records.Response>>>newQueue(), AbstractActor.newState());
+            C connection) {
+        super();
         this.logger = LogManager.getLogger(getClass());
         this.connection = connection;
         this.xids = xids;
         this.session = session;
-        this.pending = AbstractActor.newQueue();
+        this.pending = new ConcurrentLinkedQueue<PendingResponseTask>();
+        this.mailbox = new ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<Response>>>();
                 
         connection.register(this);
     }
@@ -117,17 +116,17 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
 
     @Override
     public void register(Object object) {
-        get().register(object);
+        connection.register(object);
     }
 
     @Override
     public void unregister(Object object) {
-        get().unregister(object);
+        connection.unregister(object);
     }
 
     @Override
     public void post(Object object) {
-        get().post(object);
+        connection.post(object);
     }
 
     @Subscribe
@@ -166,49 +165,66 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
 
     @Override
-    protected boolean apply(PromiseTask<Operation.Request, Message.ServerResponse<Records.Response>> input) throws Exception {
-        if ((state() != State.TERMINATED) && ! input.isDone()) {
-            Message.ClientRequest<?> message;
-            try { 
-                message = (Message.ClientRequest<?>) xids.apply(input.task());
-            } catch (Throwable t) {
-                input.setException(t);
-                return super.apply(input);
-            }
-
-            // mark pings as done on write because ZooKeeper doesn't care about their ordering
-            MessageTask task;
-            if (message.getXid() == OpCodeXid.PING.getXid()) {
-                task = new SetOnCallbackTask(message, input);
-            } else {
-                // task needs to be in the queue before calling write
-                PendingResponseTask p = new PendingResponseTask(message, input);
-                task = p;
-                pending.add(p);
-            }
-            task.call();
-        }
-        
-        return super.apply(input);
+    protected Executor executor() {
+        return connection;
     }
 
     @Override
-    protected void doStop() {
-        super.doStop();
+    protected ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<Response>>> mailbox() {
+        return mailbox;
+    }
+
+    @Override
+    protected boolean apply(PromiseTask<Operation.Request, Message.ServerResponse<Records.Response>> input) {
+        if (! input.isDone()) {
+            if (state() != State.TERMINATED) {
+                Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
+    
+                // mark pings as done on write because ZooKeeper doesn't care about their ordering
+                MessageTask task;
+                if (message.getXid() == OpCodeXid.PING.getXid()) {
+                    task = new SetOnCallbackTask(message, input);
+                } else {
+                    // task needs to be in the queue before calling write
+                    PendingResponseTask p = new PendingResponseTask(message, input);
+                    task = p;
+                    pending.add(p);
+                }
+                task.call();
+            } else {
+                input.cancel(true);
+            }
+        }
+        
+        return (state() != State.TERMINATED);
+    }
+
+    @Override
+    protected void doStop() {        
+        try {
+            connection.unregister(this);
+        } catch (Exception e) {}
         
         if (! session.isDone()) {
             session.cancel(true);
         }
+
+        PromiseTask<Operation.Request, Message.ServerResponse<Records.Response>> request;
+        while ((request = mailbox.poll()) != null) {
+            request.cancel(true);
+        }
+
+        PendingResponseTask task;
+        while ((task = pending.poll()) != null) {
+            task.cancel(true);
+        }
         
         try {
-            get().unregister(this);
-        } catch (IllegalArgumentException e) {}
-
-        get().close();
-        
-        PendingResponseTask next = null;
-        while ((next = pending.poll()) != null) {
-            next.cancel(true);
+            connection.close().get();
+        } catch (InterruptedException e) {
+            throw Throwables.propagate(e);
+        } catch (ExecutionException e) {
+            logger.debug("Ignoring {}", e);
         }
     }
 

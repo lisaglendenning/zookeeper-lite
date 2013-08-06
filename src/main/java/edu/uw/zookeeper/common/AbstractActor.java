@@ -1,10 +1,7 @@
 package edu.uw.zookeeper.common;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.common.base.Throwables;
@@ -12,36 +9,23 @@ import com.google.common.base.Throwables;
 
 public abstract class AbstractActor<I> implements Actor<I> {
     
-    public static <I> ConcurrentLinkedQueue<I> newQueue() {
-        return new ConcurrentLinkedQueue<I>();
-    }
-    
-    public static AtomicReference<State> newState() {
-        return new AtomicReference<State>(State.WAITING);
-    }
-    
     protected final AtomicReference<State> state;
-    protected final Queue<I> mailbox;
-    protected final Executor executor;
     
-    protected AbstractActor(
-            Executor executor, 
-            Queue<I> mailbox,
-            AtomicReference<State> state) {
-        this.executor = checkNotNull(executor);
-        this.mailbox = checkNotNull(mailbox);
-        this.state = checkNotNull(state);
+    protected AbstractActor() {
+        this.state = new AtomicReference<State>(State.WAITING);
     }
+    
+    protected abstract Queue<I> mailbox();
     
     @Override
     public void send(I message) {
         if (state() == State.TERMINATED) {
-            throw new IllegalStateException(State.TERMINATED.toString());
+            throw new RejectedExecutionException(State.TERMINATED.toString());
         } else {
-            mailbox.add(message);
+            mailbox().add(message);
             if (! schedule() && (state() == State.TERMINATED)) {
-                mailbox.remove(message);
-                throw new IllegalStateException(State.TERMINATED.toString());
+                mailbox().remove(message);
+                throw new RejectedExecutionException(State.TERMINATED.toString());
             }
         }
     }
@@ -74,7 +58,7 @@ public abstract class AbstractActor<I> implements Actor<I> {
 
     protected void doRun() throws Exception {
         I next;
-        while ((next = mailbox.poll()) != null) {
+        while ((next = mailbox().poll()) != null) {
             if (! apply(next)) {
                 break;
             }
@@ -82,12 +66,12 @@ public abstract class AbstractActor<I> implements Actor<I> {
     }
 
     protected boolean apply(I input) throws Exception {
-        return (State.TERMINATED != state());
+        return (state() != State.TERMINATED);
     }
 
     protected void runExit() {
         if (state.compareAndSet(State.RUNNING, State.WAITING)) {
-            if (! mailbox.isEmpty()) {
+            if (! mailbox().isEmpty()) {
                 schedule();
             }
         }
@@ -95,27 +79,27 @@ public abstract class AbstractActor<I> implements Actor<I> {
 
     @Override
     public boolean stop() {
-        boolean stopped = (state.get() != State.TERMINATED)
+        boolean stop = (state() != State.TERMINATED)
                 && (state.getAndSet(State.TERMINATED) != State.TERMINATED);
-        if (stopped) {
+        if (stop) {
             doStop();
         }
-        return stopped;
+        return stop;
     }
     
     protected void doStop() {
-        mailbox.clear();
+        mailbox().clear();
     }
 
-    public boolean schedule() {
-        boolean scheduled = state.compareAndSet(State.WAITING, State.SCHEDULED);
-        if (scheduled) {
+    protected boolean schedule() {
+        boolean schedule = state.compareAndSet(State.WAITING, State.SCHEDULED);
+        if (schedule) {
             doSchedule();
         }
-        return scheduled;
+        return schedule;
     }
     
     protected void doSchedule() {
-        executor.execute(this);
+        run();
     }
 }

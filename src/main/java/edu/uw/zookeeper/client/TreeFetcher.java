@@ -18,7 +18,6 @@ import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
-import edu.uw.zookeeper.common.AbstractActor;
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Processor;
@@ -294,7 +293,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<Records.Response>,
         
         public TreeFetcherActor(
                 Promise<V> promise) {
-            this.state = AbstractActor.newState();
+            this.state = new AtomicReference<State>(State.WAITING);
             this.result = new Result(TreeFetcher.this.result, promise);
             this.pending = Collections.synchronizedSet(Sets.<Pending>newHashSet());
             ImmutableList.Builder<Operations.PathBuilder<? extends Records.Request, ?>> builders = ImmutableList.builder();

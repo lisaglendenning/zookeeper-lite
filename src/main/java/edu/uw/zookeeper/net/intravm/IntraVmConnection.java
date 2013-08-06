@@ -75,7 +75,7 @@ public class IntraVmConnection<T extends SocketAddress> implements Connection<Ob
             break;
         }
         
-        localEndpoint.schedule();
+        localEndpoint.run();
     }
 
     @Override
@@ -100,7 +100,7 @@ public class IntraVmConnection<T extends SocketAddress> implements Connection<Ob
 
     @Override
     public void flush() {
-        remoteEndpoint.schedule();
+        remoteEndpoint.run();
     }
 
     @Override

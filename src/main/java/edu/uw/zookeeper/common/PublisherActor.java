@@ -1,12 +1,13 @@
 package edu.uw.zookeeper.common;
 
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.RejectedExecutionException;
 
 import com.google.common.base.Throwables;
 
-public class PublisherActor extends AbstractActor<Object> implements Publisher, Reference<Publisher> {
+public class PublisherActor extends ExecutorActor<Object> implements Publisher, Reference<Publisher> {
 
     public static PublisherActor newInstance(
             Publisher publisher,
@@ -14,19 +15,21 @@ public class PublisherActor extends AbstractActor<Object> implements Publisher, 
         return new PublisherActor(
                 publisher,
                 executor,
-                newQueue(), 
-                newState());
+                new ConcurrentLinkedQueue<Object>());
     }
 
+    protected final Executor executor;
+    protected final Queue<Object> mailbox;
     protected final Publisher publisher;
     
     public PublisherActor(
             Publisher publisher,
             Executor executor, 
-            Queue<Object> mailbox,
-            AtomicReference<State> state) {
-        super(executor, mailbox, state);
+            Queue<Object> mailbox) {
+        super();
         this.publisher = publisher;
+        this.mailbox = mailbox;
+        this.executor = executor;
     }
 
     @Override
@@ -37,13 +40,9 @@ public class PublisherActor extends AbstractActor<Object> implements Publisher, 
     @Override
     public void post(Object event) {
         try {
-            try {
-                send(event);
-            } catch (IllegalStateException e) {
-                flush(event);
-            }
-        } catch (Exception e) {
-            throw Throwables.propagate(e);
+            send(event);
+        } catch (RejectedExecutionException e) {
+            flush(event);
         }
     }
     
@@ -58,14 +57,23 @@ public class PublisherActor extends AbstractActor<Object> implements Publisher, 
     }
     
     @Override
-    public synchronized void doRun() throws Exception {
-        super.doRun();
+    public synchronized void doRun() {
+        try {
+            super.doRun();
+        } catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     @Override
-    protected boolean apply(Object input) {
+    protected synchronized boolean apply(Object input) {
         get().post(input);
         return true;
+    }
+
+    protected synchronized void flush(Object input) {
+        doRun();
+        apply(input);
     }
 
     @Override
@@ -78,8 +86,13 @@ public class PublisherActor extends AbstractActor<Object> implements Publisher, 
         }
     }
     
-    protected synchronized void flush(Object input) throws Exception {
-        doRun();
-        apply(input);
+    @Override
+    protected Queue<Object> mailbox() {
+        return mailbox;
+    }
+
+    @Override
+    protected Executor executor() {
+        return executor;
     }
 }

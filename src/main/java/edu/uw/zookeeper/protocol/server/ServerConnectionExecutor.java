@@ -1,23 +1,21 @@
 package edu.uw.zookeeper.protocol.server;
 
-import java.util.Queue;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import org.apache.zookeeper.KeeperException;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.ForwardingQueue;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.common.AbstractActor;
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.ExecutorActor;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Promise;
@@ -46,7 +44,7 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
             TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
         return new ServerConnectionExecutor<C,T>(
-                connection, connection, connection, anonymousExecutor, connectExecutor, sessionExecutor);
+                connection, anonymousExecutor, connectExecutor, sessionExecutor);
     }
     
     public static <C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> ParameterizedFactory<T, ServerConnectionExecutor<C,T>> factory(
@@ -76,8 +74,6 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
     protected final Promise<ConnectMessage.Response> session;
     
     public ServerConnectionExecutor(
-            Publisher publisher,
-            Executor executor,
             T connection,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
@@ -88,8 +84,8 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
         this.connectExecutor = connectExecutor;
         this.sessionExecutor = sessionExecutor;
         this.session = SettableFuturePromise.create();
-        this.outbound = new OutboundActor(publisher, executor);
-        this.inbound = new InboundActor(executor);
+        this.outbound = new OutboundActor();
+        this.inbound = new InboundActor();
     }
 
     public ListenableFuture<ConnectMessage.Response> session() {
@@ -145,69 +141,29 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
             } catch (Exception e) {}
         }
         return Objects.toStringHelper(this)
-                .add("session", String.format("0x%08x", sessionId))
+                .add("session", Session.toString(sessionId))
                 .add("connection", get())
                 .toString();
     }
-    
-    protected static class ThrottlableMailbox<T> extends ForwardingQueue<T> {
-    
-        public static <T> ThrottlableMailbox<T> newInstance() {
-            return new ThrottlableMailbox<T>(AbstractActor.<T>newQueue());
-        }
-        
-        protected final Queue<T> delegate;
-        protected volatile boolean throttled;
-        
-        public ThrottlableMailbox(Queue<T> delegate) {
-            this.delegate = delegate;
-            this.throttled = false;
-        }
-        
-        public boolean throttled() {
-            return throttled;
-        }
-        
-        public void throttle(boolean throttled) {
-            this.throttled = throttled;
-        }
-    
-        @Override
-        public Queue<T> delegate() {
-            return delegate;
-        }
-        
-        @Override
-        public T poll() {
-            return throttled ? null : super.poll();
-        }
-    
-        @Override
-        public T peek() {
-            return throttled ? null : super.peek();
-        }
-        
-        @Override
-        public boolean isEmpty() {
-            return (peek() == null);
-        }
-    }
 
-    protected class InboundActor extends AbstractActor<Message.Client> 
+    protected class InboundActor extends ExecutorActor<Message.Client> 
             implements FutureCallback<Object> {
     
-        public InboundActor(Executor executor) {
-            super(executor, 
-                    ThrottlableMailbox.<Message.Client>newInstance(), 
-                    newState());
-    
+        protected final ConcurrentLinkedQueue<Message.Client> mailbox;
+        protected volatile boolean throttled;
+        
+        public InboundActor() {
+            super();
+            this.mailbox = new ConcurrentLinkedQueue<Message.Client>();
+            this.throttled = false;
+            
             connection.register(this);
         }
         
         public void throttle(boolean throttled) {
-            ((ThrottlableMailbox<?>) mailbox).throttle(throttled);
+            this.throttled = throttled;
             if (! throttled) {
-                schedule();
+                run();
             }
         }
     
@@ -253,9 +209,28 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
         public void send(Message.Client message) {
             super.send(message);
         }
+        
+        @Override
+        protected boolean schedule() {
+            if (throttled) {
+                return false;
+            } else {
+                return super.schedule();
+            }
+        }
+        
+        @Override
+        protected void doRun() {
+            Message.Client next;
+            while (!throttled && ((next = mailbox.poll()) != null)) {
+                if (! apply(next)) {
+                    break;
+                }
+            }
+        }
     
         @Override
-        protected boolean apply(Message.Client input) throws InterruptedException, ExecutionException {
+        protected boolean apply(Message.Client input) {
             // ordering constraint: requests are submitted in the same
             // order that they are received
             if (input instanceof FourLetterRequest) {
@@ -266,27 +241,44 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
             } else {
                 @SuppressWarnings("unchecked")
                 Message.ClientRequest<Records.Request> request = (Message.ClientRequest<Records.Request>) input;
-                long sessionId = session().get().getSessionId();
+                long sessionId = Futures.getUnchecked(session()).getSessionId();
                 Futures.addCallback(sessionExecutor.submit(SessionRequest.of(sessionId, request, request)), this);
             }
-            return true;
+            
+            return (state() != State.TERMINATED);
         }
     
         @Override
         protected void doStop() {
             try {
                 connection.unregister(this);
-            } catch (IllegalArgumentException e) {}
+            } catch (Exception e) {}
             
-            super.doStop();
+            if (logger.isDebugEnabled()) {
+                Message.Client request;
+                while ((request = mailbox.poll()) != null) {
+                    logger.debug("DROPPING {} ({})", request, ServerConnectionExecutor.this);
+                }
+            }
+            mailbox.clear();
+        }
+
+        @Override
+        protected Executor executor() {
+            return connection;
+        }
+
+        @Override
+        protected ConcurrentLinkedQueue<Message.Client> mailbox() {
+            return mailbox;
         }
     }
 
     protected class OutboundActor extends PublisherActor 
         implements FutureCallback<Object> {
     
-        public OutboundActor(Publisher publisher, Executor executor) {
-            super(publisher, executor, AbstractActor.<Object>newQueue(), AbstractActor.newState());
+        public OutboundActor() {
+            super(connection, connection, new ConcurrentLinkedQueue<Object>());
         }
 
         @Override
@@ -313,7 +305,7 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
                     }
                     break;
                 default:
-                    logger.debug("Dropping {} ({})", input, ServerConnectionExecutor.this);
+                    logger.debug("DROPPING {} ({})", input, ServerConnectionExecutor.this);
                     break;
                 }
             } else if (Session.State.SESSION_EXPIRED == input) {
@@ -331,7 +323,6 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
             case CONNECTION_OPENING:
             case CONNECTION_OPENED:
             {
-                logger.debug("Closing {}", ServerConnectionExecutor.this);
                 connection.close();
                 break;
             }

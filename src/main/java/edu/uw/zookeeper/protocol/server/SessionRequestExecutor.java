@@ -1,6 +1,8 @@
 package edu.uw.zookeeper.protocol.server;
 
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
 import org.apache.logging.log4j.Logger;
@@ -8,17 +10,20 @@ import org.apache.logging.log4j.LogManager;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.common.AbstractActor;
+import edu.uw.zookeeper.common.ExecutorActor;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Message.ServerResponse;
 import edu.uw.zookeeper.protocol.SessionOperation;
+import edu.uw.zookeeper.protocol.SessionOperation.Request;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
+import edu.uw.zookeeper.protocol.proto.Records.Response;
 
-public class SessionRequestExecutor extends AbstractActor<PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>> implements TaskExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> {
+public class SessionRequestExecutor extends ExecutorActor<PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>> implements TaskExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> {
 
     public static SessionRequestExecutor newInstance(
             Executor executor,
@@ -28,6 +33,8 @@ public class SessionRequestExecutor extends AbstractActor<PromiseTask<SessionOpe
     }
     
     protected final Logger logger;
+    protected final Executor executor;
+    protected final ConcurrentLinkedQueue<PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>> mailbox;
     protected final Processor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> processor;
     protected final Map<Long, Publisher> listeners;
     
@@ -35,8 +42,10 @@ public class SessionRequestExecutor extends AbstractActor<PromiseTask<SessionOpe
             Executor executor,
             Map<Long, Publisher> listeners,
             Processor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> processor) {
-        super(executor, AbstractActor.<PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>>newQueue(), AbstractActor.newState());
+        super();
         this.logger = LogManager.getLogger(getClass());
+        this.executor = executor;
+        this.mailbox = new ConcurrentLinkedQueue<PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>>();
         this.listeners = listeners;
         this.processor = processor;
     }
@@ -49,27 +58,40 @@ public class SessionRequestExecutor extends AbstractActor<PromiseTask<SessionOpe
     }
 
     @Override
-    protected boolean apply(PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> input) throws Exception {
-        boolean running = super.apply(input);
-        if (running && !input.isDone()) {
-            try {
-                if (logger.isDebugEnabled()) {
-                    logger.debug("Executing {}", input.task());
+    protected Queue<PromiseTask<Request<edu.uw.zookeeper.protocol.proto.Records.Request>, ServerResponse<Response>>> mailbox() {
+        return mailbox;
+    }
+
+    @Override
+    protected Executor executor() {
+        return executor;
+    }
+
+    @Override
+    protected boolean apply(PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> input) {
+        if (! input.isDone()) {
+            if (state() != State.TERMINATED) {
+                try {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Executing {}", input.task());
+                    }
+                    Message.ServerResponse<Records.Response> response = processor.apply(input.task());
+                    Publisher listener = listeners.get(input.task().getSessionId());
+                    if (OpCode.CLOSE_SESSION == response.getRecord().getOpcode()) {
+                        listeners.remove(input.task().getSessionId());
+                    }
+                    if (listener != null) {
+                        listener.post(response);
+                    }
+                    input.set(response);
+                } catch (Exception e) {
+                    input.setException(e);
                 }
-                Publisher listener = listeners.get(input.task().getSessionId());
-                Message.ServerResponse<Records.Response> response = processor.apply(input.task());
-                if (OpCode.CLOSE_SESSION == response.getRecord().getOpcode()) {
-                    listeners.remove(input.task().getSessionId());
-                }
-                if (listener != null) {
-                    listener.post(response);
-                }
-                input.set(response);
-            } catch (Exception e) {
-                input.setException(e);
+            } else {
+                input.cancel(true);
             }
         }
-        return running;
+        return (state() != State.TERMINATED);
     }
 
     @Override

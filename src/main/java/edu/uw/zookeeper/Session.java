@@ -24,7 +24,7 @@ public class Session {
     }
     
     public static String toString(long id) {
-        return String.format("0x%s", Long.toHexString(id));
+        return String.format("0x%08x", id);
     }
     
     private final long id;

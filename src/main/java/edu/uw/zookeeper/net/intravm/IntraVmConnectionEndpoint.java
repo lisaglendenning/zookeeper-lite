@@ -1,6 +1,8 @@
 package edu.uw.zookeeper.net.intravm;
 
 import java.net.SocketAddress;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
 import org.apache.logging.log4j.Logger;
@@ -10,7 +12,8 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.common.AbstractActor;
+import edu.uw.zookeeper.common.ExecutorActor;
+import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.LoggingPublisher;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.Publisher;
@@ -18,33 +21,39 @@ import edu.uw.zookeeper.common.PublisherActor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Logging;
 
-public class IntraVmConnectionEndpoint<T extends SocketAddress> extends AbstractActor<Optional<Object>> implements Publisher, Executor {
+public class IntraVmConnectionEndpoint<T extends SocketAddress> extends ExecutorActor<Optional<Object>> implements Publisher, Executor {
 
     public static <T extends SocketAddress> IntraVmConnectionEndpoint<T> create(
             T address,
             Publisher publisher,
             Executor executor) {
-        return new IntraVmConnectionEndpoint<T>(address, publisher, executor);
+        return new IntraVmConnectionEndpoint<T>(address, publisher, executor, new ConcurrentLinkedQueue<Optional<Object>>());
     }
     
     protected final Logger logger;
+    protected final Executor executor;
+    protected final Queue<Optional<Object>> mailbox;
     protected final PublisherActor publisher;
     protected final T address;
-    protected final Promise<Void> stopped;
+    protected final Promise<IntraVmConnectionEndpoint<T>> stopped;
     
     public IntraVmConnectionEndpoint(
             T address,
             Publisher publisher,
-            Executor executor) {
-        super(executor, AbstractActor.<Optional<Object>>newQueue(), newState());
+            Executor executor,
+            Queue<Optional<Object>> mailbox) {
+        super();
         this.logger = LogManager.getLogger(getClass());
+        this.executor = executor;
+        this.mailbox = mailbox;
         this.address = address;
         this.publisher = PublisherActor.newInstance(
                 LoggingPublisher.create(logger, publisher, this), executor);
-        this.stopped = SettableFuturePromise.create();
+        this.stopped = LoggingPromise.create(
+                logger, SettableFuturePromise.<IntraVmConnectionEndpoint<T>>create());
     }
     
-    public ListenableFuture<Void> stopped() {
+    public ListenableFuture<IntraVmConnectionEndpoint<T>> stopped() {
         return stopped;
     }
     
@@ -73,24 +82,34 @@ public class IntraVmConnectionEndpoint<T extends SocketAddress> extends Abstract
     }
 
     @Override
-    protected boolean apply(Optional<Object> input) throws Exception {
-        boolean running = super.apply(input);
-        if (running) {
+    public String toString() {
+        return Objects.toStringHelper(this).addValue(address()).toString();
+    }
+
+    @Override
+    protected boolean apply(Optional<Object> input) {
+        if (state() != State.TERMINATED) {
             if (input.isPresent()) {
                 Object message = input.get();
                 post(message);
+                return true;
             } else {
                 stop();
-                running = false;
+                return false;
             }
+        } else {
+            if (input.isPresent()) {
+                logger.trace(Logging.NET_MARKER, "DROPPING {}", input.get());
+            }
+            return false;
         }
-        return running;
     }
 
     @Override
     protected void doStop() {
         if (logger.isTraceEnabled()) {
-            for (Object next: mailbox.toArray()) {
+            Object next;
+            while ((next = mailbox.poll()) != null) {
                 logger.trace(Logging.NET_MARKER, "DROPPING {}", next);
             }
         }
@@ -98,11 +117,20 @@ public class IntraVmConnectionEndpoint<T extends SocketAddress> extends Abstract
 
         publisher.stop();
         
-        stopped.set(null);
+        stopped.set(this);
     }
     
     @Override
-    public String toString() {
-        return Objects.toStringHelper(this).addValue(address()).toString();
+    protected Executor executor() {
+        return executor;
+    }
+
+    @Override
+    protected Queue<Optional<Object>> mailbox() {
+        return mailbox;
+    }
+    
+    protected Publisher publisher() {
+        return publisher;
     }
 }
