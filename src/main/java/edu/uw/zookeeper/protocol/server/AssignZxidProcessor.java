@@ -41,6 +41,7 @@ public class AssignZxidProcessor implements
         case MULTI:
         case CREATE_SESSION:
         case CLOSE_SESSION:
+        case ERROR:
             zxid = next();
             break;
         default:
