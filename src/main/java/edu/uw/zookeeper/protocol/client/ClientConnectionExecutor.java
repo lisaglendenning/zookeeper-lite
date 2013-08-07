@@ -139,12 +139,18 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     @Subscribe
     public void handleResponse(Message.ServerResponse<Records.Response> message) {
         if (state() != State.TERMINATED) {
+            int xid = message.getXid();
             PendingResponseTask next = pending.peek();
-            if ((next != null) && (next.getXid() == message.getXid())) {
+            if ((next != null) && (next.getXid() == xid)) {
                 pending.remove(next);
                 next.set(message);
             } else {
-                logger.debug("{} != {} ({})", next, message, this);
+                if (logger.isDebugEnabled()) {
+                    if (! ((xid == OpCodeXid.PING.getXid()) || (xid == OpCodeXid.NOTIFICATION.getXid()))) {
+                        // FIXME is this an error?
+                        logger.debug("{} != {} ({})", next, message, this);
+                    }
+                }
             }
         }
     }
