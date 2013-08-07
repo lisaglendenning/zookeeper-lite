@@ -12,11 +12,11 @@ import edu.uw.zookeeper.protocol.Operation;
 // These are hardcoded in various places in zookeeper code...
 public enum OpCodeXid implements Operation.Coded, Operation.RequestId {
     // response only
-    NOTIFICATION(-1, OpCode.NOTIFICATION), // zxid is -1?
+    NOTIFICATION(-1, OpCode.NOTIFICATION), // zxid is -1
     // request and response
     PING(-2, OpCode.PING), // zxid is lastZxid
     // request and response
-    AUTH(-4, OpCode.AUTH), // zxid is 0
+    AUTH(-4, OpCode.AUTH), // zxid is 0?
     // request and response
     SET_WATCHES(-8, OpCode.SET_WATCHES); // zxid is lastZxid
 

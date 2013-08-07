@@ -28,6 +28,9 @@ public class AssignZxidProcessor implements
     public Long apply(OpCode input) {
         Long zxid;
         switch (input) {
+        case NOTIFICATION:
+            zxid = -1L;
+            break;
         case CREATE:
         case CREATE2:
         case DELETE:
