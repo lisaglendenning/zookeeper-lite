@@ -140,7 +140,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     public void handleResponse(Message.ServerResponse<Records.Response> message) {
         if (state() != State.TERMINATED) {
             PendingResponseTask next = pending.peek();
-            if ((next != null) && (next.task().getXid() == message.getXid())) {
+            if ((next != null) && (next.getXid() == message.getXid())) {
                 pending.remove(next);
                 next.set(message);
             } else {
@@ -241,6 +241,10 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
             this.writeFuture = null;
         }
         
+        public int getXid() {
+            return task().getXid();
+        }
+        
         @Override
         public ListenableFuture<?> call() {
             try {
@@ -289,7 +293,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
 
         @Override
         public boolean set(Message.ServerResponse<Records.Response> result) {
-            assert (task.getXid() == result.getXid());
+            assert (getXid() == result.getXid());
             return super.set(result);
         }
         
