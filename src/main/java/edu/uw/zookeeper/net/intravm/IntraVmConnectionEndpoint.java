@@ -98,8 +98,10 @@ public class IntraVmConnectionEndpoint<T extends SocketAddress> extends Executor
                 return false;
             }
         } else {
-            if (input.isPresent()) {
-                logger.trace(Logging.NET_MARKER, "DROPPING {}", input.get());
+            if (logger.isTraceEnabled()) {
+                if (input.isPresent()) {
+                    logger.trace(Logging.NET_MARKER, "DROPPING {}", input.get());
+                }
             }
             return false;
         }
@@ -108,9 +110,11 @@ public class IntraVmConnectionEndpoint<T extends SocketAddress> extends Executor
     @Override
     protected void doStop() {
         if (logger.isTraceEnabled()) {
-            Object next;
+            Optional<Object> next;
             while ((next = mailbox.poll()) != null) {
-                logger.trace(Logging.NET_MARKER, "DROPPING {}", next);
+                if (next.isPresent()) {
+                    logger.trace(Logging.NET_MARKER, "DROPPING {}", next.get());
+                }
             }
         }
         mailbox.clear();

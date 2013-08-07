@@ -162,8 +162,7 @@ public class IntraVmConnection<T extends SocketAddress> implements Connection<Ob
                 }
             } catch (Exception e) {}
             
-            if (Actor.State.TERMINATED == localEndpoint.state()) {
-                state.apply(Connection.State.CONNECTION_CLOSED);
+            if (localEndpoint.stopped().isDone()) {
                 if (! isDone()) {
                     try {
                         localEndpoint.stopped().get();
@@ -172,6 +171,9 @@ public class IntraVmConnection<T extends SocketAddress> implements Connection<Ob
                         setException(e);
                     }
                 }
+                state.apply(Connection.State.CONNECTION_CLOSED);
+            } else {
+                localEndpoint.stopped().addListener(this, IntraVmConnection.this);
             }
         }
     }
