@@ -30,13 +30,11 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
-import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.protocol.proto.Records.Response;
 
 
 public class ClientConnectionExecutor<C extends Connection<? super Message.ClientSession>>
-    extends ExecutorActor<PromiseTask<Operation.Request, Message.ServerResponse<Records.Response>>>
-    implements ClientExecutor<Operation.Request, Message.ServerResponse<Records.Response>>,
+    extends ExecutorActor<PromiseTask<Operation.Request, Message.ServerResponse<?>>>
+    implements ClientExecutor<Operation.Request, Message.ServerResponse<?>>,
         Publisher,
         Reference<C> {
 
@@ -73,7 +71,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     protected final C connection;
     protected final ListenableFuture<ConnectMessage.Response> session;
     protected final AssignXidProcessor xids;
-    protected final ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<Response>>> mailbox;
+    protected final ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<?>>> mailbox;
     protected final ConcurrentLinkedQueue<PendingResponseTask> pending;
     
     protected ClientConnectionExecutor(
@@ -86,7 +84,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         this.xids = xids;
         this.session = session;
         this.pending = new ConcurrentLinkedQueue<PendingResponseTask>();
-        this.mailbox = new ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<Response>>>();
+        this.mailbox = new ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<?>>>();
                 
         connection.register(this);
     }
@@ -101,14 +99,14 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
     
     @Override
-    public ListenableFuture<Message.ServerResponse<Records.Response>> submit(Operation.Request request) {
-        return submit(request, SettableFuturePromise.<Message.ServerResponse<Records.Response>>create());
+    public ListenableFuture<Message.ServerResponse<?>> submit(Operation.Request request) {
+        return submit(request, SettableFuturePromise.<Message.ServerResponse<?>>create());
     }
 
     @Override
-    public ListenableFuture<Message.ServerResponse<Records.Response>> submit(
-            Operation.Request request, Promise<Message.ServerResponse<Records.Response>> promise) {
-        PromiseTask<Operation.Request, Message.ServerResponse<Records.Response>> task = 
+    public ListenableFuture<Message.ServerResponse<?>> submit(
+            Operation.Request request, Promise<Message.ServerResponse<?>> promise) {
+        PromiseTask<Operation.Request, Message.ServerResponse<?>> task = 
                 PromiseTask.of(request, LoggingPromise.create(logger, promise));
         send(task);
         return task;
@@ -137,7 +135,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
 
     @Subscribe
-    public void handleResponse(Message.ServerResponse<Records.Response> message) {
+    public void handleResponse(Message.ServerResponse<?> message) {
         if (state() != State.TERMINATED) {
             int xid = message.getXid();
             if (! ((xid == OpCodeXid.PING.getXid()) || (xid == OpCodeXid.NOTIFICATION.getXid()))) {
@@ -174,12 +172,12 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
 
     @Override
-    protected ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<Response>>> mailbox() {
+    protected ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<?>>> mailbox() {
         return mailbox;
     }
 
     @Override
-    protected boolean apply(PromiseTask<Operation.Request, Message.ServerResponse<Records.Response>> input) {
+    protected boolean apply(PromiseTask<Operation.Request, Message.ServerResponse<?>> input) {
         if (! input.isDone()) {
             if (state() != State.TERMINATED) {
                 Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
@@ -213,7 +211,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
             session.cancel(true);
         }
 
-        PromiseTask<Operation.Request, Message.ServerResponse<Records.Response>> request;
+        PromiseTask<Operation.Request, Message.ServerResponse<?>> request;
         while ((request = mailbox.poll()) != null) {
             request.cancel(true);
         }
@@ -233,14 +231,14 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
     }
 
     protected abstract class MessageTask
-        extends PromiseTask<Message.ClientRequest<?>, Message.ServerResponse<Records.Response>>
+        extends PromiseTask<Message.ClientRequest<?>, Message.ServerResponse<?>>
         implements FutureCallback<Object>, Callable<ListenableFuture<?>> {
 
         protected volatile ListenableFuture<?> writeFuture;
         
         public MessageTask(
                 Message.ClientRequest<?> task,
-                Promise<Message.ServerResponse<Records.Response>> delegate) {
+                Promise<Message.ServerResponse<?>> delegate) {
             super(task, delegate);
             this.writeFuture = null;
         }
@@ -282,7 +280,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
         }
         
         @Override
-        public Promise<Message.ServerResponse<Records.Response>> delegate() {
+        public Promise<Message.ServerResponse<?>> delegate() {
             return delegate;
         }
     } 
@@ -291,12 +289,12 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
 
         public PendingResponseTask(
                 Message.ClientRequest<?> task,
-                Promise<Message.ServerResponse<Records.Response>> delegate) {
+                Promise<Message.ServerResponse<?>> delegate) {
             super(task, delegate);
         }
 
         @Override
-        public boolean set(Message.ServerResponse<Records.Response> result) {
+        public boolean set(Message.ServerResponse<?> result) {
             assert (getXid() == result.getXid());
             return super.set(result);
         }
@@ -315,7 +313,7 @@ public class ClientConnectionExecutor<C extends Connection<? super Message.Clien
 
         public SetOnCallbackTask(
                 Message.ClientRequest<?> task,
-                Promise<Message.ServerResponse<Records.Response>> delegate) {
+                Promise<Message.ServerResponse<?>> delegate) {
             super(task, delegate);
         }
 

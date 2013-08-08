@@ -2,11 +2,11 @@ package edu.uw.zookeeper.protocol.server;
 
 
 import edu.uw.zookeeper.common.Generator;
-import edu.uw.zookeeper.common.Processor;
+import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 
 public class AssignZxidProcessor implements
-        Processor<OpCode, Long>,
+        Processors.UncheckedProcessor<OpCode, Long>,
         Generator<Long> {
 
     public static AssignZxidProcessor newInstance() {

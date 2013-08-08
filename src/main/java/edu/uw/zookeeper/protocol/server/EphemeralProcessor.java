@@ -23,32 +23,32 @@ import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class EphemeralProcessor extends ForwardingProcessor<TxnOperation.Request<Records.Request>, Records.Response> implements Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> {
+public class EphemeralProcessor extends ForwardingProcessor<TxnOperation.Request<?>, Records.Response> implements Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> {
 
     public static EphemeralProcessor create(
-            Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate) {
+            Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> delegate) {
         return new EphemeralProcessor(delegate);
     }
     
-    protected final Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate;
+    protected final Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> delegate;
     protected final SetMultimap<Long, String> bySession;
     protected final ConcurrentMap<String, Long> byPath;
     
     public EphemeralProcessor(
-            Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate) {
+            Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> delegate) {
         this.delegate = delegate;
         this.bySession = Multimaps.synchronizedSetMultimap(HashMultimap.<Long, String>create());
         this.byPath = new MapMaker().makeMap();
     }
     
     @Override
-    public Records.Response apply(TxnOperation.Request<Records.Request> input) {
+    public Records.Response apply(TxnOperation.Request<?> input) {
         Records.Request request = input.getRecord();
         Records.Response response = delegate().apply(input);
         Long session = input.getSessionId();
         if (request.getOpcode() == OpCode.CLOSE_SESSION) {
             for (String path: bySession.get(session)) {
-                ProtocolRequestMessage<Records.Request> nested = ProtocolRequestMessage.of(input.getXid(), (Records.Request) new IDeleteRequest(path, Stats.VERSION_ANY));
+                ProtocolRequestMessage<?> nested = ProtocolRequestMessage.of(input.getXid(), new IDeleteRequest(path, Stats.VERSION_ANY));
                 apply(TxnRequest.of(input.getTime(), input.getZxid(), SessionRequest.of(session, nested, nested)));
             }
         } else {
@@ -100,7 +100,7 @@ public class EphemeralProcessor extends ForwardingProcessor<TxnOperation.Request
     }
     
     @Override
-    protected Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate() {
+    protected Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> delegate() {
         return delegate;
     }
 }

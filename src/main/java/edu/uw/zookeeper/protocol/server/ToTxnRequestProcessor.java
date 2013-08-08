@@ -1,13 +1,12 @@
 package edu.uw.zookeeper.protocol.server;
 
-import edu.uw.zookeeper.common.Processor;
+import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.TxnRequest;
 import edu.uw.zookeeper.protocol.SessionOperation;
-import edu.uw.zookeeper.protocol.proto.Records;
 
-public class ToTxnRequestProcessor implements Processor<SessionOperation.Request<Records.Request>, TxnOperation.Request<Records.Request>>, Reference<AssignZxidProcessor> {
+public class ToTxnRequestProcessor implements Processors.UncheckedProcessor<SessionOperation.Request<?>, TxnOperation.Request<?>>, Reference<AssignZxidProcessor> {
 
     public static ToTxnRequestProcessor create() {
         return create(AssignZxidProcessor.newInstance());
@@ -33,7 +32,7 @@ public class ToTxnRequestProcessor implements Processor<SessionOperation.Request
     }
 
     @Override
-    public TxnOperation.Request<Records.Request> apply(SessionOperation.Request<Records.Request> input) {
+    public TxnOperation.Request<?> apply(SessionOperation.Request<?> input) {
         long time = getTime();
         long zxid = get().apply(input.getRecord().getOpcode());
         return TxnRequest.of(time, zxid, input);

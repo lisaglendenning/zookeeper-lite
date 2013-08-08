@@ -20,7 +20,7 @@ import edu.uw.zookeeper.protocol.proto.Records;
  * Wraps a lazily-instantiated ClientConnectionExecutor in a Service.
  */
 public class ClientConnectionExecutorService<C extends Connection<? super Operation.Request>> extends AbstractIdleService 
-        implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Message.ServerResponse<Records.Response>> {
+        implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Message.ServerResponse<?>> {
 
     public static <C extends Connection<? super Operation.Request>> ClientConnectionExecutorService<C> newInstance(
             Factory<ClientConnectionExecutor<C>> factory) {
@@ -78,12 +78,12 @@ public class ClientConnectionExecutorService<C extends Connection<? super Operat
     }
 
     @Override
-    public ListenableFuture<Message.ServerResponse<Records.Response>> submit(Operation.Request request) {
+    public ListenableFuture<Message.ServerResponse<?>> submit(Operation.Request request) {
         return get().submit(request);
     }
 
     @Override
-    public ListenableFuture<Message.ServerResponse<Records.Response>> submit(Operation.Request request, Promise<Message.ServerResponse<Records.Response>> promise) {
+    public ListenableFuture<Message.ServerResponse<?>> submit(Operation.Request request, Promise<Message.ServerResponse<?>> promise) {
         return get().submit(request, promise);
     }
 

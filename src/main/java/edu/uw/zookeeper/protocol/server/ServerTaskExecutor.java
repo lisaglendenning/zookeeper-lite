@@ -12,14 +12,13 @@ import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.SessionOperation;
-import edu.uw.zookeeper.protocol.proto.Records;
 
 public class ServerTaskExecutor {
     
     public static ServerTaskExecutor newInstance(
             TaskExecutor<FourLetterRequest, FourLetterResponse> anonymousExecutor,
             TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> connectExecutor,
-            TaskExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> sessionExecutor) {
+            TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> sessionExecutor) {
         return new ServerTaskExecutor(anonymousExecutor, connectExecutor, sessionExecutor);
     }
 
@@ -48,12 +47,12 @@ public class ServerTaskExecutor {
     
     protected final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor;
     protected final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor;
-    protected final TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor;
+    protected final TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor;
 
     public ServerTaskExecutor(            
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
-            TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
+            TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
         this.anonymousExecutor = anonymousExecutor;
         this.connectExecutor = connectExecutor;
         this.sessionExecutor = sessionExecutor;
@@ -67,7 +66,7 @@ public class ServerTaskExecutor {
         return connectExecutor;
     }
     
-    public TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> getSessionExecutor() {
+    public TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> getSessionExecutor() {
         return sessionExecutor;
     }
 }

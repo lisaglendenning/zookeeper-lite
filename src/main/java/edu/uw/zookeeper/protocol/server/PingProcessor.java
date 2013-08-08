@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.server;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.protocol.Ping;
 
-public enum PingProcessor implements Processor<Ping.Request, Ping.Response> {
+public enum PingProcessor implements Processor<Object, Ping.Response> {
     PING_PROCESSOR;
     
     public static PingProcessor getInstance() {
@@ -11,7 +11,7 @@ public enum PingProcessor implements Processor<Ping.Request, Ping.Response> {
     }
     
     @Override
-    public Ping.Response apply(Ping.Request input) {
+    public Ping.Response apply(Object input) {
         return Ping.Response.newInstance();
     }
 }

@@ -16,6 +16,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
@@ -23,15 +24,17 @@ import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.proto.*;
 import edu.uw.zookeeper.protocol.server.ByOpcodeTxnRequestProcessor;
-import edu.uw.zookeeper.protocol.server.TxnRequestProcessor;
 
 public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> {
 
     public static ZNodeDataTrie newInstance() {
         return new ZNodeDataTrie(ZNodeStateNode.root());
     }
+    
+    public static interface Operator<V extends Records.Response> extends Reference<ZNodeDataTrie>, Processors.CheckedProcessor<TxnOperation.Request<?>, V, KeeperException> {
+    }
 
-    public static abstract class AbstractOperator<T extends Records.Request, V extends Records.Response> implements Reference<ZNodeDataTrie>, TxnRequestProcessor<T, V> {
+    public static abstract class AbstractOperator<V extends Records.Response> implements Operator<V> {
 
         public static ZNodeLabel.Path getPath(Records.PathGetter record) {
             return ZNodeLabel.Path.of(record.getPath());
@@ -61,22 +64,22 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         
         private Operators() {}
 
-        public static Map<OpCode, TxnRequestProcessor<?, ?>> of(ZNodeDataTrie trie) {
-            return of(trie, Maps.<OpCode, TxnRequestProcessor<?, ?>>newEnumMap(OpCode.class));
+        public static Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> of(ZNodeDataTrie trie) {
+            return of(trie, Maps.<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>>newEnumMap(OpCode.class));
         }
         
-        public static Map<OpCode, TxnRequestProcessor<?, ?>> of(ZNodeDataTrie trie, Map<OpCode, TxnRequestProcessor<?, ?>> operators) {
+        public static Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> of(ZNodeDataTrie trie, Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> operators) {
             for (Class<?> cls: Operators.class.getDeclaredClasses()) {
                 Operational annotation = cls.getAnnotation(Operational.class);
                 if (annotation == null) {
                     continue;
                 }
-                if (! TxnRequestProcessor.class.isAssignableFrom(cls)) {
+                if (! Operator.class.isAssignableFrom(cls)) {
                     continue;
                 }
-                TxnRequestProcessor<?, ?> operator;
+                Operator<?> operator;
                 try {
-                    operator = (TxnRequestProcessor<?, ?>) cls.getConstructor(trie.getClass()).newInstance(trie);
+                    operator = (Operator<?>) cls.getConstructor(trie.getClass()).newInstance(trie);
                 } catch (Exception e) {
                     throw Throwables.propagate(e);
                 }
@@ -88,16 +91,16 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.CHECK)
-        public static class CheckOperator extends AbstractOperator<ICheckVersionRequest, ICheckVersionResponse> {
+        public static class CheckOperator extends AbstractOperator<ICheckVersionResponse> {
         
             public CheckOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
         
             @Override
-            public ICheckVersionResponse apply(TxnOperation.Request<ICheckVersionRequest> request)
+            public ICheckVersionResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                ICheckVersionRequest record = request.getRecord();
+                ICheckVersionRequest record = (ICheckVersionRequest) request.getRecord();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
@@ -108,14 +111,14 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational({OpCode.CREATE, OpCode.CREATE2})
-        public static class CreateOperator extends AbstractOperator<Records.Request, Records.Response> {
+        public static class CreateOperator extends AbstractOperator<Records.Response> {
     
             public CreateOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public Records.Response apply(TxnOperation.Request<Records.Request> request) throws KeeperException {
+            public Records.Response apply(TxnOperation.Request<?> request) throws KeeperException {
                 Records.CreateModeGetter record = (Records.CreateModeGetter) request.getRecord();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeLabel parentPath = path.head();
@@ -153,16 +156,16 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.DELETE)
-        public static class DeleteOperator extends AbstractOperator<IDeleteRequest, IDeleteResponse> {
+        public static class DeleteOperator extends AbstractOperator<IDeleteResponse> {
     
             public DeleteOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public IDeleteResponse apply(TxnOperation.Request<IDeleteRequest> request)
+            public IDeleteResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                IDeleteRequest record = request.getRecord();
+                IDeleteRequest record = (IDeleteRequest) request.getRecord();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 if (node.size() > 0) {
@@ -179,16 +182,16 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.EXISTS)
-        public static class ExistsOperator extends AbstractOperator<IExistsRequest, IExistsResponse> {
+        public static class ExistsOperator extends AbstractOperator<IExistsResponse> {
     
             public ExistsOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public IExistsResponse apply(TxnOperation.Request<IExistsRequest> request)
+            public IExistsResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                IExistsRequest record = request.getRecord();
+                IExistsRequest record = (IExistsRequest) request.getRecord();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 return Operations.Responses.exists().setStat(node.asStat()).build();
@@ -196,16 +199,16 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.GET_DATA)
-        public static class GetDataOperator extends AbstractOperator<IGetDataRequest, IGetDataResponse> {
+        public static class GetDataOperator extends AbstractOperator<IGetDataResponse> {
     
             public GetDataOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public IGetDataResponse apply(TxnOperation.Request<IGetDataRequest> request)
+            public IGetDataResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                IGetDataRequest record = request.getRecord();
+                IGetDataRequest record = (IGetDataRequest) request.getRecord();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 return Operations.Responses.getData().setData(node.state().getData().getData()).setStat(node.asStat()).build();
@@ -213,14 +216,14 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.SET_DATA)
-        public static class SetDataOperator extends AbstractOperator<ISetDataRequest, ISetDataResponse> {
+        public static class SetDataOperator extends AbstractOperator<ISetDataResponse> {
     
             public SetDataOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public ISetDataResponse apply(TxnOperation.Request<ISetDataRequest> request)
+            public ISetDataResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
                 ISetDataRequest record = (ISetDataRequest) request.getRecord();
                 ZNodeLabel.Path path = getPath(record);
@@ -237,16 +240,16 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.GET_ACL)
-        public static class GetAclOperator extends AbstractOperator<IGetACLRequest, IGetACLResponse> {
+        public static class GetAclOperator extends AbstractOperator<IGetACLResponse> {
     
             public GetAclOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public IGetACLResponse apply(TxnOperation.Request<IGetACLRequest> request)
+            public IGetACLResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                IGetACLRequest record = request.getRecord();
+                IGetACLRequest record = (IGetACLRequest) request.getRecord();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 return Operations.Responses.getAcl().setAcl(node.state().getAcl().getAcl()).setStat(node.asStat()).build();
@@ -254,16 +257,16 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.SET_ACL)
-        public static class SetAclOperator extends AbstractOperator<ISetACLRequest, ISetACLResponse> {
+        public static class SetAclOperator extends AbstractOperator<ISetACLResponse> {
     
             public SetAclOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public ISetACLResponse apply(TxnOperation.Request<ISetACLRequest> request)
+            public ISetACLResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                ISetACLRequest record = request.getRecord();
+                ISetACLRequest record = (ISetACLRequest) request.getRecord();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 if (! node.state().getAcl().compareVersion(record.getVersion())) {
@@ -276,14 +279,14 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational({OpCode.GET_CHILDREN, OpCode.GET_CHILDREN2})
-        public static class GetChildrenOperator extends AbstractOperator<Records.Request, Records.Response> {
+        public static class GetChildrenOperator extends AbstractOperator<Records.Response> {
     
             public GetChildrenOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public Records.Response apply(TxnOperation.Request<Records.Request> request)
+            public Records.Response apply(TxnOperation.Request<?> request)
                     throws KeeperException {
                 ZNodeLabel.Path path = getPath((Records.PathGetter) request.getRecord());
                 ZNodeStateNode node = getNode(get(), path);
@@ -297,16 +300,16 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.SYNC)
-        public static class SyncOperator extends AbstractOperator<ISyncRequest, ISyncResponse> {
+        public static class SyncOperator extends AbstractOperator<ISyncResponse> {
     
             public SyncOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public ISyncResponse apply(TxnOperation.Request<ISyncRequest> request)
+            public ISyncResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                ISyncRequest record = request.getRecord();
+                ISyncRequest record = (ISyncRequest) request.getRecord();
                 ZNodeLabel.Path path = getPath(record);
                 getNode(get(), path);
                 return Operations.Responses.sync().setPath(path).build();        
@@ -315,37 +318,37 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
     }
     
     @Operational(OpCode.MULTI)        
-    public static class MultiOperator extends AbstractOperator<IMultiRequest, IMultiResponse> {
+    public static class MultiOperator extends AbstractOperator<IMultiResponse> {
 
         public static MultiOperator of(ZNodeDataTrie trie) {
             return of(trie, ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(Operators.of(trie))));
         }
         
-        public static MultiOperator of(ZNodeDataTrie trie, TxnRequestProcessor<Records.Request, Records.Response> delegate) {
+        public static MultiOperator of(ZNodeDataTrie trie, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate) {
             return new MultiOperator(trie, delegate);
         }
         
-        protected final TxnRequestProcessor<Records.Request, Records.Response> delegate;
+        protected final Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate;
         
         protected MultiOperator(
                 ZNodeDataTrie trie,
-                TxnRequestProcessor<Records.Request, Records.Response> delegate) {
+                Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate) {
             super(trie);
             this.delegate = delegate;
         }
 
         @Override
-        public IMultiResponse apply(TxnOperation.Request<IMultiRequest> input)
+        public IMultiResponse apply(TxnOperation.Request<?> input)
                 throws KeeperException {
             IErrorResponse error = null;
             List<Records.MultiOpResponse> results = Lists.newArrayList();
-            for (Records.MultiOpRequest request: input.getRecord()) {
+            for (Records.MultiOpRequest request: (IMultiRequest) input.getRecord()) {
                 Records.MultiOpResponse result;
                 if (error != null) {
                     result = error;
                 } else {
-                    Operation.ProtocolRequest<Records.Request> nestedRequest = ProtocolRequestMessage.of(input.getXid(), (Records.Request) request);
-                    TxnOperation.Request<Records.Request> nested = TxnRequest.of(
+                    Operation.ProtocolRequest<?> nestedRequest = ProtocolRequestMessage.of(input.getXid(), request);
+                    TxnOperation.Request<?> nested = TxnRequest.of(
                             input.getTime(), 
                             input.getZxid(), 
                             SessionRequest.of(input.getSessionId(), nestedRequest, nestedRequest));

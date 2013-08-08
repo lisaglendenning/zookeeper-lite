@@ -24,7 +24,7 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
             ExpiringSessionTable sessions,
             Executor executor,
             Map<Long, Publisher> listeners,
-            Processor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> processor) {
+            Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor) {
         return new ExpiringSessionRequestExecutor(sessions, executor, listeners, processor);
     }
     
@@ -34,7 +34,7 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
             ExpiringSessionTable sessions,
             Executor executor,
             Map<Long, Publisher> listeners,
-            Processor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> processor) {
+            Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor) {
         super(executor, listeners, processor);
         this.sessions = sessions;
         
@@ -42,7 +42,7 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
     }
 
     @Override
-    public void send(PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> message) {
+    public void send(PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>> message) {
         super.send(message);
         sessions.touch(message.task().getSessionId());
     }

@@ -40,7 +40,7 @@ public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionO
     
     protected final Publisher publisher;
     protected final ZNodeDataTrie trie;
-    protected final RequestErrorProcessor<TxnOperation.Request<Records.Request>> operator;
+    protected final RequestErrorProcessor<TxnOperation.Request<?>> operator;
     protected final ToTxnRequestProcessor txnProcessor;
     
     public ZNodeDataTrieExecutor(
@@ -73,7 +73,7 @@ public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionO
     
     @Override
     public synchronized Message.ServerResponse<Records.Response> apply(SessionOperation.Request<Records.Request> input) {
-        TxnOperation.Request<Records.Request> request = txnProcessor.apply(input);
+        TxnOperation.Request<?> request = txnProcessor.apply(input);
         Message.ServerResponse<Records.Response> response = ProtocolResponseMessage.of(request.getXid(), request.getZxid(), operator.apply(request));
         post(response);
         return response;

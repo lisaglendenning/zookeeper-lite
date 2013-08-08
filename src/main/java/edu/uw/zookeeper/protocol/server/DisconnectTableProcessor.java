@@ -2,16 +2,15 @@ package edu.uw.zookeeper.protocol.server;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.apache.zookeeper.KeeperException;
 
-import edu.uw.zookeeper.common.Processor;
-import edu.uw.zookeeper.protocol.SessionOperation;
-import edu.uw.zookeeper.protocol.proto.IDisconnectRequest;
+import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.protocol.proto.IDisconnectResponse;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.server.SessionTable;
 
 
-public class DisconnectTableProcessor implements Processor<SessionOperation.Request<IDisconnectRequest>, IDisconnectResponse> {
+public class DisconnectTableProcessor implements Processors.CheckedProcessor<Long, IDisconnectResponse, KeeperException> {
 
     public static DisconnectTableProcessor newInstance(
             SessionTable sessions) {
@@ -31,9 +30,9 @@ public class DisconnectTableProcessor implements Processor<SessionOperation.Requ
     }
 
     @Override
-    public IDisconnectResponse apply(SessionOperation.Request<IDisconnectRequest> request) {
-        if (sessions().remove(request.getSessionId()) == null) {
-            throw new IllegalStateException(String.format("Session %l not found", request.getSessionId()));
+    public IDisconnectResponse apply(Long sessionId) throws KeeperException {
+        if (sessions().remove(sessionId) == null) {
+            throw new KeeperException.SessionMovedException();
         }
         return Records.newInstance(IDisconnectResponse.class);
     }

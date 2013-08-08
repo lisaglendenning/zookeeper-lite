@@ -6,34 +6,30 @@ import org.apache.zookeeper.KeeperException;
 
 import com.google.common.collect.ImmutableMap;
 
+import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class ByOpcodeTxnRequestProcessor implements TxnRequestProcessor<Records.Request, Records.Response> {
+public class ByOpcodeTxnRequestProcessor implements Processors.CheckedProcessor<TxnOperation.Request<?>, Records.Response, KeeperException> {
 
     public static ByOpcodeTxnRequestProcessor create(
-            ImmutableMap<OpCode, ? extends TxnRequestProcessor<?,?>> processors) {
+            ImmutableMap<OpCode, ? extends Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> processors) {
         return new ByOpcodeTxnRequestProcessor(processors);
     }
 
-    @SuppressWarnings("unchecked")
-    public static <T extends Records.Request, V extends Records.Response> V apply(TxnRequestProcessor<T,V> processor, TxnOperation.Request<?> request) throws KeeperException {
-        return processor.apply((TxnOperation.Request<T>) request);
-    }
-
-    protected final Map<OpCode, ? extends TxnRequestProcessor<?,?>> processors;
+    protected final Map<OpCode, ? extends Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> processors;
     
-    protected ByOpcodeTxnRequestProcessor(Map<OpCode, ? extends TxnRequestProcessor<?,?>> processors) {
+    protected ByOpcodeTxnRequestProcessor(Map<OpCode, ? extends Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> processors) {
         this.processors = processors;
     }
     
     @Override
-    public Records.Response apply(TxnOperation.Request<Records.Request> input) throws KeeperException {
-        TxnRequestProcessor<?,?> processor = processors.get(input.getRecord().getOpcode());
+    public Records.Response apply(TxnOperation.Request<?> input) throws KeeperException {
+        Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> processor = processors.get(input.getRecord().getOpcode());
         if (processor == null) {
             throw new IllegalArgumentException(input.toString());
         }
-        return apply(processor, input);
+        return processor.apply(input);
     }
 }

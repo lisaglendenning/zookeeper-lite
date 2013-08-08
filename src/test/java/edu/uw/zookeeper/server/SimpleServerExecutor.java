@@ -22,7 +22,6 @@ import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.SessionOperation;
-import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.AssignZxidProcessor;
 import edu.uw.zookeeper.protocol.server.ProtocolResponseProcessor;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
@@ -52,7 +51,7 @@ public class SimpleServerExecutor {
             ZNodeDataTrie dataTrie,
             final Map<Long, Publisher> listeners,
             SessionTable sessions) {
-        Processor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> processor = 
+        Processor<SessionOperation.Request<?>, Message.ServerResponse<?>> processor = 
                 Processors.bridge(
                         ToTxnRequestProcessor.create(
                                 AssignZxidProcessor.newInstance(zxids)), 
@@ -60,7 +59,7 @@ public class SimpleServerExecutor {
                                 ServerApplicationModule.defaultTxnProcessor(dataTrie, sessions,
                                         new Function<Long, Publisher>() {
                                             @Override
-                                            public @Nullable Publisher apply(@Nullable Long input) {
+                                            public @Nullable Publisher apply(Long input) {
                                                 return listeners.get(input);
                                             }
                                 })));

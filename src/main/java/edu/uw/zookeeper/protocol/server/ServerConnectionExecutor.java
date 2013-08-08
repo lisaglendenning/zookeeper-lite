@@ -42,7 +42,7 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
             T connection,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
-            TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
+            TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
         return new ServerConnectionExecutor<C,T>(
                 connection, anonymousExecutor, connectExecutor, sessionExecutor);
     }
@@ -50,7 +50,7 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
     public static <C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> ParameterizedFactory<T, ServerConnectionExecutor<C,T>> factory(
             final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
-            final TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
+            final TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
         return new ParameterizedFactory<T, ServerConnectionExecutor<C,T>>() {
             @Override
             public ServerConnectionExecutor<C,T> get(T connection) {
@@ -67,7 +67,7 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
     protected final Logger logger;
     protected final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor;
     protected final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor;
-    protected final TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Operation.ProtocolResponse<Records.Response>> sessionExecutor;
+    protected final TaskExecutor<? super SessionOperation.Request<?>, ? extends Operation.ProtocolResponse<?>> sessionExecutor;
     protected final T connection;
     protected final InboundActor inbound;
     protected final OutboundActor outbound;
@@ -77,7 +77,7 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
             T connection,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
-            TaskExecutor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> sessionExecutor) {
+            TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
         this.logger = LogManager.getLogger(getClass());
         this.connection = connection;
         this.anonymousExecutor = anonymousExecutor;

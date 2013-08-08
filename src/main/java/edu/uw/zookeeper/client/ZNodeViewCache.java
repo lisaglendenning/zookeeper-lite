@@ -51,20 +51,20 @@ import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
 /**
  * Only caches the results of operations submitted through this wrapper.
  */
-public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<Records.Response>> 
+public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> 
         implements ClientExecutor<I, V> {
 
-    public static <I extends Operation.Request, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<SimpleZNodeCache,I,V> newInstance(
+    public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<SimpleZNodeCache,I,V> newInstance(
             Publisher publisher, ClientExecutor<I,V> client) {
         return newInstance(publisher, client, SimpleZNodeCache.root());
     }
     
-    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,I,V> newInstance(
+    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<E,I,V> newInstance(
             Publisher publisher, ClientExecutor<I,V> client, E root) {
         return newInstance(publisher, client, ZNodeLabelTrie.of(root));
     }
     
-    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<Records.Response>> ZNodeViewCache<E,I,V> newInstance(
+    public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<E,I,V> newInstance(
             Publisher publisher, ClientExecutor<I,V> client, ZNodeLabelTrie<E> trie) {
         return new ZNodeViewCache<E,I,V>(publisher, client, trie);
     }

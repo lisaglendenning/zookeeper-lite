@@ -8,22 +8,22 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class ProtocolResponseProcessor implements Processor<TxnOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> {
+public class ProtocolResponseProcessor implements Processor<TxnOperation.Request<?>, Message.ServerResponse<?>> {
 
     public static ProtocolResponseProcessor create(
-            Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> processor) {
+            Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> processor) {
         return new ProtocolResponseProcessor(processor);
     }
     
-    protected final Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate;
+    protected final Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> delegate;
     
     public ProtocolResponseProcessor(
-            Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate) {
+            Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> delegate) {
         this.delegate = delegate;
     }
     
     @Override
-    public Message.ServerResponse<Records.Response> apply(TxnOperation.Request<Records.Request> input) {
+    public Message.ServerResponse<Records.Response> apply(TxnOperation.Request<?> input) {
         Records.Response response = delegate.apply(input);
 
         int xid;

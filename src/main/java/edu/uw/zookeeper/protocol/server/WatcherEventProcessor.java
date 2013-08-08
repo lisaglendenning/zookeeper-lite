@@ -28,11 +28,11 @@ import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Request<Records.Request>, Records.Response> implements Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> {
+public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Request<?>, Records.Response> implements Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> {
 
     public static WatcherEventProcessor create(
-            Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate,
-            Function<Long, Publisher> publishers) {
+            Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate,
+            Function<Long, ? extends Publisher> publishers) {
         return new WatcherEventProcessor(delegate, publishers);
     }
 
@@ -56,20 +56,20 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         return new IWatcherEvent(type, state, path);
     }
     
-    protected final Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate;
+    protected final Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate;
     protected final Watches dataWatches;
     protected final Watches childWatches;
 
     public WatcherEventProcessor(
-            Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate,
-            Function<Long, Publisher> publishers) {
+            Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate,
+            Function<Long, ? extends Publisher> publishers) {
         this.delegate = delegate;
         this.dataWatches = new Watches(publishers);
         this.childWatches = new Watches(publishers);
     }
     
     @Override
-    public Records.Response apply(TxnOperation.Request<Records.Request> input) {
+    public Records.Response apply(TxnOperation.Request<?> input) {
         return apply(input.getZxid(), input.getSessionId(), input.getRecord(), delegate().apply(input));
     }
     
@@ -143,7 +143,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
     }
 
     @Override
-    protected Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> delegate() {
+    protected Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate() {
         return delegate;
     }
     
@@ -151,11 +151,11 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
 
         protected final SetMultimap<String, Long> byPath;
         protected final SetMultimap<Long, String> bySession;
-        protected final Function<Long, Publisher> publishers;
+        protected final Function<Long, ? extends Publisher> publishers;
         protected final Logger logger;
         
         public Watches(
-                Function<Long, Publisher> publishers) {
+                Function<Long, ? extends Publisher> publishers) {
             this.logger = LogManager.getLogger(getClass());
             this.byPath = Multimaps.synchronizedSetMultimap(HashMultimap.<String, Long>create());
             this.bySession = Multimaps.synchronizedSetMultimap(HashMultimap.<Long, String>create());

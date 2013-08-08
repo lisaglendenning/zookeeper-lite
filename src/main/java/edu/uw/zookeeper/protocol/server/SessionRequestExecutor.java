@@ -16,49 +16,45 @@ import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.Message.ServerResponse;
 import edu.uw.zookeeper.protocol.SessionOperation;
-import edu.uw.zookeeper.protocol.SessionOperation.Request;
 import edu.uw.zookeeper.protocol.proto.OpCode;
-import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.protocol.proto.Records.Response;
 
-public class SessionRequestExecutor extends ExecutorActor<PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>> implements TaskExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> {
+public class SessionRequestExecutor extends ExecutorActor<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> implements TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> {
 
     public static SessionRequestExecutor newInstance(
             Executor executor,
             Map<Long, Publisher> listeners,
-            Processor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> processor) {
+            Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor) {
         return new SessionRequestExecutor(executor, listeners, processor);
     }
     
     protected final Logger logger;
     protected final Executor executor;
-    protected final ConcurrentLinkedQueue<PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>> mailbox;
-    protected final Processor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> processor;
+    protected final ConcurrentLinkedQueue<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> mailbox;
+    protected final Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor;
     protected final Map<Long, Publisher> listeners;
     
     public SessionRequestExecutor(
             Executor executor,
             Map<Long, Publisher> listeners,
-            Processor<? super SessionOperation.Request<Records.Request>, ? extends Message.ServerResponse<Records.Response>> processor) {
+            Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor) {
         super();
         this.logger = LogManager.getLogger(getClass());
         this.executor = executor;
-        this.mailbox = new ConcurrentLinkedQueue<PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>>();
+        this.mailbox = new ConcurrentLinkedQueue<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>>();
         this.listeners = listeners;
         this.processor = processor;
     }
 
     @Override
-    public ListenableFuture<Message.ServerResponse<Records.Response>> submit(SessionOperation.Request<Records.Request> request) {
-        PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> task = PromiseTask.<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>of(request);
+    public ListenableFuture<Message.ServerResponse<?>> submit(SessionOperation.Request<?> request) {
+        PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>> task = PromiseTask.<SessionOperation.Request<?>, Message.ServerResponse<?>>of(request);
         send(task);
         return task;
     }
 
     @Override
-    protected Queue<PromiseTask<Request<edu.uw.zookeeper.protocol.proto.Records.Request>, ServerResponse<Response>>> mailbox() {
+    protected Queue<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> mailbox() {
         return mailbox;
     }
 
@@ -68,14 +64,14 @@ public class SessionRequestExecutor extends ExecutorActor<PromiseTask<SessionOpe
     }
 
     @Override
-    protected boolean apply(PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> input) {
+    protected boolean apply(PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>> input) {
         if (! input.isDone()) {
             if (state() != State.TERMINATED) {
                 try {
                     if (logger.isDebugEnabled()) {
                         logger.debug("Executing {}", input.task());
                     }
-                    Message.ServerResponse<Records.Response> response = processor.apply(input.task());
+                    Message.ServerResponse<?> response = processor.apply(input.task());
                     Publisher listener = listeners.get(input.task().getSessionId());
                     if (OpCode.CLOSE_SESSION == response.getRecord().getOpcode()) {
                         listeners.remove(input.task().getSessionId());
@@ -96,7 +92,7 @@ public class SessionRequestExecutor extends ExecutorActor<PromiseTask<SessionOpe
 
     @Override
     protected void doStop() {
-        PromiseTask<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> task;
+        PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>> task;
         while ((task = mailbox.poll()) != null) {
             task.cancel(true);
         }

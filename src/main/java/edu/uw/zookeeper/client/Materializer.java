@@ -25,9 +25,9 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class Materializer<V extends Operation.ProtocolResponse<Records.Response>> extends ZNodeViewCache<Materializer.MaterializedNode, Records.Request, V> {
+public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNodeViewCache<Materializer.MaterializedNode, Records.Request, V> {
 
-    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> Materializer<V> newInstance(
+    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<?>> Materializer<V> newInstance(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
             Publisher publisher,
@@ -35,7 +35,7 @@ public class Materializer<V extends Operation.ProtocolResponse<Records.Response>
         return new Materializer<V>(schema, codec, publisher, client);
     }
     
-    public static <I extends Operation.Request, V extends Operation.ProtocolResponse<Records.Response>> 
+    public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> 
     ListenableFuture<V> submit(ClientExecutor<I, V> client, I request) {
         return client.submit(request);
     }

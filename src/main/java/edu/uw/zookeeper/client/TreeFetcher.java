@@ -30,9 +30,9 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class TreeFetcher<U extends Operation.ProtocolResponse<Records.Response>, V> implements AsyncFunction<ZNodeLabel.Path, V> {
+public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements AsyncFunction<ZNodeLabel.Path, V> {
     
-    public static <U extends Operation.ProtocolResponse<Records.Response>, V> Builder<U,V> builder() {
+    public static <U extends Operation.ProtocolResponse<?>, V> Builder<U,V> builder() {
         return Builder.create();
     }
     
@@ -77,9 +77,9 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<Records.Response>,
         }
     }
     
-    public static class Builder<U extends Operation.ProtocolResponse<Records.Response>, V> {
+    public static class Builder<U extends Operation.ProtocolResponse<?>, V> {
     
-        public static <U extends Operation.ProtocolResponse<Records.Response>, V> Builder<U,V> create() {
+        public static <U extends Operation.ProtocolResponse<?>, V> Builder<U,V> create() {
             return new Builder<U,V>();
         }
         
@@ -215,7 +215,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<Records.Response>,
         }
     }
 
-    public static <U extends Operation.ProtocolResponse<Records.Response>, V> TreeFetcher<U,V> newInstance(
+    public static <U extends Operation.ProtocolResponse<?>, V> TreeFetcher<U,V> newInstance(
             Parameters parameters,
             ClientExecutor<? super Records.Request, U> client,
             Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> processor,
@@ -264,9 +264,9 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<Records.Response>,
         }
     }
     
-    public static class TreeProcessor<U extends Operation.ProtocolResponse<Records.Response>> implements Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> {
+    public static class TreeProcessor<U extends Operation.ProtocolResponse<?>> implements Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> {
 
-        public static <U extends Operation.ProtocolResponse<Records.Response>> TreeProcessor<U> create() {
+        public static <U extends Operation.ProtocolResponse<?>> TreeProcessor<U> create() {
             return new TreeProcessor<U>();
         }
         

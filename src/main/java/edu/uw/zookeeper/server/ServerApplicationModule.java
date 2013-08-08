@@ -32,7 +32,6 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Ping;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.SessionOperation;
-import edu.uw.zookeeper.protocol.proto.IDisconnectRequest;
 import edu.uw.zookeeper.protocol.proto.IDisconnectResponse;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
@@ -122,38 +121,38 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         };
     }
     
-    public static Processors.UncheckedProcessor<TxnOperation.Request<Records.Request>, Records.Response> defaultTxnProcessor(
+    public static Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> defaultTxnProcessor(
             ZNodeDataTrie trie,
             final SessionTable sessions,
             Function<Long, Publisher> publishers) {
-        Map<OpCode, TxnRequestProcessor<?,?>> processors = Maps.newEnumMap(OpCode.class);
+        Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> processors = Maps.newEnumMap(OpCode.class);
         processors = ZNodeDataTrie.Operators.of(trie, processors);
         processors.put(OpCode.MULTI, 
                 ZNodeDataTrie.MultiOperator.of(
                         trie, 
                         ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(processors))));
         processors.put(OpCode.CLOSE_SESSION, 
-                new TxnRequestProcessor<IDisconnectRequest, IDisconnectResponse>() {
+                new Processors.CheckedProcessor<TxnOperation.Request<?>, IDisconnectResponse, KeeperException>() {
                     private final DisconnectTableProcessor delegate = DisconnectTableProcessor.newInstance(sessions);
                     @Override
                     public IDisconnectResponse apply(
-                            TxnOperation.Request<IDisconnectRequest> request)
+                            TxnOperation.Request<?> request)
                             throws KeeperException {
-                        return delegate.apply(request);
+                        return delegate.apply(request.getSessionId());
                     }
         });
         processors.put(OpCode.PING, 
-                new TxnRequestProcessor<Ping.Request, Ping.Response>() {
+                new Processors.CheckedProcessor<TxnOperation.Request<?>, Ping.Response, KeeperException>() {
             @Override
             public Ping.Response apply(
-                    TxnOperation.Request<Ping.Request> request)
+                    TxnOperation.Request<?> request)
                     throws KeeperException {
                 return PingProcessor.getInstance().apply(request.getRecord());
             }
         });
         return EphemeralProcessor.create(
                 WatcherEventProcessor.create(
-                        RequestErrorProcessor.<TxnOperation.Request<Records.Request>>create(
+                        RequestErrorProcessor.<TxnOperation.Request<?>>create(
                                 ByOpcodeTxnRequestProcessor.create(
                                         ImmutableMap.copyOf(processors))), 
                         publishers));
@@ -165,7 +164,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
             ZNodeDataTrie dataTrie,
             final Map<Long, Publisher> listeners,
             ExpiringSessionTable sessions) {
-        Processor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> processor = 
+        Processor<SessionOperation.Request<?>, Message.ServerResponse<?>> processor = 
                 Processors.bridge(
                         ToTxnRequestProcessor.create(
                                 AssignZxidProcessor.newInstance(zxids)), 
@@ -184,7 +183,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
             Generator<Long> zxids,
             SessionTable sessions,
             Map<Long, Publisher> listeners,
-            TaskExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> sessionExecutor) {
+            TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> sessionExecutor) {
         TaskExecutor<FourLetterRequest, FourLetterResponse> anonymousExecutor = 
                 ServerTaskExecutor.ProcessorExecutor.of(FourLetterRequestProcessor.getInstance());
         TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> connectExecutor = 
