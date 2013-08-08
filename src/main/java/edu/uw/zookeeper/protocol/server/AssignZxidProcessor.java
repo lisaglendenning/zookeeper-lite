@@ -4,6 +4,7 @@ package edu.uw.zookeeper.protocol.server;
 import edu.uw.zookeeper.common.Generator;
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 public class AssignZxidProcessor implements
         Processors.UncheckedProcessor<OpCode, Long>,
@@ -29,7 +30,7 @@ public class AssignZxidProcessor implements
         Long zxid;
         switch (input) {
         case NOTIFICATION:
-            zxid = -1L;
+            zxid = OpCodeXid.NOTIFICATION_ZXID;
             break;
         case CREATE:
         case CREATE2:

@@ -46,6 +46,22 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             return new Parameters(watch, getData, getAcl, getStat);
         }
         
+        public static ImmutableList<Operations.PathBuilder<? extends Records.Request, ?>> toBuilders(Parameters parameters) {
+            ImmutableList.Builder<Operations.PathBuilder<? extends Records.Request, ?>> builders = ImmutableList.builder();
+            builders.add(
+                    Operations.Requests.getChildren()
+                    .setWatch(parameters.getWatch()).setStat(parameters.getStat()));
+            if (parameters.getData()) {
+                builders.add(
+                        Operations.Requests.getData().setWatch(parameters.getWatch()));
+            }
+            if (parameters.getAcl()) {
+                builders.add(
+                        Operations.Requests.getAcl());
+            }
+            return builders.build();
+        }
+        
         protected final boolean watch;
         protected final boolean getData;
         protected final boolean getAcl;
@@ -296,19 +312,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             this.state = new AtomicReference<State>(State.WAITING);
             this.result = new Result(TreeFetcher.this.result, promise);
             this.pending = Collections.synchronizedSet(Sets.<Pending>newHashSet());
-            ImmutableList.Builder<Operations.PathBuilder<? extends Records.Request, ?>> builders = ImmutableList.builder();
-            builders.add(
-                    Operations.Requests.getChildren()
-                    .setWatch(parameters.getWatch()).setStat(parameters.getStat()));
-            if (parameters.getData()) {
-                builders.add(
-                        Operations.Requests.getData().setWatch(parameters.getWatch()));
-            }
-            if (parameters.getAcl()) {
-                builders.add(
-                        Operations.Requests.getAcl());
-            }
-            this.builders = builders.build();
+            this.builders = Parameters.toBuilders(parameters);
             this.result.addListener(this, MoreExecutors.sameThreadExecutor());
         }
         
@@ -330,10 +334,12 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
                     ListenableFuture<U> future = client.submit(request);
                     Pending task = new Pending(request, future);
                     pending.add(task);
-                    future.addListener(task, MoreExecutors.sameThreadExecutor());
                     if (state() == State.TERMINATED) {
                         task.second().cancel(true);
+                        pending.remove(task);
                         break;
+                    } else {
+                        future.addListener(task, MoreExecutors.sameThreadExecutor());
                     }
                 }
             }

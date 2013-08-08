@@ -19,7 +19,6 @@ import edu.uw.zookeeper.common.Processors.ForwardingProcessor;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.WatchEvent;
 import edu.uw.zookeeper.data.ZNodeLabel;
-import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
@@ -70,10 +69,10 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
     
     @Override
     public Records.Response apply(TxnOperation.Request<?> input) {
-        return apply(input.getZxid(), input.getSessionId(), input.getRecord(), delegate().apply(input));
+        return apply(input.getSessionId(), input.getRecord(), delegate().apply(input));
     }
     
-    protected Records.Response apply(long zxid, Long session, Records.Request request, Records.Response response) {
+    protected Records.Response apply(Long session, Records.Request request, Records.Response response) {
         switch (request.getOpcode()) {
         case GET_DATA:
         case EXISTS:
@@ -93,9 +92,9 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
             if (! (response instanceof Operation.Error)) {
                 String path = ((Records.PathGetter) response).getPath();
                 String parent = ZNodeLabel.Path.headOf(path);
-                dataWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, created(path)));
+                dataWatches.post(created(path));
                 if (parent.length() > 0) {
-                    childWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, children(parent)));
+                    childWatches.post(children(parent));
                 }
             }
             break;
@@ -105,9 +104,9 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
             if (! (response instanceof Operation.Error)) {
                 String path = ((Records.PathGetter) request).getPath();
                 String parent = ZNodeLabel.Path.headOf(path);
-                dataWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, deleted(path)));
+                dataWatches.post(deleted(path));
                 if (parent.length() > 0) {
-                    childWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, children(parent)));
+                    childWatches.post(children(parent));
                 }
             }
             break;
@@ -116,7 +115,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         {
             if (! (response instanceof Operation.Error)) {
                 String path = ((Records.PathGetter) request).getPath();
-                dataWatches.post(ProtocolResponseMessage.of(OpCodeXid.NOTIFICATION.getXid(), zxid, data(path)));
+                dataWatches.post(data(path));
             }
             break;
         }
@@ -125,7 +124,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
             Iterator<Records.MultiOpRequest> requests = ((IMultiRequest) request).iterator();
             Iterator<Records.MultiOpResponse> responses = ((IMultiResponse) response).iterator();
             while (requests.hasNext()) {
-                apply(zxid, session, requests.next(), responses.next());
+                apply(session, requests.next(), responses.next());
             }
             break;
         }
@@ -162,16 +161,20 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
             this.publishers = publishers;
         }
         
-        public void post(Message.ServerResponse<IWatcherEvent> event) {
+        public void post(IWatcherEvent event) {
             if (logger.isDebugEnabled()) {
-                logger.debug("{}", WatchEvent.of(event));
+                logger.debug("{}", WatchEvent.fromRecord(event));
             }
-            String path = event.getRecord().getPath();
+            ProtocolResponseMessage<IWatcherEvent> message = ProtocolResponseMessage.of(
+                    OpCodeXid.NOTIFICATION.getXid(), 
+                    OpCodeXid.NOTIFICATION_ZXID,
+                    event);
+            String path = event.getPath();
             for (Long session: byPath.removeAll(path)) {
                 bySession.remove(session, path);
                 Publisher publisher = publishers.apply(session);
                 if (publisher != null) {
-                    publisher.post(event);
+                    publisher.post(message);
                 }
             }
         }

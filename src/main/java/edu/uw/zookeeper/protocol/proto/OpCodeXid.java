@@ -36,6 +36,8 @@ public enum OpCodeXid implements Operation.Coded, Operation.RequestId {
         return byXid.get(xid);
     }
     
+    public static final long NOTIFICATION_ZXID = -1L;
+    
     private final int xid;
     private final OpCode opcode;
 

@@ -27,8 +27,7 @@ public class WatchEventPublisher extends ForwardingEventful {
     @Subscribe
     public void handleReply(Operation.ProtocolResponse<?> message) {
         if (OpCodeXid.NOTIFICATION.getXid() == message.getXid()) {
-            @SuppressWarnings("unchecked")
-            WatchEvent event = WatchEvent.of((Operation.ProtocolResponse<IWatcherEvent>) message);
+            WatchEvent event = WatchEvent.fromRecord((IWatcherEvent) message.getRecord());
             post(event);
         }
     }
