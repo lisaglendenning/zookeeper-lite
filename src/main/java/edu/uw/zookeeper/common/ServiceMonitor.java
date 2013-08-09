@@ -130,15 +130,15 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         }
     }
     
-    public boolean addOnStart(Service service) {
+    public <T extends Service> T addOnStart(T service) {
         checkNotNull(service);
         checkState(isAddable(), state());
         if (service.state() == Service.State.NEW) {
             service.addListener(new ServiceDelayedRegister(service), listenerExecutor);
-            return true;
         } else {
-            return add(service);
+            add(service);
         }
+        return service;
     }
 
     public boolean remove(Service service) {
