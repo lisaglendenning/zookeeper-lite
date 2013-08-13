@@ -111,14 +111,14 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
         protected volatile ClientExecutor<? super Records.Request, U> client;
         protected volatile Set<OpCode> operations; 
         protected volatile boolean watch;
-        protected volatile Processor<? super Optional<Pair<Records.Request, ListenableFuture<U>>>, Optional<V>> result;
-        protected volatile Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> iterator;
+        protected volatile Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result;
+        protected volatile Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator;
         
         public Builder() {
             this(null, 
                     EnumSet.noneOf(OpCode.class), 
                     false,
-                    TreeProcessor.<U>create(),
+                    TreeProcessor.create(),
                     Builder.<V>nullResult());
         }
         
@@ -126,8 +126,8 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
                 ClientExecutor<? super Records.Request, U> client, 
                 Set<OpCode> operations, 
                 boolean watch,
-                Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> iterator,
-                Processor<? super Optional<Pair<Records.Request, ListenableFuture<U>>>, Optional<V>> result) {
+                Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator,
+                Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result) {
             this.client = client;
             this.watch = watch;
             this.operations = Collections.synchronizedSet(operations);
@@ -207,20 +207,20 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             return this;
         }
         
-        public Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> getIterator() {
+        public Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> getIterator() {
             return iterator;
         }
         
-        public Builder<U,V> setIterator(Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> iterator) {
+        public Builder<U,V> setIterator(Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator) {
             this.iterator = iterator;
             return this;
         }
 
-        public Processor<? super Optional<Pair<Records.Request, ListenableFuture<U>>>, Optional<V>> getResult() {
+        public Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> getResult() {
             return result;
         }
         
-        public Builder<U,V> setResult(Processor<? super Optional<Pair<Records.Request, ListenableFuture<U>>>, Optional<V>> result) {
+        public Builder<U,V> setResult(Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result) {
             this.result = result;
             return this;
         }
@@ -231,14 +231,14 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
         }
     }
 
-    public static class TreeProcessor<U extends Operation.ProtocolResponse<?>> implements Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> {
+    public static class TreeProcessor implements Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> {
     
-        public static <U extends Operation.ProtocolResponse<?>> TreeProcessor<U> create() {
-            return new TreeProcessor<U>();
+        public static TreeProcessor create() {
+            return new TreeProcessor();
         }
         
         @Override
-        public Iterator<ZNodeLabel.Path> apply(Pair<Records.Request, ListenableFuture<U>> input) throws InterruptedException, ExecutionException {
+        public Iterator<ZNodeLabel.Path> apply(Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>> input) throws InterruptedException, ExecutionException {
             Records.Response response = input.second().get().getRecord();
             if (response instanceof Records.ChildrenGetter) {
                 ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) input.first()).getPath());
@@ -268,8 +268,8 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
     public static <U extends Operation.ProtocolResponse<?>, V> TreeFetcher<U,V> newInstance(
             Parameters parameters,
             ClientExecutor<? super Records.Request, U> client,
-            Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> iterator,
-            Processor<? super Optional<Pair<Records.Request, ListenableFuture<U>>>, Optional<V>> result) {
+            Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator,
+            Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result) {
         return new TreeFetcher<U,V>(
                 parameters,
                 client, 
@@ -279,14 +279,14 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
 
     protected final Parameters parameters;
     protected final ClientExecutor<? super Records.Request, U> client;
-    protected final Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> iterator;
-    protected final Processor<? super Optional<Pair<Records.Request, ListenableFuture<U>>>, Optional<V>> result;
+    protected final Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator;
+    protected final Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result;
     
     protected TreeFetcher(
             Parameters parameters,
             ClientExecutor<? super Records.Request, U> client,
-            Processor<Pair<Records.Request, ListenableFuture<U>>, Iterator<ZNodeLabel.Path>> iterator,
-            Processor<? super Optional<Pair<Records.Request, ListenableFuture<U>>>, Optional<V>> result) {
+            Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator,
+            Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result) {
         this.parameters = checkNotNull(parameters);
         this.client = checkNotNull(client);
         this.iterator = checkNotNull(iterator);
@@ -333,7 +333,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
                 try {
                     for (Operations.PathBuilder<? extends Records.Request, ?> b: builders) {
                         Records.Request request = b.setPath(input).build();
-                        ListenableFuture<U> future = client.submit(request);
+                        ListenableFuture<? extends Operation.ProtocolResponse<?>> future = client.submit(request);
                         Pending task = new Pending(request, future);
                         pending.add(task);
                         future.addListener(task, MoreExecutors.sameThreadExecutor());
@@ -369,7 +369,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
                     itr.next().second().cancel(true);
                 }
                 try {
-                    future.set(result.apply(Optional.<Pair<Records.Request, ListenableFuture<U>>>absent()));
+                    future.set(result.apply(Optional.<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>absent()));
                 } catch (Exception e) {
                     future.setException(e);
                 }
@@ -382,7 +382,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
                 if (state() != State.TERMINATED) {
                     try {
                         Optional<V> value = result.apply(
-                                Optional.<Pair<Records.Request, ListenableFuture<U>>>of(task));
+                                Optional.<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>of(task));
                         if (value.isPresent()) {
                             future.set(value);
                         } else {
@@ -400,9 +400,9 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             }
         }
 
-        protected class Pending extends Pair<Records.Request, ListenableFuture<U>> implements Runnable {
+        protected class Pending extends Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>> implements Runnable {
 
-            public Pending(Records.Request request, ListenableFuture<U> future) {
+            public Pending(Records.Request request, ListenableFuture<? extends Operation.ProtocolResponse<?>> future) {
                 super(request, future);
             }
             
