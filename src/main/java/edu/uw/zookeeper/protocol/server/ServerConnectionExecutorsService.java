@@ -2,13 +2,12 @@ package edu.uw.zookeeper.protocol.server;
 
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
-
 import com.google.common.collect.MapMaker;
 import com.google.common.eventbus.Subscribe;
-import com.google.common.util.concurrent.AbstractIdleService;
+import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.ForwardingService;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.net.Connection;
@@ -16,7 +15,7 @@ import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 
-public class ServerConnectionExecutorsService<C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> extends AbstractIdleService implements Iterable<ServerConnectionExecutor<C,T>> {
+public class ServerConnectionExecutorsService<C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> extends ForwardingService implements Iterable<ServerConnectionExecutor<C,T>> {
 
     public static <C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> ServerConnectionExecutorsService<C,T> newInstance(
             ServerConnectionFactory<T> connections,
@@ -56,14 +55,21 @@ public class ServerConnectionExecutorsService<C extends Connection<? super Messa
     }
 
     @Override
-    protected void startUp() throws InterruptedException, ExecutionException {
-        connections.register(this);
-        connections.start().get();
+    protected Service delegate() {
+        return connections;
     }
 
     @Override
-    protected void shutDown() throws InterruptedException, ExecutionException {
-        connections.stop().get();
+    protected void startUp() throws Exception {
+        connections.register(this);
+        
+        super.startUp();
+    }
+
+    @Override
+    protected void shutDown() throws Exception {
+        super.shutDown();
+        
         connections.unregister(this);
     }
 
