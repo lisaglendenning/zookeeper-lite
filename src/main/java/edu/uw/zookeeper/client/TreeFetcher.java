@@ -364,10 +364,10 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             boolean stopped = (state.get() != State.TERMINATED)
                     && (state.getAndSet(State.TERMINATED) != State.TERMINATED);
             if (stopped) {
-                for (Pending p: pending) {
-                    p.second().cancel(true);
+                Iterator<Pending> itr = Iterators.consumingIterator(pending.iterator());
+                while (itr.hasNext()) {
+                    itr.next().second().cancel(true);
                 }
-                pending.clear();
                 try {
                     future.set(result.apply(Optional.<Pair<Records.Request, ListenableFuture<U>>>absent()));
                 } catch (Exception e) {

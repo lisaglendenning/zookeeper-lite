@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
-import org.apache.zookeeper.proto.MultiHeader;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +44,7 @@ public abstract class IMulti<T extends Records.Coded> extends ICodedRecord<Empty
             throws IOException {
         delegate().clear();
         archive.startRecord(tag);
-        MultiHeader h = new MultiHeader();
+        IMultiHeader h = new IMultiHeader();
         h.deserialize(archive, tag);
         while (!h.getDone()) {
             OpCode opcode = OpCode.of(h.getType());
