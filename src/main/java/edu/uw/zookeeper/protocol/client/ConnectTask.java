@@ -32,6 +32,7 @@ public class ConnectTask
     }
     
     protected final Connection<? super ConnectMessage.Request> connection;
+    protected ListenableFuture<ConnectMessage.Request> future;
     
     protected ConnectTask(
             ConnectMessage.Request request,
@@ -39,38 +40,47 @@ public class ConnectTask
             Promise<ConnectMessage.Response> promise) {
         super(request, promise);
         this.connection = connection;
+        this.future = null;
 
-        register();
-        ListenableFuture<ConnectMessage.Request> future = null;
-        try {
-            future = connection.write(request);
-        } catch (Throwable e) {
-            onFailure(e);
-        }
-        if (future != null) {
-            Futures.addCallback(future, this);
-        }
+        start();
     }
     
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
-        unregister();
-        if (! isDone()) {
-            return super.cancel(mayInterruptIfRunning);
+        boolean cancel = super.cancel(mayInterruptIfRunning);
+        if (cancel) {
+            stop();
         }
-        return false;
+        return cancel;
+    }
+
+    @Override
+    public boolean set(ConnectMessage.Response result) {
+        boolean set = super.set(result);
+        if (set) {
+            stop();
+        }
+        return set;
+    }
+
+    @Override
+    public boolean setException(Throwable t) {
+        boolean setException = super.setException(t);
+        if (setException) {
+            stop();
+        }
+        return setException;
     }
     
     @Subscribe
     public void handleTransition(Automaton.Transition<?> event) {
         if (Connection.State.CONNECTION_CLOSED == event.to()) {
-            onFailure(new KeeperException.ConnectionLossException());
+            setException(new KeeperException.ConnectionLossException());
         }
     }
     
     @Subscribe
     public void handleConnectMessageResponse(ConnectMessage.Response result) {
-        unregister();
         set(result);
     }
     
@@ -80,19 +90,26 @@ public class ConnectTask
     
     @Override
     public void onFailure(Throwable t) {
-        unregister();
-        if (! isDone()) {
-            setException(t);
-        }
+        setException(t);
     }
     
-    protected void register() {
+    protected synchronized void start() {
         connection.register(this);
+        try {
+            future = connection.write(task());
+        } catch (Throwable e) {
+            setException(e);
+            return;
+        }
+        Futures.addCallback(future, this);
     }
     
-    protected void unregister() {
+    protected synchronized void stop() {
         try {
             connection.unregister(this);
         } catch (IllegalArgumentException e) {}
+        if (future != null) {
+            future.cancel(true);
+        }
     } 
 }

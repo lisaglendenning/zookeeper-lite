@@ -3,6 +3,8 @@ package edu.uw.zookeeper.client;
 
 import java.util.AbstractMap;
 import java.util.Map;
+
+import com.google.common.util.concurrent.ListenableFuture;
 import com.typesafe.config.Config;
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.EnsembleView;
@@ -206,9 +208,9 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
                     timeOut);
         monitorsFactory.apply(
                 ClientConnectionExecutorService.newInstance(
-                        new Factory<ClientConnectionExecutor<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>>() {
+                        new Factory<ListenableFuture<ClientConnectionExecutor<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>>>() {
                             @Override
-                            public ClientConnectionExecutor<PingingClient<Request, AssignXidCodec, Connection<Request>>> get() {
+                            public ListenableFuture<ClientConnectionExecutor<PingingClient<Request, AssignXidCodec, Connection<Request>>>> get() {
                                 return ensembleFactory.get().get();
                             }
                         }));

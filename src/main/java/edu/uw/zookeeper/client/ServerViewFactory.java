@@ -1,7 +1,10 @@
 package edu.uw.zookeeper.client;
 
 import java.net.SocketAddress;
-import com.google.common.base.Throwables;
+
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.Session;
@@ -17,7 +20,7 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 
-public class ServerViewFactory<V, T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> extends Pair<T, ZxidTracker> implements DefaultsFactory<V, ClientConnectionExecutor<C>> {
+public class ServerViewFactory<V, T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> extends Pair<T, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<ClientConnectionExecutor<C>>>, Function<ClientConnectionExecutor<C>, ClientConnectionExecutor<C>> {
 
     public static <T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> ServerViewFactory<Session, T, C> newInstance(
             ClientConnectionFactory<C> connections,
@@ -25,19 +28,19 @@ public class ServerViewFactory<V, T extends ServerView.Address<? extends SocketA
             TimeValue timeOut) {
         ZxidTracker zxids = ZxidTracker.create();
         final DefaultsFactory<Session, ConnectMessage.Request> requestFactory = ConnectMessage.Request.factory(timeOut, zxids);
-        final ParameterizedFactory<ConnectMessage.Request, ClientConnectionExecutor<C>> delegate = 
+        final ParameterizedFactory<ConnectMessage.Request, ListenableFuture<ClientConnectionExecutor<C>>> delegate = 
                 FromRequestFactory.create(
                         FixedClientConnectionFactory.create(view.get(), connections));
         return newInstance(
                 view,
-                new DefaultsFactory<Session, ClientConnectionExecutor<C>>() {
+                new DefaultsFactory<Session, ListenableFuture<ClientConnectionExecutor<C>>>() {
                     @Override
-                    public ClientConnectionExecutor<C> get() {
+                    public ListenableFuture<ClientConnectionExecutor<C>> get() {
                         return delegate.get(requestFactory.get());
                     }
 
                     @Override
-                    public ClientConnectionExecutor<C> get(Session value) {
+                    public ListenableFuture<ClientConnectionExecutor<C>> get(Session value) {
                         return delegate.get(requestFactory.get(value));
                     }
                 }, 
@@ -46,12 +49,12 @@ public class ServerViewFactory<V, T extends ServerView.Address<? extends SocketA
     
     public static <V, T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> ServerViewFactory<V,T,C> newInstance(
             T view,
-            DefaultsFactory<V, ClientConnectionExecutor<C>> delegate,
+            DefaultsFactory<V, ListenableFuture<ClientConnectionExecutor<C>>> delegate,
             ZxidTracker zxids) {
         return new ServerViewFactory<V,T,C>(view, delegate, zxids);
     }
     
-    public static class FixedClientConnectionFactory<C extends Connection<?>> extends Pair<SocketAddress, ClientConnectionFactory<C>> implements Factory<C> {
+    public static class FixedClientConnectionFactory<C extends Connection<?>> extends Pair<SocketAddress, ClientConnectionFactory<C>> implements Factory<ListenableFuture<C>> {
         
         public static <C extends Connection<?>> FixedClientConnectionFactory<C> create(
                 SocketAddress address,
@@ -65,70 +68,78 @@ public class ServerViewFactory<V, T extends ServerView.Address<? extends SocketA
         }
         
         @Override
-        public C get() {
+        public ListenableFuture<C> get() {
             try {
-                return second().connect(first()).get();
-            } catch (Exception e) {
-                throw Throwables.propagate(e);
+                return second().connect(first());
+            } catch (Throwable t) {
+                return Futures.immediateFailedFuture(t);
             }
         }
     }
 
-    public static class FromRequestFactory<C extends Connection<? super Message.ClientSession>> implements DefaultsFactory<ConnectMessage.Request, ClientConnectionExecutor<C>> {
+    public static class FromRequestFactory<C extends Connection<? super Message.ClientSession>> implements DefaultsFactory<ConnectMessage.Request, ListenableFuture<ClientConnectionExecutor<C>>> {
     
         public static <C extends Connection<? super Message.ClientSession>> FromRequestFactory<C> create(
-                Factory<C> connections) {
+                Factory<ListenableFuture<C>> connections) {
             return new FromRequestFactory<C>(connections);
         }
         
-        protected final Factory<C> connections;
+        protected final Factory<ListenableFuture<C>> connections;
         
         public FromRequestFactory(
-                Factory<C> connections) {
+                Factory<ListenableFuture<C>> connections) {
             this.connections = connections;
         }
 
         @Override
-        public ClientConnectionExecutor<C> get() {
+        public ListenableFuture<ClientConnectionExecutor<C>> get() {
             return get(ConnectMessage.Request.NewRequest.newInstance());
         }
         
         @Override
-        public ClientConnectionExecutor<C> get(ConnectMessage.Request request) {
-            C connection;
-            try {
-                connection = connections.get();
-            } catch (Exception e) {
-                throw Throwables.propagate(e);
+        public ListenableFuture<ClientConnectionExecutor<C>> get(ConnectMessage.Request request) {
+            return Futures.transform(connections.get(), new Constructor(request));
+        }
+        
+        protected class Constructor implements Function<C, ClientConnectionExecutor<C>> {
+
+            protected final ConnectMessage.Request task;
+            
+            public Constructor(ConnectMessage.Request task) {
+                this.task = task;
             }
-            ClientConnectionExecutor<C> instance = 
-                    ClientConnectionExecutor.newInstance(
-                            request, connection);
-            return instance;
+            
+            @Override
+            public ClientConnectionExecutor<C> apply(C input) {
+                return ClientConnectionExecutor.newInstance(
+                        task, input);
+            }
         }
     }
 
-    protected final DefaultsFactory<V,ClientConnectionExecutor<C>> delegate;
+    protected final DefaultsFactory<V, ListenableFuture<ClientConnectionExecutor<C>>> delegate;
     
     protected ServerViewFactory(
             T view,
-            DefaultsFactory<V, ClientConnectionExecutor<C>> delegate,
+            DefaultsFactory<V, ListenableFuture<ClientConnectionExecutor<C>>> delegate,
             ZxidTracker zxids) {
         super(view, zxids);
         this.delegate = delegate;
     }
     
     @Override
-    public ClientConnectionExecutor<C> get() {
-        ClientConnectionExecutor<C> instance =  delegate.get();
-        ZxidTracker.ZxidListener.create(second(), instance.get());
-        return instance;
+    public ListenableFuture<ClientConnectionExecutor<C>> get() {
+        return Futures.transform(delegate.get(), this);
     }
 
     @Override
-    public ClientConnectionExecutor<C> get(V value) {
-        ClientConnectionExecutor<C> instance = delegate.get(value);
-        ZxidTracker.ZxidListener.create(second(), instance.get());
-        return instance;
+    public ListenableFuture<ClientConnectionExecutor<C>> get(V value) {
+        return Futures.transform(delegate.get(value), this);
+    }
+
+    @Override
+    public ClientConnectionExecutor<C> apply(ClientConnectionExecutor<C> input) {
+        ZxidTracker.ZxidListener.create(second(), input.get());
+        return input;
     }
 }

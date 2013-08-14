@@ -23,27 +23,27 @@ public class ClientConnectionExecutorService<C extends Connection<? super Operat
         implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Message.ServerResponse<?>> {
 
     public static <C extends Connection<? super Operation.Request>> ClientConnectionExecutorService<C> newInstance(
-            Factory<ClientConnectionExecutor<C>> factory) {
+            Factory<ListenableFuture<ClientConnectionExecutor<C>>> factory) {
         return new ClientConnectionExecutorService<C>(factory);
     }
     
-    protected final Factory<ClientConnectionExecutor<C>> factory;
+    protected final Factory<ListenableFuture<ClientConnectionExecutor<C>>> factory;
     protected volatile ClientConnectionExecutor<C> client;
     
     protected ClientConnectionExecutorService(
-            Factory<ClientConnectionExecutor<C>> factory) {
+            Factory<ListenableFuture<ClientConnectionExecutor<C>>> factory) {
         this.factory = factory;
         this.client = null;
     }
     
-    protected Factory<ClientConnectionExecutor<C>> factory() {
+    protected Factory<ListenableFuture<ClientConnectionExecutor<C>>> factory() {
         return factory;
     }
     
     @Override
     protected void startUp() throws Exception {
         assert (client == null);
-        this.client = factory().get();
+        this.client = factory().get().get();
         client.register(this);
     }
 
