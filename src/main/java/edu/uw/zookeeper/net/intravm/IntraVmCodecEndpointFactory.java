@@ -12,7 +12,6 @@ import com.google.common.base.Optional;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
-import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.protocol.Codec;
 
@@ -33,18 +32,7 @@ public class IntraVmCodecEndpointFactory<I, T extends Codec<? super I, ? extends
         return new IntraVmCodecEndpointFactory<I,T>(
                 codecs, allocators, addresses, publishers, executors);
     }
-    
-    public static <U> Factory<Processor<U, Optional<?>>> codecFactory(
-            final Factory<Codec<U, ? extends Optional<?>>> codecFactory) {
-        return new Factory<Processor<U, Optional<?>>>() {
-            @Override
-            public Processor<U, Optional<?>> get() {
-                // TODO Auto-generated method stub
-                return null;
-            }
-        };
-    }
-    
+
     public static Factory<ByteBufAllocator> unpooled() {
         return new Factory<ByteBufAllocator>() {
             @Override

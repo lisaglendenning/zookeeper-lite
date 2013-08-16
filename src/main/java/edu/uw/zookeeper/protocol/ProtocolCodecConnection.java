@@ -53,13 +53,10 @@ public class ProtocolCodecConnection<I, T extends ProtocolCodec<?, ?>, C extends
     @Subscribe
     public void handleTransitionEvent(Automaton.Transition<?> event) {
         if (Connection.State.CONNECTION_CLOSED == event.to()) {
-            try {
-                delegate().unregister(this);
-            } catch (IllegalArgumentException e) {}
+            unregister(this);
         } else if (ProtocolState.DISCONNECTED == event.to() || ProtocolState.ERROR == event.to()) {
-            try {
-                codec().unregister(this);
-            } catch (IllegalArgumentException e) {}
+            flush();
+            read();
             close();
         }
     }

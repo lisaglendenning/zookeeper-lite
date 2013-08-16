@@ -7,11 +7,10 @@ import java.net.UnknownHostException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import edu.uw.zookeeper.common.ActorExecutor;
 import edu.uw.zookeeper.common.EventBusPublisher;
-import edu.uw.zookeeper.common.Factories;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Publisher;
 
@@ -37,8 +36,14 @@ public class IntraVmEndpointFactory<V> implements Factory<IntraVmEndpoint<V>> {
         }
     }
 
-    public static Factory<ListeningExecutorService> sameThreadExecutors() {
-        return Factories.holderOf(MoreExecutors.sameThreadExecutor());
+    public static Factory<? extends Executor> sameThreadExecutors() {
+        final Executor executor = MoreExecutors.sameThreadExecutor();
+        return new Factory<Executor>() {
+            @Override
+            public Executor get() {
+                return ActorExecutor.newInstance(executor);
+            }
+        };
     }
     
     public static Factory<EventBusPublisher> eventBusPublishers() {

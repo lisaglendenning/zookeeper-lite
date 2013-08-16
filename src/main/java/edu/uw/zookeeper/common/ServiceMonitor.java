@@ -140,6 +140,10 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         }
         return service;
     }
+    
+    public boolean isMonitoring(Service service) {
+        return services.contains(service);
+    }
 
     public boolean remove(Service service) {
         boolean removed = services.remove(service);
@@ -325,7 +329,13 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         
         @Override
         public void starting() {
-            ServiceMonitor.this.add(get());
+            try {
+                add(get());
+            } catch (IllegalStateException e) {
+                if (! isMonitoring(get())) {
+                    get().stop();
+                }
+            }
         }
     }
 
