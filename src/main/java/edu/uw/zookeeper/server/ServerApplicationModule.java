@@ -16,7 +16,7 @@ import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.typesafe.config.Config;
 
-import edu.uw.zookeeper.AbstractMain;
+import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.common.*;
@@ -195,7 +195,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
     @Override
     public Application get(RuntimeModule runtime) {
         ServiceMonitor monitor = runtime.serviceMonitor();
-        AbstractMain.MonitorServiceFactory monitorsFactory = AbstractMain.monitors(monitor);
+        DefaultMain.MonitorServiceFactory monitorsFactory = DefaultMain.monitors(monitor);
 
         NettyServerModule nettyServer = NettyServerModule.newInstance(runtime);
 

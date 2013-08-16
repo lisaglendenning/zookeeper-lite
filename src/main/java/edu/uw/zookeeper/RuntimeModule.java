@@ -2,7 +2,6 @@ package edu.uw.zookeeper;
 
 import java.util.concurrent.ThreadFactory;
 
-import edu.uw.zookeeper.AbstractMain.ListeningExecutorServiceFactory;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Publisher;
@@ -16,8 +15,7 @@ public interface RuntimeModule {
     
     ServiceMonitor serviceMonitor();
     
-    Factory<Publisher> publisherFactory();
+    Factory<? extends Publisher> publisherFactory();
     
     ListeningExecutorServiceFactory executors();
-    
 }

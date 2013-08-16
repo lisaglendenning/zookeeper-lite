@@ -6,7 +6,7 @@ import java.util.Map;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.typesafe.config.Config;
-import edu.uw.zookeeper.AbstractMain;
+import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
@@ -186,7 +186,7 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
     @Override
     public Application get(RuntimeModule runtime) {
         ServiceMonitor monitor = runtime.serviceMonitor();
-        AbstractMain.MonitorServiceFactory monitorsFactory = AbstractMain.monitors(monitor);
+        DefaultMain.MonitorServiceFactory monitorsFactory = DefaultMain.monitors(monitor);
 
         NettyClientModule clientModule = NettyClientModule.newInstance(runtime);
 

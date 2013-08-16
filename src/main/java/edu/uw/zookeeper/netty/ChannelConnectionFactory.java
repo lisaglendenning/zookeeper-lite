@@ -19,11 +19,11 @@ public abstract class ChannelConnectionFactory<C extends Connection<?>> extends 
     
     protected static abstract class FactoryBuilder<C extends Connection<?>> {
 
-        protected final Factory<Publisher> publisherFactory;
+        protected final Factory<? extends Publisher> publisherFactory;
         protected final ParameterizedFactory<Channel, C> connectionFactory;
         
         protected FactoryBuilder(
-                Factory<Publisher> publisherFactory,
+                Factory<? extends Publisher> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory) {
             super();
             this.publisherFactory = publisherFactory;

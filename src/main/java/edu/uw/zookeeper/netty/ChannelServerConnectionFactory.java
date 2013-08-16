@@ -24,7 +24,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
         implements ServerConnectionFactory<C> {
     
     public static <C extends Connection<?>> DefaultServerFactoryBuilder<C> defaultsFactory(
-            Factory<Publisher> publisherFactory,
+            Factory<? extends Publisher> publisherFactory,
             ParameterizedFactory<Channel, C> connectionFactory,
             Factory<ServerBootstrap> serverBootstrapFactory) {
         return DefaultServerFactoryBuilder.newInstance(
@@ -32,7 +32,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
     }
     
     public static <C extends Connection<?>> ParameterizedServerFactoryBuilder<C> parameterizedFactory(
-            Factory<Publisher> publisherFactory,
+            Factory<? extends Publisher> publisherFactory,
             ParameterizedFactory<Channel, C> connectionFactory,
             ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory) {
         return ParameterizedServerFactoryBuilder.newInstance(
@@ -42,7 +42,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
     public static class DefaultServerFactoryBuilder<C extends Connection<?>> extends FactoryBuilder<C> implements Factory<ChannelServerConnectionFactory<C>> {
 
         public static <C extends Connection<?>> DefaultServerFactoryBuilder<C> newInstance(
-                Factory<Publisher> publisherFactory,
+                Factory<? extends Publisher> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 Factory<ServerBootstrap> serverBootstrapFactory) {
             return new DefaultServerFactoryBuilder<C>(
@@ -52,7 +52,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
         private final Factory<ServerBootstrap> serverBootstrapFactory;
         
         private DefaultServerFactoryBuilder(
-                Factory<Publisher> publisherFactory,
+                Factory<? extends Publisher> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 Factory<ServerBootstrap> serverBootstrapFactory) {
             super(publisherFactory, connectionFactory);
@@ -71,7 +71,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
     public static class ParameterizedServerFactoryBuilder<C extends Connection<?>> extends FactoryBuilder<C> implements ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<C>> {
 
         public static <C extends Connection<?>> ParameterizedServerFactoryBuilder<C> newInstance(
-                Factory<Publisher> publisherFactory,
+                Factory<? extends Publisher> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory) {
             return new ParameterizedServerFactoryBuilder<C>(
@@ -81,7 +81,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
         private final ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory;
         
         private ParameterizedServerFactoryBuilder(
-                Factory<Publisher> publisherFactory,
+                Factory<? extends Publisher> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory) {
             super(publisherFactory, connectionFactory);

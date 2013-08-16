@@ -22,7 +22,7 @@ public class NettyServerModule implements NetServerModule {
 
     public static NettyServerModule newInstance(
             RuntimeModule runtime) {
-        Factory<Publisher> publisherFactory = runtime.publisherFactory();
+        Factory<? extends Publisher> publisherFactory = runtime.publisherFactory();
         ParameterizedFactory<SocketAddress, ServerBootstrap> bootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
                         NioServerBootstrapFactory.newInstance(runtime.threadFactory(), runtime.serviceMonitor()));
@@ -30,16 +30,16 @@ public class NettyServerModule implements NetServerModule {
     }
     
     public static NettyServerModule newInstance(
-            Factory<Publisher> publisherFactory,
+            Factory<? extends Publisher> publisherFactory,
             ParameterizedFactory<SocketAddress, ServerBootstrap> bootstrapFactory) {
         return new NettyServerModule(publisherFactory, bootstrapFactory);
     }
     
-    protected final Factory<Publisher> publisherFactory;
+    protected final Factory<? extends Publisher> publisherFactory;
     protected final ParameterizedFactory<SocketAddress, ServerBootstrap> bootstrapFactory;
     
     public NettyServerModule(
-            Factory<Publisher> publisherFactory,
+            Factory<? extends Publisher> publisherFactory,
             ParameterizedFactory<SocketAddress, ServerBootstrap> bootstrapFactory) {
         this.publisherFactory = publisherFactory;
         this.bootstrapFactory = bootstrapFactory;

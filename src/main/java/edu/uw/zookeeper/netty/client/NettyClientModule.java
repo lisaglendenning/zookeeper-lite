@@ -19,23 +19,23 @@ public class NettyClientModule implements NetClientModule {
 
     public static NettyClientModule newInstance(
             RuntimeModule runtime) {
-        Factory<Publisher> publisherFactory = runtime.publisherFactory();
+        Factory<? extends Publisher> publisherFactory = runtime.publisherFactory();
         Factory<Bootstrap> bootstrapFactory = 
                 NioClientBootstrapFactory.newInstance(runtime.threadFactory(), runtime.serviceMonitor());
         return newInstance(publisherFactory, bootstrapFactory);
     }
     
     public static NettyClientModule newInstance(
-            Factory<Publisher> publisherFactory,
+            Factory<? extends Publisher> publisherFactory,
             Factory<Bootstrap> bootstrapFactory) {
         return new NettyClientModule(publisherFactory, bootstrapFactory);
     }
 
-    protected final Factory<Publisher> publisherFactory;
+    protected final Factory<? extends Publisher> publisherFactory;
     protected final Factory<Bootstrap> bootstrapFactory;
     
     public NettyClientModule(
-            Factory<Publisher> publisherFactory,
+            Factory<? extends Publisher> publisherFactory,
             Factory<Bootstrap> bootstrapFactory) {
         this.publisherFactory = publisherFactory;
         this.bootstrapFactory = bootstrapFactory;

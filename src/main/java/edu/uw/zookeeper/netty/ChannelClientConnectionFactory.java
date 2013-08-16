@@ -35,7 +35,7 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
         implements ClientConnectionFactory<C> {
     
     public static <C extends Connection<?>> ClientFactoryBuilder<C> factory(
-            Factory<Publisher> publisherFactory,
+            Factory<? extends Publisher> publisherFactory,
             ParameterizedFactory<Channel, C> connectionFactory,
             Factory<Bootstrap> bootstrapFactory) {
         return ClientFactoryBuilder.newInstance(
@@ -47,7 +47,7 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
     public static class ClientFactoryBuilder<C extends Connection<?>> extends FactoryBuilder<C> implements Factory<ChannelClientConnectionFactory<C>> {
 
         public static <C extends Connection<?>> ClientFactoryBuilder<C> newInstance(
-                Factory<Publisher> publisherFactory,
+                Factory<? extends Publisher> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 Factory<Bootstrap> bootstrapFactory) {
             return new ClientFactoryBuilder<C>(publisherFactory, connectionFactory, bootstrapFactory);
@@ -56,7 +56,7 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
         private final Factory<Bootstrap> bootstrapFactory;
         
         private ClientFactoryBuilder(
-                Factory<Publisher> publisherFactory,
+                Factory<? extends Publisher> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 Factory<Bootstrap> bootstrapFactory) {
             super(publisherFactory, connectionFactory);
