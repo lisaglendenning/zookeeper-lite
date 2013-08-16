@@ -328,8 +328,10 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
         }
 
         @Override
-        public synchronized void send(ZNodeLabel.Path input) {
-            if (state() != State.TERMINATED) {
+        public synchronized boolean send(ZNodeLabel.Path input) {
+            if (state() == State.TERMINATED) {
+                return false;
+            } else {
                 try {
                     for (Operations.PathBuilder<? extends Records.Request, ?> b: builders) {
                         Records.Request request = b.setPath(input).build();
@@ -340,12 +342,14 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
                         if (state() == State.TERMINATED) {
                             future.cancel(true);
                             pending.remove(task);
-                            break;
+                            return false;
                         }
                     }
                 } catch (Exception e) {
                     stop();
+                    return false;
                 }
+                return true;
             }
         }
         

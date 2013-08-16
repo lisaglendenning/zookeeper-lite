@@ -13,20 +13,19 @@ import com.google.common.util.concurrent.MoreExecutors;
 import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Factories;
 import edu.uw.zookeeper.common.Factory;
-import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Publisher;
 
-public class EndpointFactory<T extends SocketAddress> implements Factory<Pair<IntraVmConnectionEndpoint<T>, IntraVmConnectionEndpoint<T>>> {
+public class IntraVmEndpointFactory<V> implements Factory<IntraVmEndpoint<V>> {
 
-    public static EndpointFactory<InetSocketAddress> defaults() {
+    public static <V> IntraVmEndpointFactory<V> defaults() {
         return create(loopbackAddresses(1), eventBusPublishers(), sameThreadExecutors());
     }
     
-    public static <T extends SocketAddress> EndpointFactory<T> create(
-            Factory<T> addresses,
+    public static <V> IntraVmEndpointFactory<V> create(
+            Factory<? extends SocketAddress> addresses,
             Factory<? extends Publisher> publishers, 
             Factory<? extends Executor> executors) {
-        return new EndpointFactory<T>(addresses, publishers, executors);
+        return new IntraVmEndpointFactory<V>(addresses, publishers, executors);
     }
 
     public static final InetAddress LOOPBACK;
@@ -66,21 +65,33 @@ public class EndpointFactory<T extends SocketAddress> implements Factory<Pair<In
         };
     }
     
-    protected final Factory<T> addresses;
+    protected final Factory<? extends SocketAddress> addresses;
     protected final Factory<? extends Publisher> publishers;
     protected final Factory<? extends Executor> executors;
     
-    public EndpointFactory(
-            Factory<T> addresses,
+    public IntraVmEndpointFactory(
+            Factory<? extends SocketAddress> addresses,
             Factory<? extends Publisher> publishers, 
             Factory<? extends Executor> executors) {
         this.addresses = addresses;
         this.publishers = publishers;
         this.executors = executors;
     }
+    
+    public Factory<? extends SocketAddress> addresses() {
+        return addresses;
+    }
+    
+    public Factory<? extends Publisher> publishers() {
+        return publishers;
+    }
+    
+    public Factory<? extends Executor> executors() {
+        return executors;
+    }
+    
     @Override
-    public Pair<IntraVmConnectionEndpoint<T>, IntraVmConnectionEndpoint<T>> get() {
-        return Pair.create(IntraVmConnectionEndpoint.create(addresses.get(), publishers.get(), executors.get()),
-                IntraVmConnectionEndpoint.create(addresses.get(), publishers.get(), executors.get()));
+    public IntraVmEndpoint<V> get() {
+        return IntraVmEndpoint.<V>create(addresses.get(), publishers.get(), executors.get());
     }
 }

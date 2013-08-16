@@ -10,13 +10,13 @@ import edu.uw.zookeeper.common.SettableFuturePromise;
 
 public class GetEvent<T> extends ForwardingPromise<T> {
 
-    public static <T> GetEvent<T> newInstance(
+    public static <T> GetEvent<T> create(
             Eventful eventful) {
         Promise<T> delegate = SettableFuturePromise.create();
-        return newInstance(eventful, delegate);
+        return create(eventful, delegate);
     }
     
-    public static <T> GetEvent<T> newInstance(
+    public static <T> GetEvent<T> create(
             Eventful eventful,
             Promise<T> delegate) {
         return new GetEvent<T>(eventful, delegate);

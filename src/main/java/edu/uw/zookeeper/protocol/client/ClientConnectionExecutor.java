@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Automaton;
-import edu.uw.zookeeper.common.ExecutorActor;
+import edu.uw.zookeeper.common.ExecutedActor;
 import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
@@ -33,7 +33,7 @@ import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 
 public class ClientConnectionExecutor<C extends Connection<? super Message.ClientSession>>
-    extends ExecutorActor<PromiseTask<Operation.Request, Message.ServerResponse<?>>>
+    extends ExecutedActor<PromiseTask<Operation.Request, Message.ServerResponse<?>>>
     implements ClientExecutor<Operation.Request, Message.ServerResponse<?>>,
         Publisher,
         Reference<C> {

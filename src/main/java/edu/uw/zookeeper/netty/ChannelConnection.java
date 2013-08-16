@@ -12,70 +12,32 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Automaton;
-import edu.uw.zookeeper.common.ExecutorActor;
-import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.ExecutedActor;
 import edu.uw.zookeeper.common.LoggingPublisher;
-import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
-import edu.uw.zookeeper.common.PublisherActor;
-import edu.uw.zookeeper.common.Reference;
+import edu.uw.zookeeper.common.ActorPublisher;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.protocol.Codec;
 
 public class ChannelConnection<I> 
-        implements Connection<I>, Publisher, Reference<Channel>, Executor {
+        implements Connection<I>, Publisher, Executor {
+
+    public static <I> ChannelConnection<I> newInstance(
+            Channel channel,
+            Publisher publisher) {
+        ChannelConnection<I> instance = new ChannelConnection<I>(channel, publisher);
+        instance.attach();
+        return instance;
+    }
     
-    public static <I, O, T extends Codec<I,Optional<O>>, C extends Connection<?>> FromCodecFactory<I,O,T,C> factory(
-            Factory<? extends Publisher> publisherFactory,
-            ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
-            ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
-        return FromCodecFactory.newInstance(publisherFactory, codecFactory, connectionFactory);
-    }
-
-    public static class FromCodecFactory<I, O, T extends Codec<I,Optional<O>>, C extends Connection<?>> implements ParameterizedFactory<Channel, C> {
-
-        public static <I, O, T extends Codec<I,Optional<O>>, C extends Connection<?>> FromCodecFactory<I,O,T,C> newInstance(
-                Factory<? extends Publisher> publisherFactory,
-                ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
-                ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
-            return new FromCodecFactory<I,O,T,C>(publisherFactory, codecFactory, connectionFactory);
-        }
-        
-        private final Factory<? extends Publisher> publisherFactory;
-        private final ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory;
-        private final ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory;
-        
-        private FromCodecFactory(
-                Factory<? extends Publisher> publisherFactory,
-                ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
-                ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
-            super();
-            this.publisherFactory = publisherFactory;
-            this.codecFactory = codecFactory;
-            this.connectionFactory = connectionFactory;
-        }
-
-        @Override
-        public C get(Channel channel) {
-            Publisher publisher = publisherFactory.get();
-            ChannelConnection<I> connection = new ChannelConnection<I>(channel, publisher);
-            Pair<Class<I>,T> codec = codecFactory.get(connection);
-            connection.attach(codec.first(), codec.second());
-            return connectionFactory.get(Pair.<Pair<Class<I>, T>, Connection<I>>create(codec, connection));
-        }
-    }
-
     protected final Logger logger;
-    protected final PublisherActor publisher;
+    protected final ActorPublisher publisher;
     protected final Automaton<Connection.State, Connection.State> state;
     protected final Channel channel;
     protected final OutboundActor outbound;
@@ -85,19 +47,15 @@ public class ChannelConnection<I>
             Publisher publisher) {
         this.logger = LogManager.getLogger(getClass());
         this.channel = checkNotNull(channel);
-        this.publisher = PublisherActor.newInstance(
+        this.publisher = ActorPublisher.newInstance(
                 LoggingPublisher.create(logger, publisher, this), 
                 this);
         this.state = ConnectionStateHandler.newAutomaton(this);
         this.outbound = new OutboundActor();
     }
     
-    protected <O> void attach(
-            Class<I> inputType,
-            Codec<I, Optional<O>> codec) {
-        OutboundHandler.attach(channel, inputType, codec, logger);
+    protected void attach() {
         ConnectionStateHandler.attach(channel, state, logger);
-        DecoderHandler.attach(channel, codec, logger);
         InboundHandler.attach(channel, this);
     }
     
@@ -114,8 +72,7 @@ public class ChannelConnection<I>
         runnable.run();
     }
 
-    @Override
-    public Channel get() {
+    protected Channel channel() {
         return channel;
     }
 
@@ -178,10 +135,10 @@ public class ChannelConnection<I>
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .addValue(get()).toString();
+                .addValue(channel).toString();
     }
 
-    protected class OutboundActor extends ExecutorActor<PromiseTask<? extends I, ? extends I>> {
+    protected class OutboundActor extends ExecutedActor<PromiseTask<? extends I, ? extends I>> {
 
         protected final ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>> mailbox;
         protected volatile boolean doFlush;
@@ -211,7 +168,7 @@ public class ChannelConnection<I>
             
             if (doFlush) {
                 doFlush = false;
-                get().flush();
+                channel.flush();
             }
         }
         
@@ -231,7 +188,7 @@ public class ChannelConnection<I>
                         default:
                         {
                             I task = input.task();
-                            ChannelFuture future = get().write(task);
+                            ChannelFuture future = channel.write(task);
                             ChannelFutureWrapper.of(future, task, (Promise<I>) input);
                             doFlush = true;
                             break;

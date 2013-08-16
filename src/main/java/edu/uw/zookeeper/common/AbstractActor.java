@@ -1,13 +1,12 @@
 package edu.uw.zookeeper.common;
 
 import java.util.Queue;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.common.base.Throwables;
 
 
-public abstract class AbstractActor<I> implements Actor<I> {
+public abstract class AbstractActor<T> implements Actor<T> {
     
     protected final AtomicReference<State> state;
     
@@ -15,17 +14,19 @@ public abstract class AbstractActor<I> implements Actor<I> {
         this.state = new AtomicReference<State>(State.WAITING);
     }
     
-    protected abstract Queue<I> mailbox();
+    protected abstract Queue<T> mailbox();
     
     @Override
-    public void send(I message) {
+    public boolean send(T message) {
         if (state() == State.TERMINATED) {
-            throw new RejectedExecutionException(State.TERMINATED.toString());
+            return false;
         } else {
             mailbox().add(message);
             if (! schedule() && (state() == State.TERMINATED)) {
                 mailbox().remove(message);
-                throw new RejectedExecutionException(State.TERMINATED.toString());
+                return false;
+            } else {
+                return true;
             }
         }
     }
@@ -57,7 +58,7 @@ public abstract class AbstractActor<I> implements Actor<I> {
     }
 
     protected void doRun() throws Exception {
-        I next;
+        T next;
         while ((next = mailbox().poll()) != null) {
             if (! apply(next)) {
                 break;
@@ -65,9 +66,7 @@ public abstract class AbstractActor<I> implements Actor<I> {
         }
     }
 
-    protected boolean apply(I input) throws Exception {
-        return (state() != State.TERMINATED);
-    }
+    protected abstract boolean apply(T input) throws Exception;
 
     protected void runExit() {
         if (state.compareAndSet(State.RUNNING, State.WAITING)) {

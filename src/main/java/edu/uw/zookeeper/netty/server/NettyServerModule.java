@@ -13,11 +13,12 @@ import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.netty.ChannelConnection;
+import edu.uw.zookeeper.net.NetServerModule;
 import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
+import edu.uw.zookeeper.netty.ChannelCodecConnection;
 import edu.uw.zookeeper.protocol.Codec;
 
-public class NettyServerModule {
+public class NettyServerModule implements NetServerModule {
 
     public static NettyServerModule newInstance(
             RuntimeModule runtime) {
@@ -44,11 +45,12 @@ public class NettyServerModule {
         this.bootstrapFactory = bootstrapFactory;
     }
     
-    public <I, O, T extends Codec<I,Optional<O>>, C extends Connection<?>> ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<C>> get(
+    @Override
+    public <I, T extends Codec<? super I,  ? extends Optional<?>>, C extends Connection<?>> ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<C>> getServerConnectionFactory(
             ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
             ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
         ParameterizedFactory<Channel, C> factory = 
-                ChannelConnection.factory(publisherFactory, codecFactory, connectionFactory);
+                ChannelCodecConnection.factory(publisherFactory, codecFactory, connectionFactory);
         return ChannelServerConnectionFactory.parameterizedFactory(publisherFactory, factory, bootstrapFactory);
     }
 }

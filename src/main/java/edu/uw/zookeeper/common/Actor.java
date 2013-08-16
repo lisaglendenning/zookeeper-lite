@@ -1,12 +1,12 @@
 package edu.uw.zookeeper.common;
 
-public interface Actor<I> extends Runnable, Stateful<Actor.State> {
+public interface Actor<T> extends Runnable, Stateful<Actor.State> {
     
     public static enum State {
         WAITING, SCHEDULED, RUNNING, TERMINATED;
     }
     
-    void send(I message);
+    boolean send(T message);
     
     boolean stop();
 }

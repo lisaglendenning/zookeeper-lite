@@ -8,7 +8,10 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.Futures;
@@ -48,23 +51,29 @@ public abstract class AbstractConnectionFactory<C extends Connection<?>> extends
     }
     
     @Override
-    public Iterator<C> iterator() {
-        return connections().iterator();
+    public UnmodifiableIterator<C> iterator() {
+        return ImmutableSet.copyOf(connections()).iterator();
     }
 
     protected boolean add(C connection) {
-        boolean added = connections().add(connection);
-        if (added) {
-            new RemoveConnectionOnClose(connection);
-            State state = state();
-            if (state != State.RUNNING) {
-                connection.close();
-                throw new IllegalStateException(state.toString());
+        if (isRunning()) {
+            if (connections().add(connection)) {
+                if (isRunning()) {
+                    RemoveConnectionOnClose listener = new RemoveConnectionOnClose(connection);
+                    if (Connection.State.CONNECTION_CLOSED == connection.state()) {
+                        listener.handleStateEvent(Automaton.Transition.create(Connection.State.CONNECTION_OPENING, Connection.State.CONNECTION_CLOSED));
+                    } else {
+                        logger.trace(Logging.NET_MARKER, "ADDED {}", connection);
+                        post(connection);
+                        return true;
+                    }
+                } else {
+                    remove(connection);
+                }
             }
-            logger.trace(Logging.NET_MARKER, "ADDED {}", connection);
-            post(connection);
         }
-        return added;
+        connection.close();
+        return false;
     }
     
     protected boolean remove(C connection) {
@@ -81,13 +90,17 @@ public abstract class AbstractConnectionFactory<C extends Connection<?>> extends
 
     @Override
     protected void shutDown() throws Exception {
-        List<ListenableFuture<?>> futures = Lists.newArrayList();
-        for (C connection : this) {
-            futures.add(connection.close());
+        List<ListenableFuture<?>> futures = Lists.newLinkedList();
+        synchronized (connections()) {
+            Iterator<C> itr = Iterators.consumingIterator(connections().iterator());
+            while (itr.hasNext()) {
+                C next = itr.next();
+                if (next.state() != Connection.State.CONNECTION_CLOSED) {
+                    futures.add(next.close());
+                }
+            }
         }
-        ListenableFuture<List<Object>> allFutures = Futures
-                .allAsList(futures);
-        allFutures.get();
+        Futures.successfulAsList(futures).get();
     }
 
     protected abstract Collection<C> connections();
@@ -106,7 +119,7 @@ public abstract class AbstractConnectionFactory<C extends Connection<?>> extends
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
                 try {
                     connection.unregister(this);
-                } catch (IllegalArgumentException e) {}
+                } catch (Exception e) {}
                 remove(connection);
             }
         }

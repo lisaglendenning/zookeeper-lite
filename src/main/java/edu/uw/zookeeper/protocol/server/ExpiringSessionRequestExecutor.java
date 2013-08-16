@@ -42,9 +42,12 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
     }
 
     @Override
-    public void send(PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>> message) {
-        super.send(message);
-        sessions.touch(message.task().getSessionId());
+    public boolean send(PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>> message) {
+        boolean send = super.send(message);
+        if (send) {
+            sessions.touch(message.task().getSessionId());
+        }
+        return send;
     }
 
     @Subscribe

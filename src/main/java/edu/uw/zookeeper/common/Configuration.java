@@ -83,7 +83,7 @@ public class Configuration {
         return config;
     }
     
-    public Config updateConfig(Config updated) {
+    public synchronized Config updateConfig(Config updated) {
         config = updated.withFallback(config);
         return config;
     }

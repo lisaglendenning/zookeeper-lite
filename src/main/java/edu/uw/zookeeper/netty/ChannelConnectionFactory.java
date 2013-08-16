@@ -2,9 +2,9 @@ package edu.uw.zookeeper.netty;
 
 import static com.google.common.base.Preconditions.*;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
-
 import com.google.common.collect.Sets;
 
 import io.netty.channel.Channel;
@@ -45,29 +45,30 @@ public abstract class ChannelConnectionFactory<C extends Connection<?>> extends 
         this.connections = Collections.synchronizedSet(Sets.<C>newHashSet());
     }
 
-    public ChannelGroup channels() {
+    protected ChannelGroup channels() {
         return channels;
     }
     
     @Override
-    protected Set<C> connections() {
+    protected Collection<C> connections() {
         return connections;
     }
-    
+
     protected C newChannel(Channel channel) {
         if (channels.add(channel)) {
             C connection = connectionFactory.get(channel);
-            add(connection);
-            return connection;
-        } else {
-            return null;
+            if (add(connection)) {
+                return connection;
+            }
         }
+        channel.close();
+        return null;
     }
 
     @Override
     protected void shutDown() throws Exception {
         super.shutDown();
-        // probably unnecessary?
+        // should be unnecessary...
         channels.close().await();
     }
 }

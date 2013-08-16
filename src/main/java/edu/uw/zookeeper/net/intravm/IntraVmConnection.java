@@ -2,6 +2,8 @@ package edu.uw.zookeeper.net.intravm;
 
 
 import java.net.SocketAddress;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -10,43 +12,42 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Automatons;
-import edu.uw.zookeeper.common.ForwardingPromise;
-import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.RunnablePromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
 
-public class IntraVmConnection<T extends SocketAddress> implements Connection<Object> {
-    
-    public static <T extends SocketAddress> Pair<IntraVmConnection<T>, IntraVmConnection<T>> createPair(
-            Pair<IntraVmConnectionEndpoint<T>, IntraVmConnectionEndpoint<T>> endpoints) {
-        return Pair.create(
-                IntraVmConnection.create(endpoints.first(), endpoints.second()),
-                IntraVmConnection.create(endpoints.second(), endpoints.first()));
+public class IntraVmConnection<V> implements Connection<V> {
+
+    public static <V> IntraVmConnection<V> create(
+            IntraVmEndpoint<?> local, IntraVmEndpoint<?> remote) {
+        return new IntraVmConnection<V>(local, remote);
     }
-    
-    public static <T extends SocketAddress> IntraVmConnection<T> create(
-            IntraVmConnectionEndpoint<T> local, IntraVmConnectionEndpoint<T> remote) {
-        return new IntraVmConnection<T>(local, remote);
-    }
-    
+
+    protected final Logger logger;
     protected final Automatons.SynchronizedEventfulAutomaton<Connection.State, Connection.State> state;
-    protected final IntraVmConnectionEndpoint<T> localEndpoint;
-    protected final IntraVmConnectionEndpoint<T> remoteEndpoint;
+    protected final IntraVmEndpoint<?> local;
+    protected final IntraVmEndpoint<?> remote;
     protected final CloseTask closeTask;
     
-    public IntraVmConnection(
-            IntraVmConnectionEndpoint<T> localActor,
-            IntraVmConnectionEndpoint<T> remoteActor) {
+    protected IntraVmConnection(
+            IntraVmEndpoint<?> local,
+            IntraVmEndpoint<?> remote) {
+        this.logger = LogManager.getLogger(getClass());
         this.state = Automatons.createSynchronizedEventful(this, 
-                Automatons.createSimple(Connection.State.CONNECTION_OPENING));
-        this.localEndpoint = localActor;
-        this.remoteEndpoint = remoteActor;
+                Automatons.createSimple(Connection.State.CONNECTION_OPENED));
+        this.local = local;
+        this.remote = remote;
         this.closeTask = new CloseTask();
-        
-        localEndpoint.stopped().addListener(closeTask, this);
-        
-        state.apply(Connection.State.CONNECTION_OPENED);
+    }
+    
+    protected IntraVmEndpoint<?> local() {
+        return local;
+    }
+    
+    protected IntraVmEndpoint<?> remote() {
+        return remote;
     }
     
     @Override
@@ -55,80 +56,67 @@ public class IntraVmConnection<T extends SocketAddress> implements Connection<Ob
     }
 
     @Override
-    public T localAddress() {
-        return localEndpoint.address();
+    public SocketAddress localAddress() {
+        return local.address();
     }
 
     @Override
-    public T remoteAddress() {
-        return remoteEndpoint.address();
+    public SocketAddress remoteAddress() {
+        return remote.address();
     }
 
     @Override
     public void read() {
-        Connection.State state = state();
-        switch (state) {
-        case CONNECTION_CLOSING:
-        case CONNECTION_CLOSED:
-            throw new IllegalStateException(state.toString());
-        default:
-            break;
-        }
-        
-        localEndpoint.run();
+        local.run();
     }
 
     @Override
-    public <V extends Object> ListenableFuture<V> write(V message) {
+    public <U extends V> ListenableFuture<U> write(U message) {
         Connection.State state = state();
         switch (state) {
         case CONNECTION_CLOSING:
         case CONNECTION_CLOSED:
-            throw new IllegalStateException(state.toString());
+            return Futures.immediateFailedFuture(new IllegalStateException(state.toString()));
         default:
             break;
         }
         
-        try {
-            remoteEndpoint.send(Optional.of((Object) message));
-        } catch (Exception e) {
-            close();
-            return Futures.immediateFailedCheckedFuture(e);
-        }
-        return Futures.immediateFuture(message);
+        return local.write(Optional.of(message), remote);
     }
 
     @Override
     public void flush() {
-        remoteEndpoint.run();
+        remote.run();
     }
 
     @Override
-    public ListenableFuture<Connection<Object>> close() {
-        if (Connection.State.CONNECTION_CLOSING == state.apply(Connection.State.CONNECTION_CLOSING).orNull()) {
-            execute(closeTask);
+    public ListenableFuture<IntraVmConnection<V>> close() {
+        if (state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
+            if (Connection.State.CONNECTION_CLOSING == state.apply(Connection.State.CONNECTION_CLOSING).orNull()) {
+                execute(closeTask);
+            }
         }
         return closeTask;
     }
 
     @Override
     public void execute(Runnable command) {
-        localEndpoint.execute(command);
+        local.execute(command);
     }
 
     @Override
     public void post(Object object) {
-        localEndpoint.post(object);
+        local.post(object);
     }
 
     @Override
     public void register(Object object) {
-        localEndpoint.register(object);
+        local.register(object);
     }
 
     @Override
     public void unregister(Object object) {
-        localEndpoint.unregister(object);
+        local.unregister(object);
     }
 
     @Override
@@ -138,43 +126,63 @@ public class IntraVmConnection<T extends SocketAddress> implements Connection<Ob
                 .toString();
     }
     
-    protected class CloseTask extends ForwardingPromise<Connection<Object>> implements Runnable {
+    protected class CloseTask extends RunnablePromiseTask<IntraVmConnection<V>, IntraVmConnection<V>> implements Runnable {
 
-        protected final Promise<Connection<Object>> delegate;
-        
         protected CloseTask() {
-            this.delegate = SettableFuturePromise.create();
+            super(IntraVmConnection.this, 
+                    LoggingPromise.create(
+                            logger, 
+                            SettableFuturePromise.<IntraVmConnection<V>>create()));
+            local.stopped().addListener(this, IntraVmConnection.this);
         }
         
         @Override
-        protected Promise<Connection<Object>> delegate() {
+        protected Promise<IntraVmConnection<V>> delegate() {
             return delegate;
         }
-        
-        public void run() {
-            state.apply(Connection.State.CONNECTION_CLOSING);
-            
-            localEndpoint.stop();
 
-            try {
-                if (Actor.State.TERMINATED != remoteEndpoint.state()) {
-                    remoteEndpoint.send(Optional.<Object>absent());
-                }
-            } catch (Exception e) {}
+        @Override
+        public synchronized Optional<IntraVmConnection<V>> call() throws Exception {
+            logger.entry(this);
             
-            if (localEndpoint.stopped().isDone()) {
-                if (! isDone()) {
-                    try {
-                        localEndpoint.stopped().get();
-                        set(IntraVmConnection.this);
-                    } catch (Exception e) {
-                        setException(e);
+            if (state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
+                state.apply(Connection.State.CONNECTION_CLOSING);
+            }
+
+            if (remote.state().compareTo(Actor.State.TERMINATED) < 0) {
+                local.write(Optional.<V>absent(), remote);
+                local.run();
+            }
+
+            if (local.state().compareTo(Actor.State.TERMINATED) < 0) {
+                local.stop();
+            }
+
+            if (local.stopped().isDone()) {
+                try {
+                    if (! isDone()) {
+                        local.stopped().get();
+                        return Optional.of(task());
+                    }
+                } finally {
+                    if (state().compareTo(Connection.State.CONNECTION_CLOSED) < 0) {
+                        state.apply(Connection.State.CONNECTION_CLOSED);
                     }
                 }
-                state.apply(Connection.State.CONNECTION_CLOSED);
-            } else {
-                localEndpoint.stopped().addListener(this, IntraVmConnection.this);
             }
+            
+            return logger.exit(Optional.<IntraVmConnection<V>>absent());
+        }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("future", delegate())
+                    .add("this", IntraVmConnection.this)
+                    .add("state", state())
+                    .add("local", local)
+                    .add("remote", remote)
+                    .toString();
         }
     }
 }

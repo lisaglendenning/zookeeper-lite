@@ -15,33 +15,33 @@ import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 
-public class ServerConnectionExecutorsService<C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> extends ForwardingService implements Iterable<ServerConnectionExecutor<C,T>> {
+public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> extends ForwardingService implements Iterable<ServerConnectionExecutor<T>> {
 
-    public static <C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> ServerConnectionExecutorsService<C,T> newInstance(
+    public static <T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> ServerConnectionExecutorsService<T> newInstance(
             ServerConnectionFactory<T> connections,
             ServerTaskExecutor server) {
-        return new ServerConnectionExecutorsService<C,T>(
+        return new ServerConnectionExecutorsService<T>(
                 connections, 
-                ServerConnectionExecutor.<C,T>factory(
+                ServerConnectionExecutor.<T>factory(
                         server.getAnonymousExecutor(), 
                         server.getConnectExecutor(), 
                         server.getSessionExecutor()));
     }
 
     protected final ServerConnectionFactory<T> connections;
-    protected final ParameterizedFactory<T, ServerConnectionExecutor<C,T>> factory;
-    protected final ConcurrentMap<T, ServerConnectionExecutor<C,T>> handlers;
+    protected final ParameterizedFactory<T, ServerConnectionExecutor<T>> factory;
+    protected final ConcurrentMap<T, ServerConnectionExecutor<T>> handlers;
     
     public ServerConnectionExecutorsService(
             ServerConnectionFactory<T> connections,
-            ParameterizedFactory<T, ServerConnectionExecutor<C,T>> factory) {
+            ParameterizedFactory<T, ServerConnectionExecutor<T>> factory) {
         this.connections = connections;
         this.factory = factory;
         this.handlers = new MapMaker().makeMap();
     }
     
     @Override
-    public Iterator<ServerConnectionExecutor<C,T>> iterator() {
+    public Iterator<ServerConnectionExecutor<T>> iterator() {
         return handlers.values().iterator();
     }
 
@@ -73,9 +73,9 @@ public class ServerConnectionExecutorsService<C extends Connection<? super Messa
         connections.unregister(this);
     }
 
-    protected class ConnectionListener extends Pair<T, ServerConnectionExecutor<C,T>> {
+    protected class ConnectionListener extends Pair<T, ServerConnectionExecutor<T>> {
         
-        public ConnectionListener(T connection, ServerConnectionExecutor<C,T> handler) {
+        public ConnectionListener(T connection, ServerConnectionExecutor<T> handler) {
             super(connection, handler);
             if (handlers.putIfAbsent(connection, handler) != null) {
                 throw new AssertionError();

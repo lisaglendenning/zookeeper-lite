@@ -206,7 +206,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
         monitorsFactory.apply(ExpiringSessionService.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
 
         ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
-                nettyServer.get(
+                nettyServer.getServerConnectionFactory(
                         codecFactory(),
                         connectionFactory());
         ServerInetAddressView address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());

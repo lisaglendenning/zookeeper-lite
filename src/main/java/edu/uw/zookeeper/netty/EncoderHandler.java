@@ -11,25 +11,25 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.MessageToByteEncoder;
 
-public class OutboundHandler<I> extends MessageToByteEncoder<I> {
+public class EncoderHandler<I> extends MessageToByteEncoder<I> {
     
-    public static <I> OutboundHandler<I> attach(
+    public static <I> EncoderHandler<I> attach(
             Channel channel, Class<I> type, Encoder<? super I> encoder, Logger logger) {
-        OutboundHandler<I> handler = create(type, encoder, logger);
+        EncoderHandler<I> handler = create(type, encoder, logger);
         ChannelPipeline pipeline = channel.pipeline();
-        pipeline.addLast(OutboundHandler.class.getName(), handler);
+        pipeline.addLast(EncoderHandler.class.getName(), handler);
         return handler;
     }
 
-    public static <I> OutboundHandler<I> create(
+    public static <I> EncoderHandler<I> create(
             Class<I> type, Encoder<? super I> encoder, Logger logger) {
-        return new OutboundHandler<I>(type, encoder, logger);
+        return new EncoderHandler<I>(type, encoder, logger);
     }
 
     protected final Logger logger;
     protected final Encoder<? super I> encoder;
 
-    protected OutboundHandler(
+    protected EncoderHandler(
             Class<I> type, Encoder<? super I> encoder, Logger logger) {
         super(type, true);
         this.logger = logger;

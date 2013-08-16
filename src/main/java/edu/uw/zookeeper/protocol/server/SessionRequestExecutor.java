@@ -10,7 +10,7 @@ import org.apache.logging.log4j.LogManager;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.common.ExecutorActor;
+import edu.uw.zookeeper.common.ExecutedActor;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
@@ -19,7 +19,7 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 
-public class SessionRequestExecutor extends ExecutorActor<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> implements TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> {
+public class SessionRequestExecutor extends ExecutedActor<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> implements TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> {
 
     public static SessionRequestExecutor newInstance(
             Executor executor,

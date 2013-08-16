@@ -15,12 +15,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Automaton;
-import edu.uw.zookeeper.common.ExecutorActor;
+import edu.uw.zookeeper.common.ExecutedActor;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.Publisher;
-import edu.uw.zookeeper.common.PublisherActor;
+import edu.uw.zookeeper.common.ActorPublisher;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.TaskExecutor;
@@ -35,26 +35,26 @@ import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class ServerConnectionExecutor<C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>>
+public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>>
         implements Publisher, Reference<T> {
 
-    public static <C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> ServerConnectionExecutor<C,T> newInstance(
+    public static <T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> ServerConnectionExecutor<T> newInstance(
             T connection,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
             TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
-        return new ServerConnectionExecutor<C,T>(
+        return new ServerConnectionExecutor<T>(
                 connection, anonymousExecutor, connectExecutor, sessionExecutor);
     }
     
-    public static <C extends Connection<? super Message.Server>, T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, C>> ParameterizedFactory<T, ServerConnectionExecutor<C,T>> factory(
+    public static <T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> ParameterizedFactory<T, ServerConnectionExecutor<T>> factory(
             final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
             final TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
-        return new ParameterizedFactory<T, ServerConnectionExecutor<C,T>>() {
+        return new ParameterizedFactory<T, ServerConnectionExecutor<T>>() {
             @Override
-            public ServerConnectionExecutor<C,T> get(T connection) {
-                ServerConnectionExecutor<C,T> instance = ServerConnectionExecutor.newInstance(
+            public ServerConnectionExecutor<T> get(T connection) {
+                ServerConnectionExecutor<T> instance = ServerConnectionExecutor.newInstance(
                         connection, 
                         anonymousExecutor, 
                         connectExecutor, 
@@ -146,7 +146,7 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
                 .toString();
     }
 
-    protected class InboundActor extends ExecutorActor<Message.Client> 
+    protected class InboundActor extends ExecutedActor<Message.Client> 
             implements FutureCallback<Object> {
     
         protected final ConcurrentLinkedQueue<Message.Client> mailbox;
@@ -205,9 +205,8 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
         }
     
         @Subscribe
-        @Override
-        public void send(Message.Client message) {
-            super.send(message);
+        public void handleMessage(Message.Client message) {
+            send(message);
         }
         
         @Override
@@ -274,7 +273,7 @@ public class ServerConnectionExecutor<C extends Connection<? super Message.Serve
         }
     }
 
-    protected class OutboundActor extends PublisherActor 
+    protected class OutboundActor extends ActorPublisher 
         implements FutureCallback<Object> {
     
         public OutboundActor() {

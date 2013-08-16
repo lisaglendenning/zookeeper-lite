@@ -114,5 +114,5 @@ public interface Connection<I> extends Publisher, Executor {
      * 
      * @return ListenableFuture that returns this
      */
-    ListenableFuture<Connection<I>> close();
+    ListenableFuture<? extends Connection<I>> close();
 }

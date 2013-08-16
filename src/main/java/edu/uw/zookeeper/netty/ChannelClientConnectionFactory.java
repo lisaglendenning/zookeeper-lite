@@ -11,9 +11,16 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
 
 import java.net.SocketAddress;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
-import com.google.common.collect.Maps;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.MapMaker;
+import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Factory;
@@ -104,8 +111,11 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
 
     @Override
     public ListenableFuture<C> connect(SocketAddress remoteAddress) {
+        if (! isRunning()) {
+            return Futures.immediateFailedFuture(new IllegalStateException(state().toString()));
+        }
         logger.debug(Logging.NETTY_MARKER, "CONNECTING {}", remoteAddress);
-        return new ConnectListener(bootstrap.connect(remoteAddress));
+        return initializer.connect(bootstrap.connect(remoteAddress));
     }
 
     @Override
@@ -118,60 +128,110 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
     protected class ChildInitializer extends ChannelInitializer<Channel> {
         
         protected final ConcurrentMap<Channel, C> byChannel;
+        protected final Set<ConnectListener> pending;
         
         public ChildInitializer() {
-            this.byChannel = Maps.newConcurrentMap();
+            this.byChannel = new MapMaker().makeMap();
+            this.pending = Collections.synchronizedSet(Sets.<ConnectListener>newHashSet());
+        }
+        
+        public ListenableFuture<C> connect(ChannelFuture future) {
+            ConnectListener listener = new ConnectListener(future);
+            pending.add(listener);
+            if (! isRunning()) {
+                listener.cancel(true);
+            }
+            return listener;
         }
     
         // This gets called before connect() completes
         @Override
         public void initChannel(Channel channel) throws Exception {
-            byChannel.put(channel, newChannel(channel));
+            C connection = newChannel(channel);
+            if (connection != null) {
+                byChannel.put(channel, connection);
+            }
         }
         
         public void shutDown() {
-            // TODO: cancel pending connections?
-            byChannel.clear();
-        }
-    }
-
-    protected class ConnectListener extends PromiseTask<ChannelFuture, C> implements ChannelFutureListener {
-    
-        public ConnectListener(ChannelFuture channelFuture) {
-            this(channelFuture, PromiseTask.<C>newPromise());
-        }
-        
-        public ConnectListener(ChannelFuture channelFuture, Promise<C> promise) {
-            super(channelFuture, promise);
-            channelFuture.addListener(this);
-        }
-        
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning) {
-            task().cancel(mayInterruptIfRunning);
-            return super.cancel(mayInterruptIfRunning);
-        }
-    
-        // called when connect() completes
-        @Override
-        public void operationComplete(ChannelFuture future) throws Exception {
-            if (future.isSuccess()) {
-                Channel channel = future.channel();
-                try {
-                    C connection = initializer.byChannel.remove(channel);
-                    if (connection != null) {
-                        set(connection);
-                    } else {
-                        cancel(true);
+            synchronized (pending) {
+                Iterator<ConnectListener> itr = Iterators.consumingIterator(pending.iterator());
+                while (itr.hasNext()) {
+                    ConnectListener next = itr.next();
+                    if (! next.isDone()) {
+                        next.cancel(true);
                     }
-                } catch (Exception e) {
-                    setException(e);
                 }
-            } else {
-                if (future.isCancelled()) {
-                    cancel(true);
+            }
+            
+            Iterator<Map.Entry<Channel, C>> itr = Iterators.consumingIterator(byChannel.entrySet().iterator());
+            while (itr.hasNext()) {
+                Map.Entry<Channel, C> next = itr.next();
+                next.getValue().close();
+                next.getKey().close();
+            }
+        }
+        
+        protected class ConnectListener extends PromiseTask<ChannelFuture, C> implements ChannelFutureListener {
+            
+            public ConnectListener(ChannelFuture channelFuture) {
+                this(channelFuture, PromiseTask.<C>newPromise());
+            }
+            
+            public ConnectListener(ChannelFuture channelFuture, Promise<C> promise) {
+                super(channelFuture, promise);
+                channelFuture.addListener(this);
+            }
+            
+            @Override
+            public boolean set(C result) {
+                boolean set = super.set(result);
+                if (set) {
+                    pending.remove(this);
+                }
+                return set;
+            }
+
+            @Override
+            public boolean setException(Throwable t) {
+                boolean setException = super.setException(t);
+                if (setException) {
+                    pending.remove(this);
+                }
+                return setException;
+            }
+            
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning) {
+                boolean cancel = super.cancel(mayInterruptIfRunning);
+                if (cancel) {
+                    task().cancel(mayInterruptIfRunning);
+                    pending.remove(this);
+                }
+                return cancel;
+            }
+        
+            // called when connect() completes
+            @Override
+            public void operationComplete(ChannelFuture future) throws Exception {
+                if (future.isSuccess()) {
+                    Channel channel = future.channel();
+                    try {
+                        C connection = byChannel.remove(channel);
+                        if (connection != null) {
+                            set(connection);
+                        } else {
+                            cancel(true);
+                        }
+                    } catch (Exception e) {
+                        setException(e);
+                    }
                 } else {
-                    setException(future.cause());
+                    if (future.isCancelled()) {
+                        cancel(true);
+                    } else {
+                        setException(future.cause());
+                    }
                 }
             }
         }
