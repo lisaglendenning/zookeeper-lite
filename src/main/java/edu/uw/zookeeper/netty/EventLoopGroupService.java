@@ -16,11 +16,11 @@ import com.google.common.util.concurrent.AbstractIdleService;
 
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.ServiceMonitor;
-import edu.uw.zookeeper.common.Singleton;
 import edu.uw.zookeeper.common.TimeValue;
 
-public class EventLoopGroupService<T extends EventLoopGroup> extends AbstractIdleService implements Singleton<T> {
+public class EventLoopGroupService<T extends EventLoopGroup> extends AbstractIdleService implements Reference<T> {
 
     public static MonitoredEventLoopGroupFactory factory(
                 ParameterizedFactory<ThreadFactory, EventLoopGroup> eventLoopGroupFactory,
@@ -47,7 +47,7 @@ public class EventLoopGroupService<T extends EventLoopGroup> extends AbstractIdl
         }
         
         @Override
-        public Singleton<? extends EventLoopGroup> get(ThreadFactory threadFactory) {
+        public Reference<? extends EventLoopGroup> get(ThreadFactory threadFactory) {
             EventLoopGroup group = eventLoopGroupFactory.get(threadFactory);
             EventLoopGroupService<?> groupService = EventLoopGroupService.newInstance(group);
             serviceMonitor.add(groupService);

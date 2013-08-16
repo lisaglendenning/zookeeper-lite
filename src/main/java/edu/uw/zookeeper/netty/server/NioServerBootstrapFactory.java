@@ -8,8 +8,8 @@ import io.netty.channel.EventLoopGroup;
 import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.ServiceMonitor;
-import edu.uw.zookeeper.common.Singleton;
 import edu.uw.zookeeper.netty.DaemonThreadFactory;
 import edu.uw.zookeeper.netty.EventLoopGroupService;
 import edu.uw.zookeeper.netty.SimpleServerBootstrapFactory;
@@ -44,7 +44,7 @@ public class NioServerBootstrapFactory implements Factory<ServerBootstrap> {
             Factory<ThreadFactory> threadFactory,
             ServiceMonitor serviceMonitor) {
         ThreadFactory threads = DaemonThreadFactory.getInstance().get(threadFactory.get());
-        Singleton<? extends EventLoopGroup> groupFactory = EventLoopGroupService.factory(
+        Reference<? extends EventLoopGroup> groupFactory = EventLoopGroupService.factory(
                 NioEventLoopGroupFactory.DEFAULT,
                 serviceMonitor).get(threads);
         return newInstance(groupFactory);

@@ -54,29 +54,6 @@ public class ServerViewFactory<V, T extends ServerView.Address<? extends SocketA
         return new ServerViewFactory<V,T,C>(view, delegate, zxids);
     }
     
-    public static class FixedClientConnectionFactory<C extends Connection<?>> extends Pair<SocketAddress, ClientConnectionFactory<C>> implements Factory<ListenableFuture<C>> {
-        
-        public static <C extends Connection<?>> FixedClientConnectionFactory<C> create(
-                SocketAddress address,
-                ClientConnectionFactory<C> connectionFactory) {
-            return new FixedClientConnectionFactory<C>(address, connectionFactory);
-        }
-        
-        protected FixedClientConnectionFactory(SocketAddress address,
-                ClientConnectionFactory<C> connectionFactory) {
-            super(address, connectionFactory);
-        }
-        
-        @Override
-        public ListenableFuture<C> get() {
-            try {
-                return second().connect(first());
-            } catch (Throwable t) {
-                return Futures.immediateFailedFuture(t);
-            }
-        }
-    }
-
     public static class FromRequestFactory<C extends Connection<? super Message.ClientSession>> implements DefaultsFactory<ConnectMessage.Request, ListenableFuture<ClientConnectionExecutor<C>>> {
     
         public static <C extends Connection<? super Message.ClientSession>> FromRequestFactory<C> create(
