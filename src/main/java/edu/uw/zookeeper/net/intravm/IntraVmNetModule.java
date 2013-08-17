@@ -20,10 +20,20 @@ import edu.uw.zookeeper.protocol.Codec;
 public class IntraVmNetModule implements NetClientModule, NetServerModule {
 
     public static IntraVmNetModule defaults() {
-        return new IntraVmNetModule(
+        return create(
                 IntraVmCodecEndpointFactory.unpooled(),
                 IntraVmCodecEndpointFactory.sameThreadExecutors(),
                 IntraVmFactory.defaults());
+    }
+
+    public static IntraVmNetModule create(
+            Factory<? extends ByteBufAllocator> allocators,
+            Factory<? extends Executor> executors,
+            IntraVmFactory factory) {
+        return new IntraVmNetModule(
+                allocators,
+                executors,
+                factory);
     }
     
     protected final Factory<? extends ByteBufAllocator> allocators;
