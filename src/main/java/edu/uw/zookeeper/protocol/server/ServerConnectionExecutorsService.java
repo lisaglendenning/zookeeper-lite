@@ -51,7 +51,7 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
 
     @Subscribe
     public void handleNewConnection(T connection) {
-        new ConnectionListener(connection, factory.get(connection));
+        new RemoveOnClose(connection, factory.get(connection));
     }
 
     @Override
@@ -70,12 +70,14 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
     protected void shutDown() throws Exception {
         super.shutDown();
         
-        connections.unregister(this);
+        try {
+            connections.unregister(this);
+        } catch (IllegalArgumentException e) {}
     }
 
-    protected class ConnectionListener extends Pair<T, ServerConnectionExecutor<T>> {
+    protected class RemoveOnClose extends Pair<T, ServerConnectionExecutor<T>> {
         
-        public ConnectionListener(T connection, ServerConnectionExecutor<T> handler) {
+        public RemoveOnClose(T connection, ServerConnectionExecutor<T> handler) {
             super(connection, handler);
             if (handlers.putIfAbsent(connection, handler) != null) {
                 throw new AssertionError();

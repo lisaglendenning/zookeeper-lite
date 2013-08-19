@@ -43,7 +43,6 @@ public class IntraVmClientConnectionFactory<C extends Connection<?>, V> extends 
         if (add(connection)) {
             return Futures.immediateFuture(connection);
         } else {
-            connection.close();
             return Futures.immediateFailedFuture(new IllegalStateException(Connection.State.CONNECTION_CLOSING.toString()));
         }
     }
