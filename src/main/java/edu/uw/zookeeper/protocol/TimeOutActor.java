@@ -9,6 +9,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import edu.uw.zookeeper.common.Actor;
 
 public abstract class TimeOutActor<V> implements Actor<V> {
+
+    protected static long NEVER_TIMEOUT = 0L;
     
     protected final ScheduledExecutorService executor;
     protected final AtomicReference<State> state;
@@ -49,6 +51,22 @@ public abstract class TimeOutActor<V> implements Actor<V> {
         }
     }
     
+    protected boolean schedule() {
+        if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
+            doSchedule();
+            return true;
+        }
+        return false;
+    }
+    
+    protected synchronized void doSchedule() {
+        if (parameters.getTimeOut() != NEVER_TIMEOUT) {
+            future = executor.schedule(this, parameters.getTimeOut(), parameters.getUnit());
+        } else {
+            state.compareAndSet(State.SCHEDULED, State.WAITING);
+        }
+    }
+
     protected abstract void doRun();
 
     @Override
@@ -59,20 +77,10 @@ public abstract class TimeOutActor<V> implements Actor<V> {
         }
         return false;
     }
-    
+
     protected synchronized void doStop() {
         if ((future != null) && !future.isDone()) {
             future.cancel(false);
         }
     }
-    
-    protected boolean schedule() {
-        if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
-            doSchedule();
-            return true;
-        }
-        return false;
-    }
-    
-    protected abstract void doSchedule();
 }

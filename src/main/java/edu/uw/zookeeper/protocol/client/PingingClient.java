@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.protocol.client;
 
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -84,8 +83,6 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         pingTask.send(message);
     }
 
-    protected static final TimeUnit TIME_UNIT = TimeUnit.MILLISECONDS;
-    
     protected class PingingTask extends TimeOutActor<Object> implements Actor<Object>, FutureCallback<Object> {
 
         private volatile Ping.Request lastPing = null;
@@ -107,7 +104,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
 
         @Override
         public void onFailure(Throwable t) {
-            stop();
+            close();
         }
 
         @Override
@@ -180,7 +177,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
             if (parameters.getTimeOut() != Session.Parameters.NEVER_TIMEOUT) {
                 // somewhat arbitrary...
                 long tick = Math.max(parameters.remaining() / 2, 0);
-                future = executor.schedule(this, tick, TIME_UNIT);
+                future = executor.schedule(this, tick, parameters.getUnit());
             } else {
                 state.compareAndSet(State.SCHEDULED, State.WAITING);
             }
