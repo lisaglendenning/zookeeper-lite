@@ -47,7 +47,7 @@ public class EphemeralProcessor extends ForwardingProcessor<TxnOperation.Request
         Records.Response response = delegate().apply(input);
         Long session = input.getSessionId();
         if (request.getOpcode() == OpCode.CLOSE_SESSION) {
-            for (String path: bySession.get(session)) {
+            for (String path: bySession.removeAll(session)) {
                 ProtocolRequestMessage<?> nested = ProtocolRequestMessage.of(input.getXid(), new IDeleteRequest(path, Stats.VERSION_ANY));
                 apply(TxnRequest.of(input.getTime(), input.getZxid(), SessionRequest.of(session, nested, nested)));
             }
