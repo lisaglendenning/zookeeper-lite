@@ -3,6 +3,7 @@ package edu.uw.zookeeper.client;
 import java.net.SocketAddress;
 import java.util.Random;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledExecutorService;
 
 import javax.annotation.Nullable;
 
@@ -17,20 +18,22 @@ import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
-import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.ProtocolCodec;
+import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 
 public class EnsembleViewFactory<V extends ServerView.Address<? extends SocketAddress>, T> implements DefaultsFactory<V, T> {
 
-    public static <V extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> EnsembleViewFactory<V, ServerViewFactory<Session, V, C>> newInstance(
+    public static <V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> EnsembleViewFactory<V, ServerViewFactory<Session, V, C>> newInstance(
             ClientConnectionFactory<C> connections,
             Class<V> type,
             EnsembleView<V> view, 
-            TimeValue timeOut) {
+            TimeValue timeOut,
+            ScheduledExecutorService executor) {
         return newInstance(
                 view, RandomSelector.<V>newInstance(), type, 
                 InstanceFactory.newInstance(
-                        ServerViewFactories.<V,C>newInstance(connections, timeOut), 
+                        ServerViewFactories.<V,C>newInstance(connections, timeOut, executor), 
                         new MapMaker().<V,ServerViewFactory<Session, V, C>>makeMap()));
     }
 
@@ -90,27 +93,31 @@ public class EnsembleViewFactory<V extends ServerView.Address<? extends SocketAd
         }
     }
     
-    public static class ServerViewFactories<V extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> implements ParameterizedFactory<V, ServerViewFactory<Session, V, C>> {
+    public static class ServerViewFactories<V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements ParameterizedFactory<V, ServerViewFactory<Session, V, C>> {
 
-        public static <T extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> ServerViewFactories<T,C> newInstance(
+        public static <T extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactories<T,C> newInstance(
                 ClientConnectionFactory<C> connections,
-                TimeValue timeOut) {
-            return new ServerViewFactories<T,C>(connections, timeOut);
+                TimeValue timeOut,
+                ScheduledExecutorService executor) {
+            return new ServerViewFactories<T,C>(connections, timeOut, executor);
         }
         
         protected final ClientConnectionFactory<C> connections;
         protected final TimeValue timeOut;
+        protected final ScheduledExecutorService executor;
         
         protected ServerViewFactories(
                 ClientConnectionFactory<C> connections,
-                TimeValue timeOut) {
+                TimeValue timeOut,
+                ScheduledExecutorService executor) {
             this.connections = connections;
             this.timeOut = timeOut;
+            this.executor = executor;
         }
 
         @Override
         public ServerViewFactory<Session, V, C> get(V view) {
-            return ServerViewFactory.newInstance(connections, view, timeOut);
+            return ServerViewFactory.newInstance(connections, view, timeOut, executor);
         }
     }
 

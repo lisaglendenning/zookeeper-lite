@@ -205,7 +205,8 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
                     clientConnections, 
                     ServerInetAddressView.class, 
                     ensemble, 
-                    timeOut);
+                    timeOut,
+                    runtime.executors().asScheduledExecutorServiceFactory().get());
         monitorsFactory.apply(
                 ClientConnectionExecutorService.newInstance(
                         new Factory<ListenableFuture<ClientConnectionExecutor<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>>>() {

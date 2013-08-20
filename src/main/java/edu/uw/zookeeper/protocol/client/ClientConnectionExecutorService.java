@@ -13,16 +13,18 @@ import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolCodec;
+import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 /**
  * Wraps a lazily-instantiated ClientConnectionExecutor in a Service.
  */
-public class ClientConnectionExecutorService<C extends Connection<? super Operation.Request>> extends AbstractIdleService 
+public class ClientConnectionExecutorService<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> extends AbstractIdleService 
         implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Message.ServerResponse<?>> {
 
-    public static <C extends Connection<? super Operation.Request>> ClientConnectionExecutorService<C> newInstance(
+    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ClientConnectionExecutorService<C> newInstance(
             Factory<ListenableFuture<ClientConnectionExecutor<C>>> factory) {
         return new ClientConnectionExecutorService<C>(factory);
     }
