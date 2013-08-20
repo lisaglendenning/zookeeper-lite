@@ -1,124 +1,56 @@
 package edu.uw.zookeeper.protocol;
 
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkNotNull;
 import io.netty.buffer.ByteBuf;
-import java.nio.charset.Charset;
+import io.netty.buffer.Unpooled;
 
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Maps;
 
-public enum FourLetterRequest implements Message.Client, Message.Anonymous {
+import edu.uw.zookeeper.common.Pair;
 
-    CONF("conf") {
-    },
-    CONS("cons") {
-    },
-    CRST("crst") {
-    },
-    DUMP("dump") {
-    },
-    ENVI("envi") {
-    },
-    GTMK("gtmk") {
-    },
-    ISRO("isro") {
-    },
-    MNTR("mntr") {
-    },
-    RUOK("ruok") {
-    },
-    STMK("stmk") {
-    },
-    SRST("srst") {
-    },
-    SRVR("srvr") {
-    },
-    STAT("stat") {
-    },
-    WCHC("wchc") {
-    },
-    WCHP("wchp") {
-    },
-    WCHS("wchs") {
-    };
+public class FourLetterRequest extends Pair<FourLetterWord, Optional<ByteBuf>> implements Message.ClientAnonymous {
 
+    public static FourLetterRequest of(FourLetterWord word, Optional<ByteBuf> args) {
+        return new FourLetterRequest(word, args);
+    }
+    
     public static Optional<FourLetterRequest> decode(ByteBuf input) {
-        if (checkNotNull(input).readableBytes() >= LENGTH) {
-            byte[] bytes = new byte[LENGTH];
+        if (checkNotNull(input).readableBytes() >= FourLetterWord.LENGTH) {
+            byte[] bytes = new byte[FourLetterWord.LENGTH];
             input.getBytes(input.readerIndex(), bytes);
-            if (FourLetterRequest.has(bytes)) {
-                FourLetterRequest command = FourLetterRequest.of(bytes);
-                input.skipBytes(bytes.length);
-                return Optional.of(command);
+            if (FourLetterWord.has(bytes)) {
+                FourLetterWord command = FourLetterWord.of(bytes);
+                Optional<ByteBuf> args;
+                switch (command) {
+                case STMK:
+                    if (input.readableBytes() >= 8) {
+                        input.skipBytes(bytes.length);
+                        input.readBytes(bytes);
+                        args = Optional.of(Unpooled.wrappedBuffer(bytes));
+                        break;
+                    } else {
+                        return Optional.absent();
+                    }
+                default:
+                    input.skipBytes(bytes.length);
+                    args = Optional.absent();
+                    break;
+                }
+                return Optional.of(FourLetterRequest.of(command, args));
             }
         }
         return Optional.absent();
     }
 
-    public static int LENGTH = 4;
-    
-    private final static ImmutableMap<String, FourLetterRequest> byWord = Maps
-            .uniqueIndex(Iterators.forArray(FourLetterRequest.values()), 
-                    new Function<FourLetterRequest, String>() {
-                        @Override public String apply(FourLetterRequest input) {
-                            return input.word();
-                        }});
-
-    public static Charset encoding() {
-        // TODO: know we want single-byte encoding, but is it US-ASCII or UTF-8?
-        return Charset.forName("US-ASCII");
-    }
-    
-    public static byte[] encode(String word) {
-        return word.getBytes(encoding());
-    }
-
-    public static String decode(byte[] bytes) {
-        return new String(bytes, encoding());
-    }
-
-    public static boolean has(String word) {
-        return byWord.containsKey(word);
-    }
-
-    public static boolean has(byte[] bytes) {
-        String word = decode(bytes);
-        return byWord.containsKey(word);
-    }
-
-    public static FourLetterRequest of(String word) {
-        checkArgument(has(word));
-        return byWord.get(word);
-    }
-
-    public static FourLetterRequest of(byte[] bytes) {
-        String word = decode(bytes);
-        return of(word);
-    }
-
-    private final String word;
-    
-    private FourLetterRequest(String word) {
-        this.word = word;
-    }
-
-    public int length() {
-        return LENGTH;
-    }
-
-    public String word() {
-        return word;
-    }
-
-    public byte[] bytes() {
-        return encode(word);
+    public FourLetterRequest(FourLetterWord word, Optional<ByteBuf> args) {
+        super(word, args);
     }
 
     @Override
     public void encode(ByteBuf output) {
-        output.writeBytes(bytes());
+        first.encode(output);
+        if (second.isPresent()) {
+            output.writeBytes(second.get());
+        }
     }
 }

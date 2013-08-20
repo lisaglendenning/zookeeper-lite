@@ -24,6 +24,7 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
+import edu.uw.zookeeper.protocol.TelnetCloseRequest;
 
 public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Message.Client> {
     
@@ -177,7 +178,10 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
             case ANONYMOUS:
                 out = FourLetterRequest.decode(input).orNull();
                 if (out == null) {
-                    out = sessionDecoder.decode(input).orNull();
+                    out = TelnetCloseRequest.decode(input).orNull();
+                    if (out == null) {
+                        out = sessionDecoder.decode(input).orNull();
+                    }
                 }
                 break;
             case CONNECTING:

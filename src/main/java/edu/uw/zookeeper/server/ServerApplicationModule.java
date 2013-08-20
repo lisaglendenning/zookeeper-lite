@@ -186,7 +186,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
             Map<Long, Publisher> listeners,
             TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> sessionExecutor) {
         TaskExecutor<FourLetterRequest, FourLetterResponse> anonymousExecutor = 
-                ServerTaskExecutor.ProcessorExecutor.of(FourLetterRequestProcessor.getInstance());
+                ServerTaskExecutor.ProcessorExecutor.of(FourLetterRequestProcessor.newInstance());
         TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> connectExecutor = 
                 ServerTaskExecutor.ProcessorExecutor.of(ConnectListenerProcessor.newInstance(
                         ConnectTableProcessor.create(sessions, zxids), listeners));

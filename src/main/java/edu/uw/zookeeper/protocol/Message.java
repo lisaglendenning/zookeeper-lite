@@ -20,6 +20,10 @@ public interface Message extends Encodable {
      */
     public static interface Anonymous extends Message {}
 
+    public static interface ClientAnonymous extends Client, Anonymous {}
+    
+    public static interface ServerAnonymous extends Server, Anonymous {}
+    
     /**
      * Associated with a session.
      */
