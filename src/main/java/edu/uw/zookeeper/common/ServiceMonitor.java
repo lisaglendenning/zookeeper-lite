@@ -133,10 +133,16 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     public <T extends Service> T addOnStart(T service) {
         checkNotNull(service);
         checkState(isAddable(), state());
-        if (service.state() == Service.State.NEW) {
-            service.addListener(new ServiceDelayedRegister(service), listenerExecutor);
-        } else {
-            add(service);
+        if (! isMonitoring(service)) {
+            if (service.state() == Service.State.NEW) {
+                ServiceDelayedRegister listener = new ServiceDelayedRegister(service);
+                service.addListener(listener, listenerExecutor);
+                if (service.state() != Service.State.NEW) {
+                    listener.run();
+                }
+            } else {
+                add(service);
+            }
         }
         return service;
     }
@@ -321,7 +327,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         }
     }
     
-    protected class ServiceDelayedRegister extends ServiceListenerAdapter {
+    protected class ServiceDelayedRegister extends ServiceListenerAdapter implements Runnable {
 
         public ServiceDelayedRegister(Service service) {
             super(service);
@@ -329,10 +335,15 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         
         @Override
         public void starting() {
-            try {
-                add(get());
-            } catch (IllegalStateException e) {
-                if (! isMonitoring(get())) {
+            run();
+        }
+
+        @Override
+        public void run() {
+            if (! isMonitoring(get())) {
+                try {
+                    add(get());
+                } catch (IllegalStateException e) {
                     get().stop();
                 }
             }

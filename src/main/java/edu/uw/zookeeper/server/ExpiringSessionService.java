@@ -1,10 +1,7 @@
 package edu.uw.zookeeper.server;
 
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-
-import com.google.common.util.concurrent.AbstractIdleService;
+import com.google.common.util.concurrent.AbstractScheduledService;
 import com.typesafe.config.Config;
 
 import edu.uw.zookeeper.common.ConfigurableTime;
@@ -13,8 +10,8 @@ import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.TimeValue;
 
-public class ExpiringSessionService extends AbstractIdleService implements
-        Runnable, Reference<ExpiringSessionTable> {
+public class ExpiringSessionService extends AbstractScheduledService implements
+        Reference<ExpiringSessionTable> {
 
     public static enum ConfigurableTickTime implements DefaultsFactory<Configuration, TimeValue> {
         DEFAULT;
@@ -67,7 +64,6 @@ public class ExpiringSessionService extends AbstractIdleService implements
     private final ExpiringSessionTable sessions;
     private final ScheduledExecutorService executor;
     private final TimeValue tickTime;
-    private volatile ScheduledFuture<?> future;
 
     private ExpiringSessionService(
             ExpiringSessionTable sessions,
@@ -77,7 +73,6 @@ public class ExpiringSessionService extends AbstractIdleService implements
         this.sessions = sessions;
         this.executor = executor;
         this.tickTime = tickTime;
-        this.future = null;
     }
     
     @Override
@@ -86,21 +81,17 @@ public class ExpiringSessionService extends AbstractIdleService implements
     }
 
     @Override
-    public void run() {
+    protected ScheduledExecutorService executor() {
+        return executor;
+    }
+
+    @Override
+    protected void runOneIteration() throws Exception {
         sessions.triggerExpired();
     }
 
     @Override
-    protected void startUp() throws Exception {
-        long tick = tickTime.value();
-        TimeUnit tickUnit = tickTime.unit();
-        future = executor.scheduleAtFixedRate(this, tick, tick, tickUnit);
-    }
-
-    @Override
-    protected void shutDown() throws Exception {
-        if (future != null) {
-            future.cancel(true);
-        }
+    protected Scheduler scheduler() {
+        return Scheduler.newFixedDelaySchedule(tickTime.value(), tickTime.value(), tickTime.unit());
     }
 }
