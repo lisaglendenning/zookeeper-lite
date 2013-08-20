@@ -24,9 +24,9 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class RandomCacheOperationClient<V extends Operation.ProtocolResponse<Records.Response>> implements Callable<ListenableFuture<V>> {
+public class RandomCacheOperationClient<V extends Operation.ProtocolResponse<?>> implements Callable<ListenableFuture<V>> {
 
-    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> RandomCacheOperationClient<V> create(
+    public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> RandomCacheOperationClient<V> create(
             ZNodeViewCache<?,? super Records.Request,V> client) {
         Random random = new Random();
         RandomLabel labels = RandomLabel.create(random, Range.closedOpen(1, 9));

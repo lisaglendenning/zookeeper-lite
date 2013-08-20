@@ -454,6 +454,7 @@ public abstract class Records {
                         Maps.<OpCode, Class<? extends Records.Response>>uniqueIndex(
                                 ImmutableList.<Class<? extends Records.Response>>of(
                                         IAuthResponse.class,
+                                        ICheckVersionResponse.class,
                                         ICreateResponse.class,
                                         ICreate2Response.class,
                                         IDeleteResponse.class,

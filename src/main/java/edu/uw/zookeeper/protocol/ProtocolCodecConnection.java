@@ -6,12 +6,25 @@ import org.apache.logging.log4j.LogManager;
 import com.google.common.eventbus.Subscribe;
 
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ForwardingConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
 
 public class ProtocolCodecConnection<I, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> extends ForwardingConnection<I> {
 
+    public static <I, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> ParameterizedFactory<Pair<Pair<Class<I>, T>, C>, ? extends ProtocolCodecConnection<I,T,C>> factory() { 
+        return new ParameterizedFactory<Pair<Pair<Class<I>, T>, C>, ProtocolCodecConnection<I,T,C>>() {
+            @Override
+            public ProtocolCodecConnection<I,T,C> get(Pair<Pair<Class<I>, T>, C> value) {
+                return ProtocolCodecConnection.newInstance(
+                        value.first().second(),
+                        value.second());
+            }
+        };    
+    }
+    
     public static <I, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> ProtocolCodecConnection<I,T,C> newInstance(
             T codec, 
             C connection) {

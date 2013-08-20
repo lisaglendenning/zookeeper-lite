@@ -97,4 +97,9 @@ public class SessionRequestExecutor extends ExecutedActor<PromiseTask<SessionOpe
             task.cancel(true);
         }
     }
+
+    @Override
+    protected Logger logger() {
+        return logger;
+    }
 }

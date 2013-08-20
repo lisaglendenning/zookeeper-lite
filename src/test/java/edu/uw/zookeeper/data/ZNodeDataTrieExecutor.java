@@ -21,8 +21,8 @@ import edu.uw.zookeeper.protocol.server.RequestErrorProcessor;
 import edu.uw.zookeeper.protocol.server.ToTxnRequestProcessor;
 import edu.uw.zookeeper.protocol.server.ZxidIncrementer;
 
-public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>,
-        Processors.UncheckedProcessor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>> {
+public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>>,
+        Processors.UncheckedProcessor<SessionOperation.Request<?>, Message.ServerResponse<?>> {
 
     public static ZNodeDataTrieExecutor create() {
         return create(
@@ -57,22 +57,22 @@ public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionO
     }
     
     @Override
-    public ListenableFuture<Message.ServerResponse<Records.Response>> submit(
-            SessionOperation.Request<Records.Request> request) {
-        return submit(request, SettableFuturePromise.<Message.ServerResponse<Records.Response>>create());
+    public ListenableFuture<Message.ServerResponse<?>> submit(
+            SessionOperation.Request<?> request) {
+        return submit(request, SettableFuturePromise.<Message.ServerResponse<?>>create());
     }
 
     @Override
-    public synchronized ListenableFuture<Message.ServerResponse<Records.Response>> submit(
-            SessionOperation.Request<Records.Request> request,
-            Promise<Message.ServerResponse<Records.Response>> promise) {
-        Message.ServerResponse<Records.Response> result = apply(request);
+    public synchronized ListenableFuture<Message.ServerResponse<?>> submit(
+            SessionOperation.Request<?> request,
+            Promise<Message.ServerResponse<?>> promise) {
+        Message.ServerResponse<?> result = apply(request);
         promise.set(result);
         return promise;
     }
     
     @Override
-    public synchronized Message.ServerResponse<Records.Response> apply(SessionOperation.Request<Records.Request> input) {
+    public synchronized Message.ServerResponse<?> apply(SessionOperation.Request<?> input) {
         TxnOperation.Request<?> request = txnProcessor.apply(input);
         Message.ServerResponse<Records.Response> response = ProtocolResponseMessage.of(request.getXid(), request.getZxid(), operator.apply(request));
         post(response);

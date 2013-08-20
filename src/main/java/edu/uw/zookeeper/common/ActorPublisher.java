@@ -4,6 +4,9 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 public class ActorPublisher extends CallbackActor<Object> implements Publisher {
 
     public static ActorPublisher newInstance(
@@ -12,21 +15,25 @@ public class ActorPublisher extends CallbackActor<Object> implements Publisher {
         return new ActorPublisher(
                 publisher,
                 executor,
-                new ConcurrentLinkedQueue<Object>());
+                new ConcurrentLinkedQueue<Object>(),
+                LogManager.getLogger(ActorPublisher.class));
     }
 
     protected final Executor executor;
     protected final Queue<Object> mailbox;
     protected final Publisher publisher;
+    protected final Logger logger;
     
     protected ActorPublisher(
             Publisher publisher,
             Executor executor, 
-            Queue<Object> mailbox) {
+            Queue<Object> mailbox,
+            Logger logger) {
         super();
         this.publisher = publisher;
         this.mailbox = mailbox;
         this.executor = executor;
+        this.logger = logger;
     }
 
     @Override
@@ -60,6 +67,11 @@ public class ActorPublisher extends CallbackActor<Object> implements Publisher {
     @Override
     protected Executor executor() {
         return executor;
+    }
+
+    @Override
+    protected Logger logger() {
+        return logger;
     }
     
     protected Publisher publisher() {

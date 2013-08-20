@@ -8,20 +8,20 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class SessionClientExecutor<V extends Operation.ProtocolResponse<Records.Response>> implements ClientExecutor<Records.Request, V> {
+public class SessionClientExecutor<V extends Operation.ProtocolResponse<?>> implements ClientExecutor<Records.Request, V> {
 
-    public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<Records.Response>> SessionClientExecutor<V> create(
+    public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> SessionClientExecutor<V> create(
             long sessionId,
-            ClientExecutor<SessionOperation.Request<Records.Request>, V> delegate) {
+            ClientExecutor<SessionOperation.Request<?>, V> delegate) {
         return new SessionClientExecutor<V>(sessionId, delegate);
     }
     
     protected final SessionClientProcessor sessionProcessor;
-    protected final ClientExecutor<SessionOperation.Request<Records.Request>, V> delegate;
+    protected final ClientExecutor<SessionOperation.Request<?>, V> delegate;
     
     public SessionClientExecutor(
             long sessionId,
-            ClientExecutor<SessionOperation.Request<Records.Request>, V> delegate) {
+            ClientExecutor<SessionOperation.Request<?>, V> delegate) {
         this.sessionProcessor = SessionClientProcessor.create(sessionId);
         this.delegate = delegate;
     }

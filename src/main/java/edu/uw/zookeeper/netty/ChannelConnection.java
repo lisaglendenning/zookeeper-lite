@@ -3,6 +3,7 @@ package edu.uw.zookeeper.netty;
 import static com.google.common.base.Preconditions.*;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+
 import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -158,6 +159,11 @@ public class ChannelConnection<I>
             return ChannelConnection.this;
         }
 
+        @Override
+        protected Logger logger() {
+            return logger;
+        }
+        
         @Override
         protected void doRun() {
             try {

@@ -3,6 +3,8 @@ package edu.uw.zookeeper.common;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.logging.log4j.Logger;
+
 import com.google.common.base.Throwables;
 
 
@@ -13,6 +15,8 @@ public abstract class AbstractActor<T> implements Actor<T> {
     protected AbstractActor() {
         this.state = new AtomicReference<State>(State.WAITING);
     }
+    
+    protected abstract Logger logger();
     
     protected abstract Queue<T> mailbox();
     
@@ -42,6 +46,7 @@ public abstract class AbstractActor<T> implements Actor<T> {
             try {
                 doRun();
             } catch (Throwable e) {
+                logger().warn("Unhandled error", e);
                 stop();
                 throw Throwables.propagate(e);
             }

@@ -322,13 +322,18 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
         protected ConcurrentLinkedQueue<Message.Client> mailbox() {
             return mailbox;
         }
+
+        @Override
+        protected Logger logger() {
+            return logger;
+        }
     }
 
     protected class OutboundActor extends ActorPublisher 
         implements FutureCallback<Object> {
     
         public OutboundActor() {
-            super(connection, connection, new ConcurrentLinkedQueue<Object>());
+            super(connection, connection, new ConcurrentLinkedQueue<Object>(), ServerConnectionExecutor.this.logger);
         }
 
         @Override

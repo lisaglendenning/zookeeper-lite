@@ -215,6 +215,11 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
     }
 
     @Override
+    protected Logger logger() {
+        return logger;
+    }
+    
+    @Override
     protected boolean apply(PromiseTask<Operation.Request, Message.ServerResponse<?>> input) {
         if (! input.isDone()) {
             if (state() != State.TERMINATED) {

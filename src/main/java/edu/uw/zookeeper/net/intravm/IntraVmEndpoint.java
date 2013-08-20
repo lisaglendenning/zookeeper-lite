@@ -197,6 +197,11 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
         return mailbox;
     }
 
+    @Override
+    protected Logger logger() {
+        return logger;
+    }
+
     protected static class SendTask<U> extends PromiseTask<Optional<U>, U> implements Runnable {
 
         protected final IntraVmEndpoint<? super U> remote;
