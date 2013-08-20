@@ -37,6 +37,7 @@ import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.ConnectMessage;
+import edu.uw.zookeeper.protocol.TelnetCloseRequest;
 import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
 import edu.uw.zookeeper.protocol.proto.Records;
@@ -140,9 +141,9 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
     
     public synchronized boolean stop() {
         boolean stopped = false;
-        Actor<?>[] actors = { inbound, outbound };
+        Actor<?>[] actors = { inbound, outbound, timeOut };
         for (Actor<?> actor: actors) {
-            stopped = stopped || actor.stop();
+            stopped = actor.stop() || stopped;
         }
         if (logger.isDebugEnabled()) {
             Throwable t = failure.get();
@@ -283,8 +284,14 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
         protected boolean apply(Message.Client input) {
             // ordering constraint: requests are submitted in the same
             // order that they are received
-            if (input instanceof FourLetterRequest) {
-                Futures.addCallback(anonymousExecutor.submit((FourLetterRequest) input), this);
+            if (input instanceof Message.ClientAnonymous) {
+                if (input instanceof FourLetterRequest) {
+                    Futures.addCallback(anonymousExecutor.submit((FourLetterRequest) input), this);
+                } else if (input instanceof TelnetCloseRequest) {
+                    ServerConnectionExecutor.this.stop();
+                } else {
+                    throw new AssertionError(String.valueOf(input));
+                }
             } else if (input instanceof ConnectMessage.Request) {
                 throttle(true);
                 Futures.addCallback(connectExecutor.submit(Pair.create((ConnectMessage.Request) input, (Publisher) outbound)), this);

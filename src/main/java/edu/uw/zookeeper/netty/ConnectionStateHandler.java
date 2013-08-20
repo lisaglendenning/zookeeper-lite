@@ -79,7 +79,6 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
             throws Exception {
         logger.warn(Logging.NETTY_MARKER, "EXCEPTION {}", ctx.channel(), cause);
         ctx.close();
-        super.exceptionCaught(ctx, cause);
     }
 
     @Override
