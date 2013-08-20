@@ -1,13 +1,10 @@
 package edu.uw.zookeeper.protocol.client;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.Session;
@@ -22,6 +19,7 @@ import edu.uw.zookeeper.protocol.Logging;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.Ping;
+import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
@@ -88,19 +86,15 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
 
     protected static final TimeUnit TIME_UNIT = TimeUnit.MILLISECONDS;
     
-    protected class PingingTask implements Actor<Object> {
+    protected class PingingTask extends TimeOutActor<Object> implements Actor<Object>, FutureCallback<Object> {
 
-        private final TimeOutParameters pingParameters;
-        private final ScheduledExecutorService executor;
-        private final AtomicReference<State> state = new AtomicReference<State>(State.WAITING);        
         private volatile Ping.Request lastPing = null;
-        private volatile ScheduledFuture<?> future = null;
 
         public PingingTask(
-                TimeOutParameters pingParameters,
+                TimeOutParameters parameters,
                 ScheduledExecutorService executor) {
-            this.pingParameters = checkNotNull(pingParameters);
-            this.executor = checkNotNull(executor);
+            super(parameters, executor);
+            lastPing = null;
         }
         
         public Ping.Request lastPing() {
@@ -108,27 +102,27 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         }
         
         @Override
-        public State state() {
-            return state.get();
+        public void onSuccess(Object result) {
         }
-        
+
+        @Override
+        public void onFailure(Throwable t) {
+            stop();
+        }
+
         @Override
         public boolean send(Object message) {
             if (message instanceof Operation.Request) {
-                pingParameters.touch();
+                parameters.touch();
             } else if (message instanceof Message.Server) {
                 if (message instanceof ConnectMessage.Response) {
                     if (message instanceof ConnectMessage.Response.Valid) {
-                        pingParameters.setTimeOut(((ConnectMessage.Response) message).toParameters().timeOut().value());
-                        if (pingParameters.getTimeOut() != Session.Parameters.NEVER_TIMEOUT) {
-                            pingParameters.touch();
-                            run();
-                        } else {
-                            stop();
-                        }
+                        parameters.setTimeOut(((ConnectMessage.Response) message).toParameters().timeOut().value());
+                        parameters.touch();
+                        run();
                     } else {
                         stop();
-                    } 
+                    }
                 } else {
                     if (logger.isTraceEnabled()) {
                         if (message instanceof Message.ServerResponse) {
@@ -149,11 +143,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         }
 
         @Override
-        public void run() {
-            if (!state.compareAndSet(State.SCHEDULED, State.RUNNING) || schedule()) {
-                return;
-            }
-            
+        protected void doRun() {            
             switch (codec().state()) {
             case ANONYMOUS:
             case CONNECTING:
@@ -168,45 +158,32 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
             }
                 
             // should ping now, or ok to wait a while?
-            if (pingParameters.remaining() < pingParameters.getTimeOut() / 2) {
+            if (parameters.remaining() < parameters.getTimeOut() / 2) {
                 Operation.ProtocolRequest<Ping.Request> message = ProtocolRequestMessage.from(Ping.Request.newInstance());
                 try {
-                    delegate().write(message);
+                    Futures.addCallback(delegate().write(message), this);
                 } catch (Exception e) {
                     stop();
                     return;
                 }
 
-                pingParameters.touch();
+                parameters.touch();
                 lastPing = message.getRecord();
                 if (logger.isTraceEnabled()) {
                     logger.trace(Logging.PING_MARKER, "PING: {}", lastPing);
                 }
             }
-
-            if (state.compareAndSet(State.RUNNING, State.WAITING)) {
-                schedule();
-            }
         }
 
-        public synchronized boolean stop() {
-            if (state.getAndSet(State.TERMINATED) != State.TERMINATED) {
-                if ((future != null) && !future.isDone()) {
-                    future.cancel(false);
-                }
-                return true;
-            }
-            return false;
-        }
-        
-        private synchronized boolean schedule() {
-            if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
+        @Override
+        protected synchronized void doSchedule() {
+            if (parameters.getTimeOut() != Session.Parameters.NEVER_TIMEOUT) {
                 // somewhat arbitrary...
-                long tick = Math.max(pingParameters.remaining() / 2, 0);
+                long tick = Math.max(parameters.remaining() / 2, 0);
                 future = executor.schedule(this, tick, TIME_UNIT);
-                return true;
+            } else {
+                state.compareAndSet(State.SCHEDULED, State.WAITING);
             }
-            return false;
         }
     }
 }

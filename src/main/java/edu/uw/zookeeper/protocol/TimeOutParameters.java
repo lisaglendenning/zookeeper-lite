@@ -1,7 +1,5 @@
 package edu.uw.zookeeper.protocol;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import edu.uw.zookeeper.common.TimeValue;
@@ -10,21 +8,19 @@ public class TimeOutParameters {
 
     public static TimeOutParameters create(TimeValue timeOut) {
         timeOut = timeOut.convert(TimeUnit.MILLISECONDS);
-        return new TimeOutParameters(System.currentTimeMillis(), timeOut.value(), timeOut.unit());
+        return new TimeOutParameters(System.currentTimeMillis(), timeOut.value());
     }
     
-    private final TimeUnit unit;
     private final AtomicLong timeOut;
     private final AtomicLong nextTimeOut;
     
-    protected TimeOutParameters(long now, long timeOut, TimeUnit unit) {
-        this.unit = checkNotNull(unit);
+    protected TimeOutParameters(long now, long timeOut) {
         this.timeOut = new AtomicLong(timeOut);
         this.nextTimeOut = new AtomicLong(now + timeOut);
     }
     
     public TimeUnit getUnit() {
-        return unit;
+        return TimeUnit.MILLISECONDS;
     }
     
     public long getTimeOut() {
