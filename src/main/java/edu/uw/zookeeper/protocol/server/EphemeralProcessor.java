@@ -1,11 +1,9 @@
 package edu.uw.zookeeper.protocol.server;
 
 import java.util.Iterator;
-import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -44,11 +42,7 @@ public class EphemeralProcessor extends ForwardingProcessor<TxnOperation.Request
         Records.Response response = delegate().apply(input);
         Long session = input.getSessionId();
         if (request.getOpcode() == OpCode.CLOSE_SESSION) {
-            Set<String> paths;
-            synchronized (bySession) {
-                paths = ImmutableSet.copyOf(bySession.removeAll(session));
-            }
-            for (String path: paths) {
+            for (String path: bySession.removeAll(session)) {
                 byPath.remove(path, session);
             }
         } else {
