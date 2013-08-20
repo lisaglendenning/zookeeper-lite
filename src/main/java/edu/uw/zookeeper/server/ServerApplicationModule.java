@@ -47,12 +47,12 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
     public static class ConfigurableServerAddressViewFactory implements DefaultsFactory<Configuration, ServerInetAddressView> {
 
         public static ConfigurableServerAddressViewFactory newInstance() {
-            return newInstance(DEFAULT_CONFIG_PATH, DEFAULT_CONFIG_KEY, DEFAULT_ARG, DEFAULT_ADDRESS, DEFAULT_PORT);
+            return newInstance(DEFAULT_ARG, DEFAULT_CONFIG_KEY, DEFAULT_CONFIG_PATH, DEFAULT_ADDRESS, DEFAULT_PORT);
         }
 
         public static ConfigurableServerAddressViewFactory newInstance(
                 String arg, String configKey, String configPath, String defaultAddress, int defaultPort) {
-            return new ConfigurableServerAddressViewFactory(configPath,configKey, arg, defaultAddress, defaultPort);
+            return new ConfigurableServerAddressViewFactory(configPath, configKey, arg, defaultAddress, defaultPort);
         }
         
         public static final String DEFAULT_ARG = "clientAddress";
