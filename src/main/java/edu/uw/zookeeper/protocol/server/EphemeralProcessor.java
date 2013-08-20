@@ -1,9 +1,11 @@
 package edu.uw.zookeeper.protocol.server;
 
 import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -12,12 +14,7 @@ import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Processors.ForwardingProcessor;
 import edu.uw.zookeeper.data.CreateFlag;
 import edu.uw.zookeeper.data.CreateMode;
-import edu.uw.zookeeper.data.Stats;
 import edu.uw.zookeeper.data.TxnOperation;
-import edu.uw.zookeeper.data.TxnRequest;
-import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
-import edu.uw.zookeeper.protocol.SessionRequest;
-import edu.uw.zookeeper.protocol.proto.IDeleteRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.OpCode;
@@ -47,9 +44,12 @@ public class EphemeralProcessor extends ForwardingProcessor<TxnOperation.Request
         Records.Response response = delegate().apply(input);
         Long session = input.getSessionId();
         if (request.getOpcode() == OpCode.CLOSE_SESSION) {
-            for (String path: bySession.removeAll(session)) {
-                ProtocolRequestMessage<?> nested = ProtocolRequestMessage.of(input.getXid(), new IDeleteRequest(path, Stats.VERSION_ANY));
-                apply(TxnRequest.of(input.getTime(), input.getZxid(), SessionRequest.of(session, nested, nested)));
+            Set<String> paths;
+            synchronized (bySession) {
+                paths = ImmutableSet.copyOf(bySession.removeAll(session));
+            }
+            for (String path: paths) {
+                byPath.remove(path, session);
             }
         } else {
             apply(session, request, response);
