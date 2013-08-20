@@ -2,6 +2,8 @@ package edu.uw.zookeeper.protocol.server;
 
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledExecutorService;
+
 import com.google.common.collect.MapMaker;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Service;
@@ -10,6 +12,7 @@ import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.ForwardingService;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
@@ -19,10 +22,14 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
 
     public static <T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> ServerConnectionExecutorsService<T> newInstance(
             ServerConnectionFactory<T> connections,
+            TimeValue timeOut,
+            ScheduledExecutorService executor,
             ServerTaskExecutor server) {
         return new ServerConnectionExecutorsService<T>(
                 connections, 
                 ServerConnectionExecutor.<T>factory(
+                        timeOut,
+                        executor,
                         server.getAnonymousExecutor(), 
                         server.getConnectExecutor(), 
                         server.getSessionExecutor()));

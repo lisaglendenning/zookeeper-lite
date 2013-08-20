@@ -19,6 +19,7 @@ import com.typesafe.config.Config;
 import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
+import edu.uw.zookeeper.TimeoutFactory;
 import edu.uw.zookeeper.common.*;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
@@ -227,7 +228,12 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
                 sessions,
                 listeners,
                 sessionExecutor);
-        monitorsFactory.apply(ServerConnectionExecutorsService.newInstance(serverConnections, serverExecutor));
+        TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
+        monitorsFactory.apply(ServerConnectionExecutorsService.newInstance(
+                serverConnections, 
+                timeOut,
+                runtime.executors().asScheduledExecutorServiceFactory().get(),
+                serverExecutor));
         
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }

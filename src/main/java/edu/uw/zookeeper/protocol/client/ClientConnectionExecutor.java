@@ -275,7 +275,7 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
         }
     }
     
-    protected class TimeOutServer extends TimeOutActor<Object> implements FutureCallback<ConnectMessage.Response> {
+    protected class TimeOutServer extends TimeOutActor<Message.Server> implements FutureCallback<ConnectMessage.Response> {
 
         public TimeOutServer(TimeOutParameters parameters,
                 ScheduledExecutorService executor) {

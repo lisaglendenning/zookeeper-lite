@@ -2,6 +2,9 @@ package edu.uw.zookeeper.protocol.server;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.zookeeper.KeeperException;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -24,6 +27,7 @@ import edu.uw.zookeeper.common.ActorPublisher;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.TaskExecutor;
+import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
@@ -33,6 +37,8 @@ import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.ConnectMessage;
+import edu.uw.zookeeper.protocol.TimeOutActor;
+import edu.uw.zookeeper.protocol.TimeOutParameters;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>>
@@ -40,14 +46,18 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
 
     public static <T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> ServerConnectionExecutor<T> newInstance(
             T connection,
+            TimeValue timeOut,
+            ScheduledExecutorService executor,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
             TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
         return new ServerConnectionExecutor<T>(
-                connection, anonymousExecutor, connectExecutor, sessionExecutor);
+                connection, timeOut, executor, anonymousExecutor, connectExecutor, sessionExecutor);
     }
     
     public static <T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> ParameterizedFactory<T, ServerConnectionExecutor<T>> factory(
+            final TimeValue timeOut,
+            final ScheduledExecutorService executor,
             final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
             final TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
@@ -56,6 +66,8 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
             public ServerConnectionExecutor<T> get(T connection) {
                 ServerConnectionExecutor<T> instance = ServerConnectionExecutor.newInstance(
                         connection, 
+                        timeOut,
+                        executor,
                         anonymousExecutor, 
                         connectExecutor, 
                         sessionExecutor);
@@ -72,9 +84,13 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
     protected final InboundActor inbound;
     protected final OutboundActor outbound;
     protected final Promise<ConnectMessage.Response> session;
+    protected final AtomicReference<Throwable> failure;
+    protected final TimeOutClient timeOut;
     
     public ServerConnectionExecutor(
             T connection,
+            TimeValue timeOut,
+            ScheduledExecutorService executor,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
             TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
             TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
@@ -84,8 +100,13 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
         this.connectExecutor = connectExecutor;
         this.sessionExecutor = sessionExecutor;
         this.session = SettableFuturePromise.create();
+        this.failure = new AtomicReference<Throwable>(null);
+        this.timeOut = new TimeOutClient(TimeOutParameters.create(timeOut), executor);
         this.outbound = new OutboundActor();
         this.inbound = new InboundActor();
+        
+        Futures.addCallback(this.session, this.timeOut);
+        this.timeOut.run();
     }
 
     public ListenableFuture<ConnectMessage.Response> session() {
@@ -96,27 +117,7 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
     public T get() {
         return connection;
     }
-    
-    public boolean stop(Throwable t) {
-        boolean stopped = false;
-        Actor<?>[] actors = { inbound, outbound };
-        for (Actor<?> actor: actors) {
-            stopped = stopped || actor.stop();
-        }
-        if (logger.isDebugEnabled()) {
-            if (stopped) {
-                if (t != null) {
-                    logger.debug("ERROR {}", this, t);
-                } else {
-                    logger.debug("DISCONNECTED {}", this);
-                }
-            } else if (t != null) {
-                logger.debug("Ignoring {} {}", this, t);
-            }
-        }
-        return stopped;
-    }
-    
+
     @Override
     public void post(Object event) {
         outbound.post(event);
@@ -132,6 +133,32 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
         outbound.unregister(handler);
     }
     
+    public void onFailure(Throwable t) {
+        failure.compareAndSet(null, t);
+        stop();
+    }
+    
+    public synchronized boolean stop() {
+        boolean stopped = false;
+        Actor<?>[] actors = { inbound, outbound };
+        for (Actor<?> actor: actors) {
+            stopped = stopped || actor.stop();
+        }
+        if (logger.isDebugEnabled()) {
+            Throwable t = failure.get();
+            if (stopped) {
+                if (t != null) {
+                    logger.debug("ERROR {}", this, t);
+                } else {
+                    logger.debug("DISCONNECTED {}", this);
+                }
+            } else if (t != null) {
+                logger.debug("Ignoring {} {}", this, t);
+            }
+        }
+        return stopped;
+    }
+    
     @Override
     public String toString() {
         long sessionId = Session.UNINITIALIZED_ID;
@@ -144,6 +171,31 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
                 .add("session", Session.toString(sessionId))
                 .add("connection", get())
                 .toString();
+    }
+    
+    protected class TimeOutClient extends TimeOutActor<Message.Client> implements FutureCallback<ConnectMessage.Response> {
+
+        public TimeOutClient(TimeOutParameters parameters,
+                ScheduledExecutorService executor) {
+            super(parameters, executor);
+        }
+
+        @Override
+        protected void doRun() {
+            if (parameters.remaining() <= 0) {
+                onFailure(new KeeperException.OperationTimeoutException());
+            }
+        }
+
+        @Override
+        public void onSuccess(ConnectMessage.Response result) {
+            stop();
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+            ServerConnectionExecutor.this.onFailure(t);
+        }
     }
 
     protected class InboundActor extends ExecutedActor<Message.Client> 
@@ -170,17 +222,15 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
         @Subscribe
         public void handleTransitionEvent(Automaton.Transition<?> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
-                Throwable t;
                 switch (connection.codec().state()) {
                 case ANONYMOUS:
                 case DISCONNECTED:
-                    t = null;
+                    ServerConnectionExecutor.this.stop();
                     break;
                 default:
-                    t = new KeeperException.ConnectionLossException();
+                    ServerConnectionExecutor.this.onFailure(new KeeperException.ConnectionLossException());
                     break;
                 }
-                ServerConnectionExecutor.this.stop(t);
             }
         }
 
@@ -201,11 +251,12 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
 
         @Override
         public void onFailure(Throwable t) {
-            ServerConnectionExecutor.this.stop(t);
+            ServerConnectionExecutor.this.onFailure(t);
         }
     
         @Subscribe
         public void handleMessage(Message.Client message) {
+            timeOut.send(message);
             send(message);
         }
         
@@ -286,7 +337,7 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
 
         @Override
         public void onFailure(Throwable t) {
-            ServerConnectionExecutor.this.stop(t);
+            ServerConnectionExecutor.this.onFailure(t);
         }
         
         @Override
@@ -308,7 +359,7 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
                     break;
                 }
             } else if (Session.State.SESSION_EXPIRED == input) {
-                ServerConnectionExecutor.this.stop(new KeeperException.SessionExpiredException());
+                ServerConnectionExecutor.this.onFailure(new KeeperException.SessionExpiredException());
             }
             
             return super.apply(input);
