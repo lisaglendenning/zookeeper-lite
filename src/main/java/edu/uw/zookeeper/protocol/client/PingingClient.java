@@ -160,7 +160,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                 try {
                     Futures.addCallback(delegate().write(message), this);
                 } catch (Exception e) {
-                    stop();
+                    close();
                     return;
                 }
 
