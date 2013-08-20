@@ -160,8 +160,11 @@ public abstract class FourLetterCommands {
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
             Map<EnvKey, String> values = EnvKey.getValues();
-            return FourLetterResponse.create(String.format(
-                    FORMAT, Joiner.on('\n').withKeyValueSeparator("=").join(values)));
+            StringBuilder builder = Joiner.on('\n').withKeyValueSeparator("=").appendTo(new StringBuilder(), values);
+            if (! values.isEmpty()) {
+                builder.append('\n');
+            }
+            return FourLetterResponse.create(String.format(FORMAT, builder.toString()));
         }
     }
 
@@ -212,8 +215,11 @@ public abstract class FourLetterCommands {
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
             Map<ConfKey, String> values = ConfKey.getValues();
-            return FourLetterResponse.create(
-                    Joiner.on('\n').withKeyValueSeparator("=").join(values));
+            StringBuilder builder = Joiner.on('\n').withKeyValueSeparator("=").appendTo(new StringBuilder(), values);
+            if (! values.isEmpty()) {
+                builder.append('\n');
+            }
+            return FourLetterResponse.create(builder.toString());
         }
     }
 
@@ -329,19 +335,19 @@ public abstract class FourLetterCommands {
         }
         
         public static enum MntrKey {
-            VERSION,
-            AVG_LATENCY,
-            MAX_LATENCY,
-            MIN_LATENCY,
-            PACKETS_RECEIVED,
-            PACKETS_SENT,
-            NUM_ALIVE_CONNECTIONS,
-            OUTSTANDING_REQUESTS,
-            SERVER_STATE,
-            ZNODE_COUNT,
-            WATCH_COUNT,
-            EPHEMERALS_COUNT,
-            APPROXIMATE_DATA_SIZE;
+            ZK_VERSION,
+            ZK_AVG_LATENCY,
+            ZK_MAX_LATENCY,
+            ZK_MIN_LATENCY,
+            ZK_PACKETS_RECEIVED,
+            ZK_PACKETS_SENT,
+            ZK_NUM_ALIVE_CONNECTIONS,
+            ZK_OUTSTANDING_REQUESTS,
+            ZK_SERVER_STATE,
+            ZK_ZNODE_COUNT,
+            ZK_WATCH_COUNT,
+            ZK_EPHEMERALS_COUNT,
+            ZK_APPROXIMATE_DATA_SIZE;
 
             public static Map<MntrKey, String> getValues() {
                 ImmutableSortedMap.Builder<MntrKey, String> builder = ImmutableSortedMap.naturalOrder();
@@ -353,22 +359,22 @@ public abstract class FourLetterCommands {
             
             public String value() {
                 switch (this) {
-                case VERSION:
+                case ZK_VERSION:
                     return ZOOKEEPER_VERSION;
-                case AVG_LATENCY:
-                case MAX_LATENCY:
-                case MIN_LATENCY:
-                case APPROXIMATE_DATA_SIZE:
-                case PACKETS_RECEIVED:
-                case PACKETS_SENT:
-                case OUTSTANDING_REQUESTS:
+                case ZK_AVG_LATENCY:
+                case ZK_MAX_LATENCY:
+                case ZK_MIN_LATENCY:
+                case ZK_APPROXIMATE_DATA_SIZE:
+                case ZK_PACKETS_RECEIVED:
+                case ZK_PACKETS_SENT:
+                case ZK_OUTSTANDING_REQUESTS:
                     return String.valueOf(0L);
-                case NUM_ALIVE_CONNECTIONS:
-                case ZNODE_COUNT:
-                case EPHEMERALS_COUNT:
-                case WATCH_COUNT:
+                case ZK_NUM_ALIVE_CONNECTIONS:
+                case ZK_ZNODE_COUNT:
+                case ZK_EPHEMERALS_COUNT:
+                case ZK_WATCH_COUNT:
                     return String.valueOf(0);
-                case SERVER_STATE:
+                case ZK_SERVER_STATE:
                     return ZkServerState.STANDALONE.toString();
                 }
                 return "";
@@ -381,8 +387,8 @@ public abstract class FourLetterCommands {
         }
         
         public static enum MntrUnixKey {
-            OPEN_FILE_DESCRIPTOR_COUNT,
-            MAX_FILE_DESCRIPTOR_COUNT;
+            ZK_OPEN_FILE_DESCRIPTOR_COUNT,
+            ZK_MAX_FILE_DESCRIPTOR_COUNT;
 
             @Override
             public String toString() {
@@ -391,9 +397,9 @@ public abstract class FourLetterCommands {
         }
         
         public static enum MntrLeaderKey {
-            FOLLOWERS,
-            SYNCED_FOLLOWERS,
-            PENDING_SYNCS;
+            ZK_FOLLOWERS,
+            ZK_SYNCED_FOLLOWERS,
+            ZK_PENDING_SYNCS;
 
             @Override
             public String toString() {
@@ -404,8 +410,11 @@ public abstract class FourLetterCommands {
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
             Map<MntrKey, String> values = MntrKey.getValues();
-            return FourLetterResponse.create(
-                    Joiner.on('\n').withKeyValueSeparator("=").join(values));
+            StringBuilder builder = Joiner.on('\n').withKeyValueSeparator("\t").appendTo(new StringBuilder(), values);
+            if (! values.isEmpty()) {
+                builder.append('\n');
+            }
+            return FourLetterResponse.create(builder.toString());
         }
     }
 
