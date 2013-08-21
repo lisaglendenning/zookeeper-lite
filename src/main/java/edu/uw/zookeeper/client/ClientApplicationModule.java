@@ -21,6 +21,7 @@ import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.ServiceApplication;
+import edu.uw.zookeeper.common.ServiceMonitor;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
@@ -126,8 +127,7 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
 
     @Override
     public Application get(RuntimeModule runtime) {
-        getClientConnectionExecutorService(runtime);
-        return ServiceApplication.newInstance(runtime.serviceMonitor());
+        return ServiceApplication.newInstance(createServices(runtime));
     }
     
     protected NetClientModule getNetClientModule(RuntimeModule runtime) {
@@ -168,5 +168,10 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
                         });
         runtime.serviceMonitor().add(executor);
         return executor;
+    }
+    
+    protected ServiceMonitor createServices(RuntimeModule runtime) {
+        getClientConnectionExecutorService(runtime);
+        return runtime.serviceMonitor();
     }
 }

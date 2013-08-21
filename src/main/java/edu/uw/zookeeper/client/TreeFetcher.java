@@ -30,9 +30,9 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements AsyncFunction<ZNodeLabel.Path, Optional<V>> {
+public class TreeFetcher<V> implements AsyncFunction<ZNodeLabel.Path, Optional<V>> {
     
-    public static <U extends Operation.ProtocolResponse<?>, V> Builder<U,V> builder() {
+    public static <V> Builder<V> builder() {
         return Builder.create();
     }
     
@@ -93,10 +93,10 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
         }
     }
     
-    public static class Builder<U extends Operation.ProtocolResponse<?>, V> {
+    public static class Builder<V> {
     
-        public static <U extends Operation.ProtocolResponse<?>, V> Builder<U,V> create() {
-            return new Builder<U,V>();
+        public static <V> Builder<V> create() {
+            return new Builder<V>();
         }
         
         public static <V> Processor<Object, Optional<V>> nullResult() {
@@ -108,7 +108,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             };
         }
         
-        protected volatile ClientExecutor<? super Records.Request, U> client;
+        protected volatile ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> client;
         protected volatile Set<OpCode> operations; 
         protected volatile boolean watch;
         protected volatile Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result;
@@ -123,7 +123,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
         }
         
         public Builder(
-                ClientExecutor<? super Records.Request, U> client, 
+                ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> client, 
                 Set<OpCode> operations, 
                 boolean watch,
                 Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator,
@@ -135,11 +135,11 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             this.result = result;
         }
         
-        public ClientExecutor<? super Records.Request, U> getClient() {
+        public ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> getClient() {
             return client;
         }
     
-        public Builder<U,V> setClient(ClientExecutor<? super Records.Request, U> client) {
+        public Builder<V> setClient(ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> client) {
             this.client = client;
             return this;
         }
@@ -154,7 +154,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             return false;
         }
         
-        public Builder<U,V> setStat(boolean getStat) {
+        public Builder<V> setStat(boolean getStat) {
             OpCode[] ops = { OpCode.EXISTS, OpCode.GET_CHILDREN2 };
             if (getStat) {
                 for (OpCode op: ops) {
@@ -173,7 +173,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             return operations.contains(op);
         }
         
-        public Builder<U,V> setData(boolean getData) {
+        public Builder<V> setData(boolean getData) {
             OpCode op = OpCode.GET_DATA;
             if (getData) {
                 operations.add(op);
@@ -188,7 +188,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             return operations.contains(op);
         }
         
-        public Builder<U,V> setAcl(boolean getAcl) {
+        public Builder<V> setAcl(boolean getAcl) {
             OpCode op = OpCode.GET_ACL;
             if (getAcl) {
                 operations.add(op);
@@ -202,7 +202,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             return watch;
         }
         
-        public Builder<U,V> setWatch(boolean watch) {
+        public Builder<V> setWatch(boolean watch) {
             this.watch = watch;
             return this;
         }
@@ -211,7 +211,7 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             return iterator;
         }
         
-        public Builder<U,V> setIterator(Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator) {
+        public Builder<V> setIterator(Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator) {
             this.iterator = iterator;
             return this;
         }
@@ -220,12 +220,12 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
             return result;
         }
         
-        public Builder<U,V> setResult(Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result) {
+        public Builder<V> setResult(Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result) {
             this.result = result;
             return this;
         }
         
-        public TreeFetcher<U,V> build() {
+        public TreeFetcher<V> build() {
             Parameters parameters = Parameters.of(operations, watch);
             return TreeFetcher.newInstance(parameters, client, iterator, result);
         }
@@ -265,12 +265,12 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
         }
     }
 
-    public static <U extends Operation.ProtocolResponse<?>, V> TreeFetcher<U,V> newInstance(
+    public static <V> TreeFetcher<V> newInstance(
             Parameters parameters,
-            ClientExecutor<? super Records.Request, U> client,
+            ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> client,
             Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator,
             Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result) {
-        return new TreeFetcher<U,V>(
+        return new TreeFetcher<V>(
                 parameters,
                 client, 
                 iterator,
@@ -278,13 +278,13 @@ public class TreeFetcher<U extends Operation.ProtocolResponse<?>, V> implements 
     }
 
     protected final Parameters parameters;
-    protected final ClientExecutor<? super Records.Request, U> client;
+    protected final ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> client;
     protected final Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator;
     protected final Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result;
     
     protected TreeFetcher(
             Parameters parameters,
-            ClientExecutor<? super Records.Request, U> client,
+            ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> client,
             Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator,
             Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result) {
         this.parameters = checkNotNull(parameters);

@@ -20,7 +20,9 @@ public class BasicOperationGenerator implements Generator<Records.Request> {
         RandomLabel labels = RandomLabel.create(random, 1, 9);
         RandomData datum = RandomData.create(random, 0, 1024);
         CachedPaths paths = CachedPaths.create(cache, random);
-        return new BasicOperationGenerator(random, paths, labels, datum, cache);
+        ImmutableRandomFromList<OpCode> opcodes = ImmutableRandomFromList.create(random, BASIC_OPCODES);
+        return new BasicOperationGenerator(
+                random, opcodes, paths, labels, datum, cache);
     }
     
     protected static final ImmutableList<OpCode> BASIC_OPCODES = ImmutableList.of( 
@@ -35,17 +37,20 @@ public class BasicOperationGenerator implements Generator<Records.Request> {
     
     protected final Random random;
     protected final ZNodeViewCache<?,?,?> cache;
+    protected final Generator<OpCode> opcodes;
     protected final Generator<ZNodeLabel.Path> paths;
     protected final Generator<ZNodeLabel.Component> labels;
     protected final Generator<byte[]> datum;
 
     public BasicOperationGenerator(
             Random random, 
+            Generator<OpCode> opcodes,
             Generator<ZNodeLabel.Path> paths,
             Generator<ZNodeLabel.Component> labels, 
             Generator<byte[]> datum, 
             ZNodeViewCache<?,?,?> client) {
         this.random = random;
+        this.opcodes = opcodes;
         this.labels = labels;
         this.datum = datum;
         this.cache = client;
@@ -65,7 +70,7 @@ public class BasicOperationGenerator implements Generator<Records.Request> {
         int version = (stat == null) ? Stats.VERSION_ANY : stat.getStat().getVersion();
         OpCode opcode;
         while (true) {
-            opcode = BASIC_OPCODES.get(random.nextInt(BASIC_OPCODES.size()));
+            opcode = opcodes.next();
             if (opcode == OpCode.DELETE) {
                 if (path.isRoot() || !cache.trie().get(path).isEmpty()) {
                     continue;

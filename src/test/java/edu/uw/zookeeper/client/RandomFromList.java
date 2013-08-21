@@ -19,7 +19,7 @@ public abstract class RandomFromList<E> implements Generator<E> {
         if (size == 0) {
             return null;
         } else {
-            int index = random.nextInt(size);
+            int index = (size > 1) ? random.nextInt(size) : 0;
             return elements.get(index);
         }
     }
