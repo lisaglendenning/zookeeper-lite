@@ -15,6 +15,7 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
@@ -56,8 +57,10 @@ public class ClientConnectionExecutorService<C extends ProtocolCodecConnection<?
                 client.unregister(this);
             } catch (IllegalArgumentException e) {}
             try {
-                client.submit(Records.Requests.getInstance().get(OpCode.CLOSE_SESSION)).get();
-                client.get().close().get();
+                if ((client.get().codec().state() == ProtocolState.CONNECTED) && 
+                        (client.get().state().compareTo(Connection.State.CONNECTION_CLOSING) < 0)) {
+                    client.submit(Records.Requests.getInstance().get(OpCode.CLOSE_SESSION)).get();
+                }
             } finally {
                 client.stop();
             }

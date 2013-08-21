@@ -282,7 +282,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
                 stop = true;
                 break;
             } else if (state == State.NEW) {
-                // start monitor services
+                // start monitored services
                 service.start();
                 stop = false;
             } else if (state == State.STARTING || state == State.RUNNING) {
@@ -399,7 +399,9 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         @Override
         public void stopping(State prevState) {
             log(Service.State.STOPPING, prevState);
-    
+            if (get() != ServiceMonitor.this) {
+                notifyChange();
+            }
         }
     
         @Override
