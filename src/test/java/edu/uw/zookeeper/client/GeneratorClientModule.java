@@ -1,11 +1,13 @@
 package edu.uw.zookeeper.client;
 
 import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.common.ConfigurableMain;
 import edu.uw.zookeeper.common.Configuration;
+import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ServiceMonitor;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.net.Connection;
@@ -53,15 +55,16 @@ public class GeneratorClientModule extends ClientApplicationModule {
         final ZNodeViewCache<?, Operation.Request, Message.ServerResponse<?>> cache = getCache(runtime);
         final Generator<Records.Request> requests = getRequests(runtime, cache);
         final LimitOutstandingClient<Operation.Request, Message.ServerResponse<?>> limiting = LimitOutstandingClient.create(runtime.configuration(), cache);
+        final CallUntilPresent<Pair<Records.Request, ListenableFuture<Message.ServerResponse<?>>>> callable = 
+                    CallUntilPresent.create(
+                        IteratingCallable.create(runtime.configuration(), 
+                                SubmitCallable.create(requests, limiting)));
         return new Runnable() {
             @Override
             public void run() {
                 try {
                     TreeFetcher.builder().setClient(cache).build().apply(ZNodeLabel.Path.root()).get();
-    
-                    CallUntilPresent.create(
-                        IteratingCallable.create(runtime.configuration(), 
-                                SubmitCallable.create(requests, limiting))).call().second().get();
+                    callable.call().second().get();
                 } catch (Exception e) {
                     throw Throwables.propagate(e);
                 }
