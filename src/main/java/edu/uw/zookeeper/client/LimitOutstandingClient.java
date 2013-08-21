@@ -1,5 +1,7 @@
 package edu.uw.zookeeper.client;
 
+import java.util.concurrent.Executor;
+
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Monitor;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -48,12 +50,14 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
     private final int limit;
     private final ClientExecutor<? super I, O> delegate;
     private final Listener listener;
+    protected final Executor executor;
     
     public LimitOutstandingClient(
             int limit,
             ClientExecutor<? super I, O> delegate) {
         this.limit = limit;
         this.delegate = delegate;
+        this.executor = MoreExecutors.sameThreadExecutor();
         this.listener = new Listener();
     }
     
@@ -87,7 +91,7 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
         try {
             ListenableFuture<O> future = delegate.submit(request, promise);
             outstanding += 1;
-            future.addListener(listener, MoreExecutors.sameThreadExecutor());
+            future.addListener(listener, executor);
             return future;
         } finally {
             monitor.leave();

@@ -7,6 +7,7 @@ import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.common.base.Function;
@@ -281,6 +282,7 @@ public class TreeFetcher<V> implements AsyncFunction<ZNodeLabel.Path, Optional<V
     protected final ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> client;
     protected final Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator;
     protected final Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result;
+    protected final Executor executor;
     
     protected TreeFetcher(
             Parameters parameters,
@@ -291,6 +293,7 @@ public class TreeFetcher<V> implements AsyncFunction<ZNodeLabel.Path, Optional<V
         this.client = checkNotNull(client);
         this.iterator = checkNotNull(iterator);
         this.result = checkNotNull(result);
+        this.executor = MoreExecutors.sameThreadExecutor();
     }
 
     @Override
@@ -315,7 +318,7 @@ public class TreeFetcher<V> implements AsyncFunction<ZNodeLabel.Path, Optional<V
             this.future = new Result(promise);
             this.pending = Sets.<Pending>newHashSet();
             this.builders = Parameters.toBuilders(parameters);
-            this.future.addListener(this, MoreExecutors.sameThreadExecutor());
+            this.future.addListener(this, executor);
         }
         
         public ListenableFuture<Optional<V>> future() {
@@ -338,7 +341,7 @@ public class TreeFetcher<V> implements AsyncFunction<ZNodeLabel.Path, Optional<V
                         ListenableFuture<? extends Operation.ProtocolResponse<?>> future = client.submit(request);
                         Pending task = new Pending(request, future);
                         pending.add(task);
-                        future.addListener(task, MoreExecutors.sameThreadExecutor());
+                        future.addListener(task, executor);
                         if (state() == State.TERMINATED) {
                             future.cancel(true);
                             pending.remove(task);
