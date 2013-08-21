@@ -161,7 +161,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
     
     public static ExpiringSessionRequestExecutor defaultSessionExecutor(
             Executor executor,
-            Generator<Long> zxids,
+            ZxidGenerator zxids,
             ZNodeDataTrie dataTrie,
             final Map<Long, Publisher> listeners,
             ExpiringSessionTable sessions) {
@@ -181,7 +181,7 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
     }
     
     public static ServerTaskExecutor defaultServerExecutor(
-            Generator<Long> zxids,
+            ZxidReference zxids,
             SessionTable sessions,
             Map<Long, Publisher> listeners,
             TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> sessionExecutor) {

@@ -67,7 +67,7 @@ public class ZxidEpochIncrementer extends ZxidIncrementer {
     
     // TODO: check for counter overflow into epoch bits
 //    @Override
-//    public Long next() {
+//    public long next() {
 //        return lastZxid.incrementAndGet();
 //    }
 

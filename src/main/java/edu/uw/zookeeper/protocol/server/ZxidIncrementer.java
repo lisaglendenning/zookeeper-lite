@@ -6,14 +6,13 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.common.Generator;
 
 /**
  * Generates increasing zxid starting with 1.
  * 
  * Threadsafe
  */
-public class ZxidIncrementer implements Generator<Long> {
+public class ZxidIncrementer implements ZxidGenerator {
 
     public static ZxidIncrementer fromZero() {
         return of(new AtomicLong(0));
@@ -32,12 +31,12 @@ public class ZxidIncrementer implements Generator<Long> {
     }
 
     @Override
-    public Long get() {
+    public long get() {
         return lastZxid.get();
     }
 
     @Override
-    public Long next() {
+    public long next() {
         return lastZxid.incrementAndGet();
     }
 

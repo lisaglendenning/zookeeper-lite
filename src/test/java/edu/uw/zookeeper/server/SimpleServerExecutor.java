@@ -14,7 +14,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.EventBusPublisher;
-import edu.uw.zookeeper.common.Generator;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Publisher;
@@ -27,6 +26,7 @@ import edu.uw.zookeeper.protocol.server.ProtocolResponseProcessor;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
 import edu.uw.zookeeper.protocol.server.SessionRequestExecutor;
 import edu.uw.zookeeper.protocol.server.ToTxnRequestProcessor;
+import edu.uw.zookeeper.protocol.server.ZxidGenerator;
 import edu.uw.zookeeper.protocol.server.ZxidIncrementer;
 
 public class SimpleServerExecutor {
@@ -47,7 +47,7 @@ public class SimpleServerExecutor {
 
     public static SessionRequestExecutor newSessionExecutor(
             Executor executor,
-            Generator<Long> zxids,
+            ZxidGenerator zxids,
             ZNodeDataTrie dataTrie,
             final Map<Long, Publisher> listeners,
             SessionTable sessions) {

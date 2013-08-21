@@ -6,14 +6,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.common.Generator;
-
 /**
  * Generates increasing xid starting with 1.
  * 
  * Threadsafe
  */
-public class XidIncrementer implements Generator<Integer> {
+public class XidIncrementer implements XidGenerator {
 
     public static XidIncrementer fromZero() {
         return of(new AtomicInteger(0));
@@ -33,16 +31,16 @@ public class XidIncrementer implements Generator<Integer> {
     }
 
     @Override
-    public Integer get() {
+    public int get() {
         return lastXid.get();
     }
 
     @Override
-    public Integer next() {
+    public int next() {
         return lastXid.incrementAndGet();
     }
     
-    public Integer setIfGreater(Integer value) {
+    public int setIfGreater(int value) {
         Integer current = lastXid.get();
         if (current.compareTo(value) < 0) {
             if (lastXid.compareAndSet(current, value)) {

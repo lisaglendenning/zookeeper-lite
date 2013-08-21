@@ -5,7 +5,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.EventBusPublisher;
-import edu.uw.zookeeper.common.Generator;
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.Publisher;
@@ -19,6 +18,7 @@ import edu.uw.zookeeper.protocol.server.AssignZxidProcessor;
 import edu.uw.zookeeper.protocol.server.ByOpcodeTxnRequestProcessor;
 import edu.uw.zookeeper.protocol.server.RequestErrorProcessor;
 import edu.uw.zookeeper.protocol.server.ToTxnRequestProcessor;
+import edu.uw.zookeeper.protocol.server.ZxidGenerator;
 import edu.uw.zookeeper.protocol.server.ZxidIncrementer;
 
 public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>>,
@@ -33,7 +33,7 @@ public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionO
 
     public static ZNodeDataTrieExecutor create(
             ZNodeDataTrie trie,
-            Generator<Long> zxids,
+            ZxidGenerator zxids,
             Publisher publisher) {
         return new ZNodeDataTrieExecutor(trie, zxids, publisher);
     }
@@ -45,7 +45,7 @@ public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionO
     
     public ZNodeDataTrieExecutor(
             ZNodeDataTrie trie,
-            Generator<Long> zxids,
+            ZxidGenerator zxids,
             Publisher publisher) {
         this.trie = trie;
         this.publisher = publisher;

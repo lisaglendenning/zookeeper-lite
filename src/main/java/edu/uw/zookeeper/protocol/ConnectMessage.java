@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.protocol;
 
 import io.netty.buffer.ByteBuf;
+
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
@@ -11,7 +12,6 @@ import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.proto.ByteBufInputArchive;
 import edu.uw.zookeeper.protocol.proto.ByteBufOutputArchive;
@@ -21,6 +21,7 @@ import edu.uw.zookeeper.protocol.proto.ICodedRecord;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Operational;
 import edu.uw.zookeeper.protocol.proto.Records;
+import edu.uw.zookeeper.protocol.server.ZxidReference;
 
 @Operational(value=OpCode.CREATE_SESSION)
 public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> extends ICodedRecord<T>
@@ -32,15 +33,15 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
 
         public static RequestsFactory factory(
                 TimeValue timeOut,
-                Reference<Long> lastZxid) {
+                ZxidReference lastZxid) {
             return new RequestsFactory(timeOut, lastZxid);
         }
         
-        public static class RequestsFactory extends Pair<TimeValue, Reference<Long>> implements DefaultsFactory<edu.uw.zookeeper.Session, ConnectMessage.Request> {
+        public static class RequestsFactory extends Pair<TimeValue, ZxidReference> implements DefaultsFactory<edu.uw.zookeeper.Session, ConnectMessage.Request> {
             
             public RequestsFactory(
                     TimeValue timeOut,
-                    Reference<Long> lastZxid) {
+                    ZxidReference lastZxid) {
                 super(timeOut, lastZxid);
             }
 

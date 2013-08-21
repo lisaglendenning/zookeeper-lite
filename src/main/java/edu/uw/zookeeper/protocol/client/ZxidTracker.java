@@ -6,10 +6,10 @@ import com.google.common.eventbus.Subscribe;
 
 import edu.uw.zookeeper.common.Eventful;
 import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.server.ZxidReference;
 
-public class ZxidTracker implements Reference<Long>  {
+public class ZxidTracker implements ZxidReference  {
     
     public static class ZxidListener extends Pair<ZxidTracker, Eventful> {
 
@@ -45,13 +45,14 @@ public class ZxidTracker implements Reference<Long>  {
         this.lastZxid = lastZxid;
     }
 
-    public Long get() {
+    @Override
+    public long get() {
         return lastZxid.get();
     }
     
-    public boolean update(Long zxid) {
-        Long prevZxid = lastZxid.get();
-        if (prevZxid.compareTo(zxid) < 0) {
+    public boolean update(long zxid) {
+        long prevZxid = lastZxid.get();
+        if (prevZxid < zxid) {
             if (lastZxid.compareAndSet(prevZxid, zxid)) {
                 return true;
             } else {

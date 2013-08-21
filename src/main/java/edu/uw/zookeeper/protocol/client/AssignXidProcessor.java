@@ -3,14 +3,13 @@ package edu.uw.zookeeper.protocol.client;
 import com.google.common.base.Function;
 
 import edu.uw.zookeeper.common.Factory;
-import edu.uw.zookeeper.common.Generator;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 public class AssignXidProcessor implements
-        Generator<Integer>,
+        XidGenerator,
         Function<Operation.Request, Message.ClientSession> {
 
     public static Factory<AssignXidProcessor> factory() {
@@ -42,7 +41,7 @@ public class AssignXidProcessor implements
         if (input instanceof Message.ClientSession) {
             output = (Message.ClientSession) input;
             if (output instanceof Operation.RequestId) {
-                xids.setIfGreater(Integer.valueOf(((Operation.RequestId) output).getXid() + 1));
+                xids.setIfGreater(((Operation.RequestId) output).getXid() + 1);
             }
         } else if (input instanceof Operation.ProtocolRequest<?>) { 
             Operation.ProtocolRequest<?> request = (Operation.ProtocolRequest<?>) input;
@@ -62,12 +61,12 @@ public class AssignXidProcessor implements
     }
 
     @Override
-    public Integer get() {
+    public int get() {
         return xids.get();
     }
 
     @Override
-    public Integer next() {
+    public int next() {
         return xids.next();
     }
     

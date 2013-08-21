@@ -1,27 +1,26 @@
 package edu.uw.zookeeper.protocol.server;
 
 
-import edu.uw.zookeeper.common.Generator;
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 public class AssignZxidProcessor implements
         Processors.UncheckedProcessor<OpCode, Long>,
-        Generator<Long> {
+        ZxidGenerator {
 
     public static AssignZxidProcessor newInstance() {
         return newInstance(ZxidEpochIncrementer.fromZero());
     }
 
     public static AssignZxidProcessor newInstance(
-            Generator<Long> zxid) {
+            ZxidGenerator zxid) {
         return new AssignZxidProcessor(zxid);
     }
 
-    private final Generator<Long> zxids;
+    private final ZxidGenerator zxids;
 
-    private AssignZxidProcessor(Generator<Long> zxids) {
+    private AssignZxidProcessor(ZxidGenerator zxids) {
         this.zxids = zxids;
     }
 
@@ -53,12 +52,12 @@ public class AssignZxidProcessor implements
     }
 
     @Override
-    public Long get() {
+    public long get() {
         return zxids.get();
     }
 
     @Override
-    public Long next() {
+    public long next() {
         return zxids.next();
     }
 }

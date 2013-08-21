@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.logging.log4j.Logger;
@@ -27,7 +26,6 @@ import edu.uw.zookeeper.common.Event;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
-import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.StampedReference;
 import edu.uw.zookeeper.data.StampedReference.Updater;
@@ -47,6 +45,7 @@ import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpRequest;
 import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
+import edu.uw.zookeeper.protocol.server.ZxidReference;
 
 /**
  * Only caches the results of operations submitted through this wrapper.
@@ -361,7 +360,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         this.publisher = publisher;
     }
     
-    public Reference<Long> lastZxid() {
+    public ZxidReference lastZxid() {
         return lastZxid;
     }
     
