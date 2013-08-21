@@ -166,37 +166,7 @@ public class DefaultRuntimeModule implements RuntimeModule {
                         ScheduledExecutorService.class, SingleDaemonThreadScheduledExectorFactory.getInstance(),
                         ExecutorService.class, ApplicationExecutorFactory.getInstance()));
     }
-    
-    public static MonitorServiceFactory monitors(ServiceMonitor serviceMonitor) {
-        return MonitorServiceFactory.newInstance(serviceMonitor);
-    }
-    
-    public static class MonitorServiceFactory implements ParameterizedFactory<Service, Service> {
 
-        public static <T extends Service> MonitorServiceFactory newInstance(
-                ServiceMonitor serviceMonitor) {
-            return new MonitorServiceFactory(serviceMonitor);
-        }
-        
-        protected final ServiceMonitor serviceMonitor;
-        
-        protected MonitorServiceFactory(
-                ServiceMonitor serviceMonitor) {
-            this.serviceMonitor = serviceMonitor;
-        }
-
-        @Override
-        public Service get(Service value) {
-            serviceMonitor.add(value);
-            return value;
-        }
-        
-        public <T extends Service> T apply(T value) {
-            get(value);
-            return value;
-        }
-    }
-    
     protected static final TimeValue DEFAULT_SHUTDOWN_TIMEOUT = TimeValue.create(30L, TimeUnit.SECONDS);
     
     protected final Factory<? extends Publisher> publishers;

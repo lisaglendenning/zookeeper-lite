@@ -161,5 +161,11 @@
 			<version>4.11</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+		    <groupId>org.uncommons.maths</groupId>
+		    <artifactId>uncommons-maths</artifactId>
+		    <version>1.2.3</version>
+		    <scope>test</scope>
+		</dependency>
 	</dependencies>
 </project>

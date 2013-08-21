@@ -16,7 +16,6 @@ import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.typesafe.config.Config;
 
-import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.TimeoutFactory;
@@ -24,6 +23,7 @@ import edu.uw.zookeeper.common.*;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.NetServerModule;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.netty.server.NettyServerModule;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -38,11 +38,10 @@ import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.*;
 
-public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModule, Application> {
-    INSTANCE;
-    
+public class ServerApplicationModule implements ParameterizedFactory<RuntimeModule, Application> {
+
     public static ServerApplicationModule getInstance() {
-        return INSTANCE;
+        return new ServerApplicationModule();
     }
 
     public static class ConfigurableServerAddressViewFactory implements DefaultsFactory<Configuration, ServerInetAddressView> {
@@ -195,25 +194,39 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
     
     @Override
     public Application get(RuntimeModule runtime) {
-        ServiceMonitor monitor = runtime.serviceMonitor();
-        DefaultMain.MonitorServiceFactory monitorsFactory = DefaultMain.monitors(monitor);
+        getServerConnectionExecutorsService(runtime);
+        return ServiceApplication.newInstance(runtime.serviceMonitor());
+    }
 
-        NettyServerModule nettyServer = NettyServerModule.newInstance(runtime);
-
+    protected NetServerModule getNetServerModule(RuntimeModule runtime) {
+        return NettyServerModule.newInstance(runtime);
+    }
+    
+    protected ExpiringSessionTable getSessions(RuntimeModule runtime) {
         SessionParametersPolicy policy = 
                 DefaultSessionParametersPolicy.create(runtime.configuration());
         ExpiringSessionTable sessions = 
                 ExpiringSessionTable.newInstance(runtime.publisherFactory().get(), policy);
-        monitorsFactory.apply(ExpiringSessionService.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
-
+        runtime.serviceMonitor().add(
+                ExpiringSessionService.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
+        return sessions;
+    }
+    
+    protected ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionFactory(RuntimeModule runtime) {
+        NetServerModule serverModule = getNetServerModule(runtime); 
         ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
-                nettyServer.getServerConnectionFactory(
+                serverModule.getServerConnectionFactory(
                         codecFactory(),
                         connectionFactory());
         ServerInetAddressView address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
         ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
-                monitorsFactory.apply(serverConnectionFactory.get(address.get()));
-        
+                serverConnectionFactory.get(address.get());
+        runtime.serviceMonitor().add(serverConnections);
+        return serverConnections;
+    }
+    
+    protected ServerTaskExecutor getServerTaskExecutor(RuntimeModule runtime) {
+        ExpiringSessionTable sessions = getSessions(runtime);
         ZxidEpochIncrementer zxids = ZxidEpochIncrementer.fromZero();
         ZNodeDataTrie dataTrie = ZNodeDataTrie.newInstance();
         ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
@@ -223,19 +236,21 @@ public enum ServerApplicationModule implements ParameterizedFactory<RuntimeModul
                 dataTrie,
                 listeners,
                 sessions);
-        ServerTaskExecutor serverExecutor = defaultServerExecutor(
+        return defaultServerExecutor(
                 zxids,
                 sessions,
                 listeners,
                 sessionExecutor);
+    }
+    
+    protected ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionExecutorsService(RuntimeModule runtime) {
         TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
-        monitorsFactory.apply(ServerConnectionExecutorsService.newInstance(
-                serverConnections, 
+        ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> instance = ServerConnectionExecutorsService.newInstance(
+                getServerConnectionFactory(runtime), 
                 timeOut,
                 runtime.executors().asScheduledExecutorServiceFactory().get(),
-                serverExecutor));
-        
-        return ServiceApplication.newInstance(runtime.serviceMonitor());
+                getServerTaskExecutor(runtime));
+        runtime.serviceMonitor().add(instance);
+        return instance;
     }
-
 }

@@ -7,7 +7,6 @@ import java.util.Map;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.typesafe.config.Config;
 
-import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
@@ -22,10 +21,10 @@ import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.ServiceApplication;
-import edu.uw.zookeeper.common.ServiceMonitor;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.NetClientModule;
 import edu.uw.zookeeper.netty.client.NettyClientModule;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.Operation.Request;
@@ -36,11 +35,10 @@ import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;
 import edu.uw.zookeeper.protocol.client.ClientProtocolCodec;
 import edu.uw.zookeeper.protocol.client.PingingClient;
 
-public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModule, Application> {
-    INSTANCE;
-    
+public class ClientApplicationModule implements ParameterizedFactory<RuntimeModule, Application> {
+
     public static ClientApplicationModule getInstance() {
-        return INSTANCE;
+        return new ClientApplicationModule();
     }
 
     public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleView<ServerInetAddressView>> {
@@ -128,37 +126,47 @@ public enum ClientApplicationModule implements ParameterizedFactory<RuntimeModul
 
     @Override
     public Application get(RuntimeModule runtime) {
-        ServiceMonitor monitor = runtime.serviceMonitor();
-        DefaultMain.MonitorServiceFactory monitorsFactory = DefaultMain.monitors(monitor);
-
-        NettyClientModule clientModule = NettyClientModule.newInstance(runtime);
-
+        getClientConnectionExecutorService(runtime);
+        return ServiceApplication.newInstance(runtime.serviceMonitor());
+    }
+    
+    protected NetClientModule getNetClientModule(RuntimeModule runtime) {
+        return NettyClientModule.newInstance(runtime);
+    }
+    
+    protected ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionFactory(RuntimeModule runtime) {
+        NetClientModule clientModule = getNetClientModule(runtime);
         TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
         ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory = codecFactory();
         ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> pingingFactory = 
                 PingingClient.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
         ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = 
-                monitorsFactory.apply(
-                    clientModule.getClientConnectionFactory(
-                            codecFactory, pingingFactory).get());
-
+                clientModule.getClientConnectionFactory(
+                            codecFactory, pingingFactory).get();
+        runtime.serviceMonitor().add(clientConnections);
+        return clientConnections;
+    }
+    
+    protected ClientConnectionExecutorService<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionExecutorService(RuntimeModule runtime) {
+        ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = getClientConnectionFactory(runtime);
+        TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
         EnsembleView<ServerInetAddressView> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
-        final EnsembleViewFactory<ServerInetAddressView, ServerViewFactory<Session, ServerInetAddressView, PingingClient<Operation.Request, AssignXidCodec, Connection<Operation.Request>>>> ensembleFactory = 
+        final EnsembleViewFactory<ServerInetAddressView, ServerViewFactory<Session, ServerInetAddressView, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>> ensembleFactory = 
                 EnsembleViewFactory.newInstance(
                     clientConnections, 
                     ServerInetAddressView.class, 
                     ensemble, 
                     timeOut,
                     runtime.executors().asScheduledExecutorServiceFactory().get());
-        monitorsFactory.apply(
+        ClientConnectionExecutorService<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> executor =
                 ClientConnectionExecutorService.newInstance(
                         new Factory<ListenableFuture<ClientConnectionExecutor<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>>>() {
                             @Override
                             public ListenableFuture<ClientConnectionExecutor<PingingClient<Request, AssignXidCodec, Connection<Request>>>> get() {
                                 return ensembleFactory.get().get();
                             }
-                        }));
-
-        return ServiceApplication.newInstance(runtime.serviceMonitor());
+                        });
+        runtime.serviceMonitor().add(executor);
+        return executor;
     }
 }
