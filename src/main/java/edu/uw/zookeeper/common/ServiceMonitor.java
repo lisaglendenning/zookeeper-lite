@@ -67,26 +67,26 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             Executor listenerExecutor,
             boolean stopOnTerminate,
             Iterable<Service> services) {
-        return new ServiceMonitor(thisExecutor, listenerExecutor, stopOnTerminate, services);
+        return new ServiceMonitor(Optional.of(thisExecutor), listenerExecutor, stopOnTerminate, services);
     }
 
     public static final Marker SERVICE_MONITOR_MARKER = MarkerManager.getMarker("EDU_UW_ZOOKEEPER_SERVICE_MONITOR");
 
     protected final Logger logger;
     protected final Executor listenerExecutor;
-    protected final Executor thisExecutor;
+    protected final Optional<Executor> thisExecutor;
     protected final CopyOnWriteArrayList<Service> services;
     protected final boolean stopOnTerminate;
 
     protected ServiceMonitor() {
-        this(MoreExecutors.sameThreadExecutor(),
+        this(Optional.<Executor>absent(),
                 MoreExecutors.sameThreadExecutor(), 
                 true, 
                 ImmutableList.<Service>of());
     }
     
     protected ServiceMonitor(
-            Executor thisExecutor, 
+            Optional<Executor> thisExecutor, 
             Executor listenerExecutor,
             boolean stopOnTerminate,
             Iterable<Service> services) {
@@ -167,7 +167,11 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     @Override
     protected Executor executor() {
-        return thisExecutor;
+        if (thisExecutor.isPresent()) {
+            return thisExecutor.get();
+        } else {
+            return super.executor();
+        }
     }
 
     @Override

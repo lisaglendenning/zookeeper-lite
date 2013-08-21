@@ -1,5 +1,7 @@
 package edu.uw.zookeeper.protocol.client;
 
+import java.util.concurrent.TimeUnit;
+
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -59,7 +61,7 @@ public class ClientConnectionExecutorService<C extends ProtocolCodecConnection<?
             try {
                 if ((client.get().codec().state() == ProtocolState.CONNECTED) && 
                         (client.get().state().compareTo(Connection.State.CONNECTION_CLOSING) < 0)) {
-                    client.submit(Records.Requests.getInstance().get(OpCode.CLOSE_SESSION)).get();
+                    client.submit(Records.Requests.getInstance().get(OpCode.CLOSE_SESSION)).get(client.session().get().getTimeOut(), TimeUnit.MILLISECONDS);
                 }
             } finally {
                 client.stop();
