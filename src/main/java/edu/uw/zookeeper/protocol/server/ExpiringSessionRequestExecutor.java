@@ -8,7 +8,6 @@ import com.google.common.eventbus.Subscribe;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
-import edu.uw.zookeeper.event.SessionStateEvent;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;

@@ -1,9 +1,7 @@
 package edu.uw.zookeeper.client;
 
-import java.util.Queue;
 import java.util.concurrent.Executor;
 
-import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -11,32 +9,29 @@ import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.ForwardingPromise;
 import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.protocol.Operation;
 
 public class LatencyMeasuringClient<I extends Operation.Request, O extends Operation.ProtocolResponse<?>> implements ClientExecutor<I,O>, FutureCallback<LatencyMeasuringClient.Measurement<I,O>> {
 
     public static <I extends Operation.Request, O extends Operation.ProtocolResponse<?>> LatencyMeasuringClient<I,O> create(
-            ClientExecutor<? super I, O> delegate) {
-        return new LatencyMeasuringClient<I,O>(delegate, Queues.<Measurement<I,O>>newConcurrentLinkedQueue());
+            ClientExecutor<? super I, O> delegate, Publisher publisher) {
+        return new LatencyMeasuringClient<I,O>(delegate, publisher);
     }
     
     private final ClientExecutor<? super I, O> delegate;
     private final Executor executor;
-    private final Queue<Measurement<I,O>> measurements;
+    private final Publisher publisher;
     
     public LatencyMeasuringClient(
             ClientExecutor<? super I, O> delegate, 
-            Queue<Measurement<I,O>> measurements) {
+            Publisher publisher) {
         this.delegate = delegate;
-        this.measurements = measurements;
+        this.publisher = publisher;
         this.executor = MoreExecutors.sameThreadExecutor();
     }
-    
-    public Queue<Measurement<I,O>> measurements() {
-        return measurements;
-    }
-    
+
     @Override
     public ListenableFuture<O> submit(I request) {
         return submit(request, SettableFuturePromise.<O>create());
@@ -56,16 +51,20 @@ public class LatencyMeasuringClient<I extends Operation.Request, O extends Opera
     @Override
     public void register(Object handler) {
         delegate.register(handler);
+        publisher.register(handler);
     }
 
     @Override
     public void unregister(Object handler) {
         delegate.unregister(handler);
+        try {
+            publisher.unregister(handler);
+        } catch (IllegalArgumentException e) {}
     }
     
     @Override
     public void onSuccess(Measurement<I, O> result) {
-        measurements.offer(result);
+        publisher.post(result);
     }
 
     @Override
@@ -84,6 +83,7 @@ public class LatencyMeasuringClient<I extends Operation.Request, O extends Opera
         private final O response;
         
         public Measurement(long nanos, I request, O response) {
+            super();
             this.nanos = nanos;
             this.request = request;
             this.response = response;

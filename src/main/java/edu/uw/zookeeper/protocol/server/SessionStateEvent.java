@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.event;
+package edu.uw.zookeeper.protocol.server;
 
 import edu.uw.zookeeper.Session;
 
