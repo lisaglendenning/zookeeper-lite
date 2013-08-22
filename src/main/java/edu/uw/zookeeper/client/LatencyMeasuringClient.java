@@ -2,6 +2,7 @@ package edu.uw.zookeeper.client;
 
 import java.util.concurrent.Executor;
 
+import com.google.common.base.Objects;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
@@ -85,6 +86,11 @@ public class LatencyMeasuringClient<I extends Operation.Request, O extends Opera
 
         public O getResponse() {
             return response;
+        }
+
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).add("nanos", getNanos()).add("request", getRequest()).add("response", getResponse()).toString();
         }
     }
 
