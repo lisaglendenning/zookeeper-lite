@@ -61,27 +61,27 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             IConnectRequest record = new IConnectRequest();
             record.deserialize(archive, Records.CONNECT_TAG);
             boolean readOnly = false;
-            boolean wraps = false;
+            boolean legacy = false;
             try {
                 readOnly = archive.readBool("readOnly");
             } catch (IOException e) {
-                wraps = true;
+                legacy = true;
             }
-            ConnectMessage.Request out = ConnectMessage.Request.newInstance(record, readOnly, wraps);
+            ConnectMessage.Request out = ConnectMessage.Request.newInstance(record, readOnly, legacy);
             return out;
         }
 
         public static ConnectMessage.Request newInstance(IConnectRequest record, boolean readOnly,
-                boolean wraps) {
-            return NewRequest.newInstance(record, readOnly, wraps);
+                boolean legacy) {
+            return NewRequest.newInstance(record, readOnly, legacy);
         }
 
         protected Request(IConnectRequest record) {
             super(record);
         }
         
-        protected Request(IConnectRequest record, boolean readOnly, boolean wraps) {
-            super(record, readOnly, wraps);
+        protected Request(IConnectRequest record, boolean readOnly, boolean legacy) {
+            super(record, readOnly, legacy);
         }
         
         public long getLastZxidSeen() {
@@ -120,16 +120,16 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
                 return newInstance(record, false, false);
             }
 
-            public static ConnectMessage.Request newInstance(IConnectRequest record, boolean readOnly, boolean wraps) {
+            public static ConnectMessage.Request newInstance(IConnectRequest record, boolean readOnly, boolean legacy) {
                 if (record.getSessionId() != edu.uw.zookeeper.Session.UNINITIALIZED_ID) {
-                    return RenewRequest.newInstance(record, readOnly, wraps);
+                    return RenewRequest.newInstance(record, readOnly, legacy);
                 } else {
-                    return new NewRequest(record, readOnly, wraps);
+                    return new NewRequest(record, readOnly, legacy);
                 }
             }
 
-            private NewRequest(IConnectRequest record, boolean readOnly, boolean wraps) {
-                super(record, readOnly, wraps);
+            private NewRequest(IConnectRequest record, boolean readOnly, boolean legacy) {
+                super(record, readOnly, legacy);
             }
         }
         
@@ -161,12 +161,12 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
                 return newInstance(record, false, false);
             }
 
-            public static RenewRequest newInstance(IConnectRequest record, boolean readOnly, boolean wraps) {
-                return new RenewRequest(record, readOnly, wraps);
+            public static RenewRequest newInstance(IConnectRequest record, boolean readOnly, boolean legacy) {
+                return new RenewRequest(record, readOnly, legacy);
             }
 
-            private RenewRequest(IConnectRequest record, boolean readOnly, boolean wraps) {
-                super(record, readOnly, wraps);
+            private RenewRequest(IConnectRequest record, boolean readOnly, boolean legacy) {
+                super(record, readOnly, legacy);
             }
         }
     }
@@ -176,8 +176,8 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             Records.Response, Message.ServerSession {
 
         public static ConnectMessage.Response newInstance(IConnectResponse record, boolean readOnly,
-                boolean wraps) {
-            return Valid.newInstance(record, readOnly, wraps);
+                boolean legacy) {
+            return Valid.newInstance(record, readOnly, legacy);
         }
 
         public static ConnectMessage.Response decode(ByteBuf input) throws IOException {
@@ -185,13 +185,13 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             IConnectResponse record = new IConnectResponse();
             record.deserialize(archive, Records.CONNECT_TAG);
             boolean readOnly = false;
-            boolean wraps = false;
+            boolean legacy = false;
             try {
                 readOnly = archive.readBool("readOnly");
             } catch (IOException e) {
-                wraps = true;
+                legacy = true;
             }
-            ConnectMessage.Response out = ConnectMessage.Response.newInstance(record, readOnly, wraps);
+            ConnectMessage.Response out = ConnectMessage.Response.newInstance(record, readOnly, legacy);
             return out;
         }
 
@@ -199,8 +199,8 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             super(record);
         }
 
-        protected Response(IConnectResponse record, boolean readOnly, boolean wraps) {
-            super(record, readOnly, wraps);
+        protected Response(IConnectResponse record, boolean readOnly, boolean legacy) {
+            super(record, readOnly, legacy);
         }
 
         public static class Valid extends ConnectMessage.Response implements Operation.Response {
@@ -218,8 +218,8 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
                 return newInstance(session, false, false);
             }
 
-            public static ConnectMessage.Response newInstance(edu.uw.zookeeper.Session session, boolean readOnly, boolean wraps) {
-                return newInstance(toRecord(session), readOnly, wraps);
+            public static ConnectMessage.Response newInstance(edu.uw.zookeeper.Session session, boolean readOnly, boolean legacy) {
+                return newInstance(toRecord(session), readOnly, legacy);
             }
 
             public static ConnectMessage.Response newInstance(IConnectResponse record) {
@@ -227,16 +227,16 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             }
 
             public static ConnectMessage.Response newInstance(IConnectResponse record, boolean readOnly,
-                    boolean wraps) {
+                    boolean legacy) {
                 if (record.getSessionId() == edu.uw.zookeeper.Session.UNINITIALIZED_ID) {
-                    return Invalid.newInstance(readOnly, wraps);
+                    return Invalid.newInstance(readOnly, legacy);
                 } else {
-                    return new Valid(record, readOnly, wraps);
+                    return new Valid(record, readOnly, legacy);
                 }
             }
 
-            private Valid(IConnectResponse record, boolean readOnly, boolean wraps) {
-                super(record, readOnly, wraps);
+            private Valid(IConnectResponse record, boolean readOnly, boolean legacy) {
+                super(record, readOnly, legacy);
             }
         }
 
@@ -249,12 +249,12 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
                 return newInstance(false, false);
             }
 
-            public static Invalid newInstance(boolean readOnly, boolean wraps) {
-                return new Invalid(readOnly, wraps);
+            public static Invalid newInstance(boolean readOnly, boolean legacy) {
+                return new Invalid(readOnly, legacy);
             }
 
-            private Invalid(boolean readOnly, boolean wraps) {
-                super(RECORD, readOnly, wraps);
+            private Invalid(boolean readOnly, boolean legacy) {
+                super(RECORD, readOnly, legacy);
             }
             
             @Override
@@ -278,10 +278,10 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
         this(record, false, false);
     }
 
-    protected ConnectMessage(T record, boolean readOnly, boolean wraps) {
+    protected ConnectMessage(T record, boolean readOnly, boolean legacy) {
         super(record);
         this.readOnly = readOnly;
-        this.legacy = wraps;
+        this.legacy = legacy;
     }
 
     public boolean legacy() {
@@ -323,8 +323,8 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
     @Override
     public void serialize(OutputArchive archive, String tag) throws IOException {
         record.serialize(archive, tag);
-        if (!legacy()) {
-            archive.writeBool(getReadOnly(), "readOnly");
+        if (!legacy) {
+            archive.writeBool(readOnly, "readOnly");
         }
     }
     
@@ -338,8 +338,8 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
     public String toString() {
         return Objects.toStringHelper(this)
                 .add("record", record)
-                .add("readOnly", getReadOnly())
-                .add("legacy", legacy()).toString();
+                .add("readOnly", readOnly)
+                .add("legacy", legacy).toString();
     }
 
     @Override
