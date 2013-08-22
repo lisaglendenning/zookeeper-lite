@@ -4,6 +4,7 @@ import java.util.Random;
 
 import com.google.common.collect.ImmutableList;
 
+import edu.uw.zookeeper.common.Generator;
 import edu.uw.zookeeper.data.CreateMode;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.StampedReference;
@@ -12,16 +13,16 @@ import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class BasicOperationGenerator implements Generator<Records.Request> {
+public class BasicRequestGenerator implements Generator<Records.Request> {
 
-    public static BasicOperationGenerator create(
+    public static BasicRequestGenerator create(
             ZNodeViewCache<?,?,?> cache) {
         Random random = new Random();
         RandomLabel labels = RandomLabel.create(random, 1, 9);
         RandomData datum = RandomData.create(random, 0, 1024);
         CachedPaths paths = CachedPaths.create(cache, random);
         ImmutableRandomFromList<OpCode> opcodes = ImmutableRandomFromList.create(random, BASIC_OPCODES);
-        return new BasicOperationGenerator(
+        return new BasicRequestGenerator(
                 random, opcodes, paths, labels, datum, cache);
     }
     
@@ -42,7 +43,7 @@ public class BasicOperationGenerator implements Generator<Records.Request> {
     protected final Generator<ZNodeLabel.Component> labels;
     protected final Generator<byte[]> datum;
 
-    public BasicOperationGenerator(
+    public BasicRequestGenerator(
             Random random, 
             Generator<OpCode> opcodes,
             Generator<ZNodeLabel.Path> paths,

@@ -13,14 +13,14 @@ import org.junit.runners.JUnit4;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.client.BasicOperationGenerator;
+import edu.uw.zookeeper.client.BasicRequestGenerator;
 import edu.uw.zookeeper.client.CallUntilPresent;
-import edu.uw.zookeeper.client.Generator;
-import edu.uw.zookeeper.client.IteratingCallable;
+import edu.uw.zookeeper.client.IterationCallable;
 import edu.uw.zookeeper.client.SessionClientExecutor;
 import edu.uw.zookeeper.client.SubmitCallable;
 import edu.uw.zookeeper.client.ZNodeViewCache;
 import edu.uw.zookeeper.common.EventBusPublisher;
+import edu.uw.zookeeper.common.Generator;
 import edu.uw.zookeeper.common.ListAccumulator;
 import edu.uw.zookeeper.common.LoggingPublisher;
 import edu.uw.zookeeper.common.Pair;
@@ -43,12 +43,12 @@ public class ZNodeDataTrieTest {
         ZNodeViewCache<?, Records.Request, Message.ServerResponse<?>> cache = 
                 ZNodeViewCache.newInstance(executor, SessionClientExecutor.create(1, executor));
         int iterations = 100;
-        Generator<Records.Request> requests = BasicOperationGenerator.create(cache);
+        Generator<Records.Request> requests = BasicRequestGenerator.create(cache);
         ListAccumulator<Pair<Records.Request, ListenableFuture<Message.ServerResponse<?>>>> accumulator = ListAccumulator.create(
                 SubmitCallable.create(requests, cache),
                 Lists.<Pair<Records.Request, ListenableFuture<Message.ServerResponse<?>>>>newArrayListWithCapacity(iterations)); 
         List<Pair<Records.Request, ListenableFuture<Message.ServerResponse<?>>>> results = 
-                CallUntilPresent.create(IteratingCallable.create(iterations, accumulator)).call();
+                CallUntilPresent.create(IterationCallable.create(iterations, accumulator)).call();
         for (Pair<Records.Request, ListenableFuture<Message.ServerResponse<?>>> result: results) {
             assertFalse(result.second().get().getRecord() instanceof Operation.Error);
         }

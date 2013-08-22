@@ -4,6 +4,7 @@ import java.util.concurrent.Callable;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.common.Generator;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.protocol.Operation;
 

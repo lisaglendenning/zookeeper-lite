@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.client;
+package edu.uw.zookeeper.common;
 
 public interface Generator<E> {
     E next();

@@ -4,6 +4,8 @@ import static com.google.common.base.Preconditions.*;
 
 import java.util.Random;
 
+import edu.uw.zookeeper.common.Generator;
+
 public class RandomData implements Generator<byte[]> {
 
     public static RandomData create(Random random, int minLength, int lengthRange) {

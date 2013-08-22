@@ -122,7 +122,7 @@
 		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
-			<version>LATEST</version>
+			<version>RELEASE</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
@@ -140,25 +140,25 @@
 		<dependency>
 		    <groupId>com.typesafe</groupId>
 		    <artifactId>config</artifactId>
-		    <version>1.0.0</version>
+		    <version>RELEASE</version>
             <scope>compile</scope>
 		</dependency>
 		  <dependency>
 		    <groupId>org.apache.logging.log4j</groupId>
 		    <artifactId>log4j-api</artifactId>
-		    <version>LATEST</version>
+		    <version>RELEASE</version>
             <scope>compile</scope>
 		  </dependency>
 		  <dependency>
 		    <groupId>org.apache.logging.log4j</groupId>
 		    <artifactId>log4j-core</artifactId>
-		    <version>LATEST</version>
+		    <version>RELEASE</version>
             <scope>compile</scope>
 		  </dependency>
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<version>4.11</version>
+			<version>RELEASE</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

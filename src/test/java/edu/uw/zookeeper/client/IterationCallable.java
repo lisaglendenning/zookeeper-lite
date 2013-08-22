@@ -10,18 +10,18 @@ import com.google.common.base.Optional;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.IntConfiguration;
 
-public class IteratingCallable<V> implements Callable<Optional<V>> {
+public class IterationCallable<V> implements Callable<Optional<V>> {
 
-    public static <V> IteratingCallable<V> create(
+    public static <V> IterationCallable<V> create(
             Configuration configuration,
             Callable<V> callable) {
         return create(newConfiguration().get(configuration), callable);
     }
     
-    public static <V> IteratingCallable<V> create(
+    public static <V> IterationCallable<V> create(
             int iterations,
             Callable<V> callable) {
-        return new IteratingCallable<V>(iterations, callable);
+        return new IterationCallable<V>(iterations, callable);
     }
 
     public static IntConfiguration newConfiguration() {
@@ -42,7 +42,7 @@ public class IteratingCallable<V> implements Callable<Optional<V>> {
     protected final AtomicInteger count;
     protected final Callable<V> callable;
     
-    public IteratingCallable(
+    public IterationCallable(
             int iterations,
             Callable<V> callable) {
         checkArgument(iterations >= 0);

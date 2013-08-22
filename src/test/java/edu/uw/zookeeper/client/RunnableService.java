@@ -15,7 +15,7 @@ public class RunnableService extends AbstractExecutionThreadService {
     }
 
     @Override
-    protected void run() throws Exception {
+    protected void run() {
         runnable.run();
     }
 }

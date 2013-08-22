@@ -3,6 +3,7 @@ package edu.uw.zookeeper;
 import static org.junit.Assert.assertFalse;
 
 import java.util.List;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -10,13 +11,13 @@ import org.junit.runners.JUnit4;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.client.BasicOperationGenerator;
+import edu.uw.zookeeper.client.BasicRequestGenerator;
 import edu.uw.zookeeper.client.CallUntilPresent;
-import edu.uw.zookeeper.client.Generator;
-import edu.uw.zookeeper.client.IteratingCallable;
+import edu.uw.zookeeper.client.IterationCallable;
 import edu.uw.zookeeper.client.SimpleClient;
 import edu.uw.zookeeper.client.SubmitCallable;
 import edu.uw.zookeeper.client.ZNodeViewCache;
+import edu.uw.zookeeper.common.Generator;
 import edu.uw.zookeeper.common.ListAccumulator;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.protocol.Message;
@@ -35,12 +36,12 @@ public class RandomSingleClientTest {
         ZNodeViewCache<?, Operation.Request, Message.ServerResponse<?>> cache = 
                 ZNodeViewCache.newInstance(client.getClient(), client.getClient());
         int iterations = 100;
-        Generator<Records.Request> requests = BasicOperationGenerator.create(cache);
+        Generator<Records.Request> requests = BasicRequestGenerator.create(cache);
         ListAccumulator<Pair<Records.Request, ListenableFuture<Message.ServerResponse<?>>>> accumulator = ListAccumulator.create(
                 SubmitCallable.create(requests, cache),
                 Lists.<Pair<Records.Request, ListenableFuture<Message.ServerResponse<?>>>>newArrayListWithCapacity(iterations)); 
         List<Pair<Records.Request, ListenableFuture<Message.ServerResponse<?>>>> results = 
-                CallUntilPresent.create(IteratingCallable.create(iterations, accumulator)).call();
+                CallUntilPresent.create(IterationCallable.create(iterations, accumulator)).call();
         for (Pair<Records.Request, ListenableFuture<Message.ServerResponse<?>>> result: results) {
             assertFalse(result.second().get().getRecord() instanceof Operation.Error);
         }
