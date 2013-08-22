@@ -46,11 +46,11 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
           return outstanding < limit;
         }
       };
-    private int outstanding = 0;
+    private volatile int outstanding = 0;
     private final int limit;
     private final ClientExecutor<? super I, O> delegate;
     private final Listener listener;
-    protected final Executor executor;
+    private final Executor executor;
     
     public LimitOutstandingClient(
             int limit,
@@ -66,12 +66,7 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
     }
     
     public int getOutstanding() {
-        monitor.enter();
-        try {
-            return outstanding;
-        } finally {
-            monitor.leave();
-        }
+        return outstanding;
     }
     
     @Override
@@ -97,7 +92,6 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
             monitor.leave();
         }
     }
-
 
     @Override
     public void register(Object handler) {
