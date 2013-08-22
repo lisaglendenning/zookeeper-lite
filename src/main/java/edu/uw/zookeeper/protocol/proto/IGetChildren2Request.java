@@ -19,11 +19,11 @@ public class IGetChildren2Request extends ICodedRecord<GetChildren2Request> impl
 
     @Override
     public boolean getWatch() {
-        return get().getWatch();
+        return record.getWatch();
     }
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 }

@@ -19,6 +19,6 @@ public class ISyncResponse extends ICodedRecord<SyncResponse> implements Records
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 }

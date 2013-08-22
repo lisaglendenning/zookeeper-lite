@@ -19,18 +19,18 @@ public class IReconfigRequest extends ICodedRecord<ReconfigRequest> implements R
     }
 
     public String getJoiningServers() {
-        return get().getJoiningServers();
+        return record.getJoiningServers();
     }
 
     public String getLeavingServers() {
-        return get().getLeavingServers();
+        return record.getLeavingServers();
     }
 
     public String getNewMembers() {
-        return get().getNewMembers();
+        return record.getNewMembers();
     }
 
     public long getCurConfigId() {
-        return get().getCurConfigId();
+        return record.getCurConfigId();
     }
 }

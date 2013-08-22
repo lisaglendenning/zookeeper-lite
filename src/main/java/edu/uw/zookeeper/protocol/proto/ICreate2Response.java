@@ -20,11 +20,11 @@ public class ICreate2Response extends ICodedRecord<Create2Response> implements R
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 
     @Override
     public Stat getStat() {
-        return get().getStat();
+        return record.getStat();
     }
 }

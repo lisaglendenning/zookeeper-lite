@@ -16,7 +16,7 @@ public class ProtocolRequestMessage<T extends Records.Request> extends AbstractP
     public static <T extends Records.Request> ProtocolRequestMessage<T> from(
             T request) {
         if (request instanceof Operation.RequestId) {
-            return of(((Operation.RequestId) request).getXid(), request);
+            return of(((Operation.RequestId) request).xid(), request);
         } else {
             throw new IllegalArgumentException();
         }
@@ -25,7 +25,7 @@ public class ProtocolRequestMessage<T extends Records.Request> extends AbstractP
     public static <T extends Records.Request> ProtocolRequestMessage<T> of(
             int xid,
             T request) {
-        IRequestHeader header = Records.Requests.Headers.newInstance(xid, request.getOpcode());
+        IRequestHeader header = Records.Requests.Headers.newInstance(xid, request.opcode());
         return of(header, request);
     }
 
@@ -58,12 +58,12 @@ public class ProtocolRequestMessage<T extends Records.Request> extends AbstractP
     }
 
     @Override
-    public int getXid() {
+    public int xid() {
         return first.getXid();
     }
 
     @Override
-    public T getRecord() {
+    public T record() {
         return second;
     }
 

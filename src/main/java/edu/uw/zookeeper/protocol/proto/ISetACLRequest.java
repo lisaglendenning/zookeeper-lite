@@ -22,16 +22,16 @@ public class ISetACLRequest extends ICodedRecord<SetACLRequest> implements Recor
 
     @Override
     public int getVersion() {
-        return get().getVersion();
+        return record.getVersion();
     }
 
     @Override
     public List<ACL> getAcl() {
-        return get().getAcl();
+        return record.getAcl();
     }
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 }

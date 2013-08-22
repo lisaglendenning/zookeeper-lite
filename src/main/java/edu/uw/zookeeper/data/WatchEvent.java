@@ -51,7 +51,7 @@ public class WatchEvent {
 
     public Message.ServerResponse<IWatcherEvent> toMessage() {
         return ProtocolResponseMessage.of(
-                OpCodeXid.NOTIFICATION.getXid(), 
+                OpCodeXid.NOTIFICATION.xid(), 
                 OpCodeXid.NOTIFICATION_ZXID,
                 new IWatcherEvent(
                     getType().getIntValue(), 

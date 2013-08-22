@@ -85,7 +85,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
         }
         
         public long getLastZxidSeen() {
-            return get().getLastZxidSeen();
+            return record.getLastZxidSeen();
         }
         
         public static class NewRequest extends ConnectMessage.Request {
@@ -294,22 +294,22 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
     
     @Override
     public int getProtocolVersion() {
-        return get().getProtocolVersion();
+        return record.getProtocolVersion();
     }
 
     @Override
     public int getTimeOut() {
-        return get().getTimeOut();
+        return record.getTimeOut();
     }
 
     @Override
     public long getSessionId() {
-        return get().getSessionId();
+        return record.getSessionId();
     }
 
     @Override
     public byte[] getPasswd() {
-        return get().getPasswd();
+        return record.getPasswd();
     }
     
     public edu.uw.zookeeper.Session toSession() {
@@ -322,7 +322,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
     
     @Override
     public void serialize(OutputArchive archive, String tag) throws IOException {
-        get().serialize(archive, tag);
+        record.serialize(archive, tag);
         if (!getWraps()) {
             archive.writeBool(getReadOnly(), "readOnly");
         }
@@ -337,7 +337,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .add("record", get())
+                .add("record", record)
                 .add("readOnly", getReadOnly()).add("wraps", getWraps()).toString();
     }
 
@@ -353,13 +353,13 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             return false;
         }
         ConnectMessage<?> other = (ConnectMessage<?>) obj;
-        return Objects.equal(get(), other.get())
+        return Objects.equal(record, other.record)
                 && Objects.equal(getReadOnly(), other.getReadOnly())
                 && Objects.equal(getWraps(), other.getWraps());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(get(), getReadOnly(), getWraps());
+        return Objects.hashCode(record, getReadOnly(), getWraps());
     }
 }

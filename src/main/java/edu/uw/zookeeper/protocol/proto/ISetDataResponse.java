@@ -20,6 +20,6 @@ public class ISetDataResponse extends ICodedRecord<SetDataResponse> implements R
 
     @Override
     public Stat getStat() {
-        return get().getStat();
+        return record.getStat();
     }
 }

@@ -20,11 +20,11 @@ public class IGetDataResponse extends ICodedRecord<GetDataResponse> implements R
 
     @Override
     public Stat getStat() {
-        return get().getStat();
+        return record.getStat();
     }
 
     @Override
     public byte[] getData() {
-        return get().getData();
+        return record.getData();
     }
 }

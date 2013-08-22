@@ -123,7 +123,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                 } else {
                     if (logger.isTraceEnabled()) {
                         if (message instanceof Message.ServerResponse) {
-                            Records.Response response = ((Message.ServerResponse<?>) message).getRecord();
+                            Records.Response response = ((Message.ServerResponse<?>) message).record();
                             if (response instanceof Ping.Response) {
                                 Ping.Response pong = (Ping.Response) response;
                                 // of course, this pong could be for an earlier ping,
@@ -165,7 +165,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                 }
 
                 parameters.touch();
-                lastPing = message.getRecord();
+                lastPing = message.record();
                 if (logger.isTraceEnabled()) {
                     logger.trace(Logging.PING_MARKER, "PING: {}", lastPing);
                 }

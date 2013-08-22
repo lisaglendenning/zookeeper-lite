@@ -20,6 +20,6 @@ public class ICreateResponse extends ICodedRecord<CreateResponse> implements Rec
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 }

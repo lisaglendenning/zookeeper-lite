@@ -21,6 +21,6 @@ public class ICheckVersionResponse extends ICodedRecord<SetDataResponse> impleme
 
     @Override
     public Stat getStat() {
-        return get().getStat();
+        return record.getStat();
     }
 }

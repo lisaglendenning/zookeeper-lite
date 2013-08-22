@@ -23,14 +23,14 @@ public class IReplyHeader extends IRecord<ReplyHeader> implements Records.Header
     }
     
     public int getXid() {
-        return get().getXid();
+        return record.getXid();
     }
     
     public long getZxid() {
-        return get().getZxid();
+        return record.getZxid();
     }
     
     public int getErr() {
-        return get().getErr();
+        return record.getErr();
     }
 }

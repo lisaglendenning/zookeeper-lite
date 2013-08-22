@@ -26,7 +26,7 @@ public class ByOpcodeTxnRequestProcessor implements Processors.CheckedProcessor<
     
     @Override
     public Records.Response apply(TxnOperation.Request<?> input) throws KeeperException {
-        Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> processor = processors.get(input.getRecord().getOpcode());
+        Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> processor = processors.get(input.record().opcode());
         if (processor == null) {
             throw new IllegalArgumentException(input.toString());
         }

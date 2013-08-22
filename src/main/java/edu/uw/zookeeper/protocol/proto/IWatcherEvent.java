@@ -20,14 +20,14 @@ public class IWatcherEvent extends IOpCodeXidRecord<WatcherEvent> implements Rec
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
     
     public int getType() {
-        return get().getType();
+        return record.getType();
     }
     
     public int getState() {
-        return get().getState();
+        return record.getState();
     }
 }

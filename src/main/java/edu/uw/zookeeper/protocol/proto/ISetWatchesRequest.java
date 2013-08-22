@@ -22,18 +22,18 @@ public class ISetWatchesRequest extends IOpCodeXidRecord<SetWatches> implements 
     }
 
     public long getRelativeZxid() {
-        return get().getRelativeZxid();
+        return record.getRelativeZxid();
     }
 
     public List<String> getDataWatches() {
-        return get().getDataWatches();
+        return record.getDataWatches();
     }
 
     public List<String> getExistWatches() {
-        return get().getExistWatches();
+        return record.getExistWatches();
     }
 
     public List<String> getChildWatches() {
-        return get().getChildWatches();
+        return record.getChildWatches();
     }
 }

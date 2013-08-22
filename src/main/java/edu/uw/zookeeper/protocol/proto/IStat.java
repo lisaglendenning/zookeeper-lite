@@ -22,56 +22,56 @@ public class IStat extends IRecord<Stat> implements Records.ZNodeStatGetter {
 
     @Override
     public int getDataLength() {
-        return get().getDataLength();
+        return record.getDataLength();
     }
 
     @Override
     public int getNumChildren() {
-        return get().getNumChildren();
+        return record.getNumChildren();
     }
 
     @Override
     public long getCzxid() {
-        return get().getCzxid();
+        return record.getCzxid();
     }
 
     @Override
     public long getCtime() {
-        return get().getCtime();
+        return record.getCtime();
     }
 
     @Override
     public long getEphemeralOwner() {
-        return get().getEphemeralOwner();
+        return record.getEphemeralOwner();
     }
 
     @Override
     public long getMzxid() {
-        return get().getMzxid();
+        return record.getMzxid();
     }
 
     @Override
     public long getMtime() {
-        return get().getMtime();
+        return record.getMtime();
     }
 
     @Override
     public int getVersion() {
-        return get().getVersion();
+        return record.getVersion();
     }
 
     @Override
     public int getAversion() {
-        return get().getAversion();
+        return record.getAversion();
     }
 
     @Override
     public int getCversion() {
-        return get().getCversion();
+        return record.getCversion();
     }
 
     @Override
     public long getPzxid() {
-        return get().getPzxid();
+        return record.getPzxid();
     }
 }

@@ -16,7 +16,7 @@ public class IMultiRequest extends IMulti<Records.MultiOpRequest> implements Rec
 
     @Override
     protected IMultiHeader headerOf(Records.MultiOpRequest record) {
-        return IMultiHeader.ofRequest(record.getOpcode());
+        return IMultiHeader.ofRequest(record.opcode());
     }
     
     @Override

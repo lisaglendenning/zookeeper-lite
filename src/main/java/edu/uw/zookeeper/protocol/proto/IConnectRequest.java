@@ -20,25 +20,25 @@ public class IConnectRequest extends ICodedRecord<ConnectRequest> implements Rec
 
     @Override
     public int getProtocolVersion() {
-        return get().getProtocolVersion();
+        return record.getProtocolVersion();
     }
 
     @Override
     public int getTimeOut() {
-        return get().getTimeOut();
+        return record.getTimeOut();
     }
 
     @Override
     public long getSessionId() {
-        return get().getSessionId();
+        return record.getSessionId();
     }
 
     @Override
     public byte[] getPasswd() {
-        return get().getPasswd();
+        return record.getPasswd();
     }
     
     public long getLastZxidSeen() {
-        return get().getLastZxidSeen();
+        return record.getLastZxidSeen();
     }
 }

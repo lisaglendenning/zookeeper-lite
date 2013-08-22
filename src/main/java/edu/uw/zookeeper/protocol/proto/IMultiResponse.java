@@ -18,7 +18,7 @@ public class IMultiResponse extends IMulti<Records.MultiOpResponse> implements R
     protected IMultiHeader headerOf(Records.MultiOpResponse record) {
         return (record instanceof IErrorResponse) 
                 ? IMultiHeader.ofError(((IErrorResponse) record).getErr())
-                : IMultiHeader.ofResponse(record.getOpcode());
+                : IMultiHeader.ofResponse(record.opcode());
     }
 
     @Override

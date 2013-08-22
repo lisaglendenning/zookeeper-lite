@@ -147,7 +147,7 @@ public class ServerApplicationModule implements ParameterizedFactory<RuntimeModu
             public Ping.Response apply(
                     TxnOperation.Request<?> request)
                     throws KeeperException {
-                return PingProcessor.getInstance().apply(request.getRecord());
+                return PingProcessor.getInstance().apply(request.record());
             }
         });
         return EphemeralProcessor.create(

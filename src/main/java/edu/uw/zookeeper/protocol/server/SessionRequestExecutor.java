@@ -73,7 +73,7 @@ public class SessionRequestExecutor extends ExecutedActor<PromiseTask<SessionOpe
                     }
                     Message.ServerResponse<?> response = processor.apply(input.task());
                     Publisher listener = listeners.get(input.task().getSessionId());
-                    if (OpCode.CLOSE_SESSION == response.getRecord().getOpcode()) {
+                    if (OpCode.CLOSE_SESSION == response.record().opcode()) {
                         listeners.remove(input.task().getSessionId());
                     }
                     if (listener != null) {

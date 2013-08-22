@@ -22,21 +22,21 @@ public class ICreateRequest extends ICodedRecord<CreateRequest> implements Recor
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 
     @Override
     public byte[] getData() {
-        return get().getData();
+        return record.getData();
     }
 
     @Override
     public List<ACL> getAcl() {
-        return get().getAcl();
+        return record.getAcl();
     }
 
     @Override
     public int getFlags() {
-        return get().getFlags();
+        return record.getFlags();
     }
 }

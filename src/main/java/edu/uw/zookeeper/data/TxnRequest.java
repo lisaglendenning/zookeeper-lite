@@ -28,7 +28,7 @@ public class TxnRequest<T extends Records.Request> implements TxnOperation.Reque
     }
 
     @Override
-    public long getZxid() {
+    public long zxid() {
         return zxid;
     }
 
@@ -38,13 +38,13 @@ public class TxnRequest<T extends Records.Request> implements TxnOperation.Reque
     }
 
     @Override
-    public int getXid() {
-        return request.getXid();
+    public int xid() {
+        return request.xid();
     }
 
     @Override
-    public T getRecord() {
-        return request.getRecord();
+    public T record() {
+        return request.record();
     }
     
     @Override
@@ -62,14 +62,14 @@ public class TxnRequest<T extends Records.Request> implements TxnOperation.Reque
         }
         TxnRequest<?> other = (TxnRequest<?>) obj;
         return Objects.equal(getSessionId(), other.getSessionId())
-                && Objects.equal(getZxid(), other.getZxid())
+                && Objects.equal(zxid(), other.zxid())
                 && Objects.equal(getTime(), other.getTime())
-                && Objects.equal(getRecord(), other.getRecord())
-                && Objects.equal(getXid(), other.getXid());
+                && Objects.equal(record(), other.record())
+                && Objects.equal(xid(), other.xid());
     }
     
     @Override
     public int hashCode() {
-        return Objects.hashCode(getSessionId(), getZxid(), getTime(), getRecord(), getXid());
+        return Objects.hashCode(getSessionId(), zxid(), getTime(), record(), xid());
     }
 }

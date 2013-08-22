@@ -20,6 +20,6 @@ public class ISetACLResponse extends ICodedRecord<SetACLResponse> implements Rec
 
     @Override
     public Stat getStat() {
-        return get().getStat();
+        return record.getStat();
     }
 }

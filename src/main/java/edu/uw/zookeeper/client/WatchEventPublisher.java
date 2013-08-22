@@ -26,8 +26,8 @@ public class WatchEventPublisher extends ForwardingEventful {
 
     @Subscribe
     public void handleReply(Operation.ProtocolResponse<?> message) {
-        if (OpCodeXid.NOTIFICATION.getXid() == message.getXid()) {
-            WatchEvent event = WatchEvent.fromRecord((IWatcherEvent) message.getRecord());
+        if (OpCodeXid.NOTIFICATION.xid() == message.xid()) {
+            WatchEvent event = WatchEvent.fromRecord((IWatcherEvent) message.record());
             post(event);
         }
     }

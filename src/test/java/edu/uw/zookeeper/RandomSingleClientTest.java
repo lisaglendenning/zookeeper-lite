@@ -43,7 +43,7 @@ public class RandomSingleClientTest {
         List<Pair<Records.Request, ListenableFuture<Message.ServerResponse<?>>>> results = 
                 CallUntilPresent.create(IterationCallable.create(iterations, accumulator)).call();
         for (Pair<Records.Request, ListenableFuture<Message.ServerResponse<?>>> result: results) {
-            assertFalse(result.second().get().getRecord() instanceof Operation.Error);
+            assertFalse(result.second().get().record() instanceof Operation.Error);
         }
 
         client.stop().get();

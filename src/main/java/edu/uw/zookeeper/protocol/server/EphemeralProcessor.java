@@ -38,10 +38,10 @@ public class EphemeralProcessor extends ForwardingProcessor<TxnOperation.Request
     
     @Override
     public Records.Response apply(TxnOperation.Request<?> input) {
-        Records.Request request = input.getRecord();
+        Records.Request request = input.record();
         Records.Response response = delegate().apply(input);
         Long session = input.getSessionId();
-        if (request.getOpcode() == OpCode.CLOSE_SESSION) {
+        if (request.opcode() == OpCode.CLOSE_SESSION) {
             for (String path: bySession.removeAll(session)) {
                 byPath.remove(path, session);
             }
@@ -52,7 +52,7 @@ public class EphemeralProcessor extends ForwardingProcessor<TxnOperation.Request
     }
     
     protected Records.Response apply(Long session, Records.Request request, Records.Response response) {
-        switch (response.getOpcode()) {
+        switch (response.opcode()) {
         case CREATE:
         case CREATE2:
         {

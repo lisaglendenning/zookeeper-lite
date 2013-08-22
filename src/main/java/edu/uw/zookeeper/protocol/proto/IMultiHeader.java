@@ -70,15 +70,15 @@ public class IMultiHeader extends IRecord<MultiHeader> implements Records.Header
     }
 
     public int getType() {
-        return get().getType();
+        return record.getType();
     }
 
     public boolean getDone() {
-        return get().getDone();
+        return record.getDone();
     }
 
     public int getErr() {
-        return get().getErr();
+        return record.getErr();
     }
 
     public static enum Holder implements Singleton<IMultiHeader> {

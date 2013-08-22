@@ -100,7 +100,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             @Override
             public ICheckVersionResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                ICheckVersionRequest record = (ICheckVersionRequest) request.getRecord();
+                ICheckVersionRequest record = (ICheckVersionRequest) request.record();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
@@ -119,7 +119,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
     
             @Override
             public Records.Response apply(TxnOperation.Request<?> request) throws KeeperException {
-                Records.CreateModeGetter record = (Records.CreateModeGetter) request.getRecord();
+                Records.CreateModeGetter record = (Records.CreateModeGetter) request.record();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeLabel parentPath = path.head();
                 ZNodeStateNode parent = getNode(get(), parentPath);
@@ -131,24 +131,24 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                     throw new KeeperException.NodeExistsException(path.toString());
                 }
                 
-                int cversion = parent.state().getChildren().getAndIncrement(request.getZxid());
+                int cversion = parent.state().getChildren().getAndIncrement(request.zxid());
                 if (mode.contains(CreateFlag.SEQUENTIAL)) {
                     path = ZNodeLabel.Path.of(Sequenced.toString(path, cversion));
                 }
                 
                 long ephemeralOwner = mode.contains(CreateFlag.EPHEMERAL) ? request.getSessionId() : Stats.CreateStat.ephemeralOwnerNone();
-                Stats.CreateStat createStat = Stats.CreateStat.of(request.getZxid(), request.getTime(), ephemeralOwner);
+                Stats.CreateStat createStat = Stats.CreateStat.of(request.zxid(), request.getTime(), ephemeralOwner);
                 byte[] bytes = record.getData();
                 bytes = (bytes == null) ? ZNodeData.emptyBytes() : bytes;
-                ZNodeData data = ZNodeData.newInstance(Stats.DataStat.newInstance(request.getZxid(), request.getTime()), bytes);
+                ZNodeData data = ZNodeData.newInstance(Stats.DataStat.newInstance(request.zxid(), request.getTime()), bytes);
                 ZNodeAcl acl = ZNodeAcl.newInstance(Acls.Acl.fromRecordList(record.getAcl()));
-                Stats.ChildrenStat childrenStat = Stats.ChildrenStat.newInstance(request.getZxid());
+                Stats.ChildrenStat childrenStat = Stats.ChildrenStat.newInstance(request.zxid());
                 ZNodeState state = ZNodeState.newInstance(createStat, data, acl, childrenStat);
                 
                 ZNodeStateNode node = parent.add((ZNodeLabel.Component) path.tail(), state);
                 Operations.Responses.Create builder = 
                         Operations.Responses.create().setPath(path);
-                if (OpCode.CREATE2 == request.getRecord().getOpcode()) {
+                if (OpCode.CREATE2 == request.record().opcode()) {
                     builder.setStat(node.asStat());
                 }
                 return builder.build();
@@ -165,7 +165,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             @Override
             public IDeleteResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                IDeleteRequest record = (IDeleteRequest) request.getRecord();
+                IDeleteRequest record = (IDeleteRequest) request.record();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 if (node.size() > 0) {
@@ -176,7 +176,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 }
                 ZNodeStateNode parent = getNode(get(), path.head());
                 get().remove(path);
-                parent.state().getChildren().getAndIncrement(request.getZxid());
+                parent.state().getChildren().getAndIncrement(request.zxid());
                 return Operations.Responses.delete().build();
             }
         }
@@ -191,7 +191,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             @Override
             public IExistsResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                IExistsRequest record = (IExistsRequest) request.getRecord();
+                IExistsRequest record = (IExistsRequest) request.record();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 return Operations.Responses.exists().setStat(node.asStat()).build();
@@ -208,7 +208,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             @Override
             public IGetDataResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                IGetDataRequest record = (IGetDataRequest) request.getRecord();
+                IGetDataRequest record = (IGetDataRequest) request.record();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 return Operations.Responses.getData().setData(node.state().getData().getData()).setStat(node.asStat()).build();
@@ -225,13 +225,13 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             @Override
             public ISetDataResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                ISetDataRequest record = (ISetDataRequest) request.getRecord();
+                ISetDataRequest record = (ISetDataRequest) request.record();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
                     throw new KeeperException.BadVersionException(path.toString());
                 }
-                node.state().getData().getStat().getAndIncrement(request.getZxid(), request.getTime());
+                node.state().getData().getStat().getAndIncrement(request.zxid(), request.getTime());
                 byte[] bytes = record.getData();
                 bytes = (bytes == null) ? ZNodeData.emptyBytes() : bytes;
                 node.state().getData().setData(bytes);
@@ -249,7 +249,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             @Override
             public IGetACLResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                IGetACLRequest record = (IGetACLRequest) request.getRecord();
+                IGetACLRequest record = (IGetACLRequest) request.record();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 return Operations.Responses.getAcl().setAcl(node.state().getAcl().getAcl()).setStat(node.asStat()).build();
@@ -266,7 +266,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             @Override
             public ISetACLResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                ISetACLRequest record = (ISetACLRequest) request.getRecord();
+                ISetACLRequest record = (ISetACLRequest) request.record();
                 ZNodeLabel.Path path = getPath(record);
                 ZNodeStateNode node = getNode(get(), path);
                 if (! node.state().getAcl().compareVersion(record.getVersion())) {
@@ -288,11 +288,11 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             @Override
             public Records.Response apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                ZNodeLabel.Path path = getPath((Records.PathGetter) request.getRecord());
+                ZNodeLabel.Path path = getPath((Records.PathGetter) request.record());
                 ZNodeStateNode node = getNode(get(), path);
                 Operations.Responses.GetChildren builder = Operations.Responses.getChildren();
                 builder.setChildren(ImmutableList.copyOf(node.keySet()));
-                if (OpCode.GET_CHILDREN2 == request.getRecord().getOpcode()) {
+                if (OpCode.GET_CHILDREN2 == request.record().opcode()) {
                     builder.setStat(node.asStat());
                 }
                 return builder.build();       
@@ -309,7 +309,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             @Override
             public ISyncResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                ISyncRequest record = (ISyncRequest) request.getRecord();
+                ISyncRequest record = (ISyncRequest) request.record();
                 ZNodeLabel.Path path = getPath(record);
                 getNode(get(), path);
                 return Operations.Responses.sync().setPath(path).build();        
@@ -342,18 +342,18 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 throws KeeperException {
             IErrorResponse error = null;
             List<Records.MultiOpResponse> results = Lists.newArrayList();
-            for (Records.MultiOpRequest request: (IMultiRequest) input.getRecord()) {
+            for (Records.MultiOpRequest request: (IMultiRequest) input.record()) {
                 Records.MultiOpResponse result;
                 if (error != null) {
                     result = error;
                 } else {
-                    Operation.ProtocolRequest<?> nestedRequest = ProtocolRequestMessage.of(input.getXid(), request);
+                    Operation.ProtocolRequest<?> nestedRequest = ProtocolRequestMessage.of(input.xid(), request);
                     TxnOperation.Request<?> nested = TxnRequest.of(
                             input.getTime(), 
-                            input.getZxid(), 
+                            input.zxid(), 
                             SessionRequest.of(input.getSessionId(), nestedRequest, nestedRequest));
                     try {
-                        switch (request.getOpcode()) {
+                        switch (request.opcode()) {
                         case CHECK:
                             break;
                         case CREATE:

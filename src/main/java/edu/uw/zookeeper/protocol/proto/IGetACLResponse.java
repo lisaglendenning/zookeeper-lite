@@ -23,11 +23,11 @@ public class IGetACLResponse extends ICodedRecord<GetACLResponse> implements Rec
 
     @Override
     public Stat getStat() {
-        return get().getStat();
+        return record.getStat();
     }
 
     @Override
     public List<ACL> getAcl() {
-        return get().getAcl();
+        return record.getAcl();
     }
 }

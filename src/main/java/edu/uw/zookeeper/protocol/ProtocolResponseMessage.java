@@ -25,7 +25,7 @@ public class ProtocolResponseMessage<T extends Records.Response> extends Abstrac
             int xid,
             long zxid,
             T response) {
-        KeeperException.Code code = (response instanceof Operation.Error) ? ((Operation.Error) response).getError() : KeeperException.Code.OK;
+        KeeperException.Code code = (response instanceof Operation.Error) ? ((Operation.Error) response).error() : KeeperException.Code.OK;
         IReplyHeader header = Records.Responses.Headers.newInstance(xid, zxid, code);
         return of(header, response);
     }
@@ -56,7 +56,7 @@ public class ProtocolResponseMessage<T extends Records.Response> extends Abstrac
             int xid = header.getXid();
             OpCode opcode;
             if (OpCodeXid.has(xid)) {
-                opcode = OpCodeXid.of(xid).getOpcode();
+                opcode = OpCodeXid.of(xid).opcode();
             } else {
                 opcode = xidToOpCode.apply(xid);
             }
@@ -79,17 +79,17 @@ public class ProtocolResponseMessage<T extends Records.Response> extends Abstrac
     }
     
     @Override
-    public long getZxid() {
+    public long zxid() {
         return first.getZxid();
     }
 
     @Override
-    public int getXid() {
+    public int xid() {
         return first.getXid();
     }
 
     @Override
-    public T getRecord() {
+    public T record() {
         return second;
     }
 

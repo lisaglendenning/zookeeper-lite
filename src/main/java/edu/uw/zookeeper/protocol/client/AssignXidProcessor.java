@@ -41,15 +41,15 @@ public class AssignXidProcessor implements
         if (input instanceof Message.ClientSession) {
             output = (Message.ClientSession) input;
             if (output instanceof Operation.RequestId) {
-                xids.setIfGreater(((Operation.RequestId) output).getXid() + 1);
+                xids.setIfGreater(((Operation.RequestId) output).xid() + 1);
             }
         } else if (input instanceof Operation.ProtocolRequest<?>) { 
             Operation.ProtocolRequest<?> request = (Operation.ProtocolRequest<?>) input;
-            output = ProtocolRequestMessage.of(request.getXid(), request.getRecord()); 
+            output = ProtocolRequestMessage.of(request.xid(), request.record()); 
         } else if (input instanceof Records.Request) {
             int xid;
             if (input instanceof Operation.RequestId) {
-                xid = ((Operation.RequestId) input).getXid();
+                xid = ((Operation.RequestId) input).xid();
             } else {
                 xid = next();
             }

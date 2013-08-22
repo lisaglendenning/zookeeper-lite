@@ -74,7 +74,7 @@ public class ZNodeDataTrieExecutor implements Publisher, ClientExecutor<SessionO
     @Override
     public synchronized Message.ServerResponse<?> apply(SessionOperation.Request<?> input) {
         TxnOperation.Request<?> request = txnProcessor.apply(input);
-        Message.ServerResponse<Records.Response> response = ProtocolResponseMessage.of(request.getXid(), request.getZxid(), operator.apply(request));
+        Message.ServerResponse<Records.Response> response = ProtocolResponseMessage.of(request.xid(), request.zxid(), operator.apply(request));
         post(response);
         return response;
     }

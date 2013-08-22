@@ -10,9 +10,7 @@ import org.apache.jute.Record;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.common.Reference;
-
-public class IRecord<T extends Record> implements Reference<T>, Record {
+public class IRecord<T extends Record> implements Record {
 
     public static <T extends Record> IRecord<T> valueOf(T record) {
         return new IRecord<T>(record);
@@ -25,18 +23,13 @@ public class IRecord<T extends Record> implements Reference<T>, Record {
     }
 
     @Override
-    public T get() {
-        return record;
-    }
-
-    @Override
     public String toString() {
         return Records.toBeanString(this);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(get());
+        return Objects.hashCode(record);
     }
 
     @Override
@@ -51,17 +44,17 @@ public class IRecord<T extends Record> implements Reference<T>, Record {
             return false;
         }
         IRecord<?> other = (IRecord<?>) obj;
-        return Objects.equal(get(), other.get());
+        return Objects.equal(record, other.record);
     }
 
     @Override
     public void serialize(OutputArchive archive, String tag) throws IOException {
-        get().serialize(archive, tag);
+        record.serialize(archive, tag);
     }
 
     @Override
     public void deserialize(InputArchive archive, String tag)
             throws IOException {
-        get().deserialize(archive, tag);
+        record.deserialize(archive, tag);
     }
 }

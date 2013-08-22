@@ -26,17 +26,17 @@ public class IErrorResponse extends ICodedRecord<ErrorResponse> implements Recor
     }
 
     @Override
-    public KeeperException.Code getError() {
+    public KeeperException.Code error() {
         return KeeperException.Code.get(getErr());
     }
     
     public int getErr() {
-        return get().getErr();
+        return record.getErr();
     }
 
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .addValue(getError()).toString();
+                .addValue(error()).toString();
     }
 }

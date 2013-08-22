@@ -69,11 +69,11 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
     
     @Override
     public Records.Response apply(TxnOperation.Request<?> input) {
-        return apply(input.getSessionId(), input.getRecord(), delegate().apply(input));
+        return apply(input.getSessionId(), input.record(), delegate().apply(input));
     }
     
     protected Records.Response apply(Long session, Records.Request request, Records.Response response) {
-        switch (request.getOpcode()) {
+        switch (request.opcode()) {
         case GET_DATA:
         case EXISTS:
             if (((Records.WatchGetter) request).getWatch()) {
@@ -166,7 +166,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
                 logger.debug("{}", WatchEvent.fromRecord(event));
             }
             ProtocolResponseMessage<IWatcherEvent> message = ProtocolResponseMessage.of(
-                    OpCodeXid.NOTIFICATION.getXid(), 
+                    OpCodeXid.NOTIFICATION.xid(), 
                     OpCodeXid.NOTIFICATION_ZXID,
                     event);
             String path = event.getPath();

@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.data;
+package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.jute.InputArchive;
 import org.apache.zookeeper.data.Stat;
@@ -6,12 +6,6 @@ import org.apache.zookeeper.data.Stat;
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.common.Singleton;
-import edu.uw.zookeeper.protocol.proto.IStat;
-import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.protocol.proto.Records.AclStatGetter;
-import edu.uw.zookeeper.protocol.proto.Records.ChildrenStatGetter;
-import edu.uw.zookeeper.protocol.proto.Records.CreateStatGetter;
-import edu.uw.zookeeper.protocol.proto.Records.DataStatGetter;
 
 
 public class Stats {
@@ -32,7 +26,7 @@ public class Stats {
     
     public static Stat asStat(Records.ZNodeStatGetter source) {
         if (source instanceof IStat) {
-            return ((IStat)source).get();
+            return ((IStat) source).record;
         } else {
             return new Stat(
                 source.getCzxid(),
@@ -349,10 +343,10 @@ public class Stats {
         protected final int numChildren;
         
         public CompositeStatGetter(
-                CreateStatGetter createStat,
-                DataStatGetter dataStat, 
-                AclStatGetter aclStat,
-                ChildrenStatGetter childrenStat,
+                Records.CreateStatGetter createStat,
+                Records.DataStatGetter dataStat, 
+                Records.AclStatGetter aclStat,
+                Records.ChildrenStatGetter childrenStat,
                 int dataLength,
                 int numChildren) {
             super(createStat, dataStat, aclStat, childrenStat);

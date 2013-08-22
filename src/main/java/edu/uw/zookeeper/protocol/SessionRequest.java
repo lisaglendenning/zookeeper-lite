@@ -28,20 +28,20 @@ public class SessionRequest<T extends Records.Request> implements SessionOperati
     }
 
     @Override
-    public int getXid() {
-        return xid.getXid();
+    public int xid() {
+        return xid.xid();
     }
 
     @Override
-    public T getRecord() {
-        return record.getRecord();
+    public T record() {
+        return record.record();
     }
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
                 .add("sessionId", String.format("0x%08x", getSessionId()))
-                .add("xid", getXid())
-                .add("record", getRecord())
+                .add("xid", xid())
+                .add("record", record())
                 .toString();
     }
 
@@ -55,12 +55,12 @@ public class SessionRequest<T extends Records.Request> implements SessionOperati
         }
         SessionRequest<?> other = (SessionRequest<?>) obj;
         return Objects.equal(getSessionId(), other.getSessionId())
-                && Objects.equal(getRecord(), other.getRecord())
-                && Objects.equal(getXid(), other.getXid());
+                && Objects.equal(record(), other.record())
+                && Objects.equal(xid(), other.xid());
     }
     
     @Override
     public int hashCode() {
-        return Objects.hashCode(getSessionId(), getRecord(), getXid());
+        return Objects.hashCode(getSessionId(), record(), xid());
     }
 }

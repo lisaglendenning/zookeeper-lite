@@ -240,7 +240,7 @@ public class TreeFetcher<V> implements AsyncFunction<ZNodeLabel.Path, Optional<V
         
         @Override
         public Iterator<ZNodeLabel.Path> apply(Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>> input) throws InterruptedException, ExecutionException {
-            Records.Response response = input.second().get().getRecord();
+            Records.Response response = input.second().get().record();
             if (response instanceof Records.ChildrenGetter) {
                 ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) input.first()).getPath());
                 return Iterators.transform(

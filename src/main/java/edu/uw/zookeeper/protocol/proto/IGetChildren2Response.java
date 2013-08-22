@@ -22,11 +22,11 @@ public class IGetChildren2Response extends ICodedRecord<GetChildren2Response> im
 
     @Override
     public Stat getStat() {
-        return get().getStat();
+        return record.getStat();
     }
 
     @Override
     public List<String> getChildren() {
-        return get().getChildren();
+        return record.getChildren();
     }
 }

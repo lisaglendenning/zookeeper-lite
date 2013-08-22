@@ -24,7 +24,7 @@ public enum OpCodeXid implements Operation.Coded, Operation.RequestId {
             .uniqueIndex(Iterators.forArray(OpCodeXid.values()), 
                     new Function<OpCodeXid, Integer>() {
                         @Override public Integer apply(OpCodeXid input) {
-                            return input.getXid();
+                            return input.xid();
                         }});
 
     public static boolean has(int xid) {
@@ -47,12 +47,12 @@ public enum OpCodeXid implements Operation.Coded, Operation.RequestId {
     }
 
     @Override
-    public int getXid() {
+    public int xid() {
         return xid;
     }
 
     @Override
-    public OpCode getOpcode() {
+    public OpCode opcode() {
         return opcode;
     }
 }

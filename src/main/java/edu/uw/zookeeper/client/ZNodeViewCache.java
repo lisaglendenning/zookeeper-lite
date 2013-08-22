@@ -333,7 +333,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
                 Records.Request request = (Records.Request)
                         ((task() instanceof Records.Request) ?
                                 task() :
-                                    ((Operation.RecordHolder<?>) task()).getRecord());
+                                    ((Operation.RecordHolder<?>) task()).record());
                 handleResult(request, result);
             }
             return super.set(result);
@@ -405,14 +405,14 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
     }
     
     protected void handleResult(Records.Request request, Operation.ProtocolResponse<?> result) {
-        Long zxid = result.getZxid();
+        Long zxid = result.zxid();
         lastZxid.update(zxid);
-        Records.Response response = result.getRecord();
+        Records.Response response = result.record();
         
         if (response instanceof Operation.Error 
-                && (KeeperException.Code.NONODE == ((Operation.Error)response).getError())) {
+                && (KeeperException.Code.NONODE == ((Operation.Error)response).error())) {
             ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
-            switch (request.getOpcode()) {
+            switch (request.opcode()) {
             case CREATE:
             case CREATE2:
                 path = (ZNodeLabel.Path) path.head();
@@ -433,7 +433,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
             }
         }
         
-        switch (request.getOpcode()) {
+        switch (request.opcode()) {
         case CHECK:
             // TODO
             break;
@@ -448,7 +448,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
                     StampedReference<Records.StatGetter> stampedResponse = StampedReference.of(zxid, (Records.StatGetter) response);
                     update(node, stampedResponse);
                 }
-            } else if (KeeperException.Code.NODEEXISTS == ((Operation.Error)response).getError()) {
+            } else if (KeeperException.Code.NODEEXISTS == ((Operation.Error)response).error()) {
                 add(ZNodeLabel.Path.of(((Records.PathGetter) request).getPath()), zxid);
             }
             break;
@@ -456,7 +456,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         case DELETE:
         {
             if (! (response instanceof Operation.Error) 
-                    || (KeeperException.Code.NONODE == ((Operation.Error)response).getError())) {
+                    || (KeeperException.Code.NONODE == ((Operation.Error)response).error())) {
                 remove(ZNodeLabel.Path.of(((Records.PathGetter) request).getPath()), zxid);
                 break;
             }
@@ -519,7 +519,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         case MULTI:
         {
             if (! (response instanceof Operation.Error)) {
-                int xid = result.getXid();
+                int xid = result.xid();
                 IMultiRequest requestRecord = (IMultiRequest) request;
                 IMultiResponse responseRecord = (IMultiResponse) response;
                 Iterator<MultiOpRequest> requests = requestRecord.iterator();

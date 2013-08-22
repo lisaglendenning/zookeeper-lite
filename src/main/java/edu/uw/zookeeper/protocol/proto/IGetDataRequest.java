@@ -19,11 +19,11 @@ public class IGetDataRequest extends ICodedRecord<GetDataRequest> implements Rec
 
     @Override
     public boolean getWatch() {
-        return get().getWatch();
+        return record.getWatch();
     }
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 }

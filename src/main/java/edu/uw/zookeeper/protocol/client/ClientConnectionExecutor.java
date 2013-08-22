@@ -170,8 +170,8 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
     public void handleResponse(Message.ServerResponse<?> message) {
         if (state() != State.TERMINATED) {
             timeOut.send(message);
-            int xid = message.getXid();
-            if (! ((xid == OpCodeXid.PING.getXid()) || (xid == OpCodeXid.NOTIFICATION.getXid()))) {
+            int xid = message.xid();
+            if (! ((xid == OpCodeXid.PING.xid()) || (xid == OpCodeXid.NOTIFICATION.xid()))) {
                 PendingResponseTask next = pending.peek();
                 if ((next != null) && (next.getXid() == xid)) {
                     pending.remove(next);
@@ -227,7 +227,7 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
     
                 // mark pings as done on write because ZooKeeper doesn't care about their ordering
                 MessageTask task;
-                if (message.getXid() == OpCodeXid.PING.getXid()) {
+                if (message.xid() == OpCodeXid.PING.xid()) {
                     task = new SetOnCallbackTask(message, input);
                 } else {
                     // task needs to be in the queue before calling write
@@ -322,7 +322,7 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
         }
         
         public int getXid() {
-            return task().getXid();
+            return task().xid();
         }
         
         @Override
@@ -373,7 +373,7 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
 
         @Override
         public boolean set(Message.ServerResponse<?> result) {
-            assert (getXid() == result.getXid());
+            assert (getXid() == result.xid());
             return super.set(result);
         }
         

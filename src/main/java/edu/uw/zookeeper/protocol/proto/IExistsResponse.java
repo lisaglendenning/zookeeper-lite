@@ -20,6 +20,6 @@ public class IExistsResponse extends ICodedRecord<ExistsResponse> implements Rec
 
     @Override
     public Stat getStat() {
-        return get().getStat();
+        return record.getStat();
     }
 }

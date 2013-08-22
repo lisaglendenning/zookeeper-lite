@@ -112,10 +112,10 @@ public class ClientProtocolCodec
         automaton.apply(input);
         // we only need to remember xid -> opcode of pending messages
         if (input instanceof Operation.RequestId) {
-            int xid = ((Operation.RequestId)input).getXid();
+            int xid = ((Operation.RequestId)input).xid();
             if (! OpCodeXid.has(xid)) {
                 assert (input instanceof Operation.ProtocolRequest);
-                OpCode opcode = ((Operation.ProtocolRequest<?>) input).getRecord().getOpcode();
+                OpCode opcode = ((Operation.ProtocolRequest<?>) input).record().opcode();
                 Pair<Integer, OpCode> pair = Pair.create(xid, opcode);
                 pending.add(pair);
             }
@@ -135,7 +135,7 @@ public class ClientProtocolCodec
             // the peek and poll need to be atomic
             Pair<Integer, OpCode> next = pending.peek();
             if ((next != null) && (reply instanceof Operation.RequestId)) {
-                if (next.first().equals(((Operation.RequestId)reply).getXid())) {
+                if (next.first().equals(((Operation.RequestId)reply).xid())) {
                     pending.poll();
                 }
             }

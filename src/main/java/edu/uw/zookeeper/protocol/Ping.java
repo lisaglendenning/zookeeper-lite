@@ -48,13 +48,13 @@ public abstract class Ping<T extends Record> extends IOpCodeXidRecord<T> {
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .add("record", get())
+                .add("record", record)
                 .add("time", getTime()).toString();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(get(), getTime());
+        return Objects.hashCode(record, getTime());
     }
 
     @Override
@@ -69,7 +69,7 @@ public abstract class Ping<T extends Record> extends IOpCodeXidRecord<T> {
             return false;
         }
         Ping<?> other = (Ping<?>) obj;
-        return Objects.equal(get(), other.get()) 
+        return Objects.equal(record, other.record) 
                 && Objects.equal(getTime(), other.getTime());
     }
     

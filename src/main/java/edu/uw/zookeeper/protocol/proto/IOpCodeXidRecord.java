@@ -11,7 +11,7 @@ public abstract class IOpCodeXidRecord<T extends Record> extends ICodedRecord<T>
     }
 
     @Override
-    public int getXid() {
-        return Records.opCodeXidOf(getClass()).getXid();
+    public int xid() {
+        return Records.opCodeXidOf(getClass()).xid();
     }
 }

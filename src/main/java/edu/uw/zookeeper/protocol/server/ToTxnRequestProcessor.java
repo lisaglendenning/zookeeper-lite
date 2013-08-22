@@ -34,7 +34,7 @@ public class ToTxnRequestProcessor implements Processors.UncheckedProcessor<Sess
     @Override
     public TxnOperation.Request<?> apply(SessionOperation.Request<?> input) {
         long time = getTime();
-        long zxid = get().apply(input.getRecord().getOpcode());
+        long zxid = get().apply(input.record().opcode());
         return TxnRequest.of(time, zxid, input);
     }
 }

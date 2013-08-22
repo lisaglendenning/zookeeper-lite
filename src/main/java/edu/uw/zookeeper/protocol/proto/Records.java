@@ -207,7 +207,7 @@ public abstract class Records {
         if (operational == null) {
             OpCodeXid xid = opCodeXidOf(type);
             if (xid != null) {
-                return xid.getOpcode();
+                return xid.opcode();
             } else {
                 return null;
             }
@@ -396,7 +396,7 @@ public abstract class Records {
 
         public static void serialize(Records.Request record, OutputArchive archive)
                 throws IOException {
-            record.serialize(archive, tagOf(record.getOpcode()));
+            record.serialize(archive, tagOf(record.opcode()));
         }
         
         @Override
@@ -509,7 +509,7 @@ public abstract class Records {
 
         public static void serialize(Records.Response record, OutputArchive archive)
                 throws IOException {
-            record.serialize(archive, tagOf(record.getOpcode()));
+            record.serialize(archive, tagOf(record.opcode()));
         }
         
         private Responses() {}

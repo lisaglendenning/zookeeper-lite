@@ -19,6 +19,6 @@ public class ISyncRequest extends ICodedRecord<SyncRequest> implements Records.R
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 }

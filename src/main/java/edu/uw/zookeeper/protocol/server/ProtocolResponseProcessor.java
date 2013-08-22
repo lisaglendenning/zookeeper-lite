@@ -28,11 +28,11 @@ public class ProtocolResponseProcessor implements Processor<TxnOperation.Request
 
         int xid;
         if (response instanceof Operation.RequestId) {
-            xid = ((Operation.RequestId) response).getXid();
+            xid = ((Operation.RequestId) response).xid();
         } else {
-            xid = input.getXid();
+            xid = input.xid();
         }
-        long zxid = input.getZxid();
+        long zxid = input.zxid();
         return ProtocolResponseMessage.of(xid, zxid, response);
     }
 }

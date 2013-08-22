@@ -8,10 +8,10 @@ import edu.uw.zookeeper.common.Generator;
 import edu.uw.zookeeper.data.CreateMode;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.StampedReference;
-import edu.uw.zookeeper.data.Stats;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
+import edu.uw.zookeeper.protocol.proto.Stats;
 
 public class BasicRequestGenerator implements Generator<Records.Request> {
 

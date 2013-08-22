@@ -19,16 +19,16 @@ public class ISetDataRequest extends ICodedRecord<SetDataRequest> implements Rec
 
     @Override
     public int getVersion() {
-        return get().getVersion();
+        return record.getVersion();
     }
 
     @Override
     public byte[] getData() {
-        return get().getData();
+        return record.getData();
     }
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 }

@@ -32,7 +32,7 @@ public class SessionClientProcessor implements Processors.UncheckedProcessor<Rec
     public SessionOperation.Request<Records.Request> apply(Records.Request input) {
         int xid;
         if (input instanceof Operation.RequestId) {
-            xid = ((Operation.RequestId) input).getXid();
+            xid = ((Operation.RequestId) input).xid();
         } else {
             xid = next();
         }

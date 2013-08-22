@@ -26,7 +26,7 @@ public class ZxidTracker implements ZxidReference  {
 
         @Subscribe
         public void handleSessionReply(Operation.ProtocolResponse<?> message) {
-            first().update(message.getZxid());
+            first().update(message.zxid());
         }
     }
     

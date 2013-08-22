@@ -19,6 +19,6 @@ public class IGetACLRequest extends ICodedRecord<GetACLRequest> implements Recor
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 }

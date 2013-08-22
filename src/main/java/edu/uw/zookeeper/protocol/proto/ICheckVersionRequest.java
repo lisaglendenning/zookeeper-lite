@@ -19,11 +19,11 @@ public class ICheckVersionRequest extends ICodedRecord<CheckVersionRequest> impl
 
     @Override
     public int getVersion() {
-        return get().getVersion();
+        return record.getVersion();
     }
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 }

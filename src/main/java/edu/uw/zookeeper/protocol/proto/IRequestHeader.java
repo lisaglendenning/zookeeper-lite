@@ -22,10 +22,10 @@ public class IRequestHeader extends IRecord<RequestHeader> implements Records.He
     }
 
     public int getType() {
-        return get().getType();
+        return record.getType();
     }
     
     public int getXid() {
-        return get().getXid();
+        return record.getXid();
     }
 }

@@ -19,14 +19,14 @@ public class IAuthRequest extends IOpCodeXidRecord<AuthPacket> implements Record
     }
 
     public int getType() {
-        return get().getType();
+        return record.getType();
     }
 
     public String getScheme() {
-        return get().getScheme();
+        return record.getScheme();
     }
 
     public byte[] getAuth() {
-        return get().getAuth();
+        return record.getAuth();
     }
 }

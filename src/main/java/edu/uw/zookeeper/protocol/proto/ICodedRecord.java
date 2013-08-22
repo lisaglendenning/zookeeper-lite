@@ -9,7 +9,7 @@ public abstract class ICodedRecord<T extends Record> extends IRecord<T> implemen
     }
 
     @Override
-    public OpCode getOpcode() {
+    public OpCode opcode() {
         return Records.opCodeOf(getClass());
     }
 }

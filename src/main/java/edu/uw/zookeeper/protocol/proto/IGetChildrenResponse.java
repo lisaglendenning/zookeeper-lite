@@ -21,6 +21,6 @@ public class IGetChildrenResponse extends ICodedRecord<GetChildrenResponse> impl
 
     @Override
     public List<String> getChildren() {
-        return get().getChildren();
+        return record.getChildren();
     }
 }

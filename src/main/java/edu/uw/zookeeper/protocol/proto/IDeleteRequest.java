@@ -19,11 +19,11 @@ public class IDeleteRequest extends ICodedRecord<DeleteRequest> implements Recor
 
     @Override
     public String getPath() {
-        return get().getPath();
+        return record.getPath();
     }
 
     @Override
     public int getVersion() {
-        return get().getVersion();
+        return record.getVersion();
     }
 }
