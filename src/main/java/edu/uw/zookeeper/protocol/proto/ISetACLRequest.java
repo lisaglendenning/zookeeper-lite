@@ -6,7 +6,7 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.proto.SetACLRequest;
 
 @Operational(value=OpCode.SET_ACL)
-public class ISetACLRequest extends ICodedRecord<SetACLRequest> implements Records.Request, Records.PathGetter, Records.AclGetter, Records.VersionGetter {
+public class ISetACLRequest extends IOperationalRecord<SetACLRequest> implements Records.Request, Records.PathGetter, Records.AclGetter, Records.VersionGetter {
 
     public ISetACLRequest() {
         this(new SetACLRequest());

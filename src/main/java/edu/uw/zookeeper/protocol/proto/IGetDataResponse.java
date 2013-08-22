@@ -4,7 +4,7 @@ import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.GetDataResponse;
 
 @Operational(value=OpCode.GET_DATA)
-public class IGetDataResponse extends ICodedRecord<GetDataResponse> implements Records.Response, Records.DataGetter, Records.StatGetter {
+public class IGetDataResponse extends IOperationalRecord<GetDataResponse> implements Records.Response, Records.DataGetter, Records.StatGetter {
     
     public IGetDataResponse() {
         this(new GetDataResponse());

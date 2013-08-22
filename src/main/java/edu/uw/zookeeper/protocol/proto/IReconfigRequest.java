@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.proto.ReconfigRequest;
 
 @Operational(value=OpCode.RECONFIG)
-public class IReconfigRequest extends ICodedRecord<ReconfigRequest> implements Records.Request {
+public class IReconfigRequest extends IOperationalRecord<ReconfigRequest> implements Records.Request {
 
     public IReconfigRequest() {
         this(new ReconfigRequest());

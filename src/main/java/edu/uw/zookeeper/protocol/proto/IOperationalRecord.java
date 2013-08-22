@@ -2,9 +2,9 @@ package edu.uw.zookeeper.protocol.proto;
 
 import org.apache.jute.Record;
 
-public abstract class ICodedRecord<T extends Record> extends IRecord<T> implements Records.Coded {
+public abstract class IOperationalRecord<T extends Record> extends IRecord<T> implements Records.Coded {
 
-    protected ICodedRecord(T record) {
+    protected IOperationalRecord(T record) {
         super(record);
     }
 

@@ -6,7 +6,7 @@ import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.GetChildren2Response;
 
 @Operational(value=OpCode.GET_CHILDREN2)
-public class IGetChildren2Response extends ICodedRecord<GetChildren2Response> implements Records.Response, Records.ChildrenGetter, Records.StatGetter {
+public class IGetChildren2Response extends IOperationalRecord<GetChildren2Response> implements Records.Response, Records.ChildrenGetter, Records.StatGetter {
 
     public IGetChildren2Response() {
         this(new GetChildren2Response());

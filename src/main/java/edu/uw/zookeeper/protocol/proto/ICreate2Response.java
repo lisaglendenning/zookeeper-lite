@@ -4,7 +4,7 @@ import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.Create2Response;
 
 @Operational(value=OpCode.CREATE2)
-public class ICreate2Response extends ICodedRecord<Create2Response> implements Records.Response, Records.MultiOpResponse, Records.PathGetter, Records.StatGetter {
+public class ICreate2Response extends IOperationalRecord<Create2Response> implements Records.Response, Records.MultiOpResponse, Records.PathGetter, Records.StatGetter {
 
     public ICreate2Response() {
         this(new Create2Response());

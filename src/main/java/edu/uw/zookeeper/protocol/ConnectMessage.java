@@ -17,14 +17,14 @@ import edu.uw.zookeeper.protocol.proto.ByteBufInputArchive;
 import edu.uw.zookeeper.protocol.proto.ByteBufOutputArchive;
 import edu.uw.zookeeper.protocol.proto.IConnectRequest;
 import edu.uw.zookeeper.protocol.proto.IConnectResponse;
-import edu.uw.zookeeper.protocol.proto.ICodedRecord;
+import edu.uw.zookeeper.protocol.proto.IOperationalRecord;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Operational;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.ZxidReference;
 
 @Operational(value=OpCode.CREATE_SESSION)
-public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> extends ICodedRecord<T>
+public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> extends IOperationalRecord<T>
         implements Message.Session, Records.ConnectGetter {
 
     public static abstract class Request extends
@@ -272,7 +272,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
     protected static final TimeUnit TIMEOUT_UNIT = TimeUnit.MILLISECONDS;
     
     protected final boolean readOnly;
-    protected final boolean wraps;
+    protected final boolean legacy;
 
     protected ConnectMessage(T record) {
         this(record, false, false);
@@ -281,17 +281,17 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
     protected ConnectMessage(T record, boolean readOnly, boolean wraps) {
         super(record);
         this.readOnly = readOnly;
-        this.wraps = wraps;
+        this.legacy = wraps;
+    }
+
+    public boolean legacy() {
+        return legacy;
     }
 
     public boolean getReadOnly() {
         return readOnly;
     }
 
-    public boolean getWraps() {
-        return wraps;
-    }
-    
     @Override
     public int getProtocolVersion() {
         return record.getProtocolVersion();
@@ -323,7 +323,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
     @Override
     public void serialize(OutputArchive archive, String tag) throws IOException {
         record.serialize(archive, tag);
-        if (!getWraps()) {
+        if (!legacy()) {
             archive.writeBool(getReadOnly(), "readOnly");
         }
     }
@@ -338,7 +338,8 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
     public String toString() {
         return Objects.toStringHelper(this)
                 .add("record", record)
-                .add("readOnly", getReadOnly()).add("wraps", getWraps()).toString();
+                .add("readOnly", getReadOnly())
+                .add("legacy", legacy()).toString();
     }
 
     @Override
@@ -354,12 +355,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
         }
         ConnectMessage<?> other = (ConnectMessage<?>) obj;
         return Objects.equal(record, other.record)
-                && Objects.equal(getReadOnly(), other.getReadOnly())
-                && Objects.equal(getWraps(), other.getWraps());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(record, getReadOnly(), getWraps());
+                && Objects.equal(readOnly, other.readOnly)
+                && Objects.equal(legacy, other.legacy);
     }
 }

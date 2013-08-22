@@ -29,7 +29,7 @@ public class IRecord<T extends Record> implements Record {
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(record);
+        return record.hashCode();
     }
 
     @Override

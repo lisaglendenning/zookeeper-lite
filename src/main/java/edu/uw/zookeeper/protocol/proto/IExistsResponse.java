@@ -4,7 +4,7 @@ import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.ExistsResponse;
 
 @Operational(value=OpCode.EXISTS)
-public class IExistsResponse extends ICodedRecord<ExistsResponse> implements Records.Response, Records.StatGetter {
+public class IExistsResponse extends IOperationalRecord<ExistsResponse> implements Records.Response, Records.StatGetter {
 
     public IExistsResponse() {
         this(new ExistsResponse());

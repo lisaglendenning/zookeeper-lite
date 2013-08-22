@@ -8,7 +8,7 @@ import com.google.common.base.Objects;
 import edu.uw.zookeeper.protocol.Operation;
 
 @Operational(value=OpCode.ERROR)
-public class IErrorResponse extends ICodedRecord<ErrorResponse> implements Records.Response, Records.MultiOpResponse, Operation.Error {
+public class IErrorResponse extends IOperationalRecord<ErrorResponse> implements Records.Response, Records.MultiOpResponse, Operation.Error {
     public IErrorResponse() {
         this(new ErrorResponse());
     }

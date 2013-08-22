@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.proto.SyncRequest;
 
 @Operational(value=OpCode.SYNC)
-public class ISyncRequest extends ICodedRecord<SyncRequest> implements Records.Request, Records.PathGetter {
+public class ISyncRequest extends IOperationalRecord<SyncRequest> implements Records.Request, Records.PathGetter {
     
     public ISyncRequest() {
         this(new SyncRequest());

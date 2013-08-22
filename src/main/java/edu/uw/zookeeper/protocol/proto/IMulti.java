@@ -13,7 +13,7 @@ import com.google.common.collect.UnmodifiableIterator;
 import com.google.common.collect.UnmodifiableListIterator;
 
 @Operational(value=OpCode.MULTI)
-public abstract class IMulti<T extends Records.Coded> extends ICodedRecord<EmptyRecord> implements List<T> {
+public abstract class IMulti<T extends Records.Coded> extends IOperationalRecord<EmptyRecord> implements List<T> {
 
     private final List<T> delegate;
 

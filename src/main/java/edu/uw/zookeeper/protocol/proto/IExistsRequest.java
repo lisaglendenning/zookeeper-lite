@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.proto.ExistsRequest;
 
 @Operational(value=OpCode.EXISTS)
-public class IExistsRequest extends ICodedRecord<ExistsRequest> implements Records.Request, Records.PathGetter, Records.WatchGetter {
+public class IExistsRequest extends IOperationalRecord<ExistsRequest> implements Records.Request, Records.PathGetter, Records.WatchGetter {
 
     public IExistsRequest() {
         this(new ExistsRequest());

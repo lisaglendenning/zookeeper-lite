@@ -5,7 +5,7 @@ import org.apache.zookeeper.proto.SetDataResponse;
 
 @Operational(value=OpCode.CHECK)
 @Shared
-public class ICheckVersionResponse extends ICodedRecord<SetDataResponse> implements Records.Response, Records.StatGetter, Records.MultiOpResponse {
+public class ICheckVersionResponse extends IOperationalRecord<SetDataResponse> implements Records.Response, Records.StatGetter, Records.MultiOpResponse {
 
     public ICheckVersionResponse() {
         this(new SetDataResponse());

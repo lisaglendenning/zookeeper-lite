@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.proto.SetDataRequest;
 
 @Operational(value=OpCode.SET_DATA)
-public class ISetDataRequest extends ICodedRecord<SetDataRequest> implements Records.Request, Records.PathGetter, Records.DataGetter, Records.VersionGetter, Records.MultiOpRequest {
+public class ISetDataRequest extends IOperationalRecord<SetDataRequest> implements Records.Request, Records.PathGetter, Records.DataGetter, Records.VersionGetter, Records.MultiOpRequest {
     
     public ISetDataRequest() {
         this(new SetDataRequest());

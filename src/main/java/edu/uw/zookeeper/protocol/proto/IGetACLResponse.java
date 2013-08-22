@@ -7,7 +7,7 @@ import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.GetACLResponse;
 
 @Operational(value=OpCode.GET_ACL)
-public class IGetACLResponse extends ICodedRecord<GetACLResponse> implements Records.Response, Records.AclGetter, Records.StatGetter {
+public class IGetACLResponse extends IOperationalRecord<GetACLResponse> implements Records.Response, Records.AclGetter, Records.StatGetter {
 
     public IGetACLResponse() {
         this(new GetACLResponse());

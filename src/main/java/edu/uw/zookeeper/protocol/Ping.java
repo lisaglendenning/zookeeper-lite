@@ -37,24 +37,24 @@ public abstract class Ping<T extends Record> extends IOpCodeXidRecord<T> {
         this.time = time;
     }
 
-    public TimeValue getTime() {
+    public TimeValue time() {
         return time;
     }
 
     public TimeValue difference(Ping<?> other) {
-        return getTime().difference(other.getTime());
+        return time.difference(other.time);
     }
 
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
                 .add("record", record)
-                .add("time", getTime()).toString();
+                .add("time", time).toString();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(record, getTime());
+        return Objects.hashCode(record, time);
     }
 
     @Override
@@ -70,7 +70,7 @@ public abstract class Ping<T extends Record> extends IOpCodeXidRecord<T> {
         }
         Ping<?> other = (Ping<?>) obj;
         return Objects.equal(record, other.record) 
-                && Objects.equal(getTime(), other.getTime());
+                && Objects.equal(time, other.time);
     }
     
     public static class Request extends Ping<IPingRequest> implements 

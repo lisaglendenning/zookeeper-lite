@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.proto.GetACLRequest;
 
 @Operational(value=OpCode.GET_ACL)
-public class IGetACLRequest extends ICodedRecord<GetACLRequest> implements Records.Request, Records.PathGetter {
+public class IGetACLRequest extends IOperationalRecord<GetACLRequest> implements Records.Request, Records.PathGetter {
     
     public IGetACLRequest() {
         this(new GetACLRequest());

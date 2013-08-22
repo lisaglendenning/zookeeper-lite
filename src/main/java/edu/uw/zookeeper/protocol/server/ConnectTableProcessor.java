@@ -74,8 +74,8 @@ public class ConnectTableProcessor
         }
         
         ConnectMessage.Response response = (session == null)
-            ? ConnectMessage.Response.Invalid.newInstance(request.getReadOnly(), request.getWraps())
-            : ConnectMessage.Response.Valid.newInstance(session, request.getReadOnly(), request.getWraps());
+            ? ConnectMessage.Response.Invalid.newInstance(request.getReadOnly(), request.legacy())
+            : ConnectMessage.Response.Valid.newInstance(session, request.getReadOnly(), request.legacy());
         return response;
     }
 }
