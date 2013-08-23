@@ -1,7 +1,11 @@
 package edu.uw.zookeeper.protocol;
 
 import io.netty.buffer.ByteBuf;
+
 import java.io.IOException;
+
+import org.apache.jute.InputArchive;
+import org.apache.jute.OutputArchive;
 
 import edu.uw.zookeeper.common.AbstractPair;
 import edu.uw.zookeeper.protocol.proto.ByteBufInputArchive;
@@ -36,16 +40,16 @@ public class ProtocolRequestMessage<T extends Records.Request> extends AbstractP
     }
 
     public static ProtocolRequestMessage<?> decode(ByteBuf input) throws IOException {
-        ByteBufInputArchive archive = new ByteBufInputArchive(input);
+        return deserialize(new ByteBufInputArchive(input));
+    }
+
+    public static ProtocolRequestMessage<?> deserialize(InputArchive archive) throws IOException {
         IRequestHeader header = Records.Requests.Headers.deserialize(archive);
         OpCode opcode = OpCode.of(header.getType());
         Records.Request request;
         switch (opcode) {
         case CREATE_SESSION:
-            throw new IllegalArgumentException(opcode.toString());
-        case PING:
-            request = Ping.Request.newInstance();
-            break;
+            throw new IllegalArgumentException(String.valueOf(opcode));
         default:
             request = Records.Requests.deserialize(opcode, archive);
             break;
@@ -53,8 +57,23 @@ public class ProtocolRequestMessage<T extends Records.Request> extends AbstractP
         return of(header, request);
     }
     
+    public static void serialize(Operation.ProtocolRequest<?> value, OutputArchive archive) throws IOException {
+        if (value instanceof ProtocolRequestMessage) {
+            ((ProtocolRequestMessage<?>) value).serialize(archive);
+        } else {
+            IRequestHeader header = Records.Requests.Headers.newInstance(value.xid(), value.record().opcode());
+            Records.Request record = value.record();
+            Records.Requests.Headers.serialize(header, archive);
+            Records.Requests.serialize(record, archive);
+        }
+    }
+    
     protected ProtocolRequestMessage(IRequestHeader header, T request) {
         super(header, request);
+    }
+    
+    public IRequestHeader header() {
+        return first;
     }
 
     @Override
@@ -70,6 +89,10 @@ public class ProtocolRequestMessage<T extends Records.Request> extends AbstractP
     @Override
     public void encode(ByteBuf output) throws IOException {
         ByteBufOutputArchive archive = new ByteBufOutputArchive(output);
+        serialize(archive);
+    }
+    
+    public void serialize(OutputArchive archive) throws IOException {
         Records.Requests.Headers.serialize(first, archive);
         Records.Requests.serialize(second, archive);
     }

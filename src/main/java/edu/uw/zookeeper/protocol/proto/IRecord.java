@@ -23,6 +23,17 @@ public class IRecord<T extends Record> implements Record {
     }
 
     @Override
+    public void serialize(OutputArchive archive, String tag) throws IOException {
+        record.serialize(archive, tag);
+    }
+
+    @Override
+    public void deserialize(InputArchive archive, String tag)
+            throws IOException {
+        record.deserialize(archive, tag);
+    }
+
+    @Override
     public String toString() {
         return Records.toBeanString(this);
     }
@@ -45,16 +56,5 @@ public class IRecord<T extends Record> implements Record {
         }
         IRecord<?> other = (IRecord<?>) obj;
         return Objects.equal(record, other.record);
-    }
-
-    @Override
-    public void serialize(OutputArchive archive, String tag) throws IOException {
-        record.serialize(archive, tag);
-    }
-
-    @Override
-    public void deserialize(InputArchive archive, String tag)
-            throws IOException {
-        record.deserialize(archive, tag);
     }
 }

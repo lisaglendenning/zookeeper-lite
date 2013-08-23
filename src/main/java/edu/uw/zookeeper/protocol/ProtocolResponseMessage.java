@@ -1,10 +1,11 @@
 package edu.uw.zookeeper.protocol;
 
 import io.netty.buffer.ByteBuf;
+
 import java.io.IOException;
 
-import javax.annotation.Nullable;
-
+import org.apache.jute.InputArchive;
+import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Function;
@@ -36,19 +37,57 @@ public class ProtocolResponseMessage<T extends Records.Response> extends Abstrac
         return new ProtocolResponseMessage<T>(header, response);
     }
 
-    public static ProtocolResponseMessage<?> decode(final OpCode opcode, ByteBuf input)
+    public static ProtocolResponseMessage<?> decode(OpCode opcode, ByteBuf input)
             throws IOException {
-        return decode(new Function<Integer, OpCode>() {
-            @Override
-            public OpCode apply(@Nullable Integer input) {
-                return opcode;
-            }}, input);
+        return decode(new ExpectedOpcode(opcode), input);
+    }
+    
+    public static class ExpectedOpcode implements Function<Integer, OpCode> {
+
+        public static ExpectedOpcode create(OpCode expected) {
+            return new ExpectedOpcode(expected);
+        }
+        
+        protected final OpCode expected;
+        
+        public ExpectedOpcode(OpCode expected) {
+            this.expected = expected;
+        }
+        
+        @Override
+        public OpCode apply(Integer input) {
+            return expected;
+        }
+    }
+    
+    public static void serialize(Operation.ProtocolResponse<?> value, OutputArchive archive) throws IOException {
+        if (value instanceof ProtocolResponseMessage) {
+            ((ProtocolResponseMessage<?>) value).serialize(archive);
+        } else {
+            Records.Response record = value.record();
+            KeeperException.Code err;
+            if (record instanceof Operation.Error) {
+                err = ((Operation.Error) record).error();
+            } else {
+                err = KeeperException.Code.OK;
+            }
+            IReplyHeader header = Records.Responses.Headers.newInstance(value.xid(), value.zxid(), err);
+            Records.Responses.Headers.serialize(header, archive);
+            if (KeeperException.Code.OK.intValue() == header.getErr()) {
+                Records.Responses.serialize(record, archive);
+            }
+        }
     }
 
     public static ProtocolResponseMessage<?> decode(
             Function<Integer, OpCode> xidToOpCode, ByteBuf input)
             throws IOException {
-        ByteBufInputArchive archive = new ByteBufInputArchive(input);
+        return deserialize(xidToOpCode, new ByteBufInputArchive(input));
+    }
+
+    public static ProtocolResponseMessage<?> deserialize(
+            Function<Integer, OpCode> xidToOpCode, InputArchive archive)
+            throws IOException {
         IReplyHeader header = Records.Responses.Headers.deserialize(archive);
         int err = header.getErr();
         Records.Response response;
@@ -61,9 +100,8 @@ public class ProtocolResponseMessage<T extends Records.Response> extends Abstrac
                 opcode = xidToOpCode.apply(xid);
             }
             switch (opcode) {
-            case PING:
-                response = Ping.Response.newInstance();
-                break;
+            case CREATE_SESSION:
+                throw new IllegalArgumentException(String.valueOf(opcode));
             default:
                 response = Records.Responses.deserialize(opcode, archive);
                 break;
@@ -77,7 +115,11 @@ public class ProtocolResponseMessage<T extends Records.Response> extends Abstrac
     protected ProtocolResponseMessage(IReplyHeader header, T response) {
         super(header, response);
     }
-    
+
+    public IReplyHeader header() {
+        return first;
+    }
+
     @Override
     public long zxid() {
         return first.getZxid();
@@ -96,6 +138,10 @@ public class ProtocolResponseMessage<T extends Records.Response> extends Abstrac
     @Override
     public void encode(ByteBuf output) throws IOException {
         ByteBufOutputArchive archive = new ByteBufOutputArchive(output);
+        serialize(archive);
+    }
+    
+    public void serialize(OutputArchive archive) throws IOException {
         Records.Responses.Headers.serialize(first, archive);
         // don't serialize errors
         if (KeeperException.Code.OK.intValue() == first.getErr()) {

@@ -30,10 +30,10 @@ import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.Ping;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.proto.IDisconnectResponse;
+import edu.uw.zookeeper.protocol.proto.IPingResponse;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.*;
@@ -142,9 +142,9 @@ public class ServerApplicationModule implements ParameterizedFactory<RuntimeModu
                     }
         });
         processors.put(OpCode.PING, 
-                new Processors.CheckedProcessor<TxnOperation.Request<?>, Ping.Response, KeeperException>() {
+                new Processors.CheckedProcessor<TxnOperation.Request<?>, IPingResponse, KeeperException>() {
             @Override
-            public Ping.Response apply(
+            public IPingResponse apply(
                     TxnOperation.Request<?> request)
                     throws KeeperException {
                 return PingProcessor.getInstance().apply(request.record());

@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.protocol.client;
 
 import java.util.concurrent.ScheduledExecutorService;
+
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -24,6 +25,7 @@ import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
+import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<?, ?>, C extends Connection<? super Operation.Request>> extends ProtocolCodecConnection<I, T, C> {
@@ -124,13 +126,17 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                     if (logger.isTraceEnabled()) {
                         if (message instanceof Message.ServerResponse) {
                             Records.Response response = ((Message.ServerResponse<?>) message).record();
-                            if (response instanceof Ping.Response) {
-                                Ping.Response pong = (Ping.Response) response;
+                            if (response.opcode() == OpCode.PING) {
+                                Ping.Response pong;
+                                if (response instanceof Ping.Response) {
+                                    pong = (Ping.Response) response;
+                                } else {
+                                    pong = Ping.Response.newInstance();
+                                }
                                 // of course, this pong could be for an earlier ping,
                                 // so this time difference is not very accurate...
-                                Ping.Request ping = pingTask.lastPing();
                                 logger.trace(Logging.PING_MARKER, String.format("PONG %s: %s",
-                                        (ping == null) ? 0 : pong.difference(ping), pong));
+                                        (lastPing == null) ? 0 : pong.difference(lastPing), pong));
                             }
                         }
                     }
