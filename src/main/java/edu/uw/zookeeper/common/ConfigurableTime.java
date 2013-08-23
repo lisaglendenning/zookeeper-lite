@@ -29,7 +29,7 @@ public class ConfigurableTime extends AbstractConfigurableFactory<TimeValue> {
 
     @Override
     protected TimeValue fromConfig(Config config) {
-        return new TimeValue(config.getLong(KEY_VALUE),
+        return TimeValue.create(config.getLong(KEY_VALUE),
                 config.getString(KEY_UNIT));
     }
 }

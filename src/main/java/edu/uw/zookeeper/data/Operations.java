@@ -19,7 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import edu.uw.zookeeper.common.Singleton;
+import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.common.TimeValue;
+import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.*;
 
@@ -204,6 +206,70 @@ public abstract class Operations {
             }
         }
         
+        public static class Connect extends AbstractBuilder<ConnectMessage.Request> {
+
+            public static Connect fromRecord(ConnectMessage.Request request) {
+                return new Connect(
+                        request.toSession(), 
+                        TimeValue.milliseconds(request.getTimeOut()), 
+                        request.getLastZxidSeen());
+            }
+            
+            protected long lastZxid;
+            protected Session session;
+            protected TimeValue timeOut;
+            
+            public Connect() {
+                super(OpCode.CREATE_SESSION);
+                this.lastZxid = 0L;
+                this.session = Session.uninitialized();
+                this.timeOut = TimeValue.milliseconds(0L);
+            }
+            
+            public Connect(Session session, TimeValue timeOut, long lastZxid) {
+                super(OpCode.CREATE_SESSION);
+                this.lastZxid = lastZxid;
+                this.session = session;
+                this.timeOut = timeOut;
+            }
+            
+            public Session getSession() {
+                return session;
+            }
+
+            public Connect setSession(Session session) {
+                this.session = session;
+                return this;
+            }
+
+            public long getLastZxid() {
+                return lastZxid;
+            }
+
+            public Connect setLastZxid(long lastZxid) {
+                this.lastZxid = lastZxid;
+                return this;
+            }
+
+            public TimeValue getTimeOut() {
+                return timeOut;
+            }
+            
+            public Connect setTimeOut(TimeValue timeOut) {
+                this.timeOut = timeOut;
+                return this;
+            }
+
+            @Override
+            public ConnectMessage.Request build() {
+                if (session.initialized()) {
+                    return ConnectMessage.Request.RenewRequest.newInstance(session, lastZxid);
+                } else {
+                    return ConnectMessage.Request.NewRequest.newInstance(timeOut, lastZxid);
+                }
+            }
+        }
+        
         public static class Create extends AbstractData<Records.Request, Create> {
             
             public static Create fromRecord(Records.Request request) {
@@ -298,6 +364,28 @@ public abstract class Operations {
             }
         }
 
+        public static enum Disconnect implements Builder<IDisconnectRequest> {
+            DISCONNECT;
+            
+            public static Disconnect getInstance() {
+                return DISCONNECT;
+            }
+            
+            public static Disconnect fromRecord(IDisconnectRequest request) {
+                return getInstance();
+            }
+
+            @Override
+            public OpCode getOpCode() {
+                return OpCode.CLOSE_SESSION;
+            }
+
+            @Override
+            public IDisconnectRequest build() {
+                return Records.getShared(IDisconnectRequest.class);
+            }
+        }
+        
         public static class Exists extends AbstractWatch<IExistsRequest, Exists> {
 
             public static Exists fromRecord(IExistsRequest request) {
@@ -402,7 +490,7 @@ public abstract class Operations {
             }
         }
         
-        public static class Multi extends AbstractBuilder<IMultiRequest> implements Iterable<AbstractBuilder<? extends Records.Request>> {
+        public static class Multi extends AbstractBuilder<IMultiRequest> implements Iterable<Builder<? extends Records.Request>> {
 
             public static Multi fromRecord(IMultiRequest request) {
                 Multi builder = new Multi();
@@ -412,20 +500,20 @@ public abstract class Operations {
                 return builder;
             }
             
-            protected List<AbstractBuilder<? extends Records.Request>> builders;
+            protected List<Builder<? extends Records.Request>> builders;
             
             public Multi() {
                 super(OpCode.MULTI);
                 this.builders = Lists.newArrayList();
             }
             
-            public Multi add(AbstractBuilder<? extends Records.Request> builder) {
+            public Multi add(Builder<? extends Records.Request> builder) {
                 builders.add(builder);
                 return this;
             }
 
             @Override
-            public Iterator<AbstractBuilder<? extends Records.Request>> iterator() {
+            public Iterator<Builder<? extends Records.Request>> iterator() {
                 return builders.iterator();
             }
             
@@ -436,6 +524,28 @@ public abstract class Operations {
                     ops.add((Records.MultiOpRequest) builder.build());
                 }
                 return new IMultiRequest(ops.build());
+            }
+        }
+
+        public static enum Ping implements Builder<IPingRequest> {
+            PING;
+            
+            public static Ping getInstance() {
+                return PING;
+            }
+            
+            public static Ping fromRecord(IPingRequest request) {
+                return getInstance();
+            }
+
+            @Override
+            public OpCode getOpCode() {
+                return OpCode.PING;
+            }
+
+            @Override
+            public IPingRequest build() {
+                return Records.getShared(IPingRequest.class);
             }
         }
 
@@ -600,13 +710,17 @@ public abstract class Operations {
             }
         }
         
-        public static AbstractBuilder<? extends Records.Request> fromRecord(Records.Request record) {
+        public static Builder<? extends Records.Request> fromRecord(Records.Request record) {
             switch (record.opcode()) {
             case CHECK:
                 return Check.fromRecord((ICheckVersionRequest) record);
+            case CREATE_SESSION:
+                return Connect.fromRecord((ConnectMessage.Request) record);
             case CREATE:
             case CREATE2:
                 return Create.fromRecord(record);
+            case CLOSE_SESSION:
+                return Disconnect.fromRecord((IDisconnectRequest) record);
             case DELETE:
                 return Delete.fromRecord((IDeleteRequest) record);
             case EXISTS:
@@ -620,6 +734,8 @@ public abstract class Operations {
                 return GetData.fromRecord((IGetDataRequest) record);
             case MULTI:
                 return Multi.fromRecord((IMultiRequest) record);
+            case PING:
+                return Ping.fromRecord((IPingRequest) record);
             case SET_ACL:
                 return SetAcl.fromRecord((ISetACLRequest) record);
             case SET_DATA:
@@ -631,10 +747,14 @@ public abstract class Operations {
             }
         }
 
-        public static AbstractBuilder<? extends Records.Request> fromOpCode(OpCode opcode) {
+        public static Builder<? extends Records.Request> fromOpCode(OpCode opcode) {
             switch (opcode) {
             case CHECK:
                 return check();
+            case CREATE_SESSION:
+                return connect();
+            case CLOSE_SESSION:
+                return disconnect();
             case CREATE:
                 return create();
             case CREATE2:
@@ -653,6 +773,8 @@ public abstract class Operations {
                 return getData();
             case MULTI:
                 return multi();
+            case PING:
+                return ping();
             case SET_ACL:
                 return setAcl();
             case SET_DATA:
@@ -662,6 +784,10 @@ public abstract class Operations {
             default:
                 throw new IllegalArgumentException(opcode.toString());
             }
+        }
+
+        public static Connect connect() {
+            return new Connect();
         }
         
         public static Check check() {
@@ -674,6 +800,10 @@ public abstract class Operations {
         
         public static Delete delete() {
             return new Delete();
+        }
+        
+        public static Disconnect disconnect() {
+            return Disconnect.getInstance();
         }
 
         public static Exists exists() {
@@ -694,6 +824,10 @@ public abstract class Operations {
         
         public static Multi multi() {
             return new Multi();
+        }
+        
+        public static Ping ping() {
+            return Ping.getInstance();
         }
 
         public static SetAcl setAcl() {
@@ -728,7 +862,7 @@ public abstract class Operations {
             
             protected AbstractStat(OpCode opcode) {
                 super(opcode);
-                this.stat = null;
+                this.stat = Stats.ImmutableStat.uninitialized();
             }
             
             protected AbstractStat(OpCode opcode, Stat stat) {
@@ -746,6 +880,44 @@ public abstract class Operations {
             public C setStat(Stat stat) {
                 this.stat = stat;
                 return (C) this;
+            }
+        }
+        
+        public static class Connect extends AbstractBuilder<ConnectMessage.Response> {
+
+            public static Connect fromRecord(ConnectMessage.Response record) {
+                return new Connect(
+                        record.toSession());
+            }
+            
+            protected Session session;
+            
+            public Connect() {
+                super(OpCode.CREATE_SESSION);
+                this.session = Session.uninitialized();
+            }
+
+            public Connect(Session session) {
+                super(OpCode.CREATE_SESSION);
+                this.session = session;
+            }
+
+            public Session getSession() {
+                return session;
+            }
+
+            public Connect setSession(Session session) {
+                this.session = session;
+                return this;
+            }
+
+            @Override
+            public ConnectMessage.Response build() {
+                if (session.initialized()) {
+                    return ConnectMessage.Response.Valid.newInstance(session);
+                } else {
+                    return ConnectMessage.Response.Invalid.newInstance();
+                }
             }
         }
 
@@ -821,33 +993,50 @@ public abstract class Operations {
             }
         }
         
-        public static class Delete extends AbstractBuilder<IDeleteResponse> {
-
+        public static enum Delete implements Builder<IDeleteResponse> {
+            DELETE;
+            
             public static Delete getInstance() {
-                return Holder.INSTANCE.get();
+                return DELETE;
             }
             
-            public static enum Holder implements Singleton<Delete> {
-                INSTANCE;
+            public static Delete fromRecord(IDeleteResponse record) {
+                return getInstance();
+            }
 
-                private final Delete instance = new Delete();
-                
-                @Override
-                public Delete get() {
-                    return instance;
-                }
-            }
-            
-            public Delete() {
-                super(OpCode.DELETE);
+            @Override
+            public OpCode getOpCode() {
+                return OpCode.DELETE;
             }
 
             @Override
             public IDeleteResponse build() {
-                return Records.newInstance(IDeleteResponse.class);
+                return Records.getShared(IDeleteResponse.class);
             }
         }
-    
+
+        public static enum Disconnect implements Builder<IDisconnectResponse> {
+            DISCONNECT;
+            
+            public static Disconnect getInstance() {
+                return DISCONNECT;
+            }
+            
+            public static Disconnect fromRecord(IDisconnectResponse request) {
+                return getInstance();
+            }
+
+            @Override
+            public OpCode getOpCode() {
+                return OpCode.CLOSE_SESSION;
+            }
+
+            @Override
+            public IDisconnectResponse build() {
+                return Records.getShared(IDisconnectResponse.class);
+            }
+        }
+        
         public static class Exists extends AbstractStat<IExistsResponse, Exists> {
 
             public static Exists fromRecord(IExistsResponse record) {
@@ -1063,7 +1252,29 @@ public abstract class Operations {
                 return new IMultiResponse(ops.build());
             }
         }
-        
+
+        public static enum Ping implements Builder<IPingResponse> {
+            PING;
+            
+            public static Ping getInstance() {
+                return PING;
+            }
+            
+            public static Ping fromRecord(IPingResponse record) {
+                return getInstance();
+            }
+
+            @Override
+            public OpCode getOpCode() {
+                return OpCode.PING;
+            }
+
+            @Override
+            public IPingResponse build() {
+                return Records.getShared(IPingResponse.class);
+            }
+        }
+
         public static class Notification extends AbstractPath<IWatcherEvent, Notification> {
 
             public static Notification fromRecord(IWatcherEvent record) {
@@ -1181,15 +1392,17 @@ public abstract class Operations {
             }
         }
 
-        public static AbstractBuilder<? extends Records.Response> fromRecord(Records.Response record) {
+        public static Builder<? extends Records.Response> fromRecord(Records.Response record) {
             switch (record.opcode()) {
             case CHECK:
                 return Check.fromRecord((ICheckVersionResponse) record);
             case CREATE:
             case CREATE2:
                 return Create.fromRecord(record);
+            case CLOSE_SESSION:
+                return Disconnect.fromRecord((IDisconnectResponse) record);
             case DELETE:
-                return Delete.getInstance();
+                return Delete.fromRecord((IDeleteResponse) record);
             case ERROR:
                 return Error.fromRecord((IErrorResponse) record);
             case EXISTS:
@@ -1203,6 +1416,8 @@ public abstract class Operations {
                 return GetData.fromRecord((IGetDataResponse) record);
             case MULTI:
                 return Multi.fromRecord((IMultiResponse) record);
+            case PING:
+                return Ping.fromRecord((IPingResponse) record);
             case NOTIFICATION:
                 return Notification.fromRecord((IWatcherEvent) record);
             case SET_ACL:
@@ -1216,7 +1431,7 @@ public abstract class Operations {
             }
         }
         
-        public static AbstractBuilder<? extends Records.Response> fromOpCode(OpCode opcode) {
+        public static Builder<? extends Records.Response> fromOpCode(OpCode opcode) {
             switch (opcode) {
             case CHECK:
                 return check();
@@ -1224,6 +1439,8 @@ public abstract class Operations {
                 return create();
             case CREATE2:
                 return create().setStat(Stats.ImmutableStat.uninitialized());
+            case CLOSE_SESSION:
+                return disconnect();
             case DELETE:
                 return delete();
             case ERROR:
@@ -1240,6 +1457,8 @@ public abstract class Operations {
                 return getData();
             case MULTI:
                 return multi();
+            case PING:
+                return ping();
             case NOTIFICATION:
                 return notification();
             case SET_ACL:
@@ -1261,10 +1480,18 @@ public abstract class Operations {
             return new Create();
         }
         
+        public static Connect connect() {
+            return new Connect();
+        }
+        
         public static Delete delete() {
             return Delete.getInstance();
         }
     
+        public static Disconnect disconnect() {
+            return Disconnect.getInstance();
+        }
+
         public static Error error() {
             return new Error();
         }
@@ -1289,6 +1516,10 @@ public abstract class Operations {
             return new Multi();
         }
         
+        public static Ping ping() {
+            return Ping.getInstance();
+        }
+
         public static Notification notification() {
             return new Notification();
         }

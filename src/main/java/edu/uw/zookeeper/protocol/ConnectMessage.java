@@ -5,6 +5,7 @@ import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
 
@@ -57,7 +58,11 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
         }
 
         public static ConnectMessage.Request decode(ByteBuf input) throws IOException {
-            ByteBufInputArchive archive = new ByteBufInputArchive(input);
+            return deserialize(new ByteBufInputArchive(input));
+        }
+        
+        public static ConnectMessage.Request deserialize(InputArchive archive) throws IOException {
+            archive.startRecord(Records.CONNECT_TAG);
             IConnectRequest record = new IConnectRequest();
             record.deserialize(archive, Records.CONNECT_TAG);
             boolean readOnly = false;
@@ -67,6 +72,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             } catch (IOException e) {
                 legacy = true;
             }
+            archive.endRecord(Records.CONNECT_TAG);
             ConnectMessage.Request out = ConnectMessage.Request.newInstance(record, readOnly, legacy);
             return out;
         }
@@ -95,7 +101,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             }
 
             public static IConnectRequest toRecord(TimeValue timeOut, long lastZxid) {
-                return toRecord(timeOut.value(TIMEOUT_UNIT).intValue(), lastZxid);
+                return toRecord((int) timeOut.value(TIMEOUT_UNIT), lastZxid);
             }
 
             public static IConnectRequest toRecord(int timeOutMillis, long lastZxid) {
@@ -143,7 +149,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
                 IConnectRequest record = new IConnectRequest(
                         Records.PROTOCOL_VERSION, 
                         lastZxid,
-                        session.parameters().timeOut().value(TIMEOUT_UNIT).intValue(),
+                        (int) session.parameters().timeOut().value(TIMEOUT_UNIT),
                         session.id(),
                         session.parameters().password());
                 return record;
@@ -181,7 +187,11 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
         }
 
         public static ConnectMessage.Response decode(ByteBuf input) throws IOException {
-            ByteBufInputArchive archive = new ByteBufInputArchive(input);
+            return deserialize(new ByteBufInputArchive(input));
+        }
+        
+        public static ConnectMessage.Response deserialize(InputArchive archive) throws IOException {
+            archive.startRecord(Records.CONNECT_TAG);
             IConnectResponse record = new IConnectResponse();
             record.deserialize(archive, Records.CONNECT_TAG);
             boolean readOnly = false;
@@ -191,6 +201,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             } catch (IOException e) {
                 legacy = true;
             }
+            archive.endRecord(Records.CONNECT_TAG);
             ConnectMessage.Response out = ConnectMessage.Response.newInstance(record, readOnly, legacy);
             return out;
         }
@@ -208,7 +219,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
             public static IConnectResponse toRecord(edu.uw.zookeeper.Session session) {
                 IConnectResponse record = new IConnectResponse(
                         Records.PROTOCOL_VERSION, 
-                        session.parameters().timeOut().value(TIMEOUT_UNIT).intValue(),
+                        (int) session.parameters().timeOut().value(TIMEOUT_UNIT),
                         session.id(),
                         session.parameters().password());
                 return record;
@@ -322,10 +333,12 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
     
     @Override
     public void serialize(OutputArchive archive, String tag) throws IOException {
+        archive.startRecord(this, tag);
         record.serialize(archive, tag);
         if (!legacy) {
             archive.writeBool(readOnly, "readOnly");
         }
+        archive.endRecord(this, tag);
     }
     
     @Override
