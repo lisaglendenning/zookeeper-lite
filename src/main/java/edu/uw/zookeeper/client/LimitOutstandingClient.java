@@ -14,16 +14,22 @@ import edu.uw.zookeeper.protocol.Operation;
 
 public class LimitOutstandingClient<I extends Operation.Request, O extends Operation.ProtocolResponse<?>> implements ClientExecutor<I,O> {
 
-    public static <I extends Operation.Request, O extends Operation.ProtocolResponse<?>> LimitOutstandingClient<I,O> create(
+    public static <I extends Operation.Request, O extends Operation.ProtocolResponse<?>> ClientExecutor<? super I,O> create(
             Configuration configuration,
             ClientExecutor<? super I, O> client) {
         return create(newConfiguration().get(configuration), client);
     }
 
-    public static <I extends Operation.Request, O extends Operation.ProtocolResponse<?>> LimitOutstandingClient<I,O> create(
+    public static <I extends Operation.Request, O extends Operation.ProtocolResponse<?>> ClientExecutor<? super I,O> create(
             int limit,
             ClientExecutor<? super I, O> client) {
-        return new LimitOutstandingClient<I,O>(limit, client);
+        if (limit == NO_LIMIT) {
+            return client;
+        } else if (limit < 0) {
+            throw new IllegalStateException(String.valueOf(limit));
+        } else {
+            return new LimitOutstandingClient<I,O>(limit, client);
+        }
     }
 
     public static IntConfiguration newConfiguration() {
@@ -38,6 +44,7 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
     public static final String DEFAULT_CONFIG_PATH = "";
     public static final String DEFAULT_CONFIG_ARG = "outstanding";
     public static final String DEFAULT_CONFIG_KEY = "Outstanding";
+    public static final int NO_LIMIT = 0;
     public static final int DEFAULT_CONFIG_VALUE = 1000;
 
     private final Monitor monitor = new Monitor();
@@ -52,7 +59,7 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
     private final Listener listener;
     private final Executor executor;
     
-    public LimitOutstandingClient(
+    protected LimitOutstandingClient(
             int limit,
             ClientExecutor<? super I, O> delegate) {
         this.limit = limit;
