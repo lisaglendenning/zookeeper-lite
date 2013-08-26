@@ -20,24 +20,12 @@ public class ServiceApplication implements Application {
         return new ServiceApplication(service);
     }
     
-    private class ApplicationServiceListener implements
+    private class ApplicationServiceListener extends
             Service.Listener {
 
         @Override
         public void failed(State arg0, Throwable arg1) {
             complete();
-        }
-
-        @Override
-        public void running() {
-        }
-
-        @Override
-        public void starting() {
-        }
-
-        @Override
-        public void stopping(State arg0) {
         }
 
         @Override
@@ -47,8 +35,7 @@ public class ServiceApplication implements Application {
     }
 
 
-    private final Logger logger = LogManager
-            .getLogger(ServiceApplication.class);
+    private final Logger logger = LogManager.getLogger(getClass());
     private final Service service;
     private boolean completed;
     private final Monitor monitor;
@@ -92,7 +79,7 @@ public class ServiceApplication implements Application {
 
     @Override
     public void run() {
-        service().start();
+        service().startAsync();
         monitor.enter();
         try {
             try {
@@ -103,7 +90,8 @@ public class ServiceApplication implements Application {
             }
         } catch (InterruptedException e) {
             logger.warn("Interrupted", e);
-            service.stopAndWait();
+            service.stopAsync();
+            service.awaitTerminated();
             throw Throwables.propagate(e);
         }
         

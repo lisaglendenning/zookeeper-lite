@@ -112,7 +112,7 @@ public class ClientProtocolCodec
         automaton.apply(input);
         // we only need to remember xid -> opcode of pending messages
         if (input instanceof Operation.RequestId) {
-            int xid = ((Operation.RequestId)input).xid();
+            int xid = ((Operation.RequestId) input).xid();
             if (! OpCodeXid.has(xid)) {
                 assert (input instanceof Operation.ProtocolRequest);
                 OpCode opcode = ((Operation.ProtocolRequest<?>) input).record().opcode();

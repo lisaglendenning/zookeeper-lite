@@ -31,7 +31,8 @@ public class RandomSingleClientTest {
     public void testRandom() throws Exception {
         SimpleClient client = SimpleClient.newInstance();
 
-        client.start().get();
+        client.startAsync();
+        client.awaitRunning();
         
         ZNodeViewCache<?, Operation.Request, Message.ServerResponse<?>> cache = 
                 ZNodeViewCache.newInstance(client.getClient(), client.getClient());
@@ -46,6 +47,7 @@ public class RandomSingleClientTest {
             assertFalse(result.second().get().record() instanceof Operation.Error);
         }
 
-        client.stop().get();
+        client.stopAsync();
+        client.awaitTerminated();
     }
 }

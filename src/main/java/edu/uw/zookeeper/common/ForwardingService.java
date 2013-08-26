@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.common;
 
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
 import com.google.common.util.concurrent.AbstractIdleService;
@@ -19,34 +20,35 @@ public abstract class ForwardingService extends AbstractIdleService {
         delegate.addListener(
                 new Listener() {
                     @Override
-                    public void starting() {
-                    }
-
-                    @Override
-                    public void running() {
-                    }
-
-                    @Override
                     public void stopping(State from) {
-                        stop();
+                        stopAsync();
                     }
 
                     @Override
                     public void terminated(State from) {
-                        stop();
+                        stopAsync();
                     }
 
                     @Override
                     public void failed(State from, Throwable failure) {
-                        stop();
+                        stopAsync();
                     }}, 
                 MoreExecutors.sameThreadExecutor());
-        delegate.start().get();
+        
+        if (delegate.state() == State.FAILED) {
+            throw new ExecutionException(delegate.failureCause());
+        } else if (delegate.state() == State.TERMINATED) {
+            throw new IllegalStateException();
+        }
+        
+        delegate.startAsync();
+        delegate.awaitRunning();
     }
 
     @Override
     protected void shutDown() throws Exception {
-        delegate().stop().get();
+        delegate().stopAsync();
+        delegate().awaitTerminated();
     }
 
     protected abstract Service delegate();

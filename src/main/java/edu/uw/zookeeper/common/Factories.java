@@ -75,7 +75,7 @@ public abstract class Factories {
 
         @Override
         public int hashCode() {
-            return Objects.hashCode(get());
+            return instance.hashCode();
         }
         
         @Override
@@ -86,12 +86,12 @@ public abstract class Factories {
             if ((obj == null) || (obj.getClass() != getClass())) {
                 return false;
             }
-            return Objects.equal(get(), ((Holder<?>)obj).get());
+            return Objects.equal(instance, ((Holder<?>) obj).instance);
         }
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).addValue(get()).toString();
+            return Objects.toStringHelper(this).addValue(instance).toString();
         }
     }
     

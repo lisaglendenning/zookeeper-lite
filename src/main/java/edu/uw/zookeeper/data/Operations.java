@@ -1399,6 +1399,8 @@ public abstract class Operations {
             case CREATE:
             case CREATE2:
                 return Create.fromRecord(record);
+            case CREATE_SESSION:
+                return Connect.fromRecord((ConnectMessage.Response) record);
             case CLOSE_SESSION:
                 return Disconnect.fromRecord((IDisconnectResponse) record);
             case DELETE:
@@ -1439,6 +1441,8 @@ public abstract class Operations {
                 return create();
             case CREATE2:
                 return create().setStat(Stats.ImmutableStat.uninitialized());
+            case CREATE_SESSION:
+                return connect();
             case CLOSE_SESSION:
                 return disconnect();
             case DELETE:

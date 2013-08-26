@@ -30,10 +30,8 @@ import edu.uw.zookeeper.netty.client.NettyClientModule;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.Operation.Request;
 import edu.uw.zookeeper.protocol.client.AssignXidCodec;
-import edu.uw.zookeeper.protocol.client.AssignXidProcessor;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;
-import edu.uw.zookeeper.protocol.client.ClientProtocolCodec;
 import edu.uw.zookeeper.protocol.client.PingingClient;
 
 public class ClientApplicationModule implements ParameterizedFactory<RuntimeModule, Application> {
@@ -112,18 +110,6 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
             }
         }
     }
-    
-    public static ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory() {
-        return new ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>>() {
-            @Override
-            public Pair<Class<Operation.Request>, AssignXidCodec> get(
-                    Publisher value) {
-                return Pair.create(Operation.Request.class, AssignXidCodec.newInstance(
-                        AssignXidProcessor.newInstance(),
-                        ClientProtocolCodec.newInstance(value)));
-            }
-        };
-    }
 
     @Override
     public Application get(RuntimeModule runtime) {
@@ -134,10 +120,14 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
         return NettyClientModule.newInstance(runtime);
     }
     
+    protected ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> getCodecFactory() {
+        return AssignXidCodec.factory();
+    }
+    
     protected ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionFactory(RuntimeModule runtime) {
         NetClientModule clientModule = getNetClientModule(runtime);
         TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
-        ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory = codecFactory();
+        ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory = getCodecFactory();
         ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> pingingFactory = 
                 PingingClient.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
         ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = 

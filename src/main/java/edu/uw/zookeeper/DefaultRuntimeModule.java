@@ -10,9 +10,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.typesafe.config.Config;
 
@@ -225,9 +223,9 @@ public class DefaultRuntimeModule implements RuntimeModule {
     }
     
     public void shutdown() {
-        ListenableFuture<Service.State> future = serviceMonitor().stop();
+        serviceMonitor().stopAsync();
         try {
-            future.get(shutdownTimeout.value(), shutdownTimeout.unit());
+            serviceMonitor().awaitTerminated(shutdownTimeout.value(), shutdownTimeout.unit());
         } catch (Exception e) {}
     }
 }

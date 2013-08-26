@@ -40,7 +40,8 @@ public class IntraVmTest {
                 factory.newClient(endpoints, connectionFactory);
         ConnectionFactory<?>[] connections = { clientConnections, serverConnections };
         for (ConnectionFactory<?> e: connections) {
-            e.start().get();
+            e.startAsync();
+            e.awaitRunning();
         }
         
         GetEvent<IntraVmConnection<Object>> clientConnectionEvent = GetEvent.create(clientConnections);
@@ -74,7 +75,8 @@ public class IntraVmTest {
         assertEquals(Connection.State.CONNECTION_CLOSED, server.state());
         
         for (ConnectionFactory<?> e: connections) {
-            e.stop().get();
+            e.stopAsync();
+            e.awaitTerminated();
             assertEquals(0, Iterables.size(e));
         }
     }

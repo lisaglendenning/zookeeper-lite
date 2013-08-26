@@ -39,7 +39,7 @@ public class SimpleClient extends ForwardingService {
         this.server = SimpleServer.newInstance(net, runtime.executors().asScheduledExecutorServiceFactory().get());
         runtime.serviceMonitor().add(server);
         ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = net.getClientConnectionFactory(
-                ClientApplicationModule.codecFactory(), 
+                AssignXidCodec.factory(), 
                 ProtocolCodecConnection.<Operation.Request,AssignXidCodec,Connection<Operation.Request>>factory()).get();
         runtime.serviceMonitor().add(clientConnections);
         ServerViewFactory<Session, ServerInetAddressView, ? extends ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientFactory = ServerViewFactory.newInstance(

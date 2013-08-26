@@ -99,7 +99,7 @@ public class ClientConnectionExecutorService<C extends ProtocolCodecConnection<?
     @Subscribe
     public void handleStateEvent(Automaton.Transition<?> event) {
         if (Connection.State.CONNECTION_CLOSED == event.to()) {
-            stop();
+            stopAsync();
         }
     }
 
@@ -122,7 +122,7 @@ public class ClientConnectionExecutorService<C extends ProtocolCodecConnection<?
         client.register(this);
         
         if (client.get().state().compareTo(Connection.State.CONNECTION_CLOSING) >= 0) {
-            stop();
+            stopAsync();
         }
     }
 

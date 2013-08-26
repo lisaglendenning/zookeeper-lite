@@ -183,7 +183,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
         // called when serverChannel closes
         @Override
         public void operationComplete(ChannelFuture future) throws Exception {
-            ChannelServerConnectionFactory.this.stop();
+            ChannelServerConnectionFactory.this.stopAsync();
         }
     }
 }

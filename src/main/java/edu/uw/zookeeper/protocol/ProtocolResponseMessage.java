@@ -37,29 +37,6 @@ public class ProtocolResponseMessage<T extends Records.Response> extends Abstrac
         return new ProtocolResponseMessage<T>(header, response);
     }
 
-    public static ProtocolResponseMessage<?> decode(OpCode opcode, ByteBuf input)
-            throws IOException {
-        return decode(new ExpectedOpcode(opcode), input);
-    }
-    
-    public static class ExpectedOpcode implements Function<Integer, OpCode> {
-
-        public static ExpectedOpcode create(OpCode expected) {
-            return new ExpectedOpcode(expected);
-        }
-        
-        protected final OpCode expected;
-        
-        public ExpectedOpcode(OpCode expected) {
-            this.expected = expected;
-        }
-        
-        @Override
-        public OpCode apply(Integer input) {
-            return expected;
-        }
-    }
-    
     public static void serialize(Operation.ProtocolResponse<?> value, OutputArchive archive) throws IOException {
         if (value instanceof ProtocolResponseMessage) {
             ((ProtocolResponseMessage<?>) value).serialize(archive);
@@ -79,12 +56,40 @@ public class ProtocolResponseMessage<T extends Records.Response> extends Abstrac
         }
     }
 
+    public static class ExpectedOpcode implements Function<Integer, OpCode> {
+    
+        public static ExpectedOpcode create(OpCode expected) {
+            return new ExpectedOpcode(expected);
+        }
+        
+        protected final OpCode expected;
+        
+        public ExpectedOpcode(OpCode expected) {
+            this.expected = expected;
+        }
+        
+        @Override
+        public OpCode apply(Integer input) {
+            return expected;
+        }
+    }
+
+    public static ProtocolResponseMessage<?> decode(OpCode opcode, ByteBuf input)
+            throws IOException {
+        return decode(ExpectedOpcode.create(opcode), input);
+    }
+    
     public static ProtocolResponseMessage<?> decode(
             Function<Integer, OpCode> xidToOpCode, ByteBuf input)
             throws IOException {
         return deserialize(xidToOpCode, new ByteBufInputArchive(input));
     }
 
+    public static ProtocolResponseMessage<?> deserialize(
+            OpCode opcode, InputArchive archive) throws IOException {
+        return deserialize(ExpectedOpcode.create(opcode), archive);
+    }
+    
     public static ProtocolResponseMessage<?> deserialize(
             Function<Integer, OpCode> xidToOpCode, InputArchive archive)
             throws IOException {

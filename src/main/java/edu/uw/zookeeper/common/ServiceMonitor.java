@@ -199,7 +199,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     protected void notifyChange() {
         if (isRunning()) {
             if (!monitorTasks()) {
-                stop();
+                stopAsync();
             }
         }
     }
@@ -214,7 +214,8 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
                 // there may be dependencies between services
                 // so don't start them concurrently
                 try {
-                    service.start().get();
+                    service.startAsync();
+                    service.awaitRunning();
                 } catch (Throwable t) {
                     throw new ServiceException(service, t);
                 }
@@ -240,7 +241,8 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             case RUNNING:
             case STOPPING:
                 try {
-                    service.stop().get();
+                    service.stopAsync();
+                    service.awaitTerminated();
                 } catch (Throwable t) {
                     // only keep the first error?
                     if (cause == null) {
@@ -287,7 +289,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
                 break;
             } else if (state == State.NEW) {
                 // start monitored services
-                service.start();
+                service.startAsync();
                 stop = false;
             } else if (state == State.STARTING || state == State.RUNNING) {
                 // by default, keep running as long as one service is running
@@ -297,37 +299,12 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         return !stop;
     }
     
-    protected abstract class ServiceListenerAdapter implements Service.Listener, Reference<Service> {
+    protected abstract class ServiceListenerAdapter extends Service.Listener {
 
-        private final Service service;
+        protected final Service service;
         
         public ServiceListenerAdapter(Service service) {
             this.service = service;
-        }
-
-        @Override
-        public Service get() {
-            return service;
-        }
-
-        @Override
-        public void starting() {
-        }
-
-        @Override
-        public void running() {
-        }
-
-        @Override
-        public void stopping(State from) {
-        }
-
-        @Override
-        public void terminated(State from) {
-        }
-
-        @Override
-        public void failed(State from, Throwable failure) {
         }
     }
     
@@ -344,11 +321,11 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
         @Override
         public void run() {
-            if (! isMonitoring(get())) {
+            if (! isMonitoring(service)) {
                 try {
-                    add(get());
+                    add(service);
                 } catch (IllegalStateException e) {
-                    get().stop();
+                    service.stopAsync();
                 }
             }
         }
@@ -363,7 +340,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
             super(service);
             
             // log current state
-            Service.State state = get().state();
+            Service.State state = service.state();
             switch (state) {
             case NEW:
                 break;
@@ -374,7 +351,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
                 log(state);
                 break;
             case FAILED:
-                log(state, Optional.<Service.State>absent(), Optional.of(get().failureCause()));
+                log(state, Optional.<Service.State>absent(), Optional.of(service.failureCause()));
                 break;
             }
         }
@@ -382,7 +359,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         @Override
         public void failed(State prevState, Throwable t) {
             log(Service.State.FAILED, Optional.of(prevState), Optional.of(t));
-            if (get() != ServiceMonitor.this) {
+            if (service != ServiceMonitor.this) {
                 notifyChange();
             }
         }
@@ -390,7 +367,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         @Override
         public void running() {
             log(Service.State.RUNNING);
-            if (get() == ServiceMonitor.this) {
+            if (service == ServiceMonitor.this) {
                 notifyChange();
             }
         }
@@ -403,7 +380,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         @Override
         public void stopping(State prevState) {
             log(Service.State.STOPPING, prevState);
-            if (get() != ServiceMonitor.this) {
+            if (service != ServiceMonitor.this) {
                 notifyChange();
             }
         }
@@ -411,7 +388,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
         @Override
         public void terminated(State prevState) {
             log(Service.State.TERMINATED, prevState);
-            if (get() != ServiceMonitor.this) {
+            if (service != ServiceMonitor.this) {
                 notifyChange();
             }
         }
@@ -436,9 +413,9 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
                         + (throwable.isPresent() ? String.format(" [%s]",
                                 throwable.get()) : "") + ": {}";
                 if (nextState == Service.State.FAILED) {
-                    logger.warn(SERVICE_MONITOR_MARKER, str, get());
+                    logger.warn(SERVICE_MONITOR_MARKER, str, service);
                 } else {
-                    logger.debug(SERVICE_MONITOR_MARKER, str, get());
+                    logger.debug(SERVICE_MONITOR_MARKER, str, service);
                 }
             }
         }
