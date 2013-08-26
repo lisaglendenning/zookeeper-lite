@@ -34,15 +34,19 @@ public abstract class ForwardingService extends AbstractIdleService {
                         stopAsync();
                     }}, 
                 MoreExecutors.sameThreadExecutor());
-        
-        if (delegate.state() == State.FAILED) {
-            throw new ExecutionException(delegate.failureCause());
-        } else if (delegate.state() == State.TERMINATED) {
+        switch (delegate.state()) {
+        case NEW:
+            delegate.startAsync();
+        case STARTING:
+            delegate.awaitRunning();
+        case RUNNING:
+            break;
+        case STOPPING:
+        case TERMINATED:
             throw new IllegalStateException();
+        case FAILED:
+            throw new ExecutionException(delegate.failureCause());
         }
-        
-        delegate.startAsync();
-        delegate.awaitRunning();
     }
 
     @Override
