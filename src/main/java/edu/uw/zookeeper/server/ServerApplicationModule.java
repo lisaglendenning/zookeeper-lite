@@ -2,6 +2,7 @@ package edu.uw.zookeeper.server;
 
 import java.net.SocketAddress;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 
@@ -10,6 +11,7 @@ import javax.annotation.Nullable;
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Function;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
@@ -36,12 +38,21 @@ import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.*;
 
-public class ServerApplicationModule implements ParameterizedFactory<RuntimeModule, Application> {
+public class ServerApplicationModule implements Callable<Application> {
 
-    public static ServerApplicationModule getInstance() {
-        return new ServerApplicationModule();
+    public static ParameterizedFactory<RuntimeModule, Application> factory() {
+        return new ParameterizedFactory<RuntimeModule, Application>() {
+            @Override
+            public Application get(RuntimeModule runtime) {
+                try {
+                    return new ServerApplicationModule(runtime).call();
+                } catch (Exception e) {
+                    throw Throwables.propagate(e);
+                }
+            }  
+        };
     }
-    
+
     @Configurable(arg="clientAddress", key="ClientAddress", value=":2181", help="Address:Port")
     public static class ConfigurableServerAddressView implements Function<Configuration, ServerInetAddressView> {
 
@@ -149,18 +160,28 @@ public class ServerApplicationModule implements ParameterizedFactory<RuntimeModu
                         ConnectTableProcessor.create(sessions, zxids), listeners));
         return ServerTaskExecutor.newInstance(anonymousExecutor, connectExecutor, sessionExecutor);
     }
+
+    protected final RuntimeModule runtime;
     
+    public ServerApplicationModule(RuntimeModule runtime) {
+        this.runtime = runtime;
+    }
+    
+    public RuntimeModule getRuntime() {
+        return runtime;
+    }
+
     @Override
-    public Application get(RuntimeModule runtime) {
-        getServerConnectionExecutorsService(runtime);
+    public Application call() throws Exception {
+        getServerConnectionExecutorsService();
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
 
-    protected NetServerModule getNetServerModule(RuntimeModule runtime) {
+    protected NetServerModule getNetServerModule() {
         return NettyServerModule.newInstance(runtime);
     }
     
-    protected ExpiringSessionTable getSessions(RuntimeModule runtime) {
+    protected ExpiringSessionTable getSessions() {
         SessionParametersPolicy policy = 
                 DefaultSessionParametersPolicy.create(runtime.configuration());
         ExpiringSessionTable sessions = 
@@ -170,8 +191,8 @@ public class ServerApplicationModule implements ParameterizedFactory<RuntimeModu
         return sessions;
     }
     
-    protected ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionFactory(RuntimeModule runtime) {
-        NetServerModule serverModule = getNetServerModule(runtime); 
+    protected ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionFactory() {
+        NetServerModule serverModule = getNetServerModule(); 
         ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
                 serverModule.getServerConnectionFactory(
                         codecFactory(),
@@ -183,8 +204,8 @@ public class ServerApplicationModule implements ParameterizedFactory<RuntimeModu
         return serverConnections;
     }
     
-    protected ServerTaskExecutor getServerTaskExecutor(RuntimeModule runtime) {
-        ExpiringSessionTable sessions = getSessions(runtime);
+    protected ServerTaskExecutor getServerTaskExecutor() {
+        ExpiringSessionTable sessions = getSessions();
         ZxidEpochIncrementer zxids = ZxidEpochIncrementer.fromZero();
         ZNodeDataTrie dataTrie = ZNodeDataTrie.newInstance();
         ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
@@ -201,13 +222,13 @@ public class ServerApplicationModule implements ParameterizedFactory<RuntimeModu
                 sessionExecutor);
     }
     
-    protected ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionExecutorsService(RuntimeModule runtime) {
+    protected ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionExecutorsService() {
         TimeValue timeOut = DefaultMain.ConfigurableTimeout.get(runtime.configuration());
         ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> instance = ServerConnectionExecutorsService.newInstance(
-                getServerConnectionFactory(runtime), 
+                getServerConnectionFactory(), 
                 timeOut,
                 runtime.executors().asScheduledExecutorServiceFactory().get(),
-                getServerTaskExecutor(runtime));
+                getServerTaskExecutor());
         runtime.serviceMonitor().add(instance);
         return instance;
     }

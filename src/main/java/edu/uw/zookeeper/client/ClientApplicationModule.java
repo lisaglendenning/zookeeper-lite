@@ -1,7 +1,10 @@
 package edu.uw.zookeeper.client;
 
 
+import java.util.concurrent.Callable;
+
 import com.google.common.base.Function;
+import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.DefaultMain;
@@ -30,10 +33,19 @@ import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;
 import edu.uw.zookeeper.protocol.client.PingingClient;
 
-public class ClientApplicationModule implements ParameterizedFactory<RuntimeModule, Application> {
+public class ClientApplicationModule implements Callable<Application> {
 
-    public static ClientApplicationModule getInstance() {
-        return new ClientApplicationModule();
+    public static ParameterizedFactory<RuntimeModule, Application> factory() {
+        return new ParameterizedFactory<RuntimeModule, Application>() {
+            @Override
+            public Application get(RuntimeModule runtime) {
+                try {
+                    return new ClientApplicationModule(runtime).call();
+                } catch (Exception e) {
+                    throw Throwables.propagate(e);
+                }
+            }  
+        };
     }
     
     @Configurable(arg="ensemble", key="Ensemble", value="localhost:2181", help="Address:Port,...")
@@ -52,13 +64,23 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
                             .getString(configurable.key()));
         }
     }
-
-    @Override
-    public Application get(RuntimeModule runtime) {
-        return ServiceApplication.newInstance(createServices(runtime));
+    
+    protected final RuntimeModule runtime;
+    
+    public ClientApplicationModule(RuntimeModule runtime) {
+        this.runtime = runtime;
     }
     
-    protected NetClientModule getNetClientModule(RuntimeModule runtime) {
+    public RuntimeModule getRuntime() {
+        return runtime;
+    }
+
+    @Override
+    public Application call() throws Exception {
+        return ServiceApplication.newInstance(createServices());
+    }
+    
+    protected NetClientModule getNetClientModule() {
         return NettyClientModule.newInstance(runtime);
     }
     
@@ -66,13 +88,13 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
         return AssignXidCodec.factory();
     }
     
-    protected TimeValue getTimeOut(RuntimeModule runtime) {
+    protected TimeValue getTimeOut() {
         TimeValue value = DefaultMain.ConfigurableTimeout.get(runtime.configuration());
         return value;
     }
     
-    protected ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionFactory(RuntimeModule runtime, TimeValue timeOut) {
-        NetClientModule clientModule = getNetClientModule(runtime);
+    protected ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionFactory(TimeValue timeOut) {
+        NetClientModule clientModule = getNetClientModule();
         ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory = getCodecFactory();
         ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> pingingFactory = 
                 PingingClient.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
@@ -83,8 +105,8 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
         return clientConnections;
     }
     
-    protected ClientConnectionExecutorService<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionExecutorService(RuntimeModule runtime, TimeValue timeOut) {
-        ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = getClientConnectionFactory(runtime, timeOut);
+    protected ClientConnectionExecutorService<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionExecutorService(TimeValue timeOut) {
+        ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = getClientConnectionFactory(timeOut);
         EnsembleView<ServerInetAddressView> ensemble = ConfigurableEnsembleView.get(runtime.configuration());
         final EnsembleViewFactory<ServerInetAddressView, ServerViewFactory<Session, ServerInetAddressView, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>> ensembleFactory = 
                 EnsembleViewFactory.newInstance(
@@ -105,8 +127,8 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
         return executor;
     }
     
-    protected ServiceMonitor createServices(RuntimeModule runtime) {
-        getClientConnectionExecutorService(runtime, getTimeOut(runtime));
+    protected ServiceMonitor createServices() {
+        getClientConnectionExecutorService(getTimeOut());
         return runtime.serviceMonitor();
     }
 }

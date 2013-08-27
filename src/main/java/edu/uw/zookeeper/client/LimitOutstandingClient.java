@@ -6,6 +6,7 @@ import com.google.common.base.Function;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Monitor;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.typesafe.config.ConfigValueType;
 
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
@@ -33,7 +34,7 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
         }
     }
 
-    @Configurable(arg="outstanding", key="Outstanding", value="1000")
+    @Configurable(arg="outstanding", key="Outstanding", value="1000", type=ConfigValueType.NUMBER)
     public static class ConfigurableLimit implements Function<Configuration, Integer> {
 
         public static Integer get(Configuration configuration) {

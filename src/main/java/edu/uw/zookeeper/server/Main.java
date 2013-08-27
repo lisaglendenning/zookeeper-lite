@@ -12,6 +12,6 @@ public class Main extends DefaultMain {
     }
 
     public Main(Configuration configuration) {
-        super(ServerApplicationModule.getInstance(), configuration);
+        super(ServerApplicationModule.factory(), configuration);
     }
 }
