@@ -11,13 +11,13 @@ import org.junit.runners.JUnit4;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.client.BasicRequestGenerator;
-import edu.uw.zookeeper.client.CallUntilPresent;
-import edu.uw.zookeeper.client.IterationCallable;
 import edu.uw.zookeeper.client.SimpleClient;
-import edu.uw.zookeeper.client.SubmitCallable;
 import edu.uw.zookeeper.client.ZNodeViewCache;
-import edu.uw.zookeeper.common.Generator;
+import edu.uw.zookeeper.clients.CallUntilPresent;
+import edu.uw.zookeeper.clients.Generator;
+import edu.uw.zookeeper.clients.IterationCallable;
+import edu.uw.zookeeper.clients.SubmitCallable;
+import edu.uw.zookeeper.clients.random.BasicRequestGenerator;
 import edu.uw.zookeeper.common.ListAccumulator;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.protocol.Message;
