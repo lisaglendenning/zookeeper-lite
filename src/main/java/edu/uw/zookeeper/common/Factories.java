@@ -8,6 +8,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 
+
 public abstract class Factories {
 
     public static <T,U> U apply(
@@ -22,12 +23,12 @@ public abstract class Factories {
         return tail.get(head.get(value));
     }
 
-    public static <T> HolderFactory<T> holderOf(T delegate) {
-        return HolderFactory.newInstance(delegate);
+    public static <T> SingletonHolder<T> singletonOf(T delegate) {
+        return SingletonHolder.of(delegate);
     }
 
-    public static <T> HolderFactory<T> holderFrom(Factory<T> delegate) {
-        return HolderFactory.newInstance(delegate.get());
+    public static <T> SingletonHolder<T> singletonFrom(Factory<T> delegate) {
+        return SingletonHolder.of(delegate.get());
     }
 
     public static <T> LazyHolder<T> lazyFrom(Factory<? extends T> factory) {
@@ -62,15 +63,20 @@ public abstract class Factories {
             return new Holder<T>(instance);
         }
         
-        private final T instance;
+        protected final T instance;
         
+        public Holder(T instance) {
+            this.instance = instance;
+        }
+
         @Override
         public T get() {
             return instance;
         }
-        
-        public Holder(T instance) {
-            this.instance = instance;
+
+        @Override
+        public String toString() {
+            return instance.toString();
         }
 
         @Override
@@ -88,37 +94,16 @@ public abstract class Factories {
             }
             return Objects.equal(instance, ((Holder<?>) obj).instance);
         }
-        
-        @Override
-        public String toString() {
-            return Objects.toStringHelper(this).addValue(instance).toString();
-        }
     }
     
-    public static class HolderFactory<T> implements Singleton<T> {
+    public static class SingletonHolder<T> extends Holder<T> implements Singleton<T> {
 
-        public static <T> HolderFactory<T> newInstance(Factory<T> delegate) {
-            return new HolderFactory<T>(delegate.get());
+        public static <T> SingletonHolder<T> of(T value) {
+            return new SingletonHolder<T>(value);
         }
         
-        public static <T> HolderFactory<T> newInstance(T value) {
-            return new HolderFactory<T>(value);
-        }
-        
-        private final T value;
-        
-        protected HolderFactory(T value) {
-            this.value = value;
-        }
-        
-        @Override
-        public T get() {
-            return value;
-        }
-
-        @Override
-        public String toString() {
-            return Objects.toStringHelper(this).addValue(get()).toString();
+        public SingletonHolder(T value) {
+            super(value);
         }
     }
 

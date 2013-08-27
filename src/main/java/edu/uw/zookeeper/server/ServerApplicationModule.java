@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.server;
 
 import java.net.SocketAddress;
-import java.util.AbstractMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -14,11 +13,10 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
-import com.typesafe.config.Config;
 
+import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.TimeoutFactory;
 import edu.uw.zookeeper.common.*;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
@@ -43,61 +41,21 @@ public class ServerApplicationModule implements ParameterizedFactory<RuntimeModu
     public static ServerApplicationModule getInstance() {
         return new ServerApplicationModule();
     }
+    
+    @Configurable(arg="clientAddress", key="ClientAddress", value=":2181", help="Address:Port")
+    public static class ConfigurableServerAddressView implements Function<Configuration, ServerInetAddressView> {
 
-    public static class ConfigurableServerAddressViewFactory implements DefaultsFactory<Configuration, ServerInetAddressView> {
-
-        public static ConfigurableServerAddressViewFactory newInstance() {
-            return newInstance(DEFAULT_ARG, DEFAULT_CONFIG_KEY, DEFAULT_CONFIG_PATH, DEFAULT_ADDRESS, DEFAULT_PORT);
-        }
-
-        public static ConfigurableServerAddressViewFactory newInstance(
-                String arg, String configKey, String configPath, String defaultAddress, int defaultPort) {
-            return new ConfigurableServerAddressViewFactory(configPath, configKey, arg, defaultAddress, defaultPort);
-        }
-        
-        public static final String DEFAULT_ARG = "clientAddress";
-        public static final String DEFAULT_CONFIG_KEY = "ClientAddress";
-        public static final String DEFAULT_CONFIG_PATH = "";
-        public static final String DEFAULT_ADDRESS = "";
-        public static final int DEFAULT_PORT = 2181;
-
-        private final String configPath;
-        private final String configKey;
-        private final String arg;
-        private final String defaultAddress;
-        private final int defaultPort;
-        
-        public ConfigurableServerAddressViewFactory(
-                String configPath, String configKey, String arg, String defaultAddress, int defaultPort) {
-            this.arg = arg;
-            this.configKey = configKey;
-            this.configPath = configPath;
-            this.defaultAddress = defaultAddress;
-            this.defaultPort = defaultPort;
+        public static ServerInetAddressView get(Configuration configuration) {
+            return new ConfigurableServerAddressView().apply(configuration);
         }
         
         @Override
-        public ServerInetAddressView get() {
-            return ServerInetAddressView.of(
-                    defaultAddress, defaultPort);
-        }
-
-        @Override
-        public ServerInetAddressView get(Configuration value) {
-            Arguments arguments = value.asArguments();
-            if (! arguments.has(arg)) {
-                arguments.add(arguments.newOption(arg, "Address"));
-            }
-            arguments.parse();
-            Map.Entry<String, String> args = new AbstractMap.SimpleImmutableEntry<String,String>(arg, configKey);
-            @SuppressWarnings("unchecked")
-            Config config = value.withArguments(configPath, args);
-            if (config.hasPath(configKey)) {
-            String input = config.getString(configKey);
-                return ServerInetAddressView.fromString(input);
-            } else {
-                return get();
-            }
+        public ServerInetAddressView apply(Configuration configuration) {
+            Configurable configurable = getClass().getAnnotation(Configurable.class);
+            return ServerInetAddressView.fromString(
+                    configuration.withConfigurable(configurable)
+                        .getConfigOrEmpty(configurable.path())
+                            .getString(configurable.key()));
         }
     }
 
@@ -218,7 +176,7 @@ public class ServerApplicationModule implements ParameterizedFactory<RuntimeModu
                 serverModule.getServerConnectionFactory(
                         codecFactory(),
                         connectionFactory());
-        ServerInetAddressView address = ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
+        ServerInetAddressView address = ConfigurableServerAddressView.get(runtime.configuration());
         ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
                 serverConnectionFactory.get(address.get());
         runtime.serviceMonitor().add(serverConnections);
@@ -244,7 +202,7 @@ public class ServerApplicationModule implements ParameterizedFactory<RuntimeModu
     }
     
     protected ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionExecutorsService(RuntimeModule runtime) {
-        TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
+        TimeValue timeOut = DefaultMain.ConfigurableTimeout.get(runtime.configuration());
         ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> instance = ServerConnectionExecutorsService.newInstance(
                 getServerConnectionFactory(runtime), 
                 timeOut,

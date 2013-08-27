@@ -2,51 +2,68 @@ package edu.uw.zookeeper.common;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableBiMap;
+
+import edu.uw.zookeeper.data.Serializes;
 
 public final class TimeValue implements Comparable<TimeValue> {
 
-    public static TimeValue milliseconds(int value) {
-        return milliseconds((long) value);
-    }
-    
     public static TimeValue milliseconds(long value) {
-        return create(value, TimeUnit.MILLISECONDS);
+        return new TimeValue(value, TimeUnit.MILLISECONDS);
     }
     
-    public static TimeValue create(long value, String unit) {
-        return create(value, TimeUnit.valueOf(unit));
-    }
-
-    public static TimeValue create(int value, TimeUnit unit) {
+    public static TimeValue create(long value, String unitText) {
+        checkNotNull(unitText);
+        TimeUnit unit = null;
+        try {
+            unit = TimeUnit.valueOf(unitText.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            unit = SHORT_UNIT_NAMES.inverse().get(unitText.toLowerCase());
+        }
+        if (unit == null) {
+            throw new IllegalArgumentException(String.valueOf(unitText));
+        }
         return new TimeValue(value, unit);
     }
 
     public static TimeValue create(long value, TimeUnit unit) {
-        return new TimeValue(Long.valueOf(value), unit);
+        return new TimeValue(value, unit);
+    }
+    
+    @Serializes(from=String.class, to=TimeValue.class)
+    public static TimeValue fromString(String text) {
+        Iterator<String> fields = SPLITTER.split(text).iterator();
+        long value = Long.parseLong(fields.next());
+        String unit = fields.next();
+        return create(value, unit);
     }
 
-    protected static final ImmutableMap<TimeUnit, String> SHORT_UNIT_NAMES = Maps.immutableEnumMap( 
-            new ImmutableMap.Builder<TimeUnit, String>()
-                .put(TimeUnit.DAYS, "days")
-                .put(TimeUnit.HOURS, "hours")
-                .put(TimeUnit.MINUTES, "min")
+    public static final ImmutableBiMap<TimeUnit, String> SHORT_UNIT_NAMES = 
+            ImmutableBiMap.<TimeUnit, String>builder() 
+                .put(TimeUnit.DAYS, "d")
+                .put(TimeUnit.HOURS, "h")
+                .put(TimeUnit.MINUTES, "m")
                 .put(TimeUnit.SECONDS, "s")
                 .put(TimeUnit.MILLISECONDS, "ms")
                 .put(TimeUnit.MICROSECONDS, "us")
                 .put(TimeUnit.NANOSECONDS, "ns")
-                .build());
+                .build();
+    
+    protected static String FORMAT = "%d %s";
+    protected static Splitter SPLITTER = Splitter.on(Pattern.compile("[ \t]+")).omitEmptyStrings().limit(2);
     
     private final long value;
     private final TimeUnit unit;
     
     public TimeValue(long value, TimeUnit unit) {
         this.value = value;
-        this.unit = unit;
+        this.unit = checkNotNull(unit);
     }
 
     public long value() {
@@ -57,12 +74,12 @@ public final class TimeValue implements Comparable<TimeValue> {
         return unit;
     }
 
-    public long value(TimeUnit unit) {
-        return unit.convert(value, this.unit);
+    public long value(TimeUnit to) {
+        return to.convert(value, unit);
     }
 
-    public TimeValue convert(TimeUnit unit) {
-        return new TimeValue(value(unit), unit);
+    public TimeValue convert(TimeUnit to) {
+        return new TimeValue(value(to), to);
     }
     
     public TimeValue difference(TimeValue other) {
@@ -72,13 +89,13 @@ public final class TimeValue implements Comparable<TimeValue> {
     
     @Override
     public int compareTo(TimeValue other) {
-        long diff = value - checkNotNull(other).value(unit);
+        long diff = value - other.value(unit);
         return (int) diff;
     }
 
     @Override
     public String toString() {
-        return String.format("%d %s", value, SHORT_UNIT_NAMES.get(unit));
+        return String.format(FORMAT, value, SHORT_UNIT_NAMES.get(unit));
     }
 
     @Override
@@ -96,6 +113,6 @@ public final class TimeValue implements Comparable<TimeValue> {
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(value, unit);
+        return Objects.hashCode(value);
     }
 }

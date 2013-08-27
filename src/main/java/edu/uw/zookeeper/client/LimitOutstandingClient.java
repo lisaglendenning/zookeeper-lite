@@ -2,12 +2,13 @@ package edu.uw.zookeeper.client;
 
 import java.util.concurrent.Executor;
 
+import com.google.common.base.Function;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Monitor;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
-import edu.uw.zookeeper.common.IntConfiguration;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.protocol.Operation;
@@ -17,7 +18,7 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
     public static <I extends Operation.Request, O extends Operation.ProtocolResponse<?>> ClientExecutor<? super I,O> create(
             Configuration configuration,
             ClientExecutor<? super I, O> client) {
-        return create(newConfiguration().get(configuration), client);
+        return create(ConfigurableLimit.get(configuration), client);
     }
 
     public static <I extends Operation.Request, O extends Operation.ProtocolResponse<?>> ClientExecutor<? super I,O> create(
@@ -32,21 +33,24 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
         }
     }
 
-    public static IntConfiguration newConfiguration() {
-        return newConfiguration(DEFAULT_CONFIG_PATH);
-    }
-    
-    public static IntConfiguration newConfiguration(String configPath) {
-        return IntConfiguration.newInstance(
-                configPath, DEFAULT_CONFIG_KEY, DEFAULT_CONFIG_ARG, DEFAULT_CONFIG_VALUE);
-    }
-    
-    public static final String DEFAULT_CONFIG_PATH = "";
-    public static final String DEFAULT_CONFIG_ARG = "outstanding";
-    public static final String DEFAULT_CONFIG_KEY = "Outstanding";
-    public static final int NO_LIMIT = 0;
-    public static final int DEFAULT_CONFIG_VALUE = 1000;
+    @Configurable(arg="outstanding", key="Outstanding", value="1000")
+    public static class ConfigurableLimit implements Function<Configuration, Integer> {
 
+        public static Integer get(Configuration configuration) {
+            return new ConfigurableLimit().apply(configuration);
+        }
+
+        @Override
+        public Integer apply(Configuration configuration) {
+            Configurable configurable = getClass().getAnnotation(Configurable.class);
+            return configuration.withConfigurable(configurable)
+                        .getConfigOrEmpty(configurable.path())
+                            .getInt(configurable.key());
+        }
+    }
+    
+    public static int NO_LIMIT = 0;
+    
     private final Monitor monitor = new Monitor();
     private final Monitor.Guard notThrottled = new Monitor.Guard(monitor) {
         public boolean isSatisfied() {

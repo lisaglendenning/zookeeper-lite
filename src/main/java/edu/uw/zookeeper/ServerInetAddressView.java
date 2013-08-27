@@ -5,14 +5,13 @@ import static com.google.common.base.Preconditions.*;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
 import edu.uw.zookeeper.common.Factories;
 import edu.uw.zookeeper.data.Serializes;
 
-public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAddress> implements ServerView.Address<InetSocketAddress> {
+public class ServerInetAddressView extends Factories.Holder<InetSocketAddress> implements ServerView.Address<InetSocketAddress> {
 
     public static abstract class Address {
 
@@ -98,23 +97,6 @@ public class ServerInetAddressView extends Factories.HolderFactory<InetSocketAdd
     
     protected ServerInetAddressView(InetSocketAddress address) {
         super(address);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(get());
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        ServerInetAddressView other = (ServerInetAddressView) obj;
-        return Objects.equal(get(), other.get());
     }
 
     @Override

@@ -25,17 +25,15 @@ public interface Arguments extends Iterable<Arguments.Option> {
         String getUsage();
     }
 
-    Option newOption(String name, Optional<String> help,
+    Option addOption(String name, Optional<String> help,
             Optional<String> defaultValue);
 
-    Option newOption(String name, String help);
+    Option addOption(String name, String help);
 
-    Option newOption(String name);
+    Option addOption(String name);
 
     boolean has(String name);
     
-    Arguments add(Option option);
-
     boolean hasValue(String name);
 
     String getValue(String name);

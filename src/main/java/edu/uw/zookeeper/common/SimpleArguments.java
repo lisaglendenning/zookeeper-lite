@@ -1,14 +1,15 @@
 package edu.uw.zookeeper.common;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.SortedMap;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Lists;
@@ -22,15 +23,15 @@ import static com.google.common.base.Preconditions.*;
  */
 public class SimpleArguments implements Arguments {
         
-    public static SimpleArguments create() {
-        return new SimpleArguments();
+    public static SimpleArguments defaults() {
+        return create("", new String[0]);
     }
 
-    public static SimpleArguments create(Iterable<Option> options) {
-        return new SimpleArguments(Optional.of(options));
+    public static SimpleArguments create(String programName, String[] args) {
+        return new SimpleArguments(ImmutableList.of(new SimpleOption(OPT_HELP)), programName, args);
     }
 
-    public static class SimpleOption implements Option {
+    protected static class SimpleOption implements Option {
 
         public static final String LONG_PREFIX = "--";
         public static final String VALUE_SEP = "=";
@@ -39,7 +40,7 @@ public class SimpleArguments implements Arguments {
         private final String name;
         private final Optional<String> help;
         private final Optional<String> defaultValue;
-        private Optional<String> value = Optional.<String> absent();
+        private Optional<String> value;
 
         public static String[] parse(String arg) {
             Splitter splitter = Splitter.on(SimpleOption.VALUE_SEP).limit(2)
@@ -55,28 +56,29 @@ public class SimpleArguments implements Arguments {
             return new String[0];
         }
 
-        public SimpleOption(String name, Optional<String> help,
-                Optional<String> defaultValue) {
-            this.name = checkNotNull(name);
-            this.help = checkNotNull(help);
-            this.defaultValue = checkNotNull(defaultValue);
+        public SimpleOption(String name) {
+            this(name, Optional.<String> absent(), Optional.<String> absent());
         }
 
         public SimpleOption(String name, String help) {
             this(name, Optional.of(help), Optional.<String> absent());
         }
 
-        public SimpleOption(String name) {
-            this(name, Optional.<String> absent(), Optional.<String> absent());
+        public SimpleOption(String name, Optional<String> help,
+                Optional<String> defaultValue) {
+            this.name = checkNotNull(name);
+            this.help = checkNotNull(help);
+            this.defaultValue = checkNotNull(defaultValue);
+            this.value = Optional.<String> absent();
         }
 
         @Override
-        public boolean hasValue() {
+        public synchronized boolean hasValue() {
             return (value.isPresent() || defaultValue.isPresent());
         }
 
         @Override
-        public String getValue() {
+        public synchronized String getValue() {
             if (value.isPresent()) {
                 return value.get();
             }
@@ -84,7 +86,7 @@ public class SimpleArguments implements Arguments {
         }
 
         @Override
-        public void setValue(String value) {
+        public synchronized void setValue(String value) {
             this.value = Optional.of(value);
         }
 
@@ -105,97 +107,84 @@ public class SimpleArguments implements Arguments {
 
         @Override
         public String getUsage() {
-            String str = LONG_PREFIX + getName();
-            Optional<String> help = getHelp();
+            StringBuilder str = new StringBuilder(LONG_PREFIX).append(name);
             if (help.isPresent()) {
-                str += VALUE_SEP + help.get();
+                str.append(VALUE_SEP).append(help.get());
             }
-            return str;
+            return str.toString();
         }
 
         @Override
-        public String toString() {
-            return Objects.toStringHelper(this).add("name", name)
-                    .add("value", value).toString();
+        public synchronized String toString() {
+            return String.format("%s=%s", name, value);
         }
     }
 
-    public static final String OPT_HELP = "help";
+    protected static final String OPT_HELP = "help";
 
-    private final SortedMap<String, Option> options;
+    private final SortedMap<String, SimpleOption> options;
     private String programName;
     private String[] args;
 
-    private SimpleArguments() {
-        this(Optional.<Iterable<Option>> absent());
-    }
-
-    private SimpleArguments(Optional<Iterable<Option>> options) {
+    protected SimpleArguments(Iterable<SimpleOption> options, String programName, String[] args) {
         // Maybe could try to auto-detect programName with
         // System.property(sun.java.command)?
         this.options = Maps.newTreeMap();
-        checkArgument(options != null);
-        if (options.isPresent()) {
-            for (Option opt : options.get()) {
-                add(opt);
-            }
+        for (SimpleOption opt : checkNotNull(options)) {
+            add(opt);
         }
-        add(new SimpleOption(OPT_HELP));
-        this.programName = "";
-        this.args = new String[0];
+        this.programName = programName;
+        this.args = args;
     }
 
     @Override
-    public Option newOption(String name, Optional<String> help,
+    public Option addOption(String name, Optional<String> help,
             Optional<String> defaultValue) {
-        return new SimpleOption(name, help, defaultValue);
+        SimpleOption option = new SimpleOption(name, help, defaultValue);
+        add(option);
+        return option;
     }
 
     @Override
-    public Option newOption(String name, String help) {
-        return new SimpleOption(name, help);
+    public Option addOption(String name, String help) {
+        SimpleOption option = new SimpleOption(name, help);
+        add(option);
+        return option;
     }
 
     @Override
-    public Option newOption(String name) {
-        return new SimpleOption(name);
+    public Option addOption(String name) {
+        SimpleOption option = new SimpleOption(name);
+        add(option);
+        return option;
     }
 
     @Override
-    public boolean has(String name) {
-        checkArgument(name != null);
+    public synchronized boolean has(String name) {
+        checkNotNull(name);
         return options.containsKey(name);
     }
     
     @Override
-    public SimpleArguments add(Option option) {
-        checkArgument(option != null);
-        String name = option.getName();
-        checkArgument(!(options.containsKey(name)));
-        options.put(name, option);
-        return this;
-    }
-
-    @Override
-    public boolean hasValue(String name) {
+    public synchronized boolean hasValue(String name) {
         checkArgument(name != null);
         Option opt = options.get(name);
-        checkState(opt != null);
+        checkArgument(opt != null, name);
         return opt.hasValue();
     }
 
     @Override
-    public String getValue(String name) {
+    public synchronized String getValue(String name) {
         checkArgument(name != null);
         Option opt = options.get(name);
-        checkState(opt != null);
+        checkArgument(opt != null, name);
         return opt.getValue();
     }
 
     @Override
-    public String getUsage() {
+    public synchronized String getUsage() {
         StringBuilder str = new StringBuilder();
-        str.append(String.format("Usage: %s ", getProgramName()));
+        str.append(String.format("Usage: %s ", programName));
         Joiner joiner = Joiner.on(' ').skipNulls();
         joiner.appendTo(str, Iterables.transform(options.values(),
                 new Function<Option, String>() {
@@ -206,6 +195,53 @@ public class SimpleArguments implements Arguments {
                 }));
         str.append('\n');
         return str.toString();
+    }
+
+    @Override
+    public synchronized void parse() {
+        setArgs(parse(args));
+    }
+
+    @Override
+    public void illegalValue(String name, String value) {
+        throw new IllegalArgumentException(name + SimpleOption.VALUE_SEP
+                + value);
+    }
+
+    @Override
+    public boolean helpOptionSet() {
+        return hasValue(OPT_HELP);
+    }
+
+    @Override
+    public synchronized void setArgs(String[] args) {
+        this.args = checkNotNull(args);
+    }
+
+    @Override
+    public synchronized String[] getArgs() {
+        return Arrays.copyOf(args, args.length);
+    }
+
+    @Override
+    public synchronized String getProgramName() {
+        return programName;
+    }
+
+    @Override
+    public synchronized void setProgramName(String name) {
+        this.programName = checkNotNull(name);
+    }
+
+    @Override
+    public synchronized Iterator<Option> iterator() {
+        return ImmutableList.<Option>copyOf(options.values()).iterator();
+    }
+
+    private synchronized void add(SimpleOption option) {
+        String name = option.getName();
+        checkArgument(! options.containsKey(name), String.valueOf(option));
+        options.put(name, option);
     }
 
     private String[] parse(String... args) {
@@ -229,47 +265,5 @@ public class SimpleArguments implements Arguments {
             opt.setValue(value);
         }
         return unknown.toArray(new String[0]);
-    }
-
-    @Override
-    public void parse() {
-        String[] args = getArgs();
-        setArgs(parse(args));
-    }
-
-    @Override
-    public void illegalValue(String name, String value) {
-        throw new IllegalArgumentException(name + SimpleOption.VALUE_SEP
-                + value);
-    }
-
-    @Override
-    public boolean helpOptionSet() {
-        return hasValue(SimpleArguments.OPT_HELP);
-    }
-
-    @Override
-    public void setArgs(String[] args) {
-        this.args = checkNotNull(args);
-    }
-
-    @Override
-    public String[] getArgs() {
-        return args;
-    }
-
-    @Override
-    public String getProgramName() {
-        return programName;
-    }
-
-    @Override
-    public void setProgramName(String name) {
-        this.programName = checkNotNull(name);
-    }
-
-    @Override
-    public Iterator<Option> iterator() {
-        return options.values().iterator();
     }
 }

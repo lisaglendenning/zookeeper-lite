@@ -1,21 +1,17 @@
 package edu.uw.zookeeper.client;
 
 
-import java.util.AbstractMap;
-import java.util.Map;
-
+import com.google.common.base.Function;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.typesafe.config.Config;
 
+import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.TimeoutFactory;
 import edu.uw.zookeeper.common.Application;
-import edu.uw.zookeeper.common.Arguments;
+import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
-import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
@@ -39,75 +35,21 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
     public static ClientApplicationModule getInstance() {
         return new ClientApplicationModule();
     }
+    
+    @Configurable(arg="ensemble", key="Ensemble", value="localhost:2181", help="Address:Port,...")
+    public static class ConfigurableEnsembleView implements Function<Configuration, EnsembleView<ServerInetAddressView>> {
 
-    public static class ConfigurableEnsembleViewFactory implements DefaultsFactory<Configuration, EnsembleView<ServerInetAddressView>> {
-
-        public static ConfigurableEnsembleViewFactory newInstance() {
-            return newInstance(DEFAULT_CONFIG_PATH);
-        }
-        
-        public static ConfigurableEnsembleViewFactory newInstance(String configPath) {
-            return newInstance(
-                    configPath, DEFAULT_CONFIG_KEY, DEFAULT_ARG, DEFAULT_ADDRESS, DEFAULT_PORT);
-        }
-
-        public static ConfigurableEnsembleViewFactory newInstance(
-                String configPath, 
-                String configKey, 
-                String arg,
-                String defaultAddress, 
-                int defaultPort) {
-            return new ConfigurableEnsembleViewFactory(
-                    configPath, configKey, arg, defaultAddress, defaultPort);
-        }
-
-        public static final String DEFAULT_CONFIG_PATH = "";
-        public static final String DEFAULT_ARG = "ensemble";
-        public static final String DEFAULT_CONFIG_KEY = "Ensemble";
-        public static final String DEFAULT_ADDRESS = "localhost";
-        public static final int DEFAULT_PORT = 2181;
-        
-        private final String configPath;
-        private final String configKey;
-        private final String arg;
-        private final String defaultAddress;
-        private final int defaultPort;
-        
-        public ConfigurableEnsembleViewFactory(
-                String configPath, 
-                String configKey, 
-                String arg, 
-                String defaultAddress, 
-                int defaultPort) {
-            this.configPath = configPath;
-            this.arg = arg;
-            this.configKey = configKey;
-            this.defaultAddress = defaultAddress;
-            this.defaultPort = defaultPort;
+        public static EnsembleView<ServerInetAddressView> get(Configuration configuration) {
+            return new ConfigurableEnsembleView().apply(configuration);
         }
         
         @Override
-        public EnsembleView<ServerInetAddressView> get() {
-            return EnsembleView.of(ServerInetAddressView.of(
-                    defaultAddress, defaultPort));
-        }
-
-        @Override
-        public EnsembleView<ServerInetAddressView> get(Configuration value) {
-            Arguments arguments = value.asArguments();
-            if (! arguments.has(arg)) {
-                arguments.add(arguments.newOption(arg, "Ensemble"));
-            }
-            arguments.parse();
-            Map.Entry<String, String> args = new AbstractMap.SimpleImmutableEntry<String,String>(arg, configKey);
-            @SuppressWarnings("unchecked")
-            Config config = value.withArguments(configPath, args);
-            if (config.hasPath(configKey)) {
-                String input = config.getString(configKey);
-                return EnsembleView.fromString(input);
-            } else {
-                return get();
-            }
+        public EnsembleView<ServerInetAddressView> apply(Configuration configuration) {
+            Configurable configurable = getClass().getAnnotation(Configurable.class);
+            return EnsembleView.fromString(
+                    configuration.withConfigurable(configurable)
+                        .getConfigOrEmpty(configurable.path())
+                            .getString(configurable.key()));
         }
     }
 
@@ -124,9 +66,13 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
         return AssignXidCodec.factory();
     }
     
-    protected ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionFactory(RuntimeModule runtime) {
+    protected TimeValue getTimeOut(RuntimeModule runtime) {
+        TimeValue value = DefaultMain.ConfigurableTimeout.get(runtime.configuration());
+        return value;
+    }
+    
+    protected ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionFactory(RuntimeModule runtime, TimeValue timeOut) {
         NetClientModule clientModule = getNetClientModule(runtime);
-        TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
         ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory = getCodecFactory();
         ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> pingingFactory = 
                 PingingClient.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
@@ -137,10 +83,9 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
         return clientConnections;
     }
     
-    protected ClientConnectionExecutorService<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionExecutorService(RuntimeModule runtime) {
-        ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = getClientConnectionFactory(runtime);
-        TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
-        EnsembleView<ServerInetAddressView> ensemble = ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
+    protected ClientConnectionExecutorService<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionExecutorService(RuntimeModule runtime, TimeValue timeOut) {
+        ClientConnectionFactory<PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = getClientConnectionFactory(runtime, timeOut);
+        EnsembleView<ServerInetAddressView> ensemble = ConfigurableEnsembleView.get(runtime.configuration());
         final EnsembleViewFactory<ServerInetAddressView, ServerViewFactory<Session, ServerInetAddressView, PingingClient<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>> ensembleFactory = 
                 EnsembleViewFactory.newInstance(
                     clientConnections, 
@@ -161,7 +106,7 @@ public class ClientApplicationModule implements ParameterizedFactory<RuntimeModu
     }
     
     protected ServiceMonitor createServices(RuntimeModule runtime) {
-        getClientConnectionExecutorService(runtime);
+        getClientConnectionExecutorService(runtime, getTimeOut(runtime));
         return runtime.serviceMonitor();
     }
 }

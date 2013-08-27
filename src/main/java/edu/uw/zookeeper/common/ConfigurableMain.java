@@ -17,9 +17,7 @@ public abstract class ConfigurableMain {
     }
 
     public static <T extends Runnable> void main(String[] args, ParameterizedFactory<Configuration, T> applicationFactory) {
-        Arguments arguments = DefaultRuntimeModule.DefaultArgumentsFactory.getInstance().get(args);
-        Configuration configuration = DefaultRuntimeModule.DefaultConfigurationFactory.getInstance().get(arguments);
-        T application = applicationFactory.get(configuration);
+        T application = applicationFactory.get(DefaultRuntimeModule.configuration(args));
         application.run();
     }
     
@@ -45,7 +43,7 @@ public abstract class ConfigurableMain {
         
         @Override
         public T get(Configuration value) {
-            value.asArguments().setProgramName(applicationType.getName());
+            value.getArguments().setProgramName(applicationType.getName());
             return newApplication(applicationType, value);
         }
     }

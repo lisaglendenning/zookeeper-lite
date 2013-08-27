@@ -12,14 +12,10 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.typesafe.config.Config;
-
-import edu.uw.zookeeper.common.Arguments;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Factory;
-import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.ServiceMonitor;
 import edu.uw.zookeeper.common.SimpleArguments;
@@ -32,42 +28,14 @@ public class DefaultRuntimeModule implements RuntimeModule {
         return new DefaultRuntimeModule();
     }
     
-    public static enum DefaultArgumentsFactory implements DefaultsFactory<String[], Arguments> {
-        INSTANCE;
-        
-        public static DefaultArgumentsFactory getInstance() {
-            return INSTANCE;
-        }
-        
-        @Override
-        public SimpleArguments get() {
-            return get(new String[0]);
-        }
+    public static SimpleArguments arguments(String[] args) {
+        return SimpleArguments.create("", args);
+    }
 
-        @Override
-        public SimpleArguments get(String[] value) {
-            SimpleArguments arguments = SimpleArguments.create();
-            arguments.setArgs(value);
-            return arguments;
-        }
+    public static Configuration configuration(String[] args) {
+        return Configuration.defaults(arguments(args));
     }
-    
-    public static enum DefaultConfigurationFactory implements ParameterizedFactory<Arguments, Configuration> {
-        INSTANCE;
-        
-        public static DefaultConfigurationFactory getInstance() {
-            return INSTANCE;
-        }
-        
-        private final Factory<Config> configFactory = Configuration.DefaultConfigFactory.Holder.getInstance();
-        
-        @Override
-        public Configuration get(Arguments arguments) {
-            Config defaultConfig = configFactory.get();
-            return Configuration.create(arguments, defaultConfig);
-        }
-    }
-    
+
     public static enum EventBusPublisherFactory implements Factory<EventBusPublisher> {
         INSTANCE;
 
@@ -174,7 +142,7 @@ public class DefaultRuntimeModule implements RuntimeModule {
     protected final TimeValue shutdownTimeout;
 
     public DefaultRuntimeModule() {
-        this(DefaultConfigurationFactory.getInstance().get(DefaultArgumentsFactory.getInstance().get()));
+        this(configuration(new String[0]));
     }
 
     public DefaultRuntimeModule(
