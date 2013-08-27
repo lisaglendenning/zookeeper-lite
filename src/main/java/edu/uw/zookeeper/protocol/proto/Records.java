@@ -390,7 +390,7 @@ public abstract class Records {
         public static Records.Request deserialize(OpCode op,
                 InputArchive archive) throws IOException {
             Records.Request instance = getInstance().get(op);
-            instance.deserialize(archive, tagOf(op));
+            archive.readRecord(instance, tagOf(op));
             return instance;
         }
 
@@ -425,7 +425,7 @@ public abstract class Records {
             public static IRequestHeader deserialize(InputArchive archive)
                     throws IOException {
                 IRequestHeader record = new IRequestHeader();
-                record.deserialize(archive, Records.Headers.TAG);
+                archive.readRecord(record, Records.Headers.TAG);
                 return record;
             }
         
@@ -503,7 +503,7 @@ public abstract class Records {
         public static Records.Response deserialize(OpCode op,
                 InputArchive archive) throws IOException {
             Records.Response instance = getInstance().get(op);
-            instance.deserialize(archive, tagOf(op));
+            archive.readRecord(instance, tagOf(op));
             return instance;
         }
 
@@ -542,7 +542,7 @@ public abstract class Records {
             public static IReplyHeader deserialize(InputArchive archive)
                     throws IOException {
                 IReplyHeader record = new IReplyHeader();
-                record.deserialize(archive, Records.Headers.TAG);
+                archive.readRecord(record, Records.Headers.TAG);
                 return record;
             }
         
