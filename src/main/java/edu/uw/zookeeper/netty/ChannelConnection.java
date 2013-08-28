@@ -142,11 +142,9 @@ public class ChannelConnection<I>
     protected class OutboundActor extends ExecutedActor<PromiseTask<? extends I, ? extends I>> {
 
         protected final ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>> mailbox;
-        protected volatile boolean doFlush;
         
         public OutboundActor() {
             this.mailbox = new ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>>();
-            this.doFlush = false;
         }
         
         @Override
@@ -165,17 +163,9 @@ public class ChannelConnection<I>
         }
         
         @Override
-        protected void doRun() {
-            try {
-                super.doRun();
-            } catch (Exception e) {
-                throw Throwables.propagate(e);
-            }
-            
-            if (doFlush) {
-                doFlush = false;
-                channel.flush();
-            }
+        protected void doRun() throws Exception {
+            super.doRun();
+            channel.flush();
         }
         
         @SuppressWarnings("unchecked")
@@ -196,7 +186,6 @@ public class ChannelConnection<I>
                             I task = input.task();
                             ChannelFuture future = channel.write(task);
                             ChannelFutureWrapper.of(future, task, (Promise<I>) input);
-                            doFlush = true;
                             break;
                         }
                     }

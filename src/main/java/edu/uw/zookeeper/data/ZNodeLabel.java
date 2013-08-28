@@ -102,8 +102,29 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             return new Component(validated);
         }
         
+        public static Component zookeeper() {
+            return Reserved.ZOOKEEPER.get();
+        }
+        
+        protected Component(String label) {
+            super(label);
+        }
+        
+        public boolean isReserved() {
+            return Reserved.contains(this);
+        }
+
         public static enum Reserved implements Singleton<Component> {
             ZOOKEEPER(Component.of("zookeeper"));
+            
+            public static boolean contains(Component c) {
+                for (Reserved e: values()) {
+                    if (e.get().equals(c)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
             
             private final Component value;
             
@@ -116,35 +137,22 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             }
         }
 
-        public static enum StringToComponent implements Function<String, Component> {
-            OF;
-
-            @Override
-            public Component apply(String input) {
-                return Component.of(input);
-            }
-        }
-        
         public static enum StringToString implements Function<String, String> {
             VALIDATE;
-
+        
             @Override
             public String apply(String input) {
                 return validate(input);
             }
         }
 
-        protected Component(String label) {
-            super(label);
-        }
+        public static enum StringToComponent implements Function<String, Component> {
+            OF;
         
-        public boolean isReserved() {
-            for (Reserved e: Reserved.values()) {
-                if (equals(e.get())) {
-                    return true;
-                }
+            @Override
+            public Component apply(String input) {
+                return Component.of(input);
             }
-            return false;
         }
     }
     
@@ -203,6 +211,10 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             return Reserved.ROOT.get();
         }
 
+        public static Path zookeeper() {
+            return Reserved.ZOOKEEPER.get();
+        }
+        
         @Serializes(from=String.class, to=ZNodeLabel.Path.class)
         public static Path of(String path) {
             return fromString(StringToString.VALIDATE, path);
@@ -316,39 +328,6 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             }
         }
 
-        public static enum Reserved implements Singleton<Path> {
-            ROOT(new Path(Character.toString(SLASH))), 
-            ZOOKEEPER(Path.of(ROOT.get(), Component.Reserved.ZOOKEEPER.get())),
-            QUOTA(Path.of(ZOOKEEPER.get(), Component.of("quota"))),
-            CONFIG(Path.of(ZOOKEEPER.get(), Component.of("config")));
-        
-            private final Path value;
-            
-            private Reserved(Path value) {
-                this.value = value;
-            }
-            
-            @Override
-            public Path get() {
-                return value;
-            }
-        }
-
-        public static enum StringToString implements Function<String, String> {
-            VALIDATE {
-                @Override
-                public String apply(String input) {
-                    return validate(input);
-                }
-            }, 
-            CANONICALIZE {
-                @Override
-                public String apply(String input) {
-                    return canonicalize(input);
-                }
-            };
-        }
-
         protected Path(String label) {
             super(label);
         }
@@ -432,6 +411,39 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             return Iterables.transform(
                     SPLITTER.omitEmptyStrings().split(toString()),
                     Component.StringToComponent.OF).iterator();
+        }
+
+        public static enum StringToString implements Function<String, String> {
+            VALIDATE {
+                @Override
+                public String apply(String input) {
+                    return validate(input);
+                }
+            }, 
+            CANONICALIZE {
+                @Override
+                public String apply(String input) {
+                    return canonicalize(input);
+                }
+            };
+        }
+
+        public static enum Reserved implements Singleton<Path> {
+            ROOT(new Path(Character.toString(SLASH))), 
+            ZOOKEEPER(Path.of(ROOT.get(), Component.zookeeper())),
+            QUOTA(Path.of(ZOOKEEPER.get(), Component.of("quota"))),
+            CONFIG(Path.of(ZOOKEEPER.get(), Component.of("config")));
+        
+            private final Path value;
+            
+            private Reserved(Path value) {
+                this.value = value;
+            }
+            
+            @Override
+            public Path get() {
+                return value;
+            }
         }
     }
     
