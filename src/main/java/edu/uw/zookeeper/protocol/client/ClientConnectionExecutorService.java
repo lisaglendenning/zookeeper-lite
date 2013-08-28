@@ -53,20 +53,20 @@ public class ClientConnectionExecutorService<C extends ProtocolCodecConnection<?
 
     @Override
     public ListenableFuture<Message.ServerResponse<?>> submit(Operation.Request request) {
-        if (! isRunning()) {
-            throw new IllegalStateException();
+        if (client != null) {
+            return client.submit(request);
+        } else {
+            throw new IllegalStateException(state().toString());
         }
-        
-        return client.submit(request);
     }
 
     @Override
     public ListenableFuture<Message.ServerResponse<?>> submit(Operation.Request request, Promise<Message.ServerResponse<?>> promise) {
-        if (! isRunning()) {
-            throw new IllegalStateException();
+        if (client != null) {
+            return client.submit(request, promise);
+        } else {
+            throw new IllegalStateException(state().toString());
         }
-
-        return client.submit(request, promise);
     }
 
     @Override
