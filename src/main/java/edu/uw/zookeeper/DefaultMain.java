@@ -1,5 +1,8 @@
 package edu.uw.zookeeper;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.UncaughtExceptionHandlers;
@@ -86,6 +89,8 @@ public class DefaultMain extends DefaultRuntimeModule implements Application {
             return newApplication(applicationType, value);
         }
     }
+    
+    protected final Logger logger = LogManager.getLogger(getClass());
     protected final Singleton<Application> application;
 
     public DefaultMain(
@@ -116,6 +121,7 @@ public class DefaultMain extends DefaultRuntimeModule implements Application {
         Thread.currentThread().setUncaughtExceptionHandler(UncaughtExceptionHandlers.systemExit());
         Application application = application();
         exitIfHelpSet(configuration().getArguments());
+        logger.info("{}", configuration());
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
@@ -123,6 +129,7 @@ public class DefaultMain extends DefaultRuntimeModule implements Application {
             }
         });
         application.run();
+        logger.info("Exiting");
     }
 
     public Application application() {

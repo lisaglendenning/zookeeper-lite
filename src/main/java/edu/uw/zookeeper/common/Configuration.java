@@ -2,6 +2,7 @@ package edu.uw.zookeeper.common;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -119,5 +120,12 @@ public class Configuration {
             }
         }
         return this;
+    }
+    
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("config", config)
+                .add("arguments", arguments).toString();
     }
 }

@@ -176,7 +176,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     @Override
     protected void startUp() throws ServiceException {
-        logger.info(SERVICE_MONITOR_MARKER, "STARTING {}", this);
+        logger.debug(SERVICE_MONITOR_MARKER, "STARTING {}", this);
         try {
             startServices();
             monitor(this);
@@ -188,7 +188,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
 
     @Override
     protected void shutDown() throws ServiceException {
-        logger.info(SERVICE_MONITOR_MARKER, "STOPPING {}", this);
+        logger.debug(SERVICE_MONITOR_MARKER, "STOPPING {}", this);
         stopServices();
     }
 

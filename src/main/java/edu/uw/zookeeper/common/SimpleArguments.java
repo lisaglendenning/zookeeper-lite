@@ -7,12 +7,14 @@ import java.util.SortedMap;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Iterators;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -116,6 +118,7 @@ public class SimpleArguments implements Arguments {
 
         @Override
         public synchronized String toString() {
+            String value = hasValue() ? String.format("\"%s\"", getValue()) : "";
             return String.format("%s=%s", name, value);
         }
     }
@@ -236,6 +239,14 @@ public class SimpleArguments implements Arguments {
     @Override
     public synchronized Iterator<Option> iterator() {
         return ImmutableList.<Option>copyOf(options.values()).iterator();
+    }
+    
+    @Override
+    public synchronized String toString() {
+        return Objects.toStringHelper(Arguments.class)
+                .add("args", Arrays.toString(args))
+                .add("options", Iterators.toString(iterator()))
+                .toString();
     }
 
     private synchronized void add(SimpleOption option) {
