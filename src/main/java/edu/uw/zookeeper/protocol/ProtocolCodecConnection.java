@@ -14,7 +14,7 @@ import edu.uw.zookeeper.protocol.ProtocolState;
 
 public class ProtocolCodecConnection<I, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> extends ForwardingConnection<I> {
 
-    public static <I, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> ParameterizedFactory<Pair<Pair<Class<I>, T>, C>, ? extends ProtocolCodecConnection<I,T,C>> factory() { 
+    public static <I, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> ParameterizedFactory<Pair<Pair<Class<I>, T>, C>, ProtocolCodecConnection<I,T,C>> factory() { 
         return new ParameterizedFactory<Pair<Pair<Class<I>, T>, C>, ProtocolCodecConnection<I,T,C>>() {
             @Override
             public ProtocolCodecConnection<I,T,C> get(Pair<Pair<Class<I>, T>, C> value) {
