@@ -15,10 +15,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.client.SessionClientExecutor;
 import edu.uw.zookeeper.client.ZNodeViewCache;
-import edu.uw.zookeeper.clients.CallUntilPresent;
-import edu.uw.zookeeper.clients.Generator;
-import edu.uw.zookeeper.clients.IterationCallable;
-import edu.uw.zookeeper.clients.SubmitCallable;
+import edu.uw.zookeeper.clients.common.CallUntilPresent;
+import edu.uw.zookeeper.clients.common.Generator;
+import edu.uw.zookeeper.clients.common.IterationCallable;
+import edu.uw.zookeeper.clients.common.SubmitCallable;
 import edu.uw.zookeeper.clients.random.BasicRequestGenerator;
 import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.ListAccumulator;

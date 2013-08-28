@@ -121,7 +121,7 @@ public class DefaultMain extends DefaultRuntimeModule implements Application {
         Thread.currentThread().setUncaughtExceptionHandler(UncaughtExceptionHandlers.systemExit());
         Application application = application();
         exitIfHelpSet(configuration().getArguments());
-        logger.info("{}", configuration());
+        logger.info("{}", configuration().getConfig());
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
