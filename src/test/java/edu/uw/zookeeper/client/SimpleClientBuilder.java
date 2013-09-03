@@ -23,7 +23,12 @@ public class SimpleClientBuilder extends ClientBuilder {
     public static SimpleClientBuilder defaults(
             ServerInetAddressView serverAddress,
             NetClientModule clientModule) {
-        return new SimpleClientBuilder(serverAddress, connectionBuilder(clientModule), null, null);
+        return new SimpleClientBuilder(
+                serverAddress, 
+                connectionBuilder(clientModule), 
+                null, 
+                null, 
+                null);
     }
     
     public static ClientConnectionFactoryBuilder connectionBuilder(
@@ -40,8 +45,9 @@ public class SimpleClientBuilder extends ClientBuilder {
             ServerInetAddressView serverAddress,
             ClientConnectionFactoryBuilder connectionBuilder,
             ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory,
-                    ClientConnectionExecutorService clientExecutor) {
-        super(connectionBuilder, clientConnectionFactory, clientExecutor);
+            ClientConnectionExecutorService clientExecutor,
+            RuntimeModule runtime) {
+        super(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
         this.serverAddress = serverAddress;
     }
 
@@ -50,36 +56,36 @@ public class SimpleClientBuilder extends ClientBuilder {
     }
     
     public SimpleClientBuilder setServerAddress(ServerInetAddressView serverAddress) {
-        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor);
+        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
     }
 
     @Override
     public SimpleClientBuilder setRuntimeModule(RuntimeModule runtime) {
-        return new SimpleClientBuilder(serverAddress, connectionBuilder.setRuntimeModule(runtime), clientConnectionFactory, clientExecutor);
+        return new SimpleClientBuilder(serverAddress, connectionBuilder.setRuntimeModule(runtime), clientConnectionFactory, clientExecutor, runtime);
     }
 
     @Override
     public SimpleClientBuilder setConnectionBuilder(ClientConnectionFactoryBuilder connectionBuilder) {
-        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor);
+        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
     }
 
     @Override
     public SimpleClientBuilder setClientConnectionFactory(
             ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory) {
-        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor);
+        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
     }
 
     @Override
     public SimpleClientBuilder setClientConnectionExecutor(
             ClientConnectionExecutorService clientExecutor) {
-        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor);
+        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
     }
-    
+
     @Override
     public SimpleClientBuilder setDefaults() {
         return (SimpleClientBuilder) super.setDefaults();
     }
-    
+
     @Override    
     protected ClientConnectionExecutorService getDefaultClientConnectionExecutorService() {
         Factory<? extends ListenableFuture<? extends ClientConnectionExecutor<?>>> factory = 

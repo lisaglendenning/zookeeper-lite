@@ -11,10 +11,10 @@ import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.net.intravm.IntraVmNetModule;
 import edu.uw.zookeeper.server.SimpleServerBuilder;
 
-public class SimpleClient implements ZooKeeperApplication.RuntimeBuilder<List<Service>> {
+public class SimpleServerAndClient implements ZooKeeperApplication.RuntimeBuilder<List<Service>> {
 
-    public static SimpleClient defaults() {
-        return new SimpleClient();
+    public static SimpleServerAndClient defaults() {
+        return new SimpleServerAndClient();
     }
     
     protected final RuntimeModule runtime;
@@ -22,11 +22,11 @@ public class SimpleClient implements ZooKeeperApplication.RuntimeBuilder<List<Se
     protected final SimpleServerBuilder serverBuilder;
     protected final SimpleClientBuilder clientBuilder;
 
-    protected SimpleClient() {
+    protected SimpleServerAndClient() {
         this(null, null, null, null);
     }
     
-    protected SimpleClient(
+    protected SimpleServerAndClient(
             IntraVmNetModule netModule,
             SimpleServerBuilder server,
             SimpleClientBuilder client,
@@ -43,12 +43,16 @@ public class SimpleClient implements ZooKeeperApplication.RuntimeBuilder<List<Se
     }
 
     @Override
-    public SimpleClient setRuntimeModule(
+    public SimpleServerAndClient setRuntimeModule(
             RuntimeModule runtime) {
         if (this.runtime == runtime) {
             return this;
         } else {
-            return new SimpleClient(netModule, serverBuilder.setRuntimeModule(runtime), clientBuilder.setRuntimeModule(runtime), runtime);
+            return new SimpleServerAndClient(
+                    netModule, 
+                    (serverBuilder == null) ? serverBuilder : serverBuilder.setRuntimeModule(runtime), 
+                    (clientBuilder == null) ? clientBuilder : clientBuilder.setRuntimeModule(runtime), 
+                    runtime);
         }
     }
 
@@ -56,11 +60,11 @@ public class SimpleClient implements ZooKeeperApplication.RuntimeBuilder<List<Se
         return netModule;
     }
 
-    public SimpleClient setNetModule(IntraVmNetModule netModule) {
+    public SimpleServerAndClient setNetModule(IntraVmNetModule netModule) {
         if (this.netModule == netModule) {
             return this;
         } else {
-            return new SimpleClient(netModule, serverBuilder, clientBuilder, runtime);
+            return new SimpleServerAndClient(netModule, serverBuilder, clientBuilder, runtime);
         }
     }
 
@@ -68,11 +72,11 @@ public class SimpleClient implements ZooKeeperApplication.RuntimeBuilder<List<Se
         return serverBuilder;
     }
     
-    public SimpleClient setServerBuilder(SimpleServerBuilder serverBuilder) {
+    public SimpleServerAndClient setServerBuilder(SimpleServerBuilder serverBuilder) {
         if (this.serverBuilder == serverBuilder) {
             return this;
         } else {
-            return new SimpleClient(netModule, serverBuilder, clientBuilder, runtime);
+            return new SimpleServerAndClient(netModule, serverBuilder, clientBuilder, runtime);
         }
     }
 
@@ -80,11 +84,11 @@ public class SimpleClient implements ZooKeeperApplication.RuntimeBuilder<List<Se
         return clientBuilder;
     }
     
-    public SimpleClient setClientBuilder(SimpleClientBuilder clientBuilder) {
+    public SimpleServerAndClient setClientBuilder(SimpleClientBuilder clientBuilder) {
         if (this.clientBuilder == clientBuilder) {
             return this;
         } else {
-            return new SimpleClient(netModule, serverBuilder, clientBuilder, runtime);
+            return new SimpleServerAndClient(netModule, serverBuilder, clientBuilder, runtime);
         }
     }
     
@@ -93,15 +97,15 @@ public class SimpleClient implements ZooKeeperApplication.RuntimeBuilder<List<Se
         return setDefaults().getServices();
     }
 
-    public SimpleClient setDefaults() {
+    public SimpleServerAndClient setDefaults() {
         if (runtime == null) {
-            return setRuntimeModule(getDefaultRuntimeModule());
+            return setRuntimeModule(getDefaultRuntimeModule()).setDefaults();
         } else if (netModule == null) {
-            return setNetModule(getDefaultNetModule());
+            return setNetModule(getDefaultNetModule()).setDefaults();
         } else if (serverBuilder == null) {
-            return setServerBuilder(getDefaultServerBuilder().setDefaults());
+            return setServerBuilder(getDefaultServerBuilder().setDefaults()).setDefaults();
         } else if (clientBuilder == null) {
-            return setClientBuilder(getDefaultClientBuilder().setDefaults());
+            return setClientBuilder(getDefaultClientBuilder().setDefaults()).setDefaults();
         } else {
             return this;
         }

@@ -137,20 +137,24 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         return clientConnections;
     }
 
+    public ClientConnectionFactoryBuilder setDefaults() {
+        checkState(runtime != null);
+    
+        if (clientModule == null) {
+            return setClientModule(getDefaultClientModule()).setDefaults();
+        } else if (timeOut == null) {
+            return setTimeOut(getDefaultTimeOut()).setDefaults();
+        } else if (codecFactory == null) {
+            return setCodecFactory(getDefaultCodecFactory()).setDefaults();
+        } else if (connectionFactory == null) {
+            return setConnectionFactory(getDefaultConnectionFactory()).setDefaults();
+        } else {
+            return this;
+        }
+    }
+
     @Override
     public ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> build() {
-        checkState(runtime != null);
-
-        if (clientModule == null) {
-            return setClientModule(getDefaultClientModule()).build();
-        } else if (timeOut == null) {
-            return setTimeOut(getDefaultTimeOut()).build();
-        } else if (codecFactory == null) {
-            return setCodecFactory(getDefaultCodecFactory()).build();
-        } else if (connectionFactory == null) {
-            return setConnectionFactory(getDefaultConnectionFactory()).build();
-        } else {
-            return getDefaultClientConnectionFactory();
-        }
-    }      
+        return setDefaults().getDefaultClientConnectionFactory();
+    }
 }

@@ -169,23 +169,27 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     protected ServerInetAddressView getDefaultAddress() {
         return ConfigurableServerAddressView.get(runtime.configuration());
     }
-
-    @Override
-    public ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> build() {
+    
+    public ServerConnectionFactoryBuilder setDefaults() {
         checkState(runtime != null);
         
         if (serverModule == null) {
-            return setServerModule(getDefaultServerModule()).build();
+            return setServerModule(getDefaultServerModule()).setDefaults();
         } else if (timeOut == null) {
-            return setTimeOut(getDefaultTimeOut()).build();
+            return setTimeOut(getDefaultTimeOut()).setDefaults();
         } else if (codecFactory == null) {
-            return setCodecFactory(getDefaultCodecFactory()).build();
+            return setCodecFactory(getDefaultCodecFactory()).setDefaults();
         } else if (connectionFactory == null) {
-            return setConnectionFactory(getDefaultConnectionFactory()).build();
+            return setConnectionFactory(getDefaultConnectionFactory()).setDefaults();
         } else if (address == null) {
-            return setAddress(getDefaultAddress()).build();
+            return setAddress(getDefaultAddress()).setDefaults();
         } else {
-            return getDefaultServerConnectionFactory();
+            return this;
         }
+    }
+
+    @Override
+    public ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> build() {
+        return setDefaults().getDefaultServerConnectionFactory();
     }
 }

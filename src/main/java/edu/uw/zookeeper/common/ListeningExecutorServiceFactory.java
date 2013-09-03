@@ -22,7 +22,9 @@ public class ListeningExecutorServiceFactory extends AbstractIdleService {
         return new ListeningExecutorServiceFactory(
                 ImmutableMap.<Class<? extends ExecutorService>, Factory<? extends ExecutorService>>of(
                         ExecutorService.class, executorFactory,
-                        ScheduledExecutorService.class, scheduledFactory));
+                        ListeningExecutorService.class, executorFactory,
+                        ScheduledExecutorService.class, scheduledFactory,
+                        ListeningScheduledExecutorService.class, scheduledFactory));
     }
 
     private final Map<Class<? extends ExecutorService>, ExecutorServiceService<? extends ListeningExecutorService>> instances;
@@ -40,7 +42,7 @@ public class ListeningExecutorServiceFactory extends AbstractIdleService {
             return (T) instances.get(type).get();
         }
         Factory<? extends ExecutorService> factory = factories.get(type);
-        checkArgument(factory != null);
+        checkArgument(factory != null, type);
         ListeningExecutorService instance = MoreExecutors.listeningDecorator(factory.get());
         ImmutableList<Class<? extends ExecutorService>> types;
         if (instance instanceof ScheduledExecutorService) {
@@ -53,6 +55,7 @@ public class ListeningExecutorServiceFactory extends AbstractIdleService {
                     ListeningExecutorService.class);
         }
         ExecutorServiceService<ListeningExecutorService> service = ExecutorServiceService.newInstance(instance);
+        service.startAsync().awaitRunning();
         for (Class<? extends ExecutorService> t: types) {
             instances.put(t, service);
         }

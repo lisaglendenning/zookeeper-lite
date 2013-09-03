@@ -1,7 +1,7 @@
 package edu.uw.zookeeper.client;
 
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.*;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -352,12 +352,14 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
     protected final Publisher publisher;
     
     protected ZNodeViewCache(
-            Publisher publisher, ClientExecutor<? super I, V> client, ZNodeLabelTrie<E> trie) {
+            Publisher publisher, 
+            ClientExecutor<? super I, V> client, 
+            ZNodeLabelTrie<E> trie) {
         this.logger = LogManager.getLogger(getClass());
-        this.trie = trie;
-        this.client = client;
+        this.trie = checkNotNull(trie);
+        this.client = checkNotNull(client);
         this.lastZxid = ZxidTracker.create();
-        this.publisher = publisher;
+        this.publisher = checkNotNull(publisher);
     }
     
     public ZxidReference lastZxid() {

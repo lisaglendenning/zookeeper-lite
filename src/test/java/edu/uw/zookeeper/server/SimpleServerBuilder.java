@@ -19,7 +19,7 @@ public class SimpleServerBuilder extends ServerBuilder {
     public static SimpleServerBuilder defaults(
             ServerInetAddressView address,
             NetServerModule serverModule) {
-        return new SimpleServerBuilder(connectionBuilder(address, serverModule), null, null, null);
+        return new SimpleServerBuilder(connectionBuilder(address, serverModule), null, null, null, null);
     }
     
     public static ServerConnectionFactoryBuilder connectionBuilder(
@@ -35,34 +35,35 @@ public class SimpleServerBuilder extends ServerBuilder {
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             SimpleServerExecutor serverTaskExecutor,
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
-        super(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors);
+            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            RuntimeModule runtime) {
+        super(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
     }
 
     @Override
     public SimpleServerBuilder setRuntimeModule(RuntimeModule runtime) {
-        return new SimpleServerBuilder(connectionBuilder.setRuntimeModule(runtime), serverConnectionFactory, getServerTaskExecutor(), connectionExecutors);
+        return new SimpleServerBuilder(connectionBuilder.setRuntimeModule(runtime), serverConnectionFactory, getServerTaskExecutor(), connectionExecutors, runtime);
     }
 
     @Override
     public SimpleServerBuilder setConnectionBuilder(ServerConnectionFactoryBuilder connectionBuilder) {
-        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors);
+        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors, runtime);
     }
 
     @Override
     public SimpleServerBuilder setServerConnectionFactory(
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory) {
-        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors);
+        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors, runtime);
     }
 
     @Override
     public SimpleServerBuilder setServerTaskExecutor(ServerTaskExecutor serverTaskExecutor) {
-        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, (SimpleServerExecutor) serverTaskExecutor, connectionExecutors);
+        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, (SimpleServerExecutor) serverTaskExecutor, connectionExecutors, runtime);
     }
 
     @Override
     public SimpleServerBuilder setConnectionExecutors(ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
-        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors);
+        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors, runtime);
     }
     
     @Override

@@ -39,7 +39,7 @@ import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.*;
 
-public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<? extends Service>> {
+public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<Service>> {
 
     public static ServerBuilder defaults() {
         return new ServerBuilder();
@@ -133,34 +133,42 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<?
         return ServerTaskExecutor.newInstance(anonymousExecutor, connectExecutor, sessionExecutor);
     }
 
+    protected final RuntimeModule runtime;
     protected final ServerConnectionFactoryBuilder connectionBuilder;
     protected final ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory;
     protected final ServerTaskExecutor serverTaskExecutor;
     protected final ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors;
     
     protected ServerBuilder() {
-        this(ServerConnectionFactoryBuilder.defaults(), null, null, null);
+        this(null, null, null, null, null);
     }
 
     protected ServerBuilder(
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
+            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+                    RuntimeModule runtime) {
         this.connectionBuilder = connectionBuilder;
         this.serverConnectionFactory = serverConnectionFactory;
         this.serverTaskExecutor = serverTaskExecutor;
         this.connectionExecutors = connectionExecutors;
+        this.runtime = runtime;
     }
 
     @Override
     public RuntimeModule getRuntimeModule() {
-        return connectionBuilder.getRuntimeModule();
+        return runtime;
     }
 
     @Override
     public ServerBuilder setRuntimeModule(RuntimeModule runtime) {
-        return new ServerBuilder(connectionBuilder.setRuntimeModule(runtime), serverConnectionFactory, serverTaskExecutor, connectionExecutors);
+        return new ServerBuilder(
+                (connectionBuilder == null) ? connectionBuilder : connectionBuilder.setRuntimeModule(runtime), 
+                serverConnectionFactory, 
+                serverTaskExecutor, 
+                connectionExecutors, 
+                runtime);
     }
     
     public ServerConnectionFactoryBuilder getConnectionBuilder() {
@@ -168,7 +176,7 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<?
     }
 
     public ServerBuilder setConnectionBuilder(ServerConnectionFactoryBuilder connectionBuilder) {
-        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors);
+        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
     }
     
     public ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionFactory() {
@@ -177,7 +185,7 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<?
 
     public ServerBuilder setServerConnectionFactory(
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory) {
-        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors);
+        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
     }
 
     public ServerTaskExecutor getServerTaskExecutor() {
@@ -185,7 +193,7 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<?
     }
 
     public ServerBuilder setServerTaskExecutor(ServerTaskExecutor serverTaskExecutor) {
-        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors);
+        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
     }
 
     public ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getConnectionExecutors() {
@@ -193,26 +201,38 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<?
     }
 
     public ServerBuilder setConnectionExecutors(ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
-        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors);
+        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
     }
     
     @Override
-    public List<? extends Service> build() {
+    public List<Service> build() {
         return setDefaults().getServices();
     }
 
     public ServerBuilder setDefaults() {
         checkState(getRuntimeModule() != null);
     
-        if (serverConnectionFactory == null) {
-            return setServerConnectionFactory(getDefaultServerConnectionFactory());
-        } else if (serverTaskExecutor == null) {
-            return setServerTaskExecutor(getDefaultServerTaskExecutor());
-        } else if (connectionExecutors == null) {
-            return setConnectionExecutors(getDefaultConnectionExecutorsService());
-        } else {
-            return this;
+        if (this.connectionBuilder == null) {
+            return setConnectionBuilder(getDefaultServerConnectionFactoryBuilder()).setDefaults();
         }
+        ServerConnectionFactoryBuilder connectionBuilder = this.connectionBuilder.setDefaults();
+        if (this.connectionBuilder != connectionBuilder) {
+            return setConnectionBuilder(connectionBuilder).setDefaults();
+        }
+        if (serverConnectionFactory == null) {
+            return setServerConnectionFactory(getDefaultServerConnectionFactory()).setDefaults();
+        }
+        if (serverTaskExecutor == null) {
+            return setServerTaskExecutor(getDefaultServerTaskExecutor()).setDefaults();
+        }
+        if (connectionExecutors == null) {
+            return setConnectionExecutors(getDefaultConnectionExecutorsService()).setDefaults();
+        }
+        return this;
+    }
+    
+    protected ServerConnectionFactoryBuilder getDefaultServerConnectionFactoryBuilder() {
+        return ServerConnectionFactoryBuilder.defaults().setRuntimeModule(runtime).setDefaults();
     }
 
     protected ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getDefaultServerConnectionFactory() {
