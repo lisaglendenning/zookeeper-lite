@@ -9,8 +9,8 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.TimeValue;
@@ -27,7 +27,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
     }
 
     @Configurable(path="Sessions", key="MinTimeout", value="0 seconds", help="Time")
-    public static class ConfigurableMinTimeout extends DefaultMain.ConfigurableTimeout {
+    public static class ConfigurableMinTimeout extends ZooKeeperApplication.ConfigurableTimeout {
         
         public static TimeValue get(Configuration configuration) {
             return new ConfigurableMinTimeout().apply(configuration);
@@ -36,7 +36,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
     }
 
     @Configurable(path="Sessions", key="MaxTimeout", value="0 seconds", help="Time")
-    public static class ConfigurableMaxTimeout extends DefaultMain.ConfigurableTimeout {
+    public static class ConfigurableMaxTimeout extends ZooKeeperApplication.ConfigurableTimeout {
 
         public static TimeValue get(Configuration configuration) {
             return new ConfigurableMaxTimeout().apply(configuration);

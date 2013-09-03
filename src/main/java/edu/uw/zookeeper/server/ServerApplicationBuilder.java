@@ -1,24 +1,25 @@
 package edu.uw.zookeeper.server;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import java.net.SocketAddress;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import javax.annotation.Nullable;
 
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Function;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 
-import edu.uw.zookeeper.DefaultMain;
-import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
+import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.*;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
@@ -38,20 +39,7 @@ import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.*;
 
-public class ServerApplicationModule implements Callable<Application> {
-
-    public static ParameterizedFactory<RuntimeModule, Application> factory() {
-        return new ParameterizedFactory<RuntimeModule, Application>() {
-            @Override
-            public Application get(RuntimeModule runtime) {
-                try {
-                    return new ServerApplicationModule(runtime).call();
-                } catch (Exception e) {
-                    throw Throwables.propagate(e);
-                }
-            }  
-        };
-    }
+public abstract class ServerApplicationBuilder<T extends Application> extends ZooKeeperApplication.ApplicationBuilder<T> {
 
     @Configurable(arg="clientAddress", key="ClientAddress", value=":2181", help="Address:Port")
     public static class ConfigurableServerAddressView implements Function<Configuration, ServerInetAddressView> {
@@ -70,26 +58,6 @@ public class ServerApplicationModule implements Callable<Application> {
         }
     }
 
-    public static ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> codecFactory() {
-        return new ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>>() {
-            @Override
-            public Pair<Class<Message.Server>, ServerProtocolCodec> get(
-                    Publisher value) {
-                return Pair.create(Message.Server.class, ServerProtocolCodec.newInstance(value));
-            }
-        };
-    }
-
-    public static ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory() {
-        return new ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>() {
-            @Override
-            public ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>> get(
-                    Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>> value) {
-                return ProtocolCodecConnection.newInstance(value.first().second(), value.second());
-            }
-        };
-    }
-    
     public static Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> defaultTxnProcessor(
             ZNodeDataTrie trie,
             final SessionTable sessions,
@@ -161,75 +129,177 @@ public class ServerApplicationModule implements Callable<Application> {
         return ServerTaskExecutor.newInstance(anonymousExecutor, connectExecutor, sessionExecutor);
     }
 
-    protected final RuntimeModule runtime;
+    protected TimeValue timeOut;
+    protected NetServerModule serverModule;
+    protected ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> codecFactory;
+    protected ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory;
+    protected ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory;
+    protected ServerTaskExecutor serverTaskExecutor;
     
-    public ServerApplicationModule(RuntimeModule runtime) {
-        this.runtime = runtime;
-    }
-    
-    public RuntimeModule getRuntime() {
-        return runtime;
+    protected ServerApplicationBuilder() {
     }
 
-    @Override
-    public Application call() throws Exception {
-        getServerConnectionExecutorsService();
-        return ServiceApplication.newInstance(runtime.serviceMonitor());
+    public TimeValue getTimeOut() {
+        return timeOut;
     }
 
-    protected NetServerModule getNetServerModule() {
+    public ServerApplicationBuilder<T> setTimeOut(TimeValue timeOut) {
+        this.timeOut = timeOut;
+        return this;
+    }
+
+    public NetServerModule getServerModule() {
+        return serverModule;
+    }
+
+    public ServerApplicationBuilder<T> setServerModule(NetServerModule serverModule) {
+        this.serverModule = serverModule;
+        return this;
+    }
+
+    public ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> getCodecFactory() {
+        return codecFactory;
+    }
+
+    public ServerApplicationBuilder<T> setCodecFactory(
+            ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> codecFactory) {
+        this.codecFactory = codecFactory;
+        return this;
+    }
+
+    public ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getConnectionFactory() {
+        return connectionFactory;
+    }
+
+    public ServerApplicationBuilder<T> setConnectionFactory(
+            ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory) {
+        this.connectionFactory = connectionFactory;
+        return this;
+    }
+
+    public ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionFactory() {
+        return serverConnectionFactory;
+    }
+
+    public ServerApplicationBuilder<T> setServerConnectionFactory(
+            ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory) {
+        this.serverConnectionFactory = serverConnectionFactory;
+        return this;
+    }
+
+    public ServerTaskExecutor getServerTaskExecutor() {
+        return serverTaskExecutor;
+    }
+
+    public ServerApplicationBuilder<T> setServerTaskExecutor(ServerTaskExecutor serverTaskExecutor) {
+        this.serverTaskExecutor = serverTaskExecutor;
+        return this;
+    }
+
+    protected TimeValue getDefaultTimeOut() {
+        return ZooKeeperApplication.ConfigurableTimeout.get(runtime.configuration());
+    }
+    
+    protected NetServerModule getDefaultNetServerModule() {
         return NettyServerModule.newInstance(runtime);
     }
+
+    protected ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> getDefaultCodecFactory() {
+        return ServerProtocolCodec.factory();
+    }
     
-    protected ExpiringSessionTable getSessions() {
+    protected ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getDefaultConnectionFactory() {
+        return ProtocolCodecConnection.factory();
+    }
+    
+    protected ExpiringSessionTable getDefaultExpiringSessionTable() {
         SessionParametersPolicy policy = 
                 DefaultSessionParametersPolicy.create(runtime.configuration());
         ExpiringSessionTable sessions = 
-                ExpiringSessionTable.newInstance(runtime.publisherFactory().get(), policy);
+                ExpiringSessionTable.newInstance(EventBusPublisher.newInstance(), policy);
         runtime.serviceMonitor().add(
-                ExpiringSessionService.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
+                ExpiringSessionService.newInstance(
+                        sessions, 
+                        runtime.executors().get(ScheduledExecutorService.class),
+                        runtime.configuration()));
         return sessions;
     }
     
-    protected ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionFactory() {
-        NetServerModule serverModule = getNetServerModule(); 
-        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
+    protected ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getDefaultServerConnectionFactory() {
+        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
                 serverModule.getServerConnectionFactory(
-                        codecFactory(),
-                        connectionFactory());
-        ServerInetAddressView address = ConfigurableServerAddressView.get(runtime.configuration());
-        ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
+                        codecFactory,
+                        connectionFactory);
+        ServerInetAddressView address = getDefaultAddress();
+        ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
                 serverConnectionFactory.get(address.get());
-        runtime.serviceMonitor().add(serverConnections);
         return serverConnections;
     }
     
-    protected ServerTaskExecutor getServerTaskExecutor() {
-        ExpiringSessionTable sessions = getSessions();
+    protected ServerInetAddressView getDefaultAddress() {
+        return ConfigurableServerAddressView.get(runtime.configuration());
+    }
+    
+    protected ServerTaskExecutor getDefaultServerTaskExecutor() {
         ZxidEpochIncrementer zxids = ZxidEpochIncrementer.fromZero();
+        ExpiringSessionTable sessionTable = getDefaultExpiringSessionTable();
         ZNodeDataTrie dataTrie = ZNodeDataTrie.newInstance();
         ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
         ExpiringSessionRequestExecutor sessionExecutor = defaultSessionExecutor(
-                runtime.executors().asListeningExecutorServiceFactory().get(),
+                runtime.executors().get(ExecutorService.class),
                 zxids,
                 dataTrie,
                 listeners,
-                sessions);
+                sessionTable);
         return defaultServerExecutor(
                 zxids,
-                sessions,
+                sessionTable,
                 listeners,
                 sessionExecutor);
     }
     
-    protected ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionExecutorsService() {
-        TimeValue timeOut = DefaultMain.ConfigurableTimeout.get(runtime.configuration());
+    protected ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getDefaultServerConnectionExecutorsService() {
         ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> instance = ServerConnectionExecutorsService.newInstance(
-                getServerConnectionFactory(), 
+                serverConnectionFactory, 
                 timeOut,
-                runtime.executors().asScheduledExecutorServiceFactory().get(),
-                getServerTaskExecutor());
-        runtime.serviceMonitor().add(instance);
+                runtime.executors().get(ScheduledExecutorService.class),
+                serverTaskExecutor);
         return instance;
     }
+
+    @Override
+    public T build() {
+        getDefaults();
+        return getApplication();
+    }
+    
+    protected void getDefaults() {
+        checkState(runtime != null);
+        
+        if (serverModule == null) {
+            serverModule = getDefaultNetServerModule();
+        }
+
+        if (timeOut == null) {
+            timeOut = getDefaultTimeOut();
+        }
+
+        if (codecFactory == null) {
+            codecFactory = getDefaultCodecFactory();
+        }
+        
+        if (connectionFactory == null) {
+            connectionFactory = getDefaultConnectionFactory();
+        }
+        
+        if (serverConnectionFactory == null) {
+            serverConnectionFactory = getDefaultServerConnectionFactory();
+        }
+        
+        if (serverTaskExecutor == null) {
+            serverTaskExecutor = getDefaultServerTaskExecutor();
+        }
+    }
+
+    protected abstract T getApplication();
 }

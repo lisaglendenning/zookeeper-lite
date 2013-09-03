@@ -1,18 +1,16 @@
 package edu.uw.zookeeper.client;
 
-import java.net.SocketAddress;
 import java.util.concurrent.ScheduledExecutorService;
 
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.ServerView;
+import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -22,22 +20,22 @@ import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 
-public class ServerViewFactory<V, T extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> extends Pair<T, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<ClientConnectionExecutor<C>>>, Function<ClientConnectionExecutor<C>, ClientConnectionExecutor<C>> {
+public class ServerViewFactory<V, C extends ClientConnectionExecutor<?>> extends Pair<ServerInetAddressView, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<C>>, Function<C, C> {
 
-    public static <T extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactory<Session, T, C> newInstance(
+    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactory<Session, ClientConnectionExecutor<C>> newInstance(
             ClientConnectionFactory<C> connections,
-            T view,
+            ServerInetAddressView view,
             TimeValue timeOut,
             ScheduledExecutorService executor) {
         ZxidTracker zxids = ZxidTracker.create();
         final DefaultsFactory<Session, ConnectMessage.Request> requestFactory = ConnectMessage.Request.factory(timeOut, zxids);
-        final ParameterizedFactory<ConnectMessage.Request, ListenableFuture<ClientConnectionExecutor<C>>> delegate = 
+        final FromRequestFactory<C> delegate = 
                 FromRequestFactory.create(
                         FixedClientConnectionFactory.create(view.get(), connections),
                         executor);
-        return newInstance(
+        return new ServerViewFactory<Session, ClientConnectionExecutor<C>>(
                 view,
-                new DefaultsFactory<Session, ListenableFuture<ClientConnectionExecutor<C>>>() {
+                new DefaultsFactory<Session, ListenableFuture<? extends ClientConnectionExecutor<C>>>() {
                     @Override
                     public ListenableFuture<ClientConnectionExecutor<C>> get() {
                         return delegate.get(requestFactory.get());
@@ -51,11 +49,11 @@ public class ServerViewFactory<V, T extends ServerView.Address<? extends SocketA
                 zxids);
     }
     
-    public static <V, T extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactory<V,T,C> newInstance(
-            T view,
-            DefaultsFactory<V, ListenableFuture<ClientConnectionExecutor<C>>> delegate,
+    public static <V, C extends ClientConnectionExecutor<?>> ServerViewFactory<V,C> newInstance(
+            ServerInetAddressView view,
+            DefaultsFactory<V, ListenableFuture<? extends C>> delegate,
             ZxidTracker zxids) {
-        return new ServerViewFactory<V,T,C>(view, delegate, zxids);
+        return new ServerViewFactory<V,C>(view, delegate, zxids);
     }
     
     public static class FromRequestFactory<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements DefaultsFactory<ConnectMessage.Request, ListenableFuture<ClientConnectionExecutor<C>>> {
@@ -102,28 +100,28 @@ public class ServerViewFactory<V, T extends ServerView.Address<? extends SocketA
         }
     }
 
-    protected final DefaultsFactory<V, ListenableFuture<ClientConnectionExecutor<C>>> delegate;
+    protected final DefaultsFactory<V, ListenableFuture<? extends C>> delegate;
     
     protected ServerViewFactory(
-            T view,
-            DefaultsFactory<V, ListenableFuture<ClientConnectionExecutor<C>>> delegate,
+            ServerInetAddressView view,
+            DefaultsFactory<V, ListenableFuture<? extends C>> delegate,
             ZxidTracker zxids) {
         super(view, zxids);
         this.delegate = delegate;
     }
     
     @Override
-    public ListenableFuture<ClientConnectionExecutor<C>> get() {
+    public ListenableFuture<C> get() {
         return Futures.transform(delegate.get(), this);
     }
 
     @Override
-    public ListenableFuture<ClientConnectionExecutor<C>> get(V value) {
+    public ListenableFuture<C> get(V value) {
         return Futures.transform(delegate.get(value), this);
     }
 
     @Override
-    public ClientConnectionExecutor<C> apply(ClientConnectionExecutor<C> input) {
+    public C apply(C input) {
         ZxidTracker.ZxidListener.create(second(), input.get());
         return input;
     }

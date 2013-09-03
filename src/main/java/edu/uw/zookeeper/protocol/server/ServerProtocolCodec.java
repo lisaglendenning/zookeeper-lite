@@ -11,6 +11,8 @@ import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 
 import edu.uw.zookeeper.common.Automatons;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Stateful;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -39,6 +41,18 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
                 Automatons.createSynchronizedEventful(publisher, 
                         Automatons.createSimple(state));
         return new ServerProtocolCodec(automaton, ServerProtocolEncoder.create(automaton), ServerProtocolDecoder.create(automaton));
+    }
+
+    public static ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> factory() {
+        return new ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>>() {
+            @Override
+            public Pair<Class<Message.Server>, ServerProtocolCodec> get(
+                    Publisher value) {
+                return Pair.create(
+                        Message.Server.class, 
+                        ServerProtocolCodec.newInstance(value));
+            }
+        };
     }
 
     protected final Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton;

@@ -1,16 +1,37 @@
 package edu.uw.zookeeper.client;
 
 
-import edu.uw.zookeeper.DefaultMain;
-import edu.uw.zookeeper.common.Configuration;
+import edu.uw.zookeeper.ZooKeeperApplication;
+import edu.uw.zookeeper.common.Application;
+import edu.uw.zookeeper.common.ServiceApplication;
+import edu.uw.zookeeper.common.ServiceMonitor;
 
-public class Main extends DefaultMain {
+public class Main extends ZooKeeperApplication {
 
     public static void main(String[] args) {
-        DefaultMain.main(args, ConfigurableApplicationFactory.newInstance(Main.class));
+        ZooKeeperApplication.main(args, new MainBuilder());
     }
- 
-    public Main(Configuration configuration) {
-        super(ClientApplicationModule.factory(), configuration);
+
+    protected final Application application;
+    
+    protected Main(Application application) {
+        super();
+        this.application = application;
+    }
+
+    @Override
+    public void run() {
+        application.run();
+    }
+    
+    protected static class MainBuilder extends ClientApplicationBuilder<Main> {
+
+        @Override
+        protected Main getApplication() {
+            ServiceMonitor monitor = runtime.serviceMonitor();
+            monitor.add(clientConnectionFactory);
+            monitor.add(getDefaultClientConnectionExecutorService());
+            return new Main(ServiceApplication.newInstance(monitor));
+        }
     }
 }

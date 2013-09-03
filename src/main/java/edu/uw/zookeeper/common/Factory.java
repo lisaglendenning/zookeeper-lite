@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.common;
 
-public interface Factory<T> {
-    T get();
+import com.google.common.base.Supplier;
+
+public interface Factory<T> extends Supplier<T> {
 }

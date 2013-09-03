@@ -4,11 +4,12 @@ import com.google.common.base.Optional;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
-import edu.uw.zookeeper.RuntimeModule;
+import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.NetClientModule;
 import edu.uw.zookeeper.netty.ChannelClientConnectionFactory;
@@ -19,7 +20,7 @@ public class NettyClientModule implements NetClientModule {
 
     public static NettyClientModule newInstance(
             RuntimeModule runtime) {
-        Factory<? extends Publisher> publisherFactory = runtime.publisherFactory();
+        Factory<? extends Publisher> publisherFactory = EventBusPublisher.factory();
         Factory<Bootstrap> bootstrapFactory = 
                 NioClientBootstrapFactory.newInstance(runtime.threadFactory(), runtime.serviceMonitor());
         return newInstance(publisherFactory, bootstrapFactory);

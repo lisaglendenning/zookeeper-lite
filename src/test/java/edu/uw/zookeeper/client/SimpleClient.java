@@ -1,71 +1,56 @@
 package edu.uw.zookeeper.client;
 
-import java.net.InetSocketAddress;
-import java.util.concurrent.TimeUnit;
-
-import com.google.common.util.concurrent.Service;
-
-import edu.uw.zookeeper.DefaultRuntimeModule;
-import edu.uw.zookeeper.RuntimeModule;
+import java.util.concurrent.ScheduledExecutorService;
+import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.common.ForwardingService;
+import edu.uw.zookeeper.common.Application;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.TimeValue;
-import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.NetClientModule;
 import edu.uw.zookeeper.net.intravm.IntraVmNetModule;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.client.AssignXidCodec;
+import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;
-import edu.uw.zookeeper.server.SimpleServer;
 
-public class SimpleClient extends ForwardingService {
+public abstract class SimpleClient<T extends Application> extends ClientApplicationBuilder<T> {
     
-    public static SimpleClient newInstance() {
-        RuntimeModule runtime = DefaultRuntimeModule.newInstance();
-        IntraVmNetModule net = IntraVmNetModule.defaults();
-        return new SimpleClient(runtime, net);
-    }
-
-    protected final RuntimeModule runtime;
-    protected final SimpleServer server;
-    protected final ClientConnectionExecutorService<? extends ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> client;
+    protected final ServerInetAddressView serverAddress;
     
-    public SimpleClient(
-            RuntimeModule runtime,
+    protected SimpleClient(
+            ServerInetAddressView serverAddress,
+            NetClientModule clientModule,
             IntraVmNetModule net) {
-        this.runtime = runtime;
-        this.server = SimpleServer.newInstance(net, runtime.executors().asScheduledExecutorServiceFactory().get());
-        runtime.serviceMonitor().add(server);
-        ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = net.getClientConnectionFactory(
-                AssignXidCodec.factory(), 
-                ProtocolCodecConnection.<Operation.Request,AssignXidCodec,Connection<Operation.Request>>factory()).get();
-        runtime.serviceMonitor().add(clientConnections);
-        ServerViewFactory<Session, ServerInetAddressView, ? extends ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientFactory = ServerViewFactory.newInstance(
-                clientConnections, 
-                ServerInetAddressView.of((InetSocketAddress) server.getConnections().connections().listenAddress()), 
-                TimeValue.create(0L, TimeUnit.MILLISECONDS), 
-                runtime.executors().asScheduledExecutorServiceFactory().get());
-        this.client = ClientConnectionExecutorService.newInstance(clientFactory);
-        runtime.serviceMonitor().add(client);
+        this.serverAddress = serverAddress;
+        this.clientModule = clientModule;
     }
-    
-    public RuntimeModule getRuntimeModule() {
-        return runtime;
-    }
-    
-    public SimpleServer getServer() {
-        return server;
-    }
-    
-    public ClientConnectionExecutorService<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> getClient() {
-        return client;
+
+    @Override
+    protected TimeValue getDefaultTimeOut() {
+        return TimeValue.create(Session.Parameters.NEVER_TIMEOUT, Session.Parameters.TIMEOUT_UNIT);
     }
     
     @Override
-    protected Service delegate() {
-        return runtime.serviceMonitor();
+    protected ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> getDefaultConnectionFactory() {
+        return ProtocolCodecConnection.<Operation.Request,AssignXidCodec,Connection<Operation.Request>>factory();
     }
-
+    
+    @Override    
+    protected ClientConnectionExecutorService getDefaultClientConnectionExecutorService() {
+        Factory<? extends ListenableFuture<? extends ClientConnectionExecutor<?>>> factory = 
+                ServerViewFactory.newInstance(
+                        clientConnectionFactory, 
+                        serverAddress, 
+                        timeOut, 
+                        runtime.executors().get(ScheduledExecutorService.class));
+        ClientConnectionExecutorService service =
+                ClientConnectionExecutorService.newInstance(
+                        factory);
+        return service;
+    }
 }

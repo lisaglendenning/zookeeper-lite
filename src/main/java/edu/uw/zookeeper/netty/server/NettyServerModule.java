@@ -6,12 +6,12 @@ import com.google.common.base.Optional;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
-
-import edu.uw.zookeeper.RuntimeModule;
+import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.NetServerModule;
 import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
@@ -22,7 +22,7 @@ public class NettyServerModule implements NetServerModule {
 
     public static NettyServerModule newInstance(
             RuntimeModule runtime) {
-        Factory<? extends Publisher> publisherFactory = runtime.publisherFactory();
+        Factory<? extends Publisher> publisherFactory = EventBusPublisher.factory();
         ParameterizedFactory<SocketAddress, ServerBootstrap> bootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
                         NioServerBootstrapFactory.newInstance(runtime.threadFactory(), runtime.serviceMonitor()));

@@ -16,8 +16,6 @@ import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
@@ -25,21 +23,21 @@ import edu.uw.zookeeper.protocol.proto.Records;
 /**
  * Wraps a lazily-instantiated ClientConnectionExecutor in a Service.
  */
-public class ClientConnectionExecutorService<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> extends AbstractIdleService 
-        implements Reference<ClientConnectionExecutor<C>>, Publisher, ClientExecutor<Operation.Request, Message.ServerResponse<?>> {
+public class ClientConnectionExecutorService extends AbstractIdleService 
+        implements Reference<ClientConnectionExecutor<?>>, Publisher, ClientExecutor<Operation.Request, Message.ServerResponse<?>> {
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ClientConnectionExecutorService<C> newInstance(
-            Factory<ListenableFuture<ClientConnectionExecutor<C>>> factory) {
-        return new ClientConnectionExecutorService<C>(factory);
+    public static ClientConnectionExecutorService newInstance(
+            Factory<? extends ListenableFuture<? extends ClientConnectionExecutor<?>>> factory) {
+        return new ClientConnectionExecutorService(factory);
     }
     
-    protected final Factory<ListenableFuture<ClientConnectionExecutor<C>>> factory;
+    protected final Factory<? extends ListenableFuture<? extends ClientConnectionExecutor<?>>> factory;
     protected LinkedList<Object> handlers;
     protected LinkedList<Object> events;
-    protected volatile ClientConnectionExecutor<C> client;
+    protected volatile ClientConnectionExecutor<?> client;
     
     protected ClientConnectionExecutorService(
-            Factory<ListenableFuture<ClientConnectionExecutor<C>>> factory) {
+            Factory<? extends ListenableFuture<? extends ClientConnectionExecutor<?>>> factory) {
         this.factory = factory;
         this.handlers = Lists.newLinkedList();
         this.events = Lists.newLinkedList();
@@ -47,7 +45,7 @@ public class ClientConnectionExecutorService<C extends ProtocolCodecConnection<?
     }
 
     @Override
-    public ClientConnectionExecutor<C> get() {
+    public ClientConnectionExecutor<?> get() {
         return client;
     }
 

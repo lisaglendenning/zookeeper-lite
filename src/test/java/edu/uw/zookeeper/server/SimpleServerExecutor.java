@@ -14,11 +14,16 @@ import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.EventBusPublisher;
+import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
+import edu.uw.zookeeper.protocol.ConnectMessage;
+import edu.uw.zookeeper.protocol.FourLetterRequest;
+import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.server.AssignZxidProcessor;
@@ -29,13 +34,13 @@ import edu.uw.zookeeper.protocol.server.ToTxnRequestProcessor;
 import edu.uw.zookeeper.protocol.server.ZxidGenerator;
 import edu.uw.zookeeper.protocol.server.ZxidIncrementer;
 
-public class SimpleServerExecutor {
+public class SimpleServerExecutor extends ServerTaskExecutor {
     
     public static SimpleServerExecutor newInstance() {
         SimpleSessionTable sessions = newSessionTable();
         ZNodeDataTrie data = ZNodeDataTrie.newInstance();
         ServerTaskExecutor tasks = newServerTaskExecutor(data);
-        return new SimpleServerExecutor(sessions, data, tasks);
+        return new SimpleServerExecutor(sessions, data, tasks.getAnonymousExecutor(), tasks.getConnectExecutor(), tasks.getSessionExecutor());
     }
 
     public static SimpleSessionTable newSessionTable() {
@@ -56,7 +61,7 @@ public class SimpleServerExecutor {
                         ToTxnRequestProcessor.create(
                                 AssignZxidProcessor.newInstance(zxids)), 
                         ProtocolResponseProcessor.create(
-                                ServerApplicationModule.defaultTxnProcessor(dataTrie, sessions,
+                                ServerApplicationBuilder.defaultTxnProcessor(dataTrie, sessions,
                                         new Function<Long, Publisher>() {
                                             @Override
                                             public @Nullable Publisher apply(Long input) {
@@ -73,20 +78,21 @@ public class SimpleServerExecutor {
         ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
         SessionRequestExecutor sessionExecutor = newSessionExecutor(
                 MoreExecutors.sameThreadExecutor(), zxids, dataTrie, listeners, sessions);
-        return ServerApplicationModule.defaultServerExecutor(zxids, sessions, listeners, sessionExecutor);
+        return ServerApplicationBuilder.defaultServerExecutor(zxids, sessions, listeners, sessionExecutor);
     }
     
     protected final SessionTable sessions;
     protected final ZNodeDataTrie data;
-    protected final ServerTaskExecutor tasks;
     
     public SimpleServerExecutor(
             SessionTable sessions,
             ZNodeDataTrie data,
-            ServerTaskExecutor tasks) {
+            TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
+            TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
+            TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
+        super(anonymousExecutor, connectExecutor, sessionExecutor);
         this.sessions = sessions;
         this.data = data;
-        this.tasks = tasks;
     }
     
     public SessionTable getSessions() {
@@ -95,9 +101,5 @@ public class SimpleServerExecutor {
     
     public ZNodeDataTrie getData() {
         return data;
-    }
-    
-    public ServerTaskExecutor getTasks() {
-        return tasks;
     }
 }

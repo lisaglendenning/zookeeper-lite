@@ -17,6 +17,10 @@ public final class TimeValue implements Comparable<TimeValue> {
     public static TimeValue milliseconds(long value) {
         return new TimeValue(value, TimeUnit.MILLISECONDS);
     }
+
+    public static TimeValue seconds(long value) {
+        return new TimeValue(value, TimeUnit.SECONDS);
+    }
     
     public static TimeValue create(long value, String unitText) {
         checkNotNull(unitText);

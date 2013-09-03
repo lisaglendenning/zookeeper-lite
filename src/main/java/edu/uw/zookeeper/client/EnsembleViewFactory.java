@@ -1,6 +1,5 @@
 package edu.uw.zookeeper.client;
 
-import java.net.SocketAddress;
 import java.util.Random;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -12,7 +11,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
 
 import edu.uw.zookeeper.EnsembleView;
-import edu.uw.zookeeper.ServerView;
+import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
@@ -21,28 +20,27 @@ import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 
-public class EnsembleViewFactory<V extends ServerView.Address<? extends SocketAddress>, T> implements DefaultsFactory<V, T> {
+public class EnsembleViewFactory<T> implements DefaultsFactory<ServerInetAddressView, T> {
 
-    public static <V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> EnsembleViewFactory<V, ServerViewFactory<Session, V, C>> newInstance(
+    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> EnsembleViewFactory<ServerViewFactory<Session, ClientConnectionExecutor<C>>> newInstance(
             ClientConnectionFactory<C> connections,
-            Class<V> type,
-            EnsembleView<V> view, 
+            EnsembleView<ServerInetAddressView> view, 
             TimeValue timeOut,
             ScheduledExecutorService executor) {
         return newInstance(
-                view, RandomSelector.<V>newInstance(), type, 
+                view, RandomSelector.<ServerInetAddressView>newInstance(), 
                 InstanceFactory.newInstance(
-                        ServerViewFactories.<V,C>newInstance(connections, timeOut, executor), 
-                        new MapMaker().<V,ServerViewFactory<Session, V, C>>makeMap()));
+                        ServerViewFactories.<C>newInstance(connections, timeOut, executor), 
+                        new MapMaker().<ServerInetAddressView, ServerViewFactory<Session, ClientConnectionExecutor<C>>>makeMap()));
     }
 
-    public static <V extends ServerView.Address<? extends SocketAddress>, T> EnsembleViewFactory<V,T> newInstance(
-            EnsembleView<V> view,
-            Function<V[], V> selector,
-            Class<V> type,
-            ParameterizedFactory<V,T> factory) {
-        return new EnsembleViewFactory<V,T>(view, selector, type, factory);
+    public static <T> EnsembleViewFactory<T> newInstance(
+            EnsembleView<ServerInetAddressView> view,
+            Function<ServerInetAddressView[], ServerInetAddressView> selector,
+            ParameterizedFactory<ServerInetAddressView,T> factory) {
+        return new EnsembleViewFactory<T>(view, selector, factory);
     }
     
     public static class RandomSelector<T> implements Function<T[], T> {
@@ -93,13 +91,13 @@ public class EnsembleViewFactory<V extends ServerView.Address<? extends SocketAd
         }
     }
     
-    public static class ServerViewFactories<V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements ParameterizedFactory<V, ServerViewFactory<Session, V, C>> {
+    public static class ServerViewFactories<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements ParameterizedFactory<ServerInetAddressView, ServerViewFactory<Session, ClientConnectionExecutor<C>>> {
 
-        public static <T extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactories<T,C> newInstance(
+        public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactories<C> newInstance(
                 ClientConnectionFactory<C> connections,
                 TimeValue timeOut,
                 ScheduledExecutorService executor) {
-            return new ServerViewFactories<T,C>(connections, timeOut, executor);
+            return new ServerViewFactories<C>(connections, timeOut, executor);
         }
         
         protected final ClientConnectionFactory<C> connections;
@@ -116,33 +114,30 @@ public class EnsembleViewFactory<V extends ServerView.Address<? extends SocketAd
         }
 
         @Override
-        public ServerViewFactory<Session, V, C> get(V view) {
+        public ServerViewFactory<Session, ClientConnectionExecutor<C>> get(ServerInetAddressView view) {
             return ServerViewFactory.newInstance(connections, view, timeOut, executor);
         }
     }
 
-    protected final Function<V[], V> selector;
-    protected final EnsembleView<V> view;
-    protected final ParameterizedFactory<V,T> factory;
-    protected final Class<V> type;
+    protected final Function<ServerInetAddressView[], ServerInetAddressView> selector;
+    protected final EnsembleView<ServerInetAddressView> view;
+    protected final ParameterizedFactory<ServerInetAddressView,T> factory;
     
     protected EnsembleViewFactory(
-            EnsembleView<V> view,
-            Function<V[], V> selector,
-            Class<V> type,
-            ParameterizedFactory<V,T> factory) {
+            EnsembleView<ServerInetAddressView> view,
+            Function<ServerInetAddressView[], ServerInetAddressView> selector,
+            ParameterizedFactory<ServerInetAddressView,T> factory) {
         this.view = view;
         this.selector = selector;
         this.factory = factory;
-        this.type = type;
     }
     
-    public EnsembleView<V> view() {
+    public EnsembleView<ServerInetAddressView> view() {
         return view;
     }
     
-    public V select() {
-        return selector.apply(Iterables.toArray(view, type));
+    public ServerInetAddressView select() {
+        return selector.apply(Iterables.toArray(view, ServerInetAddressView.class));
     }
 
     @Override
@@ -151,7 +146,7 @@ public class EnsembleViewFactory<V extends ServerView.Address<? extends SocketAd
     }
     
     @Override
-    public T get(V server) {
+    public T get(ServerInetAddressView server) {
         if (! view().contains(server)) {
             throw new IllegalArgumentException(server.toString());
         }

@@ -1,15 +1,20 @@
 package edu.uw.zookeeper.common;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-import java.util.Map;
-
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
 
 
 public abstract class Factories {
+
+    public static <T,U> Factory<U> applied(
+            final ParameterizedFactory<? super T, ? extends U> factory,
+            final T value) {
+        return new Factory<U>() {
+            @Override
+            public U get() {
+                return factory.get(value);
+            }
+        };
+    }
 
     public static <T,U> U apply(
             Factory<? extends T> head,
@@ -107,22 +112,22 @@ public abstract class Factories {
         }
     }
 
-    public static class LazyHolder<T> implements Singleton<T> {
+    public static class LazyHolder<T> implements Reference<T> {
 
         public static <T> LazyHolder<T> newInstance(Factory<? extends T> factory) {
             return new LazyHolder<T>(factory);
         }
         
         protected final Factory<? extends T> factory;
-        protected Optional<T> instance;
+        protected T instance;
         
         protected LazyHolder(Factory<? extends T> factory) {
             this.factory = factory;
-            this.instance = Optional.<T>absent();
+            this.instance = null;
         }
         
         public boolean has() {
-            return instance.isPresent();
+            return (instance != null);
         }
         
         /**
@@ -130,15 +135,15 @@ public abstract class Factories {
          */
         @Override
         public T get() {
-            if (! instance.isPresent()) {
-                instance = Optional.<T>of(factory.get());
+            if (instance == null) {
+                instance = factory.get();
             }
-            return instance.get();
+            return instance;
         }
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).addValue(instance).toString();
+            return String.valueOf(instance);
         }
     }
     
@@ -240,30 +245,5 @@ public abstract class Factories {
             return apply(value, first(), second());
         }
     }
-    
-    public static class ByTypeFactory<T> implements ParameterizedFactory<Class<? extends T>, T> {
-
-        public static <T> ByTypeFactory<T> newInstance(Map<Class<? extends T>, Factory<? extends T>> factories) {
-            return new ByTypeFactory<T>(factories);
-        }
-        
-        private final Map<Class<? extends T>, Factory<? extends T>> factories;
-        
-        protected ByTypeFactory(Map<Class<? extends T>, Factory<? extends T>> factories) {
-            checkArgument(! factories.isEmpty());
-            this.factories = ImmutableMap.copyOf(factories);
-        }
-        
-        @Override
-        public T get(Class<? extends T> type) {
-            Factory<? extends T> factory = factories.get(type);
-            if (factory != null) {
-                return factory.get();
-            } else {
-                return null;
-            }
-        }
-    }
-
     private Factories() {}
 }

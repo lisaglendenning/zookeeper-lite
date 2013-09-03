@@ -1,11 +1,6 @@
-package edu.uw.zookeeper;
+package edu.uw.zookeeper.common;
 
 import java.util.concurrent.ThreadFactory;
-
-import edu.uw.zookeeper.common.Configuration;
-import edu.uw.zookeeper.common.Factory;
-import edu.uw.zookeeper.common.Publisher;
-import edu.uw.zookeeper.common.ServiceMonitor;
 
 public interface RuntimeModule {
 
@@ -15,7 +10,7 @@ public interface RuntimeModule {
     
     ServiceMonitor serviceMonitor();
     
-    Factory<? extends Publisher> publisherFactory();
-    
     ListeningExecutorServiceFactory executors();
+
+    void shutdown();
 }
