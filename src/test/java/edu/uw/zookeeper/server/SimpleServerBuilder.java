@@ -1,10 +1,5 @@
 package edu.uw.zookeeper.server;
 
-import java.util.List;
-
-import com.google.common.collect.Lists;
-import com.google.common.util.concurrent.Service;
-
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.RuntimeModule;
@@ -24,7 +19,7 @@ public class SimpleServerBuilder extends ServerBuilder {
     public static SimpleServerBuilder defaults(
             ServerInetAddressView address,
             NetServerModule serverModule) {
-        return new SimpleServerBuilder(null, connectionBuilder(address, serverModule), null, null);
+        return new SimpleServerBuilder(connectionBuilder(address, serverModule), null, null, null);
     }
     
     public static ServerConnectionFactoryBuilder connectionBuilder(
@@ -36,46 +31,40 @@ public class SimpleServerBuilder extends ServerBuilder {
                 .setTimeOut(TimeValue.create(Session.Parameters.NEVER_TIMEOUT, Session.Parameters.TIMEOUT_UNIT));
     }
     
-    protected final ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors;
-    
     protected SimpleServerBuilder(
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
-            SimpleServerExecutor serverTaskExecutor) {
-        super(connectionBuilder, serverConnectionFactory, serverTaskExecutor);
-        this.connectionExecutors = connectionExecutors;
+            SimpleServerExecutor serverTaskExecutor,
+            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
+        super(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors);
     }
 
-    public ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getConnectionExecutors() {
-        return connectionExecutors;
-    }
-
-    public SimpleServerBuilder setConnectionExecutors(ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
-        return new SimpleServerBuilder(connectionExecutors, connectionBuilder, serverConnectionFactory, getServerTaskExecutor());
-    }
-    
     @Override
     public SimpleServerBuilder setRuntimeModule(RuntimeModule runtime) {
-        return new SimpleServerBuilder(connectionExecutors, connectionBuilder.setRuntimeModule(runtime), serverConnectionFactory, getServerTaskExecutor());
+        return new SimpleServerBuilder(connectionBuilder.setRuntimeModule(runtime), serverConnectionFactory, getServerTaskExecutor(), connectionExecutors);
     }
 
     @Override
     public SimpleServerBuilder setConnectionBuilder(ServerConnectionFactoryBuilder connectionBuilder) {
-        return new SimpleServerBuilder(connectionExecutors, connectionBuilder, serverConnectionFactory, getServerTaskExecutor());
+        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors);
     }
 
     @Override
     public SimpleServerBuilder setServerConnectionFactory(
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory) {
-        return new SimpleServerBuilder(connectionExecutors, connectionBuilder, serverConnectionFactory, getServerTaskExecutor());
+        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors);
     }
 
     @Override
     public SimpleServerBuilder setServerTaskExecutor(ServerTaskExecutor serverTaskExecutor) {
-        return new SimpleServerBuilder(connectionExecutors, connectionBuilder, serverConnectionFactory, (SimpleServerExecutor) serverTaskExecutor);
+        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, (SimpleServerExecutor) serverTaskExecutor, connectionExecutors);
     }
 
+    @Override
+    public SimpleServerBuilder setConnectionExecutors(ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
+        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors);
+    }
+    
     @Override
     public SimpleServerExecutor getServerTaskExecutor() {
         return (SimpleServerExecutor) serverTaskExecutor;
@@ -83,22 +72,11 @@ public class SimpleServerBuilder extends ServerBuilder {
     
     @Override
     public SimpleServerBuilder setDefaults() {
-        SimpleServerBuilder builder = (SimpleServerBuilder) super.setDefaults();
-        if (builder == this) {
-            if (connectionExecutors == null) {
-                return setConnectionExecutors(getDefaultConnectionExecutorsService());
-            }
-        }
-        return builder;
+        return (SimpleServerBuilder) super.setDefaults();
     }
 
     @Override
     protected SimpleServerExecutor getDefaultServerTaskExecutor() {
         return SimpleServerExecutor.newInstance();
-    }
-    
-    @Override
-    protected List<? extends Service> getServices() {
-        return Lists.<Service>newArrayList(connectionExecutors);
     }
 }

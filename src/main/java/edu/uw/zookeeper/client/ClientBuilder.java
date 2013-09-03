@@ -52,16 +52,19 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<?
 
     protected final ClientConnectionFactoryBuilder connectionBuilder;
     protected final ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory;
+    protected final ClientConnectionExecutorService clientExecutor;
     
     protected ClientBuilder() {
-        this(ClientConnectionFactoryBuilder.defaults(), null);
+        this(ClientConnectionFactoryBuilder.defaults(), null, null);
     }
 
     protected ClientBuilder(
             ClientConnectionFactoryBuilder connectionBuilder,
-            ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory) {
+            ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory,
+            ClientConnectionExecutorService clientExecutor) {
         this.connectionBuilder = connectionBuilder;
         this.clientConnectionFactory = clientConnectionFactory;
+        this.clientExecutor = clientExecutor;
     }
 
     @Override
@@ -71,7 +74,7 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<?
 
     @Override
     public ClientBuilder setRuntimeModule(RuntimeModule runtime) {
-        return new ClientBuilder(connectionBuilder.setRuntimeModule(runtime), clientConnectionFactory);
+        return new ClientBuilder(connectionBuilder.setRuntimeModule(runtime), clientConnectionFactory, clientExecutor);
     }
     
     public ClientConnectionFactoryBuilder getConnectionBuilder() {
@@ -79,7 +82,7 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<?
     }
 
     public ClientBuilder setConnectionBuilder(ClientConnectionFactoryBuilder connectionBuilder) {
-        return new ClientBuilder(connectionBuilder, clientConnectionFactory);
+        return new ClientBuilder(connectionBuilder, clientConnectionFactory, clientExecutor);
     }
     
     public ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> getClientConnectionFactory() {
@@ -88,7 +91,16 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<?
 
     public ClientBuilder setClientConnectionFactory(
             ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory) {
-        return new ClientBuilder(connectionBuilder, clientConnectionFactory);
+        return new ClientBuilder(connectionBuilder, clientConnectionFactory, clientExecutor);
+    }
+    
+    public ClientConnectionExecutorService getClientConnectionExecutor() {
+        return clientExecutor;
+    }
+
+    public ClientBuilder setClientConnectionExecutor(
+            ClientConnectionExecutorService clientExecutor) {
+        return new ClientBuilder(connectionBuilder, clientConnectionFactory, clientExecutor);
     }
     
     @Override
@@ -100,10 +112,16 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<?
         checkState(getRuntimeModule() != null);
     
         if (clientConnectionFactory == null) {
-            return setClientConnectionFactory(connectionBuilder.build());
+            return setClientConnectionFactory(getDefaultClientConnectionFactory());
+        } else if (clientExecutor == null) {
+            return setClientConnectionExecutor(getDefaultClientConnectionExecutorService());
         } else {
             return this;
         }
+    }
+    
+    protected ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> getDefaultClientConnectionFactory() {
+        return connectionBuilder.build();
     }
 
     protected ClientConnectionExecutorService getDefaultClientConnectionExecutorService() {
@@ -125,7 +143,9 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<?
         return service;
     }
 
-    protected List<? extends Service> getServices() {
-        return Lists.<Service>newArrayList(clientConnectionFactory, getDefaultClientConnectionExecutorService());
+    protected List<Service> getServices() {
+        return Lists.<Service>newArrayList(
+                clientConnectionFactory, 
+                clientExecutor);
     }   
 }

@@ -71,7 +71,11 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
 
     @Override
     public ServerConnectionFactoryBuilder setRuntimeModule(RuntimeModule runtime) {
-        return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        if (this.runtime == runtime) {
+            return this;
+        } else {
+            return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        }
     }
     
     public TimeValue getTimeOut() {
@@ -79,7 +83,11 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
 
     public ServerConnectionFactoryBuilder setTimeOut(TimeValue timeOut) {
-        return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        if (this.timeOut == timeOut) {
+            return this;
+        } else {
+            return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        }
     }
 
     public NetServerModule getServerModule() {
@@ -87,7 +95,11 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
 
     public ServerConnectionFactoryBuilder setServerModule(NetServerModule serverModule) {
+        if (this.serverModule == serverModule) {
+            return this;
+        } else {
         return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        }
     }
 
     public ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> getCodecFactory() {
@@ -96,7 +108,11 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
 
     public ServerConnectionFactoryBuilder setCodecFactory(
             ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> codecFactory) {
+        if (this.codecFactory == codecFactory) {
+            return this;
+        } else {
         return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        }
     }
 
     public ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getConnectionFactory() {
@@ -105,7 +121,11 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
 
     public ServerConnectionFactoryBuilder setConnectionFactory(
             ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory) {
+        if (this.connectionFactory == connectionFactory) {
+            return this;
+        } else {
         return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        }
     }
     
     public ServerInetAddressView getAddress() {
@@ -113,7 +133,11 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
     
     public ServerConnectionFactoryBuilder setAddress(ServerInetAddressView address) {
-        return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        if (this.address == address) {
+            return this;
+        } else {
+            return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        }
     }
 
     protected TimeValue getDefaultTimeOut() {

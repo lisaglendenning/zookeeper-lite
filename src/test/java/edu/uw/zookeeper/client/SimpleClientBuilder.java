@@ -21,8 +21,9 @@ import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;
 public class SimpleClientBuilder extends ClientBuilder {
     
     public static SimpleClientBuilder defaults(
-            NetClientModule clientModule, ServerInetAddressView serverAddress) {
-        return new SimpleClientBuilder(serverAddress, connectionBuilder(clientModule), null);
+            ServerInetAddressView serverAddress,
+            NetClientModule clientModule) {
+        return new SimpleClientBuilder(serverAddress, connectionBuilder(clientModule), null, null);
     }
     
     public static ClientConnectionFactoryBuilder connectionBuilder(
@@ -38,8 +39,9 @@ public class SimpleClientBuilder extends ClientBuilder {
     protected SimpleClientBuilder(
             ServerInetAddressView serverAddress,
             ClientConnectionFactoryBuilder connectionBuilder,
-            ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory) {
-        super(connectionBuilder, clientConnectionFactory);
+            ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory,
+                    ClientConnectionExecutorService clientExecutor) {
+        super(connectionBuilder, clientConnectionFactory, clientExecutor);
         this.serverAddress = serverAddress;
     }
 
@@ -48,23 +50,34 @@ public class SimpleClientBuilder extends ClientBuilder {
     }
     
     public SimpleClientBuilder setServerAddress(ServerInetAddressView serverAddress) {
-        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory);
+        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor);
     }
 
     @Override
     public SimpleClientBuilder setRuntimeModule(RuntimeModule runtime) {
-        return new SimpleClientBuilder(serverAddress, connectionBuilder.setRuntimeModule(runtime), clientConnectionFactory);
+        return new SimpleClientBuilder(serverAddress, connectionBuilder.setRuntimeModule(runtime), clientConnectionFactory, clientExecutor);
     }
 
     @Override
     public SimpleClientBuilder setConnectionBuilder(ClientConnectionFactoryBuilder connectionBuilder) {
-        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory);
+        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor);
     }
 
     @Override
     public SimpleClientBuilder setClientConnectionFactory(
             ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory) {
-        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory);
+        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor);
+    }
+
+    @Override
+    public SimpleClientBuilder setClientConnectionExecutor(
+            ClientConnectionExecutorService clientExecutor) {
+        return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor);
+    }
+    
+    @Override
+    public SimpleClientBuilder setDefaults() {
+        return (SimpleClientBuilder) super.setDefaults();
     }
     
     @Override    
