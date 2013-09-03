@@ -1,7 +1,6 @@
 package edu.uw.zookeeper;
 
 import com.google.common.base.Function;
-
 import edu.uw.zookeeper.common.Application;
 import edu.uw.zookeeper.common.Builder;
 import edu.uw.zookeeper.common.Configurable;
@@ -12,34 +11,24 @@ import edu.uw.zookeeper.common.TimeValue;
 
 public abstract class ZooKeeperApplication implements Application {
 
-    public static <T extends ApplicationBuilder<? extends Application>> void main(String[] args, T builder) {
+    public static <T extends RuntimeBuilder<? extends Application>> void main(String[] args, T builder) {
         DefaultMain.main(args, factory(builder));
     }
  
-    public static <T extends ApplicationBuilder<? extends Application>> ApplicationFactory<T> factory(T builder) {
+    public static <T extends RuntimeBuilder<? extends Application>> ApplicationFactory<T> factory(T builder) {
         return ApplicationFactory.create(builder);
     }
-
-    public static abstract class ApplicationBuilder<T extends Application> implements Builder<T> {
+    
+    public static interface RuntimeBuilder<T> extends Builder<T> {
         
-        protected RuntimeModule runtime;
+        RuntimeModule getRuntimeModule();
         
-        protected ApplicationBuilder() {
-        }
-        
-        public RuntimeModule getRuntimeModule() {
-            return runtime;
-        }
-        
-        public ApplicationBuilder<T> setRuntimeModule(RuntimeModule runtime) {
-            this.runtime = runtime;
-            return this;
-        }
+        RuntimeBuilder<T> setRuntimeModule(RuntimeModule runtime);
     }
 
-    public static class ApplicationFactory<T extends ApplicationBuilder<? extends Application>> implements ParameterizedFactory<RuntimeModule, Application> {
+    public static class ApplicationFactory<T extends RuntimeBuilder<? extends Application>> implements ParameterizedFactory<RuntimeModule, Application> {
 
-        public static <T extends ApplicationBuilder<? extends Application>> ApplicationFactory<T> create(T builder) {
+        public static <T extends RuntimeBuilder<? extends Application>> ApplicationFactory<T> create(T builder) {
             return new ApplicationFactory<T>(builder);
         }
         

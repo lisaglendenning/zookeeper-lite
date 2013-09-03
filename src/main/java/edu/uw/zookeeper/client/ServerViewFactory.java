@@ -51,7 +51,7 @@ public class ServerViewFactory<V, C extends ClientConnectionExecutor<?>> extends
     
     public static <V, C extends ClientConnectionExecutor<?>> ServerViewFactory<V,C> newInstance(
             ServerInetAddressView view,
-            DefaultsFactory<V, ListenableFuture<? extends C>> delegate,
+            DefaultsFactory<V, ? extends ListenableFuture<? extends C>> delegate,
             ZxidTracker zxids) {
         return new ServerViewFactory<V,C>(view, delegate, zxids);
     }
@@ -100,11 +100,11 @@ public class ServerViewFactory<V, C extends ClientConnectionExecutor<?>> extends
         }
     }
 
-    protected final DefaultsFactory<V, ListenableFuture<? extends C>> delegate;
+    protected final DefaultsFactory<V, ? extends ListenableFuture<? extends C>> delegate;
     
     protected ServerViewFactory(
             ServerInetAddressView view,
-            DefaultsFactory<V, ListenableFuture<? extends C>> delegate,
+            DefaultsFactory<V, ? extends ListenableFuture<? extends C>> delegate,
             ZxidTracker zxids) {
         super(view, zxids);
         this.delegate = delegate;

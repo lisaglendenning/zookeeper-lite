@@ -1,8 +1,11 @@
 package edu.uw.zookeeper.client;
 
 
+import com.google.common.util.concurrent.Service;
+
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.Application;
+import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.ServiceApplication;
 import edu.uw.zookeeper.common.ServiceMonitor;
 
@@ -24,13 +27,36 @@ public class Main extends ZooKeeperApplication {
         application.run();
     }
     
-    protected static class MainBuilder extends ClientApplicationBuilder<Main> {
+    protected static class MainBuilder implements ZooKeeperApplication.RuntimeBuilder<Main> {
+        
+        protected final ClientBuilder delegate;
+        
+        public MainBuilder() {
+            this(ClientBuilder.defaults());
+        }
+
+        public MainBuilder(
+                ClientBuilder delegate) {
+            this.delegate = delegate;
+        }
 
         @Override
-        protected Main getApplication() {
-            ServiceMonitor monitor = runtime.serviceMonitor();
-            monitor.add(clientConnectionFactory);
-            monitor.add(getDefaultClientConnectionExecutorService());
+        public RuntimeModule getRuntimeModule() {
+            return delegate.getRuntimeModule();
+        }
+
+        @Override
+        public MainBuilder setRuntimeModule(
+                RuntimeModule runtime) {
+            return new MainBuilder(delegate.setRuntimeModule(runtime));
+        }
+
+        @Override
+        public Main build() {
+            ServiceMonitor monitor = getRuntimeModule().serviceMonitor();
+            for (Service service: delegate.build()) {
+                monitor.add(service);
+            }
             return new Main(ServiceApplication.newInstance(monitor));
         }
     }

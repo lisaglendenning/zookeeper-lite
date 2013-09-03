@@ -24,22 +24,31 @@ import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 
 public class EnsembleViewFactory<T> implements DefaultsFactory<ServerInetAddressView, T> {
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> EnsembleViewFactory<ServerViewFactory<Session, ClientConnectionExecutor<C>>> newInstance(
+    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> EnsembleViewFactory<ServerViewFactory<Session, ClientConnectionExecutor<C>>> fromSession(
             ClientConnectionFactory<C> connections,
             EnsembleView<ServerInetAddressView> view, 
             TimeValue timeOut,
             ScheduledExecutorService executor) {
-        return newInstance(
-                view, RandomSelector.<ServerInetAddressView>newInstance(), 
+        return random(
+                view,  
                 InstanceFactory.newInstance(
                         ServerViewFactories.<C>newInstance(connections, timeOut, executor), 
                         new MapMaker().<ServerInetAddressView, ServerViewFactory<Session, ClientConnectionExecutor<C>>>makeMap()));
     }
 
+    public static <T> EnsembleViewFactory<T> random(
+            EnsembleView<ServerInetAddressView> view,
+            ParameterizedFactory<ServerInetAddressView, T> factory) {
+        return newInstance(
+                view, 
+                RandomSelector.<ServerInetAddressView>newInstance(),
+                factory);
+    }
+    
     public static <T> EnsembleViewFactory<T> newInstance(
             EnsembleView<ServerInetAddressView> view,
             Function<ServerInetAddressView[], ServerInetAddressView> selector,
-            ParameterizedFactory<ServerInetAddressView,T> factory) {
+            ParameterizedFactory<ServerInetAddressView, T> factory) {
         return new EnsembleViewFactory<T>(view, selector, factory);
     }
     
