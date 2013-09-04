@@ -1,6 +1,8 @@
 package edu.uw.zookeeper;
 
+
 import com.google.common.base.Function;
+
 import edu.uw.zookeeper.common.Application;
 import edu.uw.zookeeper.common.Builder;
 import edu.uw.zookeeper.common.Configurable;
@@ -42,10 +44,59 @@ public abstract class ZooKeeperApplication implements Application {
         
         @Override
         public Application get(RuntimeModule runtime) {
-            return builder.setRuntimeModule(runtime).build();
+            return builder.setRuntimeModule(runtime).setDefaults().build();
         }
     }
+    
+    public static abstract class ForwardingBuilder<V, T extends RuntimeBuilder<?,?>, C extends ForwardingBuilder<V,T,C>> implements RuntimeBuilder<V,C> {
 
+        protected final T delegate;
+        
+        public ForwardingBuilder(T delegate) {
+            this.delegate = delegate;
+        }
+        
+        @Override
+        public RuntimeModule getRuntimeModule() {
+            return delegate.getRuntimeModule();
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public C setRuntimeModule(RuntimeModule runtime) {
+            return newInstance((T) delegate.setRuntimeModule(runtime));
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public C setDefaults() {
+            return newInstance((T) delegate.setDefaults());
+        }
+
+        @Override
+        public V build() {
+            return setDefaults().doBuild();
+        }
+
+        protected abstract C newInstance(T delegate);
+        
+        protected abstract V doBuild();
+    }
+    
+    public static class ForwardingApplication extends ZooKeeperApplication {
+
+        protected final Application delegate;
+        
+        public ForwardingApplication(Application delegate) {
+            this.delegate = delegate;
+        }
+        
+        @Override
+        public void run() {
+            delegate.run();
+        }
+    }
+    
     @Configurable(arg="timeout", key="Timeout", value="30 seconds", help="Time")
     public static class ConfigurableTimeout implements Function<Configuration, TimeValue> {
     
