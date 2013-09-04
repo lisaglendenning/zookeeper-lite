@@ -27,7 +27,7 @@ public class Main extends ZooKeeperApplication {
         application.run();
     }
 
-    protected static class MainBuilder implements ZooKeeperApplication.RuntimeBuilder<Main> {
+    protected static class MainBuilder implements ZooKeeperApplication.RuntimeBuilder<Main, MainBuilder> {
         
         protected final ServerBuilder delegate;
         
@@ -52,9 +52,15 @@ public class Main extends ZooKeeperApplication {
         }
 
         @Override
+        public MainBuilder setDefaults() {
+            return new MainBuilder(delegate.setDefaults());
+        }
+
+        @Override
         public Main build() {
-            ServiceMonitor monitor = getRuntimeModule().getServiceMonitor();
-            for (Service service: delegate.build()) {
+            MainBuilder builder = setDefaults();
+            ServiceMonitor monitor = builder.getRuntimeModule().getServiceMonitor();
+            for (Service service: builder.delegate.build()) {
                 monitor.add(service);
             }
             return new Main(ServiceApplication.newInstance(monitor));

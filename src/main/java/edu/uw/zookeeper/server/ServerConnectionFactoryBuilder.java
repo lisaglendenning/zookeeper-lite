@@ -3,7 +3,9 @@ package edu.uw.zookeeper.server;
 import static com.google.common.base.Preconditions.checkState;
 
 import java.net.SocketAddress;
+
 import com.google.common.base.Function;
+
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.*;
@@ -15,7 +17,7 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.server.*;
 
-public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.RuntimeBuilder<ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> {
+public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.RuntimeBuilder<ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>, ServerConnectionFactoryBuilder> {
 
     public static ServerConnectionFactoryBuilder defaults() {
         return new ServerConnectionFactoryBuilder();
@@ -74,7 +76,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.runtime == runtime) {
             return this;
         } else {
-            return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+            return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
         }
     }
     
@@ -86,7 +88,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.timeOut == timeOut) {
             return this;
         } else {
-            return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+            return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
         }
     }
 
@@ -98,7 +100,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.serverModule == serverModule) {
             return this;
         } else {
-        return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
         }
     }
 
@@ -111,7 +113,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.codecFactory == codecFactory) {
             return this;
         } else {
-        return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
         }
     }
 
@@ -124,7 +126,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.connectionFactory == connectionFactory) {
             return this;
         } else {
-        return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
         }
     }
     
@@ -136,8 +138,45 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.address == address) {
             return this;
         } else {
-            return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+            return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
         }
+    }
+
+    @Override
+    public ServerConnectionFactoryBuilder setDefaults() {
+        checkState(runtime != null);
+        
+        if (serverModule == null) {
+            return setServerModule(getDefaultServerModule()).setDefaults();
+        }
+        if (timeOut == null) {
+            return setTimeOut(getDefaultTimeOut()).setDefaults();
+        }
+        if (codecFactory == null) {
+            return setCodecFactory(getDefaultCodecFactory()).setDefaults();
+        }
+        if (connectionFactory == null) {
+            return setConnectionFactory(getDefaultConnectionFactory()).setDefaults();
+        }
+        if (address == null) {
+            return setAddress(getDefaultAddress()).setDefaults();
+        }
+        return this;
+    }
+
+    @Override
+    public ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> build() {
+        return setDefaults().getDefaultServerConnectionFactory();
+    }
+    
+    protected ServerConnectionFactoryBuilder newInstance(
+            RuntimeModule runtime,
+            TimeValue timeOut,
+            NetServerModule serverModule,
+            ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> codecFactory,
+            ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory,
+            ServerInetAddressView address) {
+        return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
     }
 
     protected TimeValue getDefaultTimeOut() {
@@ -168,28 +207,5 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     
     protected ServerInetAddressView getDefaultAddress() {
         return ConfigurableServerAddressView.get(runtime.getConfiguration());
-    }
-    
-    public ServerConnectionFactoryBuilder setDefaults() {
-        checkState(runtime != null);
-        
-        if (serverModule == null) {
-            return setServerModule(getDefaultServerModule()).setDefaults();
-        } else if (timeOut == null) {
-            return setTimeOut(getDefaultTimeOut()).setDefaults();
-        } else if (codecFactory == null) {
-            return setCodecFactory(getDefaultCodecFactory()).setDefaults();
-        } else if (connectionFactory == null) {
-            return setConnectionFactory(getDefaultConnectionFactory()).setDefaults();
-        } else if (address == null) {
-            return setAddress(getDefaultAddress()).setDefaults();
-        } else {
-            return this;
-        }
-    }
-
-    @Override
-    public ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> build() {
-        return setDefaults().getDefaultServerConnectionFactory();
     }
 }

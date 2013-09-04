@@ -39,7 +39,7 @@ import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.*;
 
-public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<Service>> {
+public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<Service>, ServerBuilder> {
 
     public static ServerBuilder defaults() {
         return new ServerBuilder();
@@ -148,7 +148,7 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
-                    RuntimeModule runtime) {
+            RuntimeModule runtime) {
         this.connectionBuilder = connectionBuilder;
         this.serverConnectionFactory = serverConnectionFactory;
         this.serverTaskExecutor = serverTaskExecutor;
@@ -163,12 +163,16 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
 
     @Override
     public ServerBuilder setRuntimeModule(RuntimeModule runtime) {
-        return new ServerBuilder(
-                (connectionBuilder == null) ? connectionBuilder : connectionBuilder.setRuntimeModule(runtime), 
-                serverConnectionFactory, 
-                serverTaskExecutor, 
-                connectionExecutors, 
-                runtime);
+        if (this.runtime == runtime) {
+            return this;
+        } else {
+            return newInstance(
+                    (connectionBuilder == null) ? connectionBuilder : connectionBuilder.setRuntimeModule(runtime), 
+                    serverConnectionFactory, 
+                    serverTaskExecutor, 
+                    connectionExecutors, 
+                    runtime);
+        }
     }
     
     public ServerConnectionFactoryBuilder getConnectionBuilder() {
@@ -176,7 +180,11 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
     }
 
     public ServerBuilder setConnectionBuilder(ServerConnectionFactoryBuilder connectionBuilder) {
-        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        if (this.connectionBuilder == connectionBuilder) {
+            return this;
+        } else {
+            return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        }
     }
     
     public ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionFactory() {
@@ -185,7 +193,11 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
 
     public ServerBuilder setServerConnectionFactory(
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory) {
-        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        if (this.serverConnectionFactory == serverConnectionFactory) {
+            return this;
+        } else {
+            return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        }
     }
 
     public ServerTaskExecutor getServerTaskExecutor() {
@@ -193,7 +205,11 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
     }
 
     public ServerBuilder setServerTaskExecutor(ServerTaskExecutor serverTaskExecutor) {
-        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        if (this.serverTaskExecutor == serverTaskExecutor) {
+            return this;
+        } else {
+            return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        }
     }
 
     public ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getConnectionExecutors() {
@@ -201,7 +217,11 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
     }
 
     public ServerBuilder setConnectionExecutors(ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
-        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        if (this.connectionExecutors == connectionExecutors) {
+            return this;
+        } else {
+            return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        }
     }
     
     @Override
@@ -229,6 +249,15 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
             return setConnectionExecutors(getDefaultConnectionExecutorsService()).setDefaults();
         }
         return this;
+    }
+    
+    protected ServerBuilder newInstance(
+            ServerConnectionFactoryBuilder connectionBuilder,
+            ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
+            ServerTaskExecutor serverTaskExecutor,
+            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            RuntimeModule runtime) {
+        return new ServerBuilder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
     }
     
     protected ServerConnectionFactoryBuilder getDefaultServerConnectionFactoryBuilder() {

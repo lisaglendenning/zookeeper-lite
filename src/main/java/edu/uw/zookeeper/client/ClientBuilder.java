@@ -27,7 +27,7 @@ import edu.uw.zookeeper.protocol.client.AssignXidCodec;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;
 
-public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<Service>> {
+public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<Service>, ClientBuilder> {
 
     public static ClientBuilder defaults() {
         return new ClientBuilder();
@@ -77,11 +77,15 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
 
     @Override
     public ClientBuilder setRuntimeModule(RuntimeModule runtime) {
-        return new ClientBuilder(
-                (connectionBuilder == null) ? connectionBuilder : connectionBuilder.setRuntimeModule(runtime), 
-                clientConnectionFactory, 
-                clientExecutor,
-                runtime);
+        if (this.runtime == runtime) {
+            return this;
+        } else {
+            return newInstance(
+                    (connectionBuilder == null) ? connectionBuilder : connectionBuilder.setRuntimeModule(runtime), 
+                    clientConnectionFactory, 
+                    clientExecutor,
+                    runtime);
+        }
     }
     
     public ClientConnectionFactoryBuilder getConnectionBuilder() {
@@ -89,7 +93,11 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
     }
 
     public ClientBuilder setConnectionBuilder(ClientConnectionFactoryBuilder connectionBuilder) {
-        return new ClientBuilder(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
+        if (this.connectionBuilder == connectionBuilder) {
+            return this;
+        } else {
+            return newInstance(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
+        }
     }
     
     public ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> getClientConnectionFactory() {
@@ -98,7 +106,11 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
 
     public ClientBuilder setClientConnectionFactory(
             ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory) {
-        return new ClientBuilder(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
+        if (this.clientConnectionFactory == clientConnectionFactory) {
+            return this;
+        } else {
+            return newInstance(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
+        }
     }
     
     public ClientConnectionExecutorService getClientConnectionExecutor() {
@@ -107,9 +119,14 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
 
     public ClientBuilder setClientConnectionExecutor(
             ClientConnectionExecutorService clientExecutor) {
-        return new ClientBuilder(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
+        if (this.clientExecutor == clientExecutor) {
+            return this;
+        } else {
+            return newInstance(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
+        }
     }
-    
+
+    @Override
     public ClientBuilder setDefaults() {
         checkState(getRuntimeModule() != null);
     
@@ -132,6 +149,14 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
     @Override
     public List<Service> build() {
         return setDefaults().getServices();
+    }
+    
+    protected ClientBuilder newInstance(
+            ClientConnectionFactoryBuilder connectionBuilder,
+            ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory,
+            ClientConnectionExecutorService clientExecutor,
+            RuntimeModule runtime) {
+        return new ClientBuilder(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
     }
     
     protected ClientConnectionFactoryBuilder getDefaultClientConnectionFactoryBuilder() {

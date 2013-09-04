@@ -11,24 +11,26 @@ import edu.uw.zookeeper.common.TimeValue;
 
 public abstract class ZooKeeperApplication implements Application {
 
-    public static <T extends RuntimeBuilder<? extends Application>> void main(String[] args, T builder) {
+    public static <T extends RuntimeBuilder<? extends Application, ?>> void main(String[] args, T builder) {
         DefaultMain.main(args, factory(builder));
     }
  
-    public static <T extends RuntimeBuilder<? extends Application>> ApplicationFactory<T> factory(T builder) {
+    public static <T extends RuntimeBuilder<? extends Application, ?>> ApplicationFactory<T> factory(T builder) {
         return ApplicationFactory.create(builder);
     }
     
-    public static interface RuntimeBuilder<T> extends Builder<T> {
+    public static interface RuntimeBuilder<T, C extends RuntimeBuilder<T,C>> extends Builder<T> {
         
         RuntimeModule getRuntimeModule();
         
-        RuntimeBuilder<T> setRuntimeModule(RuntimeModule runtime);
+        C setRuntimeModule(RuntimeModule runtime);
+        
+        public C setDefaults();
     }
 
-    public static class ApplicationFactory<T extends RuntimeBuilder<? extends Application>> implements ParameterizedFactory<RuntimeModule, Application> {
+    public static class ApplicationFactory<T extends RuntimeBuilder<? extends Application, ?>> implements ParameterizedFactory<RuntimeModule, Application> {
 
-        public static <T extends RuntimeBuilder<? extends Application>> ApplicationFactory<T> create(T builder) {
+        public static <T extends RuntimeBuilder<? extends Application, ?>> ApplicationFactory<T> create(T builder) {
             return new ApplicationFactory<T>(builder);
         }
         

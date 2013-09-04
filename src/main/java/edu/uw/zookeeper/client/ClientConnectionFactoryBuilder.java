@@ -20,7 +20,7 @@ import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.client.AssignXidCodec;
 import edu.uw.zookeeper.protocol.client.PingingClient;
 
-public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.RuntimeBuilder<ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>>> {
+public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.RuntimeBuilder<ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>>, ClientConnectionFactoryBuilder> {
 
     public static ClientConnectionFactoryBuilder defaults() {
         return new ClientConnectionFactoryBuilder();
@@ -60,7 +60,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.runtime == runtime) {
             return this;
         } else {
-            return new ClientConnectionFactoryBuilder(runtime, clientModule, timeOut, codecFactory, connectionFactory);
+            return newInstance(runtime, clientModule, timeOut, codecFactory, connectionFactory);
         }
     }
     
@@ -72,7 +72,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.clientModule == clientModule) {
             return this;
         } else {
-            return new ClientConnectionFactoryBuilder(runtime, clientModule, timeOut, codecFactory, connectionFactory);
+            return newInstance(runtime, clientModule, timeOut, codecFactory, connectionFactory);
         }
     }
 
@@ -84,7 +84,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.timeOut == timeOut) {
             return this;
         } else {
-            return new ClientConnectionFactoryBuilder(runtime, clientModule, timeOut, codecFactory, connectionFactory);
+            return newInstance(runtime, clientModule, timeOut, codecFactory, connectionFactory);
         }
     }
 
@@ -97,7 +97,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.codecFactory == codecFactory) {
             return this;
         } else {
-            return new ClientConnectionFactoryBuilder(runtime, clientModule, timeOut, codecFactory, connectionFactory);
+            return newInstance(runtime, clientModule, timeOut, codecFactory, connectionFactory);
         }
     }
 
@@ -110,8 +110,41 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.connectionFactory == connectionFactory) {
             return this;
         } else {
-            return new ClientConnectionFactoryBuilder(runtime, clientModule, timeOut, codecFactory, connectionFactory);
+            return newInstance(runtime, clientModule, timeOut, codecFactory, connectionFactory);
         }
+    }
+
+    @Override
+    public ClientConnectionFactoryBuilder setDefaults() {
+        checkState(runtime != null);
+    
+        if (clientModule == null) {
+            return setClientModule(getDefaultClientModule()).setDefaults();
+        }
+        if (timeOut == null) {
+            return setTimeOut(getDefaultTimeOut()).setDefaults();
+        }
+        if (codecFactory == null) {
+            return setCodecFactory(getDefaultCodecFactory()).setDefaults();
+        }
+        if (connectionFactory == null) {
+            return setConnectionFactory(getDefaultConnectionFactory()).setDefaults();
+        }
+        return this;
+    }
+
+    @Override
+    public ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> build() {
+        return setDefaults().getDefaultClientConnectionFactory();
+    }
+
+    protected ClientConnectionFactoryBuilder newInstance(
+            RuntimeModule runtime,
+            NetClientModule clientModule,
+            TimeValue timeOut,
+            ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory,
+            ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> connectionFactory) {
+        return new ClientConnectionFactoryBuilder(runtime, clientModule, timeOut, codecFactory, connectionFactory);
     }
 
     protected TimeValue getDefaultTimeOut() {
@@ -135,26 +168,5 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
                 clientModule.getClientConnectionFactory(
                             codecFactory, connectionFactory).get();
         return clientConnections;
-    }
-
-    public ClientConnectionFactoryBuilder setDefaults() {
-        checkState(runtime != null);
-    
-        if (clientModule == null) {
-            return setClientModule(getDefaultClientModule()).setDefaults();
-        } else if (timeOut == null) {
-            return setTimeOut(getDefaultTimeOut()).setDefaults();
-        } else if (codecFactory == null) {
-            return setCodecFactory(getDefaultCodecFactory()).setDefaults();
-        } else if (connectionFactory == null) {
-            return setConnectionFactory(getDefaultConnectionFactory()).setDefaults();
-        } else {
-            return this;
-        }
-    }
-
-    @Override
-    public ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> build() {
-        return setDefaults().getDefaultClientConnectionFactory();
     }
 }
