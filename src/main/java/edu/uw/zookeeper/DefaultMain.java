@@ -64,11 +64,11 @@ public class DefaultMain implements Application {
     public void run() {
         Thread.currentThread().setUncaughtExceptionHandler(UncaughtExceptionHandlers.systemExit());
         Application application = this.application.get();
-        if (runtime.configuration().getArguments().getProgramName().isEmpty()) {
-            runtime.configuration().getArguments().setProgramName(application.getClass().getName());
+        if (runtime.getConfiguration().getArguments().getProgramName().isEmpty()) {
+            runtime.getConfiguration().getArguments().setProgramName(application.getClass().getName());
         }
-        exitIfHelpSet(runtime.configuration().getArguments());
-        logger.info("{}", runtime.configuration().getConfig());
+        exitIfHelpSet(runtime.getConfiguration().getArguments());
+        logger.info("{}", runtime.getConfiguration().getConfig());
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {

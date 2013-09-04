@@ -115,7 +115,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
 
     protected TimeValue getDefaultTimeOut() {
-        return ZooKeeperApplication.ConfigurableTimeout.get(runtime.configuration());
+        return ZooKeeperApplication.ConfigurableTimeout.get(runtime.getConfiguration());
     }
     
     protected NetClientModule getDefaultClientModule() {
@@ -127,7 +127,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
     
     protected ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> getDefaultConnectionFactory() {
-        return PingingClient.factory(timeOut, runtime.executors().get(ScheduledExecutorService.class));
+        return PingingClient.factory(timeOut, runtime.getExecutors().get(ScheduledExecutorService.class));
     }
     
     protected ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> getDefaultClientConnectionFactory() {

@@ -25,7 +25,7 @@ public class NettyServerModule implements NetServerModule {
         Factory<? extends Publisher> publisherFactory = EventBusPublisher.factory();
         ParameterizedFactory<SocketAddress, ServerBootstrap> bootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
-                        NioServerBootstrapFactory.newInstance(runtime.threadFactory(), runtime.serviceMonitor()));
+                        NioServerBootstrapFactory.newInstance(runtime.getThreadFactory(), runtime.getServiceMonitor()));
         return newInstance(publisherFactory, bootstrapFactory);
     }
     

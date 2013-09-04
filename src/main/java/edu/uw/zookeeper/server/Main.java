@@ -53,7 +53,7 @@ public class Main extends ZooKeeperApplication {
 
         @Override
         public Main build() {
-            ServiceMonitor monitor = getRuntimeModule().serviceMonitor();
+            ServiceMonitor monitor = getRuntimeModule().getServiceMonitor();
             for (Service service: delegate.build()) {
                 monitor.add(service);
             }

@@ -169,30 +169,30 @@ public class DefaultRuntimeModule implements RuntimeModule {
     }
 
     @Override
-    public Configuration configuration() {
+    public Configuration getConfiguration() {
         return configuration;
     }
 
     @Override
-    public Factory<ThreadFactory> threadFactory() {
+    public Factory<ThreadFactory> getThreadFactory() {
         return PlatformThreadFactory.getInstance();
     }
 
     @Override
-    public ServiceMonitor serviceMonitor() {
+    public ServiceMonitor getServiceMonitor() {
         return serviceMonitor;
     }
 
     @Override
-    public ListeningExecutorServiceFactory executors() {
+    public ListeningExecutorServiceFactory getExecutors() {
         return executors;
     }
 
     @Override
     public void shutdown() {
-        serviceMonitor().stopAsync();
+        getServiceMonitor().stopAsync();
         try {
-            serviceMonitor().awaitTerminated(shutdownTimeout.value(), shutdownTimeout.unit());
+            getServiceMonitor().awaitTerminated(shutdownTimeout.value(), shutdownTimeout.unit());
         } catch (Exception e) {}
     }
 }

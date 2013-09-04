@@ -93,7 +93,7 @@ public class SimpleClientBuilder extends ClientBuilder {
                         clientConnectionFactory, 
                         serverAddress, 
                         getConnectionBuilder().getTimeOut(), 
-                        getRuntimeModule().executors().get(ScheduledExecutorService.class));
+                        getRuntimeModule().getExecutors().get(ScheduledExecutorService.class));
         ClientConnectionExecutorService service =
                 ClientConnectionExecutorService.newInstance(
                         factory);

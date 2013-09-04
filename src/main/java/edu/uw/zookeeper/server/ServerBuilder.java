@@ -241,14 +241,14 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
     
     protected ExpiringSessionTable getDefaultExpiringSessionTable() {
         SessionParametersPolicy policy = 
-                DefaultSessionParametersPolicy.create(getRuntimeModule().configuration());
+                DefaultSessionParametersPolicy.create(getRuntimeModule().getConfiguration());
         ExpiringSessionTable sessions = 
                 ExpiringSessionTable.newInstance(EventBusPublisher.newInstance(), policy);
-        getRuntimeModule().serviceMonitor().add(
+        getRuntimeModule().getServiceMonitor().add(
                 ExpiringSessionService.newInstance(
                         sessions, 
-                        getRuntimeModule().executors().get(ScheduledExecutorService.class),
-                        getRuntimeModule().configuration()));
+                        getRuntimeModule().getExecutors().get(ScheduledExecutorService.class),
+                        getRuntimeModule().getConfiguration()));
         return sessions;
     }
     
@@ -258,7 +258,7 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
         ZNodeDataTrie dataTrie = ZNodeDataTrie.newInstance();
         ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
         ExpiringSessionRequestExecutor sessionExecutor = defaultSessionExecutor(
-                getRuntimeModule().executors().get(ExecutorService.class),
+                getRuntimeModule().getExecutors().get(ExecutorService.class),
                 zxids,
                 dataTrie,
                 listeners,
@@ -274,7 +274,7 @@ public class ServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
         ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> instance = ServerConnectionExecutorsService.newInstance(
                 serverConnectionFactory, 
                 connectionBuilder.getTimeOut(),
-                getRuntimeModule().executors().get(ScheduledExecutorService.class),
+                getRuntimeModule().getExecutors().get(ScheduledExecutorService.class),
                 serverTaskExecutor);
         return instance;
     }

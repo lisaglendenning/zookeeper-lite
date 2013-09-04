@@ -4,13 +4,13 @@ import java.util.concurrent.ThreadFactory;
 
 public interface RuntimeModule {
 
-    Configuration configuration();
+    Configuration getConfiguration();
     
-    Factory<ThreadFactory> threadFactory();
+    Factory<ThreadFactory> getThreadFactory();
     
-    ServiceMonitor serviceMonitor();
+    ServiceMonitor getServiceMonitor();
     
-    ListeningExecutorServiceFactory executors();
+    ListeningExecutorServiceFactory getExecutors();
 
     void shutdown();
 }

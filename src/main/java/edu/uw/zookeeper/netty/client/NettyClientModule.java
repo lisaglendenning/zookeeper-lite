@@ -22,7 +22,7 @@ public class NettyClientModule implements NetClientModule {
             RuntimeModule runtime) {
         Factory<? extends Publisher> publisherFactory = EventBusPublisher.factory();
         Factory<Bootstrap> bootstrapFactory = 
-                NioClientBootstrapFactory.newInstance(runtime.threadFactory(), runtime.serviceMonitor());
+                NioClientBootstrapFactory.newInstance(runtime.getThreadFactory(), runtime.getServiceMonitor());
         return newInstance(publisherFactory, bootstrapFactory);
     }
     

@@ -141,7 +141,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
 
     protected TimeValue getDefaultTimeOut() {
-        return ZooKeeperApplication.ConfigurableTimeout.get(runtime.configuration());
+        return ZooKeeperApplication.ConfigurableTimeout.get(runtime.getConfiguration());
     }
     
     protected NetServerModule getDefaultServerModule() {
@@ -167,7 +167,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
     
     protected ServerInetAddressView getDefaultAddress() {
-        return ConfigurableServerAddressView.get(runtime.configuration());
+        return ConfigurableServerAddressView.get(runtime.getConfiguration());
     }
     
     public ServerConnectionFactoryBuilder setDefaults() {

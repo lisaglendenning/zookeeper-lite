@@ -143,13 +143,13 @@ public class ClientBuilder implements ZooKeeperApplication.RuntimeBuilder<List<S
     }
 
     protected ClientConnectionExecutorService getDefaultClientConnectionExecutorService() {
-        EnsembleView<ServerInetAddressView> ensemble = ConfigurableEnsembleView.get(getRuntimeModule().configuration());
+        EnsembleView<ServerInetAddressView> ensemble = ConfigurableEnsembleView.get(getRuntimeModule().getConfiguration());
         final EnsembleViewFactory<? extends ServerViewFactory<Session, ?>> ensembleFactory = 
                 EnsembleViewFactory.fromSession(
                     clientConnectionFactory,
                     ensemble, 
                     connectionBuilder.getTimeOut(),
-                    getRuntimeModule().executors().get(ScheduledExecutorService.class));
+                    getRuntimeModule().getExecutors().get(ScheduledExecutorService.class));
         ClientConnectionExecutorService service =
                 ClientConnectionExecutorService.newInstance(
                         new Factory<ListenableFuture<? extends ClientConnectionExecutor<?>>>() {
