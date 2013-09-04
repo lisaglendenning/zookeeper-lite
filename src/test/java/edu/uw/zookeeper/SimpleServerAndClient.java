@@ -116,8 +116,8 @@ public class SimpleServerAndClient implements ZooKeeperApplication.RuntimeBuilde
     
     protected SimpleServerAndClient newInstance(
             IntraVmNetModule netModule,
-            SimpleServerBuilder server,
-            SimpleClientBuilder client,
+            SimpleServerBuilder serverBuilder,
+            SimpleClientBuilder clientBuilder,
             RuntimeModule runtime) {
         return new SimpleServerAndClient(netModule, serverBuilder, clientBuilder, runtime);
     }
@@ -132,11 +132,13 @@ public class SimpleServerAndClient implements ZooKeeperApplication.RuntimeBuilde
     
     protected SimpleServerBuilder getDefaultServerBuilder() {
         ServerInetAddressView address = ServerInetAddressView.of((InetSocketAddress) netModule.factory().addresses().get());
-        return SimpleServerBuilder.defaults(address, netModule).setRuntimeModule(runtime);
+        return SimpleServerBuilder.defaults(
+                address, netModule).setRuntimeModule(runtime);
     }
     
     protected SimpleClientBuilder getDefaultClientBuilder() {
-        return SimpleClientBuilder.defaults(serverBuilder.getConnectionBuilder().getAddress(), netModule).setRuntimeModule(runtime);
+        return SimpleClientBuilder.defaults(
+                serverBuilder.getConnectionBuilder().getAddress(), netModule).setRuntimeModule(runtime);
     }
 
     protected List<Service> getServices() {
