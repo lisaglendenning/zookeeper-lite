@@ -16,44 +16,49 @@ public abstract class ForwardingService extends AbstractIdleService {
     
     @Override
     protected void startUp() throws Exception {
-        Service delegate = delegate();
-        delegate.addListener(
-                new Listener() {
-                    @Override
-                    public void stopping(State from) {
-                        stopAsync();
-                    }
-
-                    @Override
-                    public void terminated(State from) {
-                        stopAsync();
-                    }
-
-                    @Override
-                    public void failed(State from, Throwable failure) {
-                        stopAsync();
-                    }}, 
-                MoreExecutors.sameThreadExecutor());
-        switch (delegate.state()) {
-        case NEW:
-            delegate.startAsync();
-        case STARTING:
-            delegate.awaitRunning();
-        case RUNNING:
-            break;
-        case STOPPING:
-        case TERMINATED:
-            throw new IllegalStateException();
-        case FAILED:
-            throw new ExecutionException(delegate.failureCause());
-        }
+        startService(delegate());
     }
 
     @Override
     protected void shutDown() throws Exception {
-        delegate().stopAsync();
-        delegate().awaitTerminated();
+        delegate().stopAsync().awaitTerminated();
+    }
+    
+    protected void startService(Service service) throws ExecutionException {
+        service.addListener(
+                new Listener(), 
+                MoreExecutors.sameThreadExecutor());
+        switch (service.state()) {
+        case NEW:
+            service.startAsync();
+        case STARTING:
+            service.awaitRunning();
+        case RUNNING:
+            break;
+        case STOPPING:
+        case TERMINATED:
+            throw new IllegalStateException(String.valueOf(service));
+        case FAILED:
+            throw new ExecutionException(service.failureCause());
+        }
     }
 
     protected abstract Service delegate();
+    
+    protected class Listener extends Service.Listener {
+        @Override
+        public void stopping(State from) {
+            stopAsync();
+        }
+
+        @Override
+        public void terminated(State from) {
+            stopAsync();
+        }
+
+        @Override
+        public void failed(State from, Throwable failure) {
+            stopAsync();
+        }
+    }
 }

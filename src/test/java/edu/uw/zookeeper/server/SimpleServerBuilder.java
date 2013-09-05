@@ -41,41 +41,51 @@ public class SimpleServerBuilder extends ServerBuilder {
     }
 
     @Override
+    public SimpleServerExecutor getServerTaskExecutor() {
+        return (SimpleServerExecutor) serverTaskExecutor;
+    }
+
+    @Override
     public SimpleServerBuilder setRuntimeModule(RuntimeModule runtime) {
-        return new SimpleServerBuilder(connectionBuilder.setRuntimeModule(runtime), serverConnectionFactory, getServerTaskExecutor(), connectionExecutors, runtime);
+        return (SimpleServerBuilder) super.setRuntimeModule(runtime);
     }
 
     @Override
     public SimpleServerBuilder setConnectionBuilder(ServerConnectionFactoryBuilder connectionBuilder) {
-        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors, runtime);
+        return (SimpleServerBuilder) super.setConnectionBuilder(connectionBuilder);
     }
 
     @Override
     public SimpleServerBuilder setServerConnectionFactory(
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory) {
-        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors, runtime);
+        return (SimpleServerBuilder) super.setServerConnectionFactory(serverConnectionFactory);
     }
 
     @Override
     public SimpleServerBuilder setServerTaskExecutor(ServerTaskExecutor serverTaskExecutor) {
-        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, (SimpleServerExecutor) serverTaskExecutor, connectionExecutors, runtime);
+        return (SimpleServerBuilder) super.setServerTaskExecutor((SimpleServerExecutor) serverTaskExecutor);
     }
 
     @Override
     public SimpleServerBuilder setConnectionExecutors(ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
-        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, getServerTaskExecutor(), connectionExecutors, runtime);
-    }
-    
-    @Override
-    public SimpleServerExecutor getServerTaskExecutor() {
-        return (SimpleServerExecutor) serverTaskExecutor;
+        return (SimpleServerBuilder) super.setConnectionExecutors(connectionExecutors);
     }
     
     @Override
     public SimpleServerBuilder setDefaults() {
         return (SimpleServerBuilder) super.setDefaults();
     }
-
+    
+    @Override
+    protected SimpleServerBuilder newInstance(
+            ServerConnectionFactoryBuilder connectionBuilder,
+            ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
+            ServerTaskExecutor serverTaskExecutor,
+            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            RuntimeModule runtime) {
+        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, (SimpleServerExecutor) serverTaskExecutor, connectionExecutors, runtime);
+    }
+    
     @Override
     protected SimpleServerExecutor getDefaultServerTaskExecutor() {
         return SimpleServerExecutor.newInstance();
