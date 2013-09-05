@@ -6,6 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.protocol.ConnectMessage;
+import edu.uw.zookeeper.protocol.ZxidReference;
 import edu.uw.zookeeper.server.SessionTable;
 
 public class ConnectTableProcessor 

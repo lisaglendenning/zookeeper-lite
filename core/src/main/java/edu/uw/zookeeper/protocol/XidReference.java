@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.protocol.client;
+package edu.uw.zookeeper.protocol;
 
 public interface XidReference {
     int get();

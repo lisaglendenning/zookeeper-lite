@@ -7,7 +7,7 @@ import com.google.common.eventbus.Subscribe;
 import edu.uw.zookeeper.common.Eventful;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.server.ZxidReference;
+import edu.uw.zookeeper.protocol.ZxidReference;
 
 public class ZxidTracker implements ZxidReference  {
     

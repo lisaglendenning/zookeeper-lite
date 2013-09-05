@@ -22,7 +22,6 @@ import edu.uw.zookeeper.protocol.proto.IOperationalRecord;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Operational;
 import edu.uw.zookeeper.protocol.proto.Records;
-import edu.uw.zookeeper.protocol.server.ZxidReference;
 
 @Operational(value=OpCode.CREATE_SESSION)
 public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> extends IOperationalRecord<T>
