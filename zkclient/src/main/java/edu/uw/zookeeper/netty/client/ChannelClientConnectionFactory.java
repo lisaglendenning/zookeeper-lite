@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.netty;
+package edu.uw.zookeeper.netty.client;
 
 import static com.google.common.base.Preconditions.*;
 import io.netty.bootstrap.Bootstrap;
@@ -30,6 +30,8 @@ import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.netty.ChannelConnectionFactory;
+import edu.uw.zookeeper.netty.Logging;
 
 public class ChannelClientConnectionFactory<C extends Connection<?>> extends ChannelConnectionFactory<C>
         implements ClientConnectionFactory<C> {

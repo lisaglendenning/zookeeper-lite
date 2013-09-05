@@ -3,9 +3,9 @@ package edu.uw.zookeeper.protocol.server;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.protocol.ConnectMessage;
+import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.ZxidReference;
 import edu.uw.zookeeper.server.SessionTable;
 

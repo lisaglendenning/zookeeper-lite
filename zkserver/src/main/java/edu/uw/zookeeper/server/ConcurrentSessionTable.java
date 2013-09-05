@@ -9,9 +9,9 @@ import org.apache.logging.log4j.LogManager;
 
 import com.google.common.collect.Maps;
 
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.TimeValue;
+import edu.uw.zookeeper.protocol.Session;
 
 public class ConcurrentSessionTable extends SessionTableAdapter implements SessionTable {
 

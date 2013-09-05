@@ -3,7 +3,6 @@ package edu.uw.zookeeper.server;
 import java.net.InetSocketAddress;
 
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
@@ -12,6 +11,7 @@ import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.net.intravm.IntraVmNetModule;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.server.ServerConnectionExecutorsService;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;

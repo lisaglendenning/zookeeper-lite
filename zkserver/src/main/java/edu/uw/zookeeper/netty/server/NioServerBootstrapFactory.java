@@ -12,7 +12,6 @@ import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.ServiceMonitor;
 import edu.uw.zookeeper.netty.DaemonThreadFactory;
 import edu.uw.zookeeper.netty.EventLoopGroupService;
-import edu.uw.zookeeper.netty.SimpleServerBootstrapFactory;
 import edu.uw.zookeeper.netty.nio.NioServerChannelTypeFactory;
 import edu.uw.zookeeper.netty.nio.NioEventLoopGroupFactory;
 

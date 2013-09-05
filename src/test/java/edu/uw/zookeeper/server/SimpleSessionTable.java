@@ -5,9 +5,9 @@ import static com.google.common.base.Preconditions.*;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.TimeValue;
+import edu.uw.zookeeper.protocol.Session;
 
 public class SimpleSessionTable extends SessionTableAdapter {
 

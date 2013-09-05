@@ -12,7 +12,6 @@ import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.NetClientModule;
-import edu.uw.zookeeper.netty.ChannelClientConnectionFactory;
 import edu.uw.zookeeper.netty.ChannelCodecConnection;
 import edu.uw.zookeeper.protocol.Codec;
 

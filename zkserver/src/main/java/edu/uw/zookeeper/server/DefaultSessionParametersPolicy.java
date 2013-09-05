@@ -9,11 +9,11 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.TimeValue;
+import edu.uw.zookeeper.protocol.Session;
 
 public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
 

@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.netty;
+package edu.uw.zookeeper.netty.server;
 
 import java.util.Map;
 import java.util.Map.Entry;

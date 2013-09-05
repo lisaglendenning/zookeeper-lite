@@ -3,8 +3,8 @@ package edu.uw.zookeeper.protocol.server;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.AbstractPair;
+import edu.uw.zookeeper.protocol.Session;
 
 public class SessionEventValue<T> extends AbstractPair<Session, T> implements
         SessionEvent {

@@ -12,7 +12,6 @@ import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.MoreExecutors;
 
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Processor;
@@ -25,6 +24,7 @@ import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.server.AssignZxidProcessor;
 import edu.uw.zookeeper.protocol.server.ProtocolResponseProcessor;

@@ -7,7 +7,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Pair;
@@ -19,6 +18,7 @@ import edu.uw.zookeeper.protocol.Logging;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.Ping;
+import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
 import edu.uw.zookeeper.protocol.ProtocolCodec;

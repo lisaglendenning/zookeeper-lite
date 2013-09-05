@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.proto.*;
 
 public abstract class Operations {

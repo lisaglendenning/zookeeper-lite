@@ -12,7 +12,6 @@ import com.google.common.collect.MapMaker;
 
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.TimeValue;
@@ -20,6 +19,7 @@ import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 
 public class EnsembleViewFactory<T> implements DefaultsFactory<ServerInetAddressView, T> {

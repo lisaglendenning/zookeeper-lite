@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.netty;
+package edu.uw.zookeeper.netty.server;
 
 import static com.google.common.base.Preconditions.*;
 import io.netty.bootstrap.ServerBootstrap;
@@ -18,6 +18,8 @@ import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
+import edu.uw.zookeeper.netty.ChannelConnectionFactory;
+import edu.uw.zookeeper.netty.Logging;
 
 public class ChannelServerConnectionFactory<C extends Connection<?>> 
         extends ChannelConnectionFactory<C>

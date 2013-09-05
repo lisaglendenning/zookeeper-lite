@@ -1,8 +1,8 @@
 package edu.uw.zookeeper.server;
 
-import edu.uw.zookeeper.Session;
-import edu.uw.zookeeper.Session.Parameters;
 import edu.uw.zookeeper.common.Eventful;
+import edu.uw.zookeeper.protocol.Session;
+import edu.uw.zookeeper.protocol.Session.Parameters;
 
 public interface SessionTable extends Eventful, Iterable<Session> {
 

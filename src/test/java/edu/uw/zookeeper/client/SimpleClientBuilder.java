@@ -5,7 +5,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.TimeValue;
@@ -14,6 +13,7 @@ import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.NetClientModule;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.client.AssignXidCodec;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;

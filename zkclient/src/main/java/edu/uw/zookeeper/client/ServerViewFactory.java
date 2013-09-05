@@ -7,7 +7,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Pair;
@@ -17,6 +16,7 @@ import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 
