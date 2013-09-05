@@ -1,5 +1,7 @@
 package edu.uw.zookeeper.server;
 
+import java.net.InetSocketAddress;
+
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.Session;
 import edu.uw.zookeeper.common.RuntimeModule;
@@ -7,6 +9,7 @@ import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.NetServerModule;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
+import edu.uw.zookeeper.net.intravm.IntraVmNetModule;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.server.ServerConnectionExecutorsService;
@@ -17,9 +20,16 @@ import edu.uw.zookeeper.server.SimpleServerExecutor;
 public class SimpleServerBuilder extends ServerBuilder {
 
     public static SimpleServerBuilder defaults(
+            IntraVmNetModule net) {
+        ServerInetAddressView address = ServerInetAddressView.of((InetSocketAddress) net.factory().addresses().get());
+        return defaults(address, net);
+    }
+    
+    public static SimpleServerBuilder defaults(
             ServerInetAddressView address,
             NetServerModule serverModule) {
-        return new SimpleServerBuilder(connectionBuilder(address, serverModule), null, null, null, null);
+        return new SimpleServerBuilder(
+                connectionBuilder(address, serverModule), null, null, null, null);
     }
     
     public static ServerConnectionFactoryBuilder connectionBuilder(

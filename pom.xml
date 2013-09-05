@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>edu.uw.zookeeper</groupId>
 	<artifactId>zookeeper-lite</artifactId>
-	<version>0.5.0-SNAPSHOT</version>
+	<version>0.5.0</version>
 	<packaging>jar</packaging>
 	<name>ZooKeeper-Lite</name>
 	<organization>
@@ -122,43 +122,43 @@
 		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
-			<version>RELEASE</version>
+			<version>15.0-rc1</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.google.code.findbugs</groupId>
 			<artifactId>jsr305</artifactId>
-			<version>RELEASE</version>
+			<version>2.0.1</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>io.netty</groupId>
 			<artifactId>netty-all</artifactId>
-			<version>LATEST</version>
+			<version>4.0.8.Final</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 		    <groupId>com.typesafe</groupId>
 		    <artifactId>config</artifactId>
-		    <version>RELEASE</version>
+		    <version>1.0.2</version>
             <scope>compile</scope>
 		</dependency>
 		  <dependency>
 		    <groupId>org.apache.logging.log4j</groupId>
 		    <artifactId>log4j-api</artifactId>
-		    <version>RELEASE</version>
+		    <version>2.0-beta8</version>
             <scope>compile</scope>
 		  </dependency>
 		  <dependency>
 		    <groupId>org.apache.logging.log4j</groupId>
 		    <artifactId>log4j-core</artifactId>
-		    <version>RELEASE</version>
+		    <version>2.0-beta8</version>
             <scope>compile</scope>
 		  </dependency>
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<version>RELEASE</version>
+			<version>4.11</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

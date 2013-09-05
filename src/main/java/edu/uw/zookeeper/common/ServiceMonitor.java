@@ -215,10 +215,17 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
                 // so don't start them concurrently
                 try {
                     service.startAsync();
+                } catch (Throwable t) {
+                    throw new ServiceException(service, t);
+                }
+            case STARTING:
+                try {
                     service.awaitRunning();
                 } catch (Throwable t) {
                     throw new ServiceException(service, t);
                 }
+                break;
+            case RUNNING:
                 break;
             // it's possible that a service failed before we
             // started monitoring it
