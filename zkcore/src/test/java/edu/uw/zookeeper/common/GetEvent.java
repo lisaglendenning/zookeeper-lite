@@ -1,4 +1,4 @@
-package edu.uw.zookeeper;
+package edu.uw.zookeeper.common;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.common.reflect.TypeToken;

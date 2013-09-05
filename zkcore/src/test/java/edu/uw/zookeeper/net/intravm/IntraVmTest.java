@@ -3,14 +3,16 @@ package edu.uw.zookeeper.net.intravm;
 import static org.junit.Assert.*;
 
 import java.util.concurrent.ExecutionException;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
-import edu.uw.zookeeper.GetEvent;
+
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.GetEvent;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ConnectionFactory;
