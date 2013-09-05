@@ -9,7 +9,9 @@
 	<organization>
 		<name>University of Washington</name>
 	</organization>
-    <!--  TODO make code dependent on Sun attach API optional -->
+    <properties>
+      <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 	<build>
 		<plugins>
 			<plugin>
@@ -67,7 +69,7 @@
                         </goals>
                         <configuration>
                             <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                            <overWriteReleases>false</overWriteReleases>
+                            <overWriteReleases>true</overWriteReleases>
                             <overWriteSnapshots>true</overWriteSnapshots>
                             <overWriteIfNewer>true</overWriteIfNewer>
                             <useSubDirectoryPerScope>true</useSubDirectoryPerScope>
