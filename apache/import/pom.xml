@@ -32,11 +32,31 @@
                             <rules>
                                 <requireFilesExist>
                                     <message>
-Can't find a zookeeper ${zookeeper.version} release! Clone from git@github.com:lisaglendenning/zookeeper.git or specify a custom path on the command line with -Dzookeeper.basedir=PATH
+Can't find a zookeeper ${zookeeper.version} source! Clone from git@github.com:lisaglendenning/zookeeper.git or specify a custom path on the command line with -Dzookeeper.basedir=PATH
                                     </message>
                                     <files>
                                         <file>${zookeeper.basedir}</file>
                                         <file>${zookeeper.source}</file>
+                                    </files>
+                                </requireFilesExist>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>enforce-zookeeper-generated-source-exists</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireFilesExist>
+                                    <message>
+Missing ZooKeeper generated Java code. Did you run ant build-generated in ${zookeeper.basedir}?
+                                    </message>
+                                    <files>
+                                        <file>${zookeeper.java.generated}</file>
                                     </files>
                                 </requireFilesExist>
                             </rules>
