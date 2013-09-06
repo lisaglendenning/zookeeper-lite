@@ -4,7 +4,7 @@ See [zookeeper-proxy](http://github.com/lisaglendenning/zookeeper-proxy) for a s
 
 ## Building
 
-zookeeper-lite is a Maven project. Build requires [zookeeper-lite-deps](http://github.com/lisaglendenning/zookeeper-lite-deps).
+zookeeper-lite is a Maven project.
 
 ## Configuration
 
