@@ -1,0 +1,29 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>edu.uw.zookeeper.lite</groupId>
+	<artifactId>apache</artifactId>
+	<packaging>pom</packaging>
+	<name>ZooKeeper-Lite Apache Dependencies</name>
+    <description>Packages ZooKeeper source dependencies for ZooKeeper-Lite.</description>
+	<parent>
+	   <groupId>edu.uw.zookeeper</groupId>
+	   <artifactId>lite</artifactId>
+	   <version>0.5.0</version>
+	   <relativePath>../parent</relativePath>
+	</parent>
+	<modules>
+	   <module>import</module>
+	   <module>zkdeps</module>
+	</modules>
+    <properties>
+        <zookeeper.org>org/apache/zookeeper</zookeeper.org>
+        <zookeeper.version>3.5.0</zookeeper.version>
+        <zookeeper.source>${zookeeper.basedir}/src</zookeeper.source>
+        <zookeeper.java>${zookeeper.source}/java</zookeeper.java>
+        <zookeeper.java.main>${zookeeper.java}/main</zookeeper.java.main>
+        <zookeeper.java.generated>${zookeeper.java}/generated</zookeeper.java.generated>
+        <jute.org>org/apache/jute</jute.org>
+        <jute.source>${zookeeper.java.main}/${jute.org}</jute.source>
+    </properties>
+</project>

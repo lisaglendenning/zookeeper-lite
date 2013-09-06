@@ -7,7 +7,7 @@ public interface TaskExecutor<I,O> {
     /**
      * 
      * @param request
-     * @return
+     * @return future result of executing request
      * @throws RejectedExecutionException
      */
     ListenableFuture<O> submit(I request);

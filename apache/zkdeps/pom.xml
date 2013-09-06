@@ -1,0 +1,59 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>edu.uw.zookeeper.lite.apache</groupId>
+	<artifactId>zkdeps</artifactId>
+	<packaging>jar</packaging>
+	<name>ZooKeeper-Lite Apache Dependencies Packaging</name>
+	<parent>
+	   <groupId>edu.uw.zookeeper.lite</groupId>
+	   <artifactId>apache</artifactId>
+	   <version>0.5.0</version>
+       <relativePath>..</relativePath>
+	</parent>
+	    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>check-import</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireFilesExist>
+                                    <message>
+Missing imported source files. Did you execute edu.uw.zookeeper.lite.apache.import?
+                                    </message>
+                                    <files>
+                                        <file>${project.basedir}/LICENSE.txt</file>
+                                        <file>${project.basedir}/NOTICE.txt</file>
+                                        <file>${project.basedir}/src/main/java/${zookeeper.org}</file>
+                                        <file>${project.basedir}/src/main/java/${jute.org}</file>
+                                    </files>
+                                </requireFilesExist>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+	   </plugins>
+	</build>
+</project>
