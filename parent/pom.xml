@@ -8,13 +8,21 @@
 	<name>ZooKeeper-Lite POM</name>
 	<url>http://lisaglendenning.github.io/zookeeper-lite</url>
 	<developers>
-	    <developer>
-	      <id>lglenden</id>
-	      <name>Lisa Glendenning</name>
-	      <email>lglenden@cs.washington.edu</email>
-	      <organization>University of Washington</organization>
-	    </developer>
-    </developers>
+		<developer>
+			<id>lglenden</id>
+			<name>Lisa Glendenning</name>
+			<email>lglenden@cs.washington.edu</email>
+			<organization>University of Washington</organization>
+		</developer>
+	</developers>
+	<licenses>
+		<license>
+			<name>The Apache Software License, Version 2.0</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+			<distribution>repo</distribution>
+			<comments>A business-friendly OSS license</comments>
+		</license>
+	</licenses>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
@@ -30,26 +38,26 @@
 						<target>1.6</target>
 					</configuration>
 				</plugin>
-                <plugin>
-	                <groupId>org.apache.maven.plugins</groupId>
-	                <artifactId>maven-jar-plugin</artifactId>
-	                <version>2.4</version>
-                </plugin>
-                <plugin>
-	                <groupId>org.apache.maven.plugins</groupId>
-	                <artifactId>maven-enforcer-plugin</artifactId>
-	                <version>1.2</version>
-                </plugin>
-	            <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-	                <artifactId>maven-resources-plugin</artifactId>
-	                <version>2.6</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-				    <artifactId>maven-clean-plugin</artifactId>
-				    <version>2.5</version>
-			    </plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-jar-plugin</artifactId>
+					<version>2.4</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-enforcer-plugin</artifactId>
+					<version>1.2</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-resources-plugin</artifactId>
+					<version>2.6</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-clean-plugin</artifactId>
+					<version>2.5</version>
+				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-source-plugin</artifactId>
@@ -75,7 +83,7 @@
 					<artifactId>maven-assembly-plugin</artifactId>
 					<version>2.4</version>
 				</plugin>
-			  </plugins>
+			</plugins>
 		</pluginManagement>
 	</build>
 </project>
