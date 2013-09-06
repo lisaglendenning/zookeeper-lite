@@ -6,6 +6,7 @@
 	<version>0.5.0</version>
 	<packaging>pom</packaging>
 	<name>ZooKeeper-Lite POM</name>
+	<url>http://lisaglendenning.github.io/zookeeper-lite</url>
 	<developers>
 	    <developer>
 	      <id>lglenden</id>

@@ -1,5 +1,7 @@
 A "lite" implementation of both the server and client ZooKeeper 3.5.0 protocol.
 
+See [project website](http://lisaglendenning.github.io/zookeeper-lite).
+
 See [zookeeper-proxy](http://github.com/lisaglendenning/zookeeper-proxy) for a simple application of this library.
 
 ## Building
