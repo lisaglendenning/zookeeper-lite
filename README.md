@@ -6,7 +6,7 @@ See [zookeeper-proxy](http://github.com/lisaglendenning/zookeeper-proxy) for a s
 
 ## Building
 
-zookeeper-lite is a Maven project.
+zookeeper-lite is a [Maven project](http://maven.apache.org/).
 
 ## Configuration
 
