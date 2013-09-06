@@ -38,6 +38,7 @@
                             <goal>copy-dependencies</goal>
                         </goals>
                         <configuration>
+                        	<failOnMissingClassifierArtifact>false</failOnMissingClassifierArtifact>
                             <outputDirectory>${project.build.directory}/lib/sources</outputDirectory>
                             <overWriteReleases>true</overWriteReleases>
                             <overWriteSnapshots>true</overWriteSnapshots>
