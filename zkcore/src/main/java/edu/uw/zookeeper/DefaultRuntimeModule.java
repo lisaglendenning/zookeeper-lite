@@ -44,7 +44,7 @@ public class DefaultRuntimeModule implements RuntimeModule {
     }
     
     public static SimpleArguments arguments(String[] args) {
-        return SimpleArguments.create("", args);
+        return SimpleArguments.create("", "", args);
     }
 
     public static Configuration configuration(String[] args) {

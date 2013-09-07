@@ -28,6 +28,8 @@ public class Main extends ZooKeeperApplication {
 
     protected static class MainBuilder extends ZooKeeperApplication.ForwardingBuilder<Main, ServerBuilder, MainBuilder> {
         
+    	protected static final String DESCRIPTION = "ZooKeeper Server";
+    	
         public MainBuilder() {
             this(ServerBuilder.defaults());
         }
@@ -44,6 +46,7 @@ public class Main extends ZooKeeperApplication {
 
         @Override
         protected Main doBuild() {
+        	getRuntimeModule().getConfiguration().getArguments().setDescription(DESCRIPTION);
             ServiceMonitor monitor = getRuntimeModule().getServiceMonitor();
             for (Service service: delegate.build()) {
                 monitor.add(service);

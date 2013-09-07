@@ -26,11 +26,11 @@ import static com.google.common.base.Preconditions.*;
 public class SimpleArguments implements Arguments {
         
     public static SimpleArguments defaults() {
-        return create("", new String[0]);
+        return create("", "", new String[0]);
     }
 
-    public static SimpleArguments create(String programName, String[] args) {
-        return new SimpleArguments(ImmutableList.of(new SimpleOption(OPT_HELP)), programName, args);
+    public static SimpleArguments create(String programName, String description, String[] args) {
+        return new SimpleArguments(ImmutableList.of(new SimpleOption(OPT_HELP)), programName, description, args);
     }
 
     protected static class SimpleOption implements Option {
@@ -113,6 +113,9 @@ public class SimpleArguments implements Arguments {
             if (help.isPresent()) {
                 str.append(VALUE_SEP).append(help.get());
             }
+            if (defaultValue.isPresent()) {
+            	str.append(' ').append(String.format("(%s)", defaultValue.get()));
+            }
             return str.toString();
         }
 
@@ -127,9 +130,10 @@ public class SimpleArguments implements Arguments {
 
     private final SortedMap<String, SimpleOption> options;
     private String programName;
+    private String description;
     private String[] args;
 
-    protected SimpleArguments(Iterable<SimpleOption> options, String programName, String[] args) {
+    protected SimpleArguments(Iterable<SimpleOption> options, String programName, String description, String[] args) {
         // Maybe could try to auto-detect programName with
         // System.property(sun.java.command)?
         this.options = Maps.newTreeMap();
@@ -137,7 +141,19 @@ public class SimpleArguments implements Arguments {
             add(opt);
         }
         this.programName = programName;
+        this.description = description;
         this.args = args;
+    }
+    
+    @Override
+    public synchronized String getDescription() {
+    	return description;
+    }
+    
+    @Override
+    public synchronized SimpleArguments setDescription(String description) {
+    	this.description = checkNotNull(description);
+    	return this;
     }
 
     @Override
@@ -197,6 +213,9 @@ public class SimpleArguments implements Arguments {
                     }
                 }));
         str.append('\n');
+        if (! description.isEmpty()) {
+        	str.append('\n').append(description).append('\n');
+        }
         return str.toString();
     }
 

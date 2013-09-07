@@ -53,4 +53,8 @@ public interface Arguments extends Iterable<Arguments.Option> {
     String getProgramName();
 
     void setProgramName(String name);
+
+	String getDescription();
+
+	Arguments setDescription(String description);
 }
