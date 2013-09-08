@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.client;
+package edu.uw.zookeeper.client.console;
 
 
 import com.google.common.util.concurrent.Service;
@@ -18,21 +18,21 @@ public class Main extends ZooKeeperApplication.ForwardingApplication {
         super(delegate);
     }
     
-    protected static class MainBuilder extends ZooKeeperApplication.ForwardingBuilder<Main, ClientBuilder, MainBuilder> {
+    protected static class MainBuilder extends ZooKeeperApplication.ForwardingBuilder<Main, ConsoleClientBuilder, MainBuilder> {
 
-    	protected static final String DESCRIPTION = "ZooKeeper Client";
+    	protected static final String DESCRIPTION = "ZooKeeper Shell Client";
     	
         public MainBuilder() {
-            this(ClientBuilder.defaults());
+            this(ConsoleClientBuilder.defaults());
         }
 
         public MainBuilder(
-                ClientBuilder delegate) {
+                ConsoleClientBuilder delegate) {
             super(delegate);
         }
 
         @Override
-        protected MainBuilder newInstance(ClientBuilder delegate) {
+        protected MainBuilder newInstance(ConsoleClientBuilder delegate) {
             return new MainBuilder(delegate);
         }
 
