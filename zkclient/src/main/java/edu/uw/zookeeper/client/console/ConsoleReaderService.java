@@ -1,10 +1,15 @@
 package edu.uw.zookeeper.client.console;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import com.google.common.util.concurrent.FutureCallback;
@@ -27,12 +32,23 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
         reader.addCompleter(ConsoleCommand.getCompleter());
         return new ConsoleReaderService(client, reader, Commands.invoker(client));
     }
+    
+    public static enum EnvKey {
+        PROMPT;
+        
+        public String get(Map<String, String> env) {
+            return env.get(name());
+        }
+
+        public String put(Map<String, String> env, String value) {
+            return env.put(name(), value);
+        }
+    }
 
     protected final ClientExecutor<? super Operation.Request, ?> client;
     protected final ConsoleReader reader;
     protected final Invoker invoker;
     protected final Executor executor;
-    protected final LineParser parser;
 
     public ConsoleReaderService(
             ClientExecutor<? super Operation.Request, ?> client,
@@ -42,7 +58,6 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
         this.reader = reader;
         this.invoker = invoker;
         this.executor = MoreExecutors.sameThreadExecutor();
-        this.parser = LineParser.create();
     }
 
     public ConsoleReader getReader() {
@@ -51,8 +66,6 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
 
     @Override
     protected void startUp() throws Exception {
-        reader.setPrompt("> ");
-        
         NotificationCallback cb = new NotificationCallback();
         addListener(cb, executor);
         client.register(cb);
@@ -68,11 +81,13 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
 
     @Override
     protected void run() throws Exception {
+        Map<String, String> env = newEnvironment();
+        LineParser parser = LineParser.create();
         String line = null;
-        while (isRunning() && ((line = reader.readLine()) != null)) {
+        while (isRunning() && ((line = reader.readLine(EnvKey.PROMPT.get(env))) != null)) {
             try {
                 List<String> tokens = parser.apply(line);
-                Invocation invocation = Invocation.parse(tokens);
+                Invocation invocation = parse(env, tokens);
                 if (invocation == null) {
                     continue;
                 }
@@ -84,6 +99,12 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
         }
     }
     
+    protected Map<String, String> newEnvironment() {
+        Map<String, String> env = Maps.newHashMap();
+        EnvKey.PROMPT.put(env, "> ");
+        return env;
+    }
+    
     protected void printException(Exception e) throws IOException {
         if (reader.getTerminal().isAnsiSupported()) {
             reader.println(new StringBuilder().append("\u001B[31m").append(e.toString()).append("\u001B[0m").toString());
@@ -91,6 +112,24 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
             reader.println(e.toString());
         }
         reader.flush();
+    }
+    
+    protected Invocation parse(Map<String, String> env, Iterable<String> tokens) {
+        String name = Iterables.getFirst(tokens, null);
+        if (name == null) {
+            return null;
+        }
+        ConsoleCommand command = null;
+        for (ConsoleCommand e : ConsoleCommand.values()) {
+            if (e.getNames().contains(name)) {
+                command = e;
+                break;
+            }
+        }
+        checkArgument(command != null, String.format(
+                    "Not a command: '%s'", name));
+        Object[] arguments = command.parse(tokens);
+        return new Invocation(env, command, arguments);
     }
     
     protected class NotificationCallback extends Service.Listener {

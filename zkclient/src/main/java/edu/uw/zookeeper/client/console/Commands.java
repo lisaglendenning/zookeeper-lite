@@ -98,15 +98,37 @@ public abstract class Commands {
         }
     }
 
-    public static class HelpCommand implements Callable<String> {
+    public static class ShellInvoker implements Invoker {
 
-        @Invokes(commands={ConsoleCommand.HELP})
+        @Invokes(commands={ConsoleCommand.HELP, ConsoleCommand.EXIT, ConsoleCommand.PRINTENV})
         public static Invoker invoker() {
-            return invokeCallable(new HelpCommand());
+            return new ShellInvoker();
         }
         
         @Override
-        public String call() throws Exception {
+        public ListenableFuture<String> apply(Invocation input)
+                throws Exception {
+            switch (input.getCommand()) {
+            case HELP:
+                return Futures.immediateFuture(help());
+            case EXIT:
+                return Futures.immediateFuture(exit());
+            case PRINTENV:
+                return Futures.immediateFuture(printEnv(input.getEnvironment()));
+            default:
+                throw new IllegalArgumentException(String.valueOf(input));
+            }
+        }
+        
+        protected String printEnv(Map<String, String> env) {
+            return Joiner.on('\n').withKeyValueSeparator("\t").join(env);
+        }
+        
+        protected String exit() {
+            return "";
+        }
+
+        protected String help() throws Exception {
             Joiner joiner = Joiner.on('\t');
             StringBuilder str = new StringBuilder();
             for (ConsoleCommand e: ConsoleCommand.values()) {
@@ -155,19 +177,6 @@ public abstract class Commands {
                 tokens.add(command.getDescription());
             }
             return tokens.build();
-        }
-    }
-    
-    public static class ExitCommand implements Callable<String> {
-
-        @Invokes(commands={ConsoleCommand.EXIT})
-        public static Invoker invoker() {
-            return invokeCallable(new ExitCommand());
-        }
-        
-        @Override
-        public String call() throws Exception {
-            return "";
         }
     }
     

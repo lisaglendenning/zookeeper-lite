@@ -18,6 +18,9 @@ public enum ConsoleCommand {
     @CommandDescriptor(names = { "q", "quit", "exit" }, description = "Exit program")
     EXIT,
 
+    @CommandDescriptor(names = { "printenv" }, description = "Print environment")
+    PRINTENV,
+    
     // TODO: Acl
     @CommandDescriptor(arguments = {
             @ArgumentDescriptor(token = TokenType.PATH),
