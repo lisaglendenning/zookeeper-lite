@@ -21,8 +21,8 @@ public enum ConsoleCommand {
     // TODO: Acl
     @CommandDescriptor(arguments = {
             @ArgumentDescriptor(token = TokenType.PATH),
-            @ArgumentDescriptor(name="mode", token = TokenType.ENUM, type = ModeArgument.class, value="p"),
             @ArgumentDescriptor(name="data", token = TokenType.STRING),
+            @ArgumentDescriptor(name="mode", token = TokenType.ENUM, type = ModeArgument.class, value="p"),
             @ArgumentDescriptor(name = "stat", token = TokenType.ENUM, type = BooleanArgument.class, value = "n") })
     CREATE,
     
@@ -56,8 +56,8 @@ public enum ConsoleCommand {
     
     @CommandDescriptor(names={ "set", "setData" }, arguments = {
             @ArgumentDescriptor(token = TokenType.PATH),
-            @ArgumentDescriptor(name="version", token = TokenType.INTEGER, value="-1"),
-            @ArgumentDescriptor(name="data", token = TokenType.STRING) })
+            @ArgumentDescriptor(name="data", token = TokenType.STRING),
+            @ArgumentDescriptor(name="version", token = TokenType.INTEGER, value="-1") })
     SET,
     
     @CommandDescriptor(arguments = {

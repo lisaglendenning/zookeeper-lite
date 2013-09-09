@@ -464,7 +464,10 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
                 }
             }
         } else {
-            floor = floor.get(label);
+            E next = floor.get(label);
+            if (next != null) {
+                floor = next;
+            }
         }
         assert (floor != null);
         return floor;

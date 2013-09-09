@@ -276,8 +276,8 @@ public abstract class Commands {
             case CREATE:
                 return Operations.Requests.create()
                         .setPath((ZNodeLabel.Path) input.getArguments()[1])
-                        .setMode((CreateMode) input.getArguments()[2])
-                        .setData(((String) input.getArguments()[3]).getBytes())
+                        .setData(((String) input.getArguments()[2]).getBytes())
+                        .setMode((CreateMode) input.getArguments()[3])
                         .setStat((Boolean) input.getArguments()[4])
                         .build();
             case EXISTS:
@@ -308,8 +308,8 @@ public abstract class Commands {
             case SET:
                 return Operations.Requests.setData()
                         .setPath((ZNodeLabel.Path) input.getArguments()[1])
-                        .setVersion((Integer) input.getArguments()[2])
-                        .setData(((String) input.getArguments()[3]).getBytes())
+                        .setData(((String) input.getArguments()[2]).getBytes())
+                        .setVersion((Integer) input.getArguments()[3])
                         .build();
             case SYNC:
                 return Operations.Requests.sync()
