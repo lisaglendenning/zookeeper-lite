@@ -85,9 +85,11 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
     }
     
     protected void printException(Exception e) throws IOException {
-        // TODO: use Ansi.Color.RED
-        // but Eclipse doesn't like it?
-        reader.println(e.toString());
+        if (reader.getTerminal().isAnsiSupported()) {
+            reader.println(new StringBuilder().append("\u001B[31m").append(e.toString()).append("\u001B[0m").toString());
+        } else {
+            reader.println(e.toString());
+        }
         reader.flush();
     }
     

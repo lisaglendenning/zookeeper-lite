@@ -167,6 +167,9 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                     throws KeeperException {
                 IDeleteRequest record = (IDeleteRequest) request.record();
                 ZNodeLabel.Path path = getPath(record);
+                if (path.isRoot()) {
+                    throw new KeeperException.BadArgumentsException(path.toString());
+                }
                 ZNodeStateNode node = getNode(get(), path);
                 if (node.size() > 0) {
                     throw new KeeperException.NotEmptyException(path.toString());
