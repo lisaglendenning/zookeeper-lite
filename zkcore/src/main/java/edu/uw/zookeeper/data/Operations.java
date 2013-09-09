@@ -27,7 +27,7 @@ import edu.uw.zookeeper.protocol.proto.*;
 
 public abstract class Operations {
 
-    public static interface Builder<T extends Records.Coded> {
+    public static interface Builder<T extends Records.Coded> extends edu.uw.zookeeper.common.Builder<T> {
 
         OpCode getOpCode();
         

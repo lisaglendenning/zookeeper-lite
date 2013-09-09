@@ -17,14 +17,54 @@ public enum ConsoleCommand {
     @CommandDescriptor(names = { "?", "help" }, description = "Print usage")
     HELP,
 
-    @CommandDescriptor(names = { "quit", "exit" }, description = "Exit program")
+    @CommandDescriptor(names = { "q", "quit", "exit" }, description = "Exit program")
     EXIT,
+
+    // TODO: Acl
+    @CommandDescriptor(arguments = {
+            @ArgumentDescriptor(type = TokenType.PATH),
+            @ArgumentDescriptor(name="mode", type = TokenType.MODE, value="p"),
+            @ArgumentDescriptor(name="data", type = TokenType.STRING) })
+    CREATE,
+    
+    @CommandDescriptor(names = { "rm", "delete" }, arguments = {
+            @ArgumentDescriptor(type = TokenType.PATH),
+            @ArgumentDescriptor(name="version", type = TokenType.INTEGER, value="-1") })
+    RM,
+    
+    @CommandDescriptor(arguments = {
+            @ArgumentDescriptor(type = TokenType.PATH, value = "/"),
+            @ArgumentDescriptor(name = "watch", type = TokenType.BOOLEAN, value = "n") })
+    EXISTS,
+
+    @CommandDescriptor(names = { "getAcl" }, arguments = {
+            @ArgumentDescriptor(type = TokenType.PATH, value = "/") })
+    GETACL,
+
+    @CommandDescriptor(names = { "get", "getData" }, arguments = {
+            @ArgumentDescriptor(type = TokenType.PATH, value = "/"),
+            @ArgumentDescriptor(name = "watch", type = TokenType.BOOLEAN, value = "n") })
+    GET,
 
     @CommandDescriptor(names = { "ls", "getChildren" }, arguments = {
             @ArgumentDescriptor(type = TokenType.PATH, value = "/"),
             @ArgumentDescriptor(name = "watch", type = TokenType.BOOLEAN, value = "n"),
             @ArgumentDescriptor(name = "stat", type = TokenType.BOOLEAN, value = "n") })
-    LS;
+    LS,
+    
+    // TODO
+    // SETACL,
+    @CommandDescriptor(names={ "set", "setData" }, arguments = {
+            @ArgumentDescriptor(type = TokenType.PATH),
+            @ArgumentDescriptor(name="version", type = TokenType.INTEGER, value="-1"),
+            @ArgumentDescriptor(name="data", type = TokenType.STRING) })
+    SET,
+    
+    @CommandDescriptor(arguments = {
+            @ArgumentDescriptor(type = TokenType.PATH, value = "/"),
+            @ArgumentDescriptor(name = "watch", type = TokenType.BOOLEAN, value = "n"),
+            @ArgumentDescriptor(name = "stat", type = TokenType.BOOLEAN, value = "n") })
+    SYNC;
 
     public static Completer getCompleter() {
         // TODO
@@ -81,7 +121,7 @@ public enum ConsoleCommand {
             if (itr.hasNext()) {
                 token = itr.next();
             } else {
-                checkArgument(! descriptor.value().isEmpty(), 
+                checkArgument(! descriptor.value().isEmpty() || descriptor.type() == TokenType.STRING, 
                     String.format("Missing required argument #%d", i+1));
                 token = descriptor.value();
             }
@@ -96,10 +136,16 @@ public enum ConsoleCommand {
             case PATH:
                 argument = ZNodeLabel.Path.of(token);
                 break;
+            case INTEGER:
+                argument = Integer.valueOf(token);
+                break;
+            case MODE:
+                argument = ModeArgument.fromString(token).value();
+                break;
             default:
                 argument = null;
             }
-            checkArgument(argument != null);
+            checkArgument(argument != null, String.valueOf(token));
             arguments[i+1] = argument;
         }
         checkArgument(! itr.hasNext(), String.format("Extra arguments after #%d", descriptors.length));

@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.client.ClientExecutor;
+import edu.uw.zookeeper.data.CreateMode;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
@@ -91,7 +92,7 @@ public abstract class Commands {
         public ListenableFuture<String> apply(Invocation input)
                 throws Exception {
             AsyncFunction<Invocation, String> invoker = invokers.get(input.getCommand());
-            checkArgument(invoker != null);
+            checkArgument(invoker != null, input.getCommand());
             return invoker.apply(input);
         }
     }
@@ -152,7 +153,15 @@ public abstract class Commands {
     
     public static class ClientExecutorInvoker implements Invoker {
         
-        @Invokes(commands={ConsoleCommand.LS})
+        @Invokes(commands={
+                ConsoleCommand.CREATE,
+                ConsoleCommand.LS, 
+                ConsoleCommand.EXISTS, 
+                ConsoleCommand.GET, 
+                ConsoleCommand.GETACL,
+                ConsoleCommand.RM,
+                ConsoleCommand.SET,
+                ConsoleCommand.SYNC})
         public static ClientExecutorInvoker invoker(ClientExecutor<? super Operation.Request, ?> client) {
             return new ClientExecutorInvoker(client);
         }
@@ -199,11 +208,46 @@ public abstract class Commands {
         @Override
         public Operation.Request apply(Invocation input) {
             switch (input.getCommand()) {
+            case CREATE:
+                return Operations.Requests.create()
+                        .setPath((ZNodeLabel.Path) input.getArguments()[1])
+                        .setMode((CreateMode) input.getArguments()[2])
+                        .setData(((String) input.getArguments()[3]).getBytes())
+                        .build();
+            case EXISTS:
+                return Operations.Requests.exists()
+                        .setPath((ZNodeLabel.Path) input.getArguments()[1])
+                        .setWatch((Boolean) input.getArguments()[2])
+                        .build();
+            case GETACL:
+                return Operations.Requests.getAcl()
+                        .setPath((ZNodeLabel.Path) input.getArguments()[1])
+                        .build();
+            case GET:
+                return Operations.Requests.getData()
+                        .setPath((ZNodeLabel.Path) input.getArguments()[1])
+                        .setWatch((Boolean) input.getArguments()[2])
+                        .build();
             case LS:
                 return Operations.Requests.getChildren()
                         .setPath((ZNodeLabel.Path) input.getArguments()[1])
                         .setWatch((Boolean) input.getArguments()[2])
                         .setStat((Boolean) input.getArguments()[3])
+                        .build();
+            case RM:
+                return Operations.Requests.delete()
+                        .setPath((ZNodeLabel.Path) input.getArguments()[1])
+                        .setVersion((Integer) input.getArguments()[2])
+                        .build();
+            case SET:
+                return Operations.Requests.setData()
+                        .setPath((ZNodeLabel.Path) input.getArguments()[1])
+                        .setVersion((Integer) input.getArguments()[2])
+                        .setData(((String) input.getArguments()[3]).getBytes())
+                        .build();
+            case SYNC:
+                return Operations.Requests.sync()
+                        .setPath((ZNodeLabel.Path) input.getArguments()[1])
                         .build();
             default:
                 throw new IllegalArgumentException(String.valueOf(input.getCommand()));
