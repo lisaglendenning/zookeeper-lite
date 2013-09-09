@@ -27,6 +27,10 @@ public enum ConsoleCommand {
                 @ArgumentDescriptor(token = TokenType.PATH)})
     CD,
     
+    @CommandDescriptor(description="Recursive delete", arguments = {
+            @ArgumentDescriptor(token = TokenType.PATH)})
+    RMR,
+    
     // TODO: Acl
     @CommandDescriptor(arguments = {
             @ArgumentDescriptor(token = TokenType.PATH),

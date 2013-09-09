@@ -7,23 +7,37 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 
+import org.apache.zookeeper.KeeperException;
+
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AsyncFunction;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.client.ClientExecutor;
+import edu.uw.zookeeper.client.TreeFetcher;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Processor;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.PromiseTask;
+import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.CreateMode;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 public abstract class Commands {
@@ -101,7 +115,7 @@ public abstract class Commands {
     public static class ShellInvoker implements Invoker {
 
         @Invokes(commands={ConsoleCommand.HELP, ConsoleCommand.EXIT, ConsoleCommand.PRINTENV, ConsoleCommand.CD})
-        public static Invoker invoker() {
+        public static ShellInvoker invoker() {
             return new ShellInvoker();
         }
         
@@ -334,6 +348,150 @@ public abstract class Commands {
                         .build();
             default:
                 throw new IllegalArgumentException(String.valueOf(input.getCommand()));
+            }
+        }
+    }
+    
+    public static class RmrInvoker implements Invoker {
+
+        @Invokes(commands={ConsoleCommand.RMR})
+        public static RmrInvoker invoker(ClientExecutor<? super Operation.Request, ?> client) {
+            return new RmrInvoker(client);
+        }
+        
+        protected final ClientExecutor<? super Operation.Request, ?> client;
+        
+        public RmrInvoker(ClientExecutor<? super Operation.Request, ?> client) {
+            this.client = client;
+        }
+
+        @Override
+        public ListenableFuture<String> apply(Invocation input)
+                throws Exception {
+            ZNodeLabel.Path root = (ZNodeLabel.Path) input.getArguments()[1];
+            return Futures.transform(TreeFetcher.<Set<ZNodeLabel.Path>>builder().setClient(client).setResult(new ComputeLeaves()).build().apply(root), new DeleteRoot(root));
+        }
+
+        protected static class ComputeLeaves implements Processor<Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<Set<ZNodeLabel.Path>>> {
+
+            protected final Set<ZNodeLabel.Path> leaves;
+            
+            public ComputeLeaves() {
+                this.leaves = Sets.newHashSet();
+            }
+            
+            @Override
+            public synchronized Optional<Set<ZNodeLabel.Path>> apply(
+                    Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>> input)
+                    throws Exception {
+                if (input.isPresent()) {
+                    Records.Response response = input.get().second().get().record();
+                    if (response instanceof Records.ChildrenGetter) {
+                        if (((Records.ChildrenGetter) response).getChildren().isEmpty()) {
+                            leaves.add(ZNodeLabel.Path.of(((Records.PathGetter) input.get().first()).getPath()));
+                        }
+                    }
+                    return Optional.absent();
+                } else {
+                    return Optional.of(leaves);
+                }
+            }
+        }
+        
+        protected class DeleteRoot implements AsyncFunction<Optional<Set<ZNodeLabel.Path>>, String> {
+
+            protected final ZNodeLabel.Path root;
+            
+            public DeleteRoot(ZNodeLabel.Path root) {
+                this.root = root;
+            }
+
+            @Override
+            public ListenableFuture<String> apply(Optional<Set<ZNodeLabel.Path>> result) {
+                if (result.isPresent()) {
+                    DeleteLeaves task = new DeleteLeaves(result.get(), SettableFuturePromise.<String>create());
+                    task.run();
+                    return task;
+                } else {
+                    // TODO
+                    throw new UnsupportedOperationException();
+                }
+            }
+                
+            protected class DeleteLeaves extends PromiseTask<Set<ZNodeLabel.Path>, String> implements FutureCallback<ZNodeLabel.Path> {
+                
+                public DeleteLeaves(Set<ZNodeLabel.Path> task, Promise<String> promise) {
+                    super(task, promise);
+                }
+                
+                public synchronized void run() {
+                    if (task().isEmpty()) {
+                        set("");
+                    } else {
+                        for (ZNodeLabel.Path p: ImmutableSet.copyOf(task())) {
+                            DeleteLeaf operation = new DeleteLeaf(p);
+                            operation.run();
+                        }
+                    }
+                }
+
+                @Override
+                public synchronized void onSuccess(ZNodeLabel.Path leaf) {
+                    task().remove(leaf);
+                    ZNodeLabel.Path parent = (ZNodeLabel.Path) leaf.head();
+                    if (root.prefixOf(parent)) {
+                        boolean empty = true;
+                        for (ZNodeLabel.Path p: task()) {
+                            if (parent.prefixOf(p)) {
+                                empty = false;
+                                break;
+                            }
+                        }
+                        if (empty) {
+                            task().add(parent);
+                            DeleteLeaf operation = new DeleteLeaf(parent);
+                            operation.run();
+                        }
+                    }
+                    if (task().isEmpty()) {
+                        set("");
+                    }
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                    setException(t);
+                }
+
+                protected class DeleteLeaf implements FutureCallback<Operation.ProtocolResponse<?>> {
+                    
+                    protected final ZNodeLabel.Path leaf;
+                    
+                    public DeleteLeaf(ZNodeLabel.Path leaf) {
+                        this.leaf = leaf;
+                    }
+                    
+                    public void run() {
+                        Futures.addCallback(
+                                client.submit(Operations.Requests.delete().setPath(leaf).build()), 
+                                this);
+                    }
+    
+                    @Override
+                    public void onSuccess(Operation.ProtocolResponse<?> result) {
+                        if (result.record().opcode() == OpCode.DELETE) {
+                            DeleteLeaves.this.onSuccess(leaf);
+                        } else {
+                            // TODO
+                            onFailure(KeeperException.create(((Operation.Error) result.record()).error()));
+                        }
+                    }
+    
+                    @Override
+                    public void onFailure(Throwable t) {
+                        DeleteLeaves.this.onFailure(t);
+                    }
+                }
             }
         }
     }
