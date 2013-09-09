@@ -73,6 +73,8 @@ public class LineParser implements Function<String, List<String>> {
                     case TOKEN:
                         throw new IllegalArgumentException("Embedded quote must be escaped");
                     case QUOTED:
+                        tokens.add(tokenBuilder.toString());
+                        tokenBuilder = tokenBuilder.delete(0, tokenBuilder.length());
                         states.pop(); 
                         break;
                     case ESCAPED:

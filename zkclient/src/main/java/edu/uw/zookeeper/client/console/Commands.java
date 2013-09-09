@@ -100,7 +100,7 @@ public abstract class Commands {
 
     public static class ShellInvoker implements Invoker {
 
-        @Invokes(commands={ConsoleCommand.HELP, ConsoleCommand.EXIT, ConsoleCommand.PRINTENV})
+        @Invokes(commands={ConsoleCommand.HELP, ConsoleCommand.EXIT, ConsoleCommand.PRINTENV, ConsoleCommand.CD})
         public static Invoker invoker() {
             return new ShellInvoker();
         }
@@ -115,9 +115,17 @@ public abstract class Commands {
                 return Futures.immediateFuture(exit());
             case PRINTENV:
                 return Futures.immediateFuture(printEnv(input.getEnvironment()));
+            case CD:
+                return Futures.immediateFuture(cd(input));
             default:
                 throw new IllegalArgumentException(String.valueOf(input));
             }
+        }
+        
+        protected String cd(Invocation invocation) {
+            ConsoleReaderService.EnvKey.CWD.put(
+                    invocation.getEnvironment(), invocation.getArguments()[1].toString());
+            return "";
         }
         
         protected String printEnv(Map<String, String> env) {

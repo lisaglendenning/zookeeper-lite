@@ -34,7 +34,7 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
     }
     
     public static enum EnvKey {
-        PROMPT;
+        PROMPT, CWD;
         
         public String get(Map<String, String> env) {
             return env.get(name());
@@ -84,7 +84,7 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
         Map<String, String> env = newEnvironment();
         LineParser parser = LineParser.create();
         String line = null;
-        while (isRunning() && ((line = reader.readLine(EnvKey.PROMPT.get(env))) != null)) {
+        while (isRunning() && ((line = readLine(env)) != null)) {
             try {
                 List<String> tokens = parser.apply(line);
                 Invocation invocation = parse(env, tokens);
@@ -99,15 +99,24 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
         }
     }
     
+    protected String readLine(Map<String, String> env) throws IOException {
+        String prompt = String.format(EnvKey.PROMPT.get(env), EnvKey.CWD.get(env));
+        if (reader.getTerminal().isAnsiSupported()) {
+            prompt = new StringBuilder().append("\u001b[1m").append(prompt).append("\u001b[0m").toString();
+        }
+        return reader.readLine(prompt);
+    }
+    
     protected Map<String, String> newEnvironment() {
         Map<String, String> env = Maps.newHashMap();
-        EnvKey.PROMPT.put(env, "> ");
+        EnvKey.PROMPT.put(env, "%s $ ");
+        EnvKey.CWD.put(env, "/");
         return env;
     }
     
     protected void printException(Exception e) throws IOException {
         if (reader.getTerminal().isAnsiSupported()) {
-            reader.println(new StringBuilder().append("\u001B[31m").append(e.toString()).append("\u001B[0m").toString());
+            reader.println(new StringBuilder().append("\u001b[31m").append(e.toString()).append("\u001b[0m").toString());
         } else {
             reader.println(e.toString());
         }
@@ -128,7 +137,7 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
         }
         checkArgument(command != null, String.format(
                     "Not a command: '%s'", name));
-        Object[] arguments = command.parse(tokens);
+        Object[] arguments = command.parse(env, tokens);
         return new Invocation(env, command, arguments);
     }
     

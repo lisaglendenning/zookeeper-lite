@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.collect.ImmutableList;
 
@@ -20,6 +21,11 @@ public enum ConsoleCommand {
 
     @CommandDescriptor(names = { "printenv" }, description = "Print environment")
     PRINTENV,
+
+    @CommandDescriptor(names = { "cd" }, description = "Change working path",
+            arguments = {
+                @ArgumentDescriptor(token = TokenType.PATH)})
+    CD,
     
     // TODO: Acl
     @CommandDescriptor(arguments = {
@@ -101,7 +107,7 @@ public enum ConsoleCommand {
         return getDescriptor().description();
     }
 
-    public Object[] parse(Iterable<String> tokens) {
+    public Object[] parse(Map<String, String> env, Iterable<String> tokens) {
         ArgumentDescriptor[] descriptors = getArguments();
         Object[] arguments = new Object[descriptors.length + 1];
         Iterator<String> itr = tokens.iterator();
@@ -133,7 +139,11 @@ public enum ConsoleCommand {
                 argument = token;
                 break;
             case PATH:
-                argument = ZNodeLabel.Path.of(token);
+                if (token.charAt(0) == ZNodeLabel.SLASH) {
+                    argument = ZNodeLabel.Path.of(token);
+                } else {
+                    argument = ZNodeLabel.Path.joined(ConsoleReaderService.EnvKey.CWD.get(env), token);
+                }
                 break;
             case INTEGER:
                 argument = Integer.valueOf(token);
