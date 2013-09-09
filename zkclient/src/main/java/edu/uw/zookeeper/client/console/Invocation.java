@@ -8,8 +8,7 @@ import com.google.common.collect.Iterables;
 
 public class Invocation {
 
-    public static Invocation parse(CharSequence line) {
-        Iterable<String> tokens = ConsoleCommand.getTokens(line);
+    public static Invocation parse(Iterable<String> tokens) {
         String name = Iterables.getFirst(tokens, null);
         if (name == null) {
             return null;

@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.client.console;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.Executor;
 
 import com.google.common.base.Throwables;
@@ -31,6 +32,7 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
     protected final ConsoleReader reader;
     protected final Invoker invoker;
     protected final Executor executor;
+    protected final LineParser parser;
 
     public ConsoleReaderService(
             ClientExecutor<? super Operation.Request, ?> client,
@@ -40,6 +42,7 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
         this.reader = reader;
         this.invoker = invoker;
         this.executor = MoreExecutors.sameThreadExecutor();
+        this.parser = LineParser.create();
     }
 
     public ConsoleReader getReader() {
@@ -68,7 +71,8 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
         String line = null;
         while (isRunning() && ((line = reader.readLine()) != null)) {
             try {
-                Invocation invocation = Invocation.parse(line);
+                List<String> tokens = parser.apply(line);
+                Invocation invocation = Invocation.parse(tokens);
                 if (invocation == null) {
                     continue;
                 }

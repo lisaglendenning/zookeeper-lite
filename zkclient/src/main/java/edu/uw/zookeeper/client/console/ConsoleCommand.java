@@ -5,8 +5,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import java.util.Iterator;
 import java.util.List;
 
-import com.google.common.base.CharMatcher;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
 import edu.uw.zookeeper.data.ZNodeLabel;
@@ -33,7 +31,7 @@ public enum ConsoleCommand {
             @ArgumentDescriptor(name="version", token = TokenType.INTEGER, value="-1") })
     RM,
     
-    @CommandDescriptor(arguments = {
+    @CommandDescriptor(names = { "stat", "exists" }, arguments = {
             @ArgumentDescriptor(token = TokenType.PATH, value = "/"),
             @ArgumentDescriptor(name = "watch", token = TokenType.ENUM, type = BooleanArgument.class, value = "n") })
     EXISTS,
@@ -55,6 +53,7 @@ public enum ConsoleCommand {
     
     // TODO
     // SETACL,
+    
     @CommandDescriptor(names={ "set", "setData" }, arguments = {
             @ArgumentDescriptor(token = TokenType.PATH),
             @ArgumentDescriptor(name="version", token = TokenType.INTEGER, value="-1"),
@@ -68,14 +67,6 @@ public enum ConsoleCommand {
     public static Completer getCompleter() {
         // TODO
         return new NullCompleter();
-    }
-
-    protected static Splitter SPLITTER = Splitter
-            .on(CharMatcher.BREAKING_WHITESPACE).omitEmptyStrings()
-            .trimResults();
-
-    public static Iterable<String> getTokens(CharSequence line) {
-        return SPLITTER.split(line);
     }
 
     private ConsoleCommand() {

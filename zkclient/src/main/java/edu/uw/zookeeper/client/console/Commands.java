@@ -24,6 +24,7 @@ import edu.uw.zookeeper.data.CreateMode;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.proto.Records;
 
 public abstract class Commands {
     
@@ -198,15 +199,15 @@ public abstract class Commands {
         
         @Override
         public ListenableFuture<String> apply(Invocation input) throws Exception {
-            Operation.Request request = operator.apply(input);
+            Records.Request request = operator.apply(input);
             return new RequestSubmitter(request).call();
         }
         
         protected class RequestSubmitter implements Callable<ListenableFuture<String>>, Function<Operation.ProtocolResponse<?>, String> {
 
-            protected final Operation.Request request;
+            protected final Records.Request request;
             
-            public RequestSubmitter(Operation.Request request) {
+            public RequestSubmitter(Records.Request request) {
                 this.request = request;
             }
 
@@ -218,14 +219,59 @@ public abstract class Commands {
 
             @Override
             public String apply(Operation.ProtocolResponse<?> input) {
-                return String.format("%s => %s", request, input);
+                if (input.record() instanceof Operation.Error) {
+                    return String.format("%s => %s", request, ((Operation.Error) input.record()).error());
+                } else {
+                    switch (request.opcode()) {
+                    case CREATE:
+                        return String.format("created => %s", 
+                                ((Records.PathGetter) input.record()).getPath());
+                    case CREATE2:
+                        return String.format("created => %s %s", 
+                                ((Records.PathGetter) input.record()).getPath(),
+                                Records.toBeanString(((Records.StatGetter) input.record()).getStat()));
+                    case DELETE:
+                        return String.format("deleted => %s", 
+                                ((Records.PathGetter) request).getPath());
+                    case EXISTS:
+                        return String.format("stat %s => %s", 
+                                ((Records.PathGetter) request).getPath(),
+                                Records.toBeanString(((Records.StatGetter) input.record()).getStat()));
+                    case GET_ACL:
+                        return String.format("getAcl %s => %s", 
+                                ((Records.PathGetter) request).getPath(),
+                                Records.iteratorToBeanString(((Records.AclGetter) input.record()).getAcl().iterator()));
+                    case GET_CHILDREN:
+                        return String.format("ls %s => %s", 
+                                ((Records.PathGetter) request).getPath(),
+                                ((Records.ChildrenGetter) input.record()).getChildren());
+                    case GET_CHILDREN2:
+                        return String.format("ls %s => %s %s", 
+                                ((Records.PathGetter) request).getPath(),
+                                ((Records.ChildrenGetter) input.record()).getChildren(),
+                                Records.toBeanString(((Records.StatGetter) input.record()).getStat()));
+                    case GET_DATA:
+                        return String.format("get %s => %s", 
+                                ((Records.PathGetter) request).getPath(),
+                                new String(((Records.DataGetter) input.record()).getData()));
+                    case SET_DATA:
+                        return String.format("set %s => %s", 
+                                ((Records.PathGetter) request).getPath(),
+                                Records.toBeanString(((Records.StatGetter) input.record()).getStat()));
+                    case SYNC:
+                        return String.format("sync => %s", 
+                                ((Records.PathGetter) input.record()).getPath());
+                    default:
+                        return String.format("%s => %s", request, input);
+                    }
+                }
             }
         }
     }
     
-    public static class RequestBuilder implements Function<Invocation, Operation.Request> {
+    public static class RequestBuilder implements Function<Invocation, Records.Request> {
         @Override
-        public Operation.Request apply(Invocation input) {
+        public Records.Request apply(Invocation input) {
             switch (input.getCommand()) {
             case CREATE:
                 return Operations.Requests.create()
