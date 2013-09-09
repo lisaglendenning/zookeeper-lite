@@ -125,7 +125,26 @@ public abstract class Commands {
                 if (!a.name().isEmpty()) {
                     argument.append(a.name()).append('=');
                 }
-                argument.append(a.type().getUsage());
+                switch (a.token()) {
+                case STRING:
+                    argument.append("\"...\"");
+                    break;
+                case PATH:
+                    argument.append("/...");
+                    break;
+                case INTEGER:
+                    argument.append("int");
+                    break;
+                case ENUM:
+                    if (a.type() == BooleanArgument.class) {
+                        argument.append(BooleanArgument.getUsage());
+                    } else if (a.type() == ModeArgument.class) {
+                        argument.append(ModeArgument.getUsage());
+                    } else {
+                        throw new AssertionError(String.valueOf(a.token()));
+                    }
+                    break;
+                }
                 if (!a.value().isEmpty()) {
                     argument.append('(').append(a.value()).append(')');
                 }
@@ -213,6 +232,7 @@ public abstract class Commands {
                         .setPath((ZNodeLabel.Path) input.getArguments()[1])
                         .setMode((CreateMode) input.getArguments()[2])
                         .setData(((String) input.getArguments()[3]).getBytes())
+                        .setStat((Boolean) input.getArguments()[4])
                         .build();
             case EXISTS:
                 return Operations.Requests.exists()

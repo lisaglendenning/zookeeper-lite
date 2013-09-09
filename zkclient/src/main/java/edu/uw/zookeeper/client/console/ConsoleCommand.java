@@ -22,48 +22,47 @@ public enum ConsoleCommand {
 
     // TODO: Acl
     @CommandDescriptor(arguments = {
-            @ArgumentDescriptor(type = TokenType.PATH),
-            @ArgumentDescriptor(name="mode", type = TokenType.MODE, value="p"),
-            @ArgumentDescriptor(name="data", type = TokenType.STRING) })
+            @ArgumentDescriptor(token = TokenType.PATH),
+            @ArgumentDescriptor(name="mode", token = TokenType.ENUM, type = ModeArgument.class, value="p"),
+            @ArgumentDescriptor(name="data", token = TokenType.STRING),
+            @ArgumentDescriptor(name = "stat", token = TokenType.ENUM, type = BooleanArgument.class, value = "n") })
     CREATE,
     
     @CommandDescriptor(names = { "rm", "delete" }, arguments = {
-            @ArgumentDescriptor(type = TokenType.PATH),
-            @ArgumentDescriptor(name="version", type = TokenType.INTEGER, value="-1") })
+            @ArgumentDescriptor(token = TokenType.PATH),
+            @ArgumentDescriptor(name="version", token = TokenType.INTEGER, value="-1") })
     RM,
     
     @CommandDescriptor(arguments = {
-            @ArgumentDescriptor(type = TokenType.PATH, value = "/"),
-            @ArgumentDescriptor(name = "watch", type = TokenType.BOOLEAN, value = "n") })
+            @ArgumentDescriptor(token = TokenType.PATH, value = "/"),
+            @ArgumentDescriptor(name = "watch", token = TokenType.ENUM, type = BooleanArgument.class, value = "n") })
     EXISTS,
 
     @CommandDescriptor(names = { "getAcl" }, arguments = {
-            @ArgumentDescriptor(type = TokenType.PATH, value = "/") })
+            @ArgumentDescriptor(token = TokenType.PATH, value = "/") })
     GETACL,
 
     @CommandDescriptor(names = { "get", "getData" }, arguments = {
-            @ArgumentDescriptor(type = TokenType.PATH, value = "/"),
-            @ArgumentDescriptor(name = "watch", type = TokenType.BOOLEAN, value = "n") })
+            @ArgumentDescriptor(token = TokenType.PATH, value = "/"),
+            @ArgumentDescriptor(name = "watch", token = TokenType.ENUM, type = BooleanArgument.class, value = "n") })
     GET,
 
     @CommandDescriptor(names = { "ls", "getChildren" }, arguments = {
-            @ArgumentDescriptor(type = TokenType.PATH, value = "/"),
-            @ArgumentDescriptor(name = "watch", type = TokenType.BOOLEAN, value = "n"),
-            @ArgumentDescriptor(name = "stat", type = TokenType.BOOLEAN, value = "n") })
+            @ArgumentDescriptor(token = TokenType.PATH, value = "/"),
+            @ArgumentDescriptor(name = "watch", token = TokenType.ENUM, type = BooleanArgument.class, value = "n"),
+            @ArgumentDescriptor(name = "stat", token = TokenType.ENUM, type = BooleanArgument.class, value = "n") })
     LS,
     
     // TODO
     // SETACL,
     @CommandDescriptor(names={ "set", "setData" }, arguments = {
-            @ArgumentDescriptor(type = TokenType.PATH),
-            @ArgumentDescriptor(name="version", type = TokenType.INTEGER, value="-1"),
-            @ArgumentDescriptor(name="data", type = TokenType.STRING) })
+            @ArgumentDescriptor(token = TokenType.PATH),
+            @ArgumentDescriptor(name="version", token = TokenType.INTEGER, value="-1"),
+            @ArgumentDescriptor(name="data", token = TokenType.STRING) })
     SET,
     
     @CommandDescriptor(arguments = {
-            @ArgumentDescriptor(type = TokenType.PATH, value = "/"),
-            @ArgumentDescriptor(name = "watch", type = TokenType.BOOLEAN, value = "n"),
-            @ArgumentDescriptor(name = "stat", type = TokenType.BOOLEAN, value = "n") })
+            @ArgumentDescriptor(token = TokenType.PATH, value = "/") })
     SYNC;
 
     public static Completer getCompleter() {
@@ -121,14 +120,20 @@ public enum ConsoleCommand {
             if (itr.hasNext()) {
                 token = itr.next();
             } else {
-                checkArgument(! descriptor.value().isEmpty() || descriptor.type() == TokenType.STRING, 
+                checkArgument(! descriptor.value().isEmpty() || descriptor.token() == TokenType.STRING, 
                     String.format("Missing required argument #%d", i+1));
                 token = descriptor.value();
             }
             Object argument;
-            switch (descriptor.type()) {
-            case BOOLEAN:
-                argument = Boolean.valueOf(BooleanArgument.fromString(token).booleanValue());
+            switch (descriptor.token()) {
+            case ENUM:
+                if (descriptor.type() == BooleanArgument.class) {
+                    argument = Boolean.valueOf(BooleanArgument.fromString(token).booleanValue());
+                } else if (descriptor.type() == ModeArgument.class) {
+                    argument = ModeArgument.fromString(token).value();
+                } else {
+                    throw new AssertionError(String.valueOf(descriptor.type()));
+                }
                 break;
             case STRING:
                 argument = token;
@@ -138,9 +143,6 @@ public enum ConsoleCommand {
                 break;
             case INTEGER:
                 argument = Integer.valueOf(token);
-                break;
-            case MODE:
-                argument = ModeArgument.fromString(token).value();
                 break;
             default:
                 argument = null;

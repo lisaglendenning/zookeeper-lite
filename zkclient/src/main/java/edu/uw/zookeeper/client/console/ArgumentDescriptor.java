@@ -3,7 +3,9 @@ package edu.uw.zookeeper.client.console;
 public @interface ArgumentDescriptor {
     String name() default "";
 
-    TokenType type() default TokenType.STRING;
-
     String value() default "";
+    
+    TokenType token() default TokenType.STRING;
+
+    Class<?> type() default Void.class;
 }
