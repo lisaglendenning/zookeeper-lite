@@ -7,6 +7,7 @@ import com.google.common.collect.Lists;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ListenableFuture;
+
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Factory;
@@ -133,7 +134,13 @@ public class ClientConnectionExecutorService extends AbstractIdleService
             try {
                 if ((client.get().codec().state() == ProtocolState.CONNECTED) && 
                         (client.get().state().compareTo(Connection.State.CONNECTION_CLOSING) < 0)) {
-                    client.submit(Records.Requests.getInstance().get(OpCode.CLOSE_SESSION)).get(client.session().get().getTimeOut(), TimeUnit.MILLISECONDS);
+                    ListenableFuture<Message.ServerResponse<?>> future = client.submit(Records.Requests.getInstance().get(OpCode.CLOSE_SESSION));
+                    int timeOut = client.session().get().getTimeOut();
+                    if (timeOut > 0) {
+                        future.get(timeOut, TimeUnit.MILLISECONDS);
+                    } else {
+                        future.get();
+                    }
                 }
             } finally {
                 client.stop();
