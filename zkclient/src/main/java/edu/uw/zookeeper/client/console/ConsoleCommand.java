@@ -30,6 +30,9 @@ public enum ConsoleCommand {
     @CommandDescriptor(description="Recursive delete", arguments = {
             @ArgumentDescriptor(token = TokenType.PATH)})
     RMR,
+
+    @CommandDescriptor()
+    MULTI,
     
     // TODO: Acl
     @CommandDescriptor(arguments = {
@@ -45,21 +48,21 @@ public enum ConsoleCommand {
     RM,
     
     @CommandDescriptor(names = { "stat", "exists" }, arguments = {
-            @ArgumentDescriptor(token = TokenType.PATH, value = "/"),
+            @ArgumentDescriptor(token = TokenType.PATH),
             @ArgumentDescriptor(name = "watch", token = TokenType.ENUM, type = BooleanArgument.class, value = "n") })
     EXISTS,
 
     @CommandDescriptor(names = { "getAcl" }, arguments = {
-            @ArgumentDescriptor(token = TokenType.PATH, value = "/") })
+            @ArgumentDescriptor(token = TokenType.PATH) })
     GETACL,
 
     @CommandDescriptor(names = { "get", "getData" }, arguments = {
-            @ArgumentDescriptor(token = TokenType.PATH, value = "/"),
+            @ArgumentDescriptor(token = TokenType.PATH),
             @ArgumentDescriptor(name = "watch", token = TokenType.ENUM, type = BooleanArgument.class, value = "n") })
     GET,
 
     @CommandDescriptor(names = { "ls", "getChildren" }, arguments = {
-            @ArgumentDescriptor(token = TokenType.PATH, value = "/"),
+            @ArgumentDescriptor(token = TokenType.PATH),
             @ArgumentDescriptor(name = "watch", token = TokenType.ENUM, type = BooleanArgument.class, value = "n"),
             @ArgumentDescriptor(name = "stat", token = TokenType.ENUM, type = BooleanArgument.class, value = "n") })
     LS,
@@ -74,7 +77,7 @@ public enum ConsoleCommand {
     SET,
     
     @CommandDescriptor(arguments = {
-            @ArgumentDescriptor(token = TokenType.PATH, value = "/") })
+            @ArgumentDescriptor(token = TokenType.PATH) })
     SYNC;
 
     public static Completer getCompleter() {
@@ -111,7 +114,7 @@ public enum ConsoleCommand {
         return getDescriptor().description();
     }
 
-    public Object[] parse(Map<String, String> env, Iterable<String> tokens) {
+    public Object[] parse(Map<String, Object> env, Iterable<String> tokens) {
         ArgumentDescriptor[] descriptors = getArguments();
         Object[] arguments = new Object[descriptors.length + 1];
         Iterator<String> itr = tokens.iterator();
@@ -124,8 +127,6 @@ public enum ConsoleCommand {
             if (itr.hasNext()) {
                 token = itr.next();
             } else {
-                checkArgument(! descriptor.value().isEmpty() || descriptor.token() == TokenType.STRING, 
-                    String.format("Missing required argument #%d", i+1));
                 token = descriptor.value();
             }
             Object argument;
@@ -143,10 +144,12 @@ public enum ConsoleCommand {
                 argument = token;
                 break;
             case PATH:
-                if (token.charAt(0) == ZNodeLabel.SLASH) {
+                if (token.isEmpty()) {
+                    argument = EnvKey.CWD.get(env);
+                } else if (token.charAt(0) == ZNodeLabel.SLASH) {
                     argument = ZNodeLabel.Path.of(token);
                 } else {
-                    argument = ZNodeLabel.Path.joined(ConsoleReaderService.EnvKey.CWD.get(env), token);
+                    argument = ZNodeLabel.Path.joined(EnvKey.CWD.get(env).toString(), token);
                 }
                 break;
             case INTEGER:

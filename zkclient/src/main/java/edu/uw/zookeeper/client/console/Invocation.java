@@ -8,18 +8,18 @@ import com.google.common.base.Joiner;
 
 public class Invocation {
 
-    private final Map<String, String> environment;
+    private final Map<String, Object> environment;
     private final ConsoleCommand command;
     private final Object[] arguments;
 
-    public Invocation(Map<String, String> environment, ConsoleCommand command, Object[] arguments) {
+    public Invocation(Map<String, Object> environment, ConsoleCommand command, Object[] arguments) {
         super();
         this.environment = checkNotNull(environment);
         this.command = checkNotNull(command);
         this.arguments = checkNotNull(arguments);
     }
     
-    public Map<String, String> getEnvironment() {
+    public Map<String, Object> getEnvironment() {
         return environment;
     }
 

@@ -5,6 +5,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +20,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
@@ -37,13 +39,16 @@ import edu.uw.zookeeper.data.CreateMode;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
+import edu.uw.zookeeper.protocol.proto.IMultiRequest;
+import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 public abstract class Commands {
     
     public static Invoker invoker(ClientExecutor<? super Operation.Request, ?> client) {
-        return MapInvoker.newInstance(client);
+        return TopInvoker.newInstance(client);
     }
     
     public static Invoker invokeCallable(final Callable<String> callable) {
@@ -56,12 +61,12 @@ public abstract class Commands {
         };
     }
     
-    public static class MapInvoker implements Invoker {
+    public static class TopInvoker implements Invoker {
 
-        public static MapInvoker newInstance(ClientExecutor<? super Operation.Request, ?> client) {
+        public static TopInvoker newInstance(ClientExecutor<? super Operation.Request, ?> client) {
             ImmutableMap.Builder<ConsoleCommand, AsyncFunction<Invocation, String>> invokers = ImmutableMap.builder();
             for (Class<?> cls: Commands.class.getDeclaredClasses()) {
-                if (cls == MapInvoker.class) {
+                if (cls == TopInvoker.class) {
                     continue;
                 }
                 for (Method m: cls.getDeclaredMethods()) {
@@ -93,12 +98,12 @@ public abstract class Commands {
                     }
                 }
             }
-            return new MapInvoker(invokers.build());
+            return new TopInvoker(invokers.build());
         }
         
         protected final Map<ConsoleCommand, AsyncFunction<Invocation, String>> invokers;
         
-        protected MapInvoker(
+        protected TopInvoker(
                 Map<ConsoleCommand, AsyncFunction<Invocation, String>> invokers) {
             this.invokers = invokers;
         }
@@ -106,6 +111,22 @@ public abstract class Commands {
         @Override
         public ListenableFuture<String> apply(Invocation input)
                 throws Exception {
+            if (input.getCommand() == ConsoleCommand.MULTI) {
+                if (EnvKey.MULTI.contains(input.getEnvironment())) {
+                    List<Invocation> invocations = EnvKey.MULTI.remove(input.getEnvironment());
+                    EnvKey.PROMPT.put(input.getEnvironment(), "%s $ ");
+                    Object[] arguments = { input.getArguments()[0], invocations };
+                    input = new Invocation(input.getEnvironment(), input.getCommand(), arguments);
+                } else {
+                    EnvKey.MULTI.put(input.getEnvironment(), Lists.<Invocation>newLinkedList());
+                    EnvKey.PROMPT.put(input.getEnvironment(), "%s (multi) $ ");
+                    return Futures.immediateFuture("");
+                }
+            } else if (EnvKey.MULTI.contains(input.getEnvironment())) {
+                List<Invocation> invocations = EnvKey.MULTI.get(input.getEnvironment());
+                invocations.add(input);
+                return Futures.immediateFuture("");
+            }
             AsyncFunction<Invocation, String> invoker = invokers.get(input.getCommand());
             checkArgument(invoker != null, input.getCommand());
             return invoker.apply(input);
@@ -137,12 +158,12 @@ public abstract class Commands {
         }
         
         protected String cd(Invocation invocation) {
-            ConsoleReaderService.EnvKey.CWD.put(
-                    invocation.getEnvironment(), invocation.getArguments()[1].toString());
+            EnvKey.CWD.put(
+                    invocation.getEnvironment(), invocation.getArguments()[1]);
             return "";
         }
         
-        protected String printEnv(Map<String, String> env) {
+        protected String printEnv(Map<String, Object> env) {
             return Joiner.on('\n').withKeyValueSeparator("\t").join(env);
         }
         
@@ -205,6 +226,7 @@ public abstract class Commands {
     public static class ClientExecutorInvoker implements Invoker {
         
         @Invokes(commands={
+                ConsoleCommand.MULTI,
                 ConsoleCommand.CREATE,
                 ConsoleCommand.LS, 
                 ConsoleCommand.EXISTS, 
@@ -254,6 +276,18 @@ public abstract class Commands {
                     return String.format("%s => %s", request, ((Operation.Error) input.record()).error());
                 } else {
                     switch (request.opcode()) {
+                    case MULTI:
+                    {
+                        StringBuilder str = new StringBuilder().append("multi =>").append('\n');
+                        Iterator<Records.MultiOpRequest> requests = ((IMultiRequest) request).iterator();
+                        Iterator<Records.MultiOpResponse> responses = ((IMultiResponse) input.record()).iterator();
+                        while (requests.hasNext()) {
+                            Records.MultiOpRequest request = requests.next();
+                            Records.MultiOpResponse response = responses.next();
+                            str.append(new RequestSubmitter(request).apply(ProtocolResponseMessage.of(input.xid(), input.zxid(), response))).append('\n');
+                        }
+                        return str.toString();
+                    }
                     case CREATE:
                         return String.format("created => %s", 
                                 ((Records.PathGetter) input.record()).getPath());
@@ -301,9 +335,18 @@ public abstract class Commands {
     }
     
     public static class RequestBuilder implements Function<Invocation, Records.Request> {
+        @SuppressWarnings("unchecked")
         @Override
         public Records.Request apply(Invocation input) {
             switch (input.getCommand()) {
+            case MULTI:
+            {
+                ImmutableList.Builder<Records.MultiOpRequest> requests = ImmutableList.builder();
+                for (Invocation e: (List<Invocation>) input.getArguments()[1]) {
+                    requests.add((Records.MultiOpRequest) apply(e));
+                }
+                return new IMultiRequest(requests.build());
+            }
             case CREATE:
                 return Operations.Requests.create()
                         .setPath((ZNodeLabel.Path) input.getArguments()[1])
@@ -495,6 +538,6 @@ public abstract class Commands {
             }
         }
     }
-
+    
     private Commands() {}
 }

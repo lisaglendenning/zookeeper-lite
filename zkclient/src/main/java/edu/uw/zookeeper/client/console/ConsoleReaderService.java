@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.data.WatchEvent;
+import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
@@ -33,18 +34,6 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
         return new ConsoleReaderService(client, reader, Commands.invoker(client));
     }
     
-    public static enum EnvKey {
-        PROMPT, CWD;
-        
-        public String get(Map<String, String> env) {
-            return env.get(name());
-        }
-
-        public String put(Map<String, String> env, String value) {
-            return env.put(name(), value);
-        }
-    }
-
     protected final ClientExecutor<? super Operation.Request, ?> client;
     protected final ConsoleReader reader;
     protected final Invoker invoker;
@@ -81,7 +70,7 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
 
     @Override
     protected void run() throws Exception {
-        Map<String, String> env = newEnvironment();
+        Map<String, Object> env = newEnvironment();
         LineParser parser = LineParser.create();
         String line = null;
         while (isRunning() && ((line = readLine(env)) != null)) {
@@ -99,18 +88,18 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
         }
     }
     
-    protected String readLine(Map<String, String> env) throws IOException {
-        String prompt = String.format(EnvKey.PROMPT.get(env), EnvKey.CWD.get(env));
+    protected String readLine(Map<String, Object> env) throws IOException {
+        String prompt = String.format(EnvKey.PROMPT.<String>get(env), EnvKey.CWD.get(env));
         if (reader.getTerminal().isAnsiSupported()) {
             prompt = new StringBuilder().append("\u001b[1m").append(prompt).append("\u001b[0m").toString();
         }
         return reader.readLine(prompt);
     }
     
-    protected Map<String, String> newEnvironment() {
-        Map<String, String> env = Maps.newHashMap();
+    protected Map<String, Object> newEnvironment() {
+        Map<String, Object> env = Maps.newHashMap();
         EnvKey.PROMPT.put(env, "%s $ ");
-        EnvKey.CWD.put(env, "/");
+        EnvKey.CWD.put(env, ZNodeLabel.Path.root());
         return env;
     }
     
@@ -123,7 +112,7 @@ public class ConsoleReaderService extends AbstractExecutionThreadService {
         reader.flush();
     }
     
-    protected Invocation parse(Map<String, String> env, Iterable<String> tokens) {
+    protected Invocation parse(Map<String, Object> env, Iterable<String> tokens) {
         String name = Iterables.getFirst(tokens, null);
         if (name == null) {
             return null;
