@@ -20,7 +20,7 @@ public class Main extends ZooKeeperApplication.ForwardingApplication {
     
     protected static class MainBuilder extends ZooKeeperApplication.ForwardingBuilder<Main, ConsoleClientBuilder, MainBuilder> {
 
-    	protected static final String DESCRIPTION = "ZooKeeper Shell Client";
+    	protected static final String DESCRIPTION = "ZooKeeper Console Client\nType '?' at the prompt to get started.";
     	
         public MainBuilder() {
             this(ConsoleClientBuilder.defaults());
