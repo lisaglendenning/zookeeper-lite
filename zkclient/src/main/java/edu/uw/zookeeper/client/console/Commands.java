@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.client.console;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -112,15 +113,31 @@ public abstract class Commands {
         public ListenableFuture<String> apply(Invocation input)
                 throws Exception {
             if (input.getCommand() == ConsoleCommand.MULTI) {
-                if (EnvKey.MULTI.contains(input.getEnvironment())) {
+                switch ((MultiArgument) input.getArguments()[1]) {
+                case BEGIN:
+                {
+                    List<Invocation> invocations = Lists.<Invocation>newLinkedList();
+                    invocations = EnvKey.MULTI.put(input.getEnvironment(), invocations);
+                    checkState(invocations == null, "\"multi begin\" cannot follow a \"multi begin\"");
+                    EnvKey.PROMPT.put(input.getEnvironment(), EnvKey.PROMPT.<String>get(input.getEnvironment()) + "(multi)> ");
+                    return Futures.immediateFuture("");
+                }
+                case END:
+                {
                     List<Invocation> invocations = EnvKey.MULTI.remove(input.getEnvironment());
-                    EnvKey.PROMPT.put(input.getEnvironment(), "%s $ ");
+                    checkState(invocations != null, "\"multi end\" missing preceding \"multi begin\"");
+                    EnvKey.PROMPT.put(input.getEnvironment(), EnvKey.PROMPT.<String>get(input.getEnvironment()).replace("(multi)> ", ""));
                     Object[] arguments = { input.getArguments()[0], invocations };
                     input = new Invocation(input.getEnvironment(), input.getCommand(), arguments);
-                } else {
-                    EnvKey.MULTI.put(input.getEnvironment(), Lists.<Invocation>newLinkedList());
-                    EnvKey.PROMPT.put(input.getEnvironment(), "%s (multi) $ ");
+                    break;
+                }
+                case CANCEL:
+                {
+                    List<Invocation> invocations = EnvKey.MULTI.remove(input.getEnvironment());
+                    checkState(invocations != null, "\"multi cancel\" missing preceding \"multi begin\"");
+                    EnvKey.PROMPT.put(input.getEnvironment(), EnvKey.PROMPT.<String>get(input.getEnvironment()).replace("(multi)> ", ""));
                     return Futures.immediateFuture("");
+                }
                 }
             } else if (EnvKey.MULTI.contains(input.getEnvironment())) {
                 List<Invocation> invocations = EnvKey.MULTI.get(input.getEnvironment());
@@ -206,6 +223,8 @@ public abstract class Commands {
                         argument.append(BooleanArgument.getUsage());
                     } else if (a.type() == ModeArgument.class) {
                         argument.append(ModeArgument.getUsage());
+                    } else if (a.type() == MultiArgument.class) {
+                        argument.append(MultiArgument.getUsage());
                     } else {
                         throw new AssertionError(String.valueOf(a.token()));
                     }

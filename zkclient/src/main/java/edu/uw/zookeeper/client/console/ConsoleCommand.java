@@ -31,7 +31,8 @@ public enum ConsoleCommand {
             @ArgumentDescriptor(token = TokenType.PATH)})
     RMR,
 
-    @CommandDescriptor()
+    @CommandDescriptor(arguments = {
+            @ArgumentDescriptor(token = TokenType.ENUM, type = MultiArgument.class)})
     MULTI,
     
     // TODO: Acl
@@ -136,6 +137,8 @@ public enum ConsoleCommand {
                     argument = Boolean.valueOf(BooleanArgument.fromString(token).booleanValue());
                 } else if (descriptor.type() == ModeArgument.class) {
                     argument = ModeArgument.fromString(token).value();
+                } else if (descriptor.type() == MultiArgument.class) {
+                    argument = MultiArgument.fromString(token);
                 } else {
                     throw new AssertionError(String.valueOf(descriptor.type()));
                 }
@@ -158,7 +161,7 @@ public enum ConsoleCommand {
             default:
                 argument = null;
             }
-            checkArgument(argument != null, String.valueOf(token));
+            checkArgument(argument != null, String.format("Error parsing argument #%d: %s", i+1, token));
             arguments[i+1] = argument;
         }
         checkArgument(! itr.hasNext(), String.format("Extra arguments after #%d", descriptors.length));
