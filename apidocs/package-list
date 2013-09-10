@@ -1,5 +1,6 @@
 edu.uw.zookeeper
 edu.uw.zookeeper.client
+edu.uw.zookeeper.client.console
 edu.uw.zookeeper.common
 edu.uw.zookeeper.data
 edu.uw.zookeeper.net
