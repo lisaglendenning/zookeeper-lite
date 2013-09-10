@@ -262,7 +262,7 @@ public class TreeFetcher<V> implements AsyncFunction<ZNodeLabel.Path, Optional<V
         
         @Override
         public ZNodeLabel.Path apply(String input) {
-            return ZNodeLabel.Path.of(parent, ZNodeLabel.Component.of(input));
+            return (ZNodeLabel.Path) ZNodeLabel.joined(parent, input);
         }
     }
 

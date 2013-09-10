@@ -37,7 +37,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
     public static abstract class AbstractOperator<V extends Records.Response> implements Operator<V> {
 
         public static ZNodeLabel.Path getPath(Records.PathGetter record) {
-            return ZNodeLabel.Path.of(record.getPath());
+            return ZNodeLabel.Path.validated(record.getPath());
         }
         
         public static ZNodeStateNode getNode(ZNodeDataTrie trie, ZNodeLabel path) throws KeeperException.NoNodeException {

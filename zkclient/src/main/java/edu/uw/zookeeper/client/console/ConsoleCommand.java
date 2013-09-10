@@ -150,9 +150,9 @@ public enum ConsoleCommand {
                 if (token.isEmpty()) {
                     argument = EnvKey.CWD.get(env);
                 } else if (token.charAt(0) == ZNodeLabel.SLASH) {
-                    argument = ZNodeLabel.Path.of(token);
+                    argument = ZNodeLabel.Path.validated(token);
                 } else {
-                    argument = ZNodeLabel.Path.joined(EnvKey.CWD.get(env).toString(), token);
+                    argument = ZNodeLabel.Path.canonicalized(ZNodeLabel.join(EnvKey.CWD.get(env).toString(), token));
                 }
                 break;
             case INTEGER:

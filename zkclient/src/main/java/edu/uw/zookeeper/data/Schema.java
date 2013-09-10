@@ -186,7 +186,7 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
                         ZNodeLabel.Path path = next.path;
                         Builder parent = next.builder;
                         if (parent.getLabel().length() > 0) {
-                            path = ZNodeLabel.Path.of(path, ZNodeLabel.of(parent.getLabel()));
+                            path = (ZNodeLabel.Path) ZNodeLabel.joined(path, parent.getLabel());
                         }
                         
                         Object obj = parent.getType();

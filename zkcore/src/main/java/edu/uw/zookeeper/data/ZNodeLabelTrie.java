@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.AbstractIterator;
@@ -81,7 +82,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
             components.addFirst(next.label());
         }
         components.addFirst(ZNodeLabel.Path.root());
-        return ZNodeLabel.Path.of(components.iterator());
+        return (ZNodeLabel.Path) ZNodeLabel.joined(Iterators.transform(components.iterator(), Functions.toStringFunction()));
     }
 
     public static class ParentIterator<E extends Node<E>> extends AbstractIterator<E> {
