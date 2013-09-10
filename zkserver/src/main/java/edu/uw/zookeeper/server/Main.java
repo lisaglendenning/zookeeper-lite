@@ -28,7 +28,7 @@ public class Main extends ZooKeeperApplication {
 
     protected static class MainBuilder extends ZooKeeperApplication.ForwardingBuilder<Main, ServerBuilder, MainBuilder> {
         
-    	protected static final String DESCRIPTION = "ZooKeeper Server";
+    	protected static final String DESCRIPTION = "ZooKeeper Standalone In-Memory Server";
     	
         public MainBuilder() {
             this(ServerBuilder.defaults());
