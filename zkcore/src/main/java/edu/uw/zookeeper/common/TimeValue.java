@@ -2,12 +2,11 @@ package edu.uw.zookeeper.common;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableBiMap;
 
 import edu.uw.zookeeper.data.Serializes;
@@ -42,9 +41,12 @@ public final class TimeValue implements Comparable<TimeValue> {
     
     @Serializes(from=String.class, to=TimeValue.class)
     public static TimeValue fromString(String text) {
-        Iterator<String> fields = SPLITTER.split(text).iterator();
-        long value = Long.parseLong(fields.next());
-        String unit = fields.next();
+        Matcher m = PATTERN.matcher(text);
+        if (! m.matches()) {
+            throw new IllegalArgumentException(text);
+        }
+        long value = Long.parseLong(m.group(1));
+        String unit = m.group(2);
         return create(value, unit);
     }
 
@@ -60,7 +62,7 @@ public final class TimeValue implements Comparable<TimeValue> {
                 .build();
     
     protected static String FORMAT = "%d %s";
-    protected static Splitter SPLITTER = Splitter.on(Pattern.compile("[ \t]+")).omitEmptyStrings().limit(2);
+    protected static Pattern PATTERN = Pattern.compile("(\\d+)[ \t]*([a-zA-Z]+)");
     
     private final long value;
     private final TimeUnit unit;
