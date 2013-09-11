@@ -1,9 +1,9 @@
 package edu.uw.zookeeper;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -17,6 +17,7 @@ import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ListeningExecutorServiceFactory;
+import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.ServiceMonitor;
 import edu.uw.zookeeper.common.SimpleArguments;
@@ -69,6 +70,26 @@ public class DefaultRuntimeModule implements RuntimeModule {
         }
     }
     
+    public static class ThreadPoolExecutorPurger extends Pair<ScheduledExecutorService, ThreadPoolExecutor> implements Runnable {
+
+        public static <T extends ThreadPoolExecutor> T purge(ScheduledExecutorService scheduler, T executor) {
+            ThreadPoolExecutorPurger purger = new ThreadPoolExecutorPurger(scheduler, executor);
+            scheduler.scheduleAtFixedRate(purger, PURGE_INTERVAL.value(), PURGE_INTERVAL.value(), PURGE_INTERVAL.unit());
+            return executor;
+        }
+        
+        private static final TimeValue PURGE_INTERVAL = TimeValue.seconds(1);
+        
+        public ThreadPoolExecutorPurger(ScheduledExecutorService scheduler, ThreadPoolExecutor executor) {
+            super(scheduler, executor);
+        }
+        
+        @Override
+        public void run() {
+            second.purge();
+        }
+    }
+
     public static class SingleDaemonThreadScheduledExectorFactory implements Factory<ScheduledExecutorService> {
 
         public static SingleDaemonThreadScheduledExectorFactory defaults() {
@@ -90,10 +111,14 @@ public class DefaultRuntimeModule implements RuntimeModule {
         }
         
         @Override
-        public ScheduledExecutorService get() {
-            ScheduledExecutorService instance = Executors.newSingleThreadScheduledExecutor(
-                    threadFactory.build());
+        public ScheduledThreadPoolExecutor get() {
+            ScheduledThreadPoolExecutor instance = new ScheduledThreadPoolExecutor(1, threadFactory.build());
+            // not available until Java 7 :-(
+            // instance.setRemoveOnCancelPolicy(true);
+            instance.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+            instance.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
             //MoreExecutors.addDelayedShutdownHook(instance, 100, TimeUnit.MILLISECONDS);
+            ThreadPoolExecutorPurger.purge(instance, instance);
             return instance;
         }
     }
@@ -104,7 +129,6 @@ public class DefaultRuntimeModule implements RuntimeModule {
         public static DefaultApplicationExecutorFactory configured(
                 Configuration configuration) {
             return fromThreadFactory(configuration, PlatformThreadFactory.getInstance().get());
-
         }
 
         public static DefaultApplicationExecutorFactory fromThreadFactory(
@@ -138,14 +162,13 @@ public class DefaultRuntimeModule implements RuntimeModule {
         }
 
         @Override
-        public ExecutorService get() {
-            ThreadPoolExecutor executor = new ThreadPoolExecutor(
+        public ThreadPoolExecutor get() {
+            ThreadPoolExecutor instance = new ThreadPoolExecutor(
                     corePoolSize, maxPoolSize,
                     keepAlive.value(), keepAlive.unit(),
                     new LinkedBlockingQueue<Runnable>(),
                     threadFactory.build());
-            executor.prestartAllCoreThreads();
-            return executor;
+            return instance;
         }
     }
     
