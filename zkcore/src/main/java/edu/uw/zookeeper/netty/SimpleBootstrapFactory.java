@@ -23,7 +23,7 @@ public class SimpleBootstrapFactory implements ParameterizedFactory<Factory<? ex
     
     @SuppressWarnings("unchecked")
     public static <T> Bootstrap option(Bootstrap bootstrap, ChannelOption<T> key, Object value) {
-        return bootstrap.option(key, (T)value);
+        return bootstrap.option(key, (T) value);
     }
     
     protected SimpleBootstrapFactory(

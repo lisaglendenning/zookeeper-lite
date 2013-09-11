@@ -5,6 +5,7 @@ import java.util.concurrent.ThreadFactory;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
@@ -12,8 +13,7 @@ import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.ServiceMonitor;
 import edu.uw.zookeeper.netty.DaemonThreadFactory;
 import edu.uw.zookeeper.netty.EventLoopGroupService;
-import edu.uw.zookeeper.netty.nio.NioServerChannelTypeFactory;
-import edu.uw.zookeeper.netty.nio.NioEventLoopGroupFactory;
+import edu.uw.zookeeper.netty.NioEventLoopGroupFactory;
 
 public class NioServerBootstrapFactory implements Factory<ServerBootstrap> {
 
@@ -61,9 +61,9 @@ public class NioServerBootstrapFactory implements Factory<ServerBootstrap> {
             Factory<? extends EventLoopGroup> groupFactory) {
         this.groupFactory = groupFactory;
         this.bootstrapFactory = SimpleServerBootstrapFactory.newInstance(
-                NioServerChannelTypeFactory.getInstance().get(),
-                ServerTcpChannelOptionsFactory.getClient().get(),
-                ServerTcpChannelOptionsFactory.getServer().get());
+                NioServerSocketChannel.class,
+                ServerTcpChannelOptionsFactory.getClient(),
+                ServerTcpChannelOptionsFactory.getServer());
     }
 
     @Override

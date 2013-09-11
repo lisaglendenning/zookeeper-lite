@@ -4,15 +4,15 @@ import java.util.concurrent.ThreadFactory;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.ServiceMonitor;
 import edu.uw.zookeeper.netty.DaemonThreadFactory;
 import edu.uw.zookeeper.netty.EventLoopGroupService;
+import edu.uw.zookeeper.netty.NioEventLoopGroupFactory;
 import edu.uw.zookeeper.netty.SimpleBootstrapFactory;
-import edu.uw.zookeeper.netty.nio.NioChannelTypeFactory;
-import edu.uw.zookeeper.netty.nio.NioEventLoopGroupFactory;
 
 public class NioClientBootstrapFactory implements Factory<Bootstrap> {
     
@@ -37,8 +37,8 @@ public class NioClientBootstrapFactory implements Factory<Bootstrap> {
     protected NioClientBootstrapFactory(Factory<? extends EventLoopGroup> groupFactory) {
         this.groupFactory = groupFactory;
         this.bootstrapFactory = SimpleBootstrapFactory.newInstance(
-                NioChannelTypeFactory.getInstance().get(),
-                ClientTcpChannelOptionsFactory.getInstance().get());
+                NioSocketChannel.class,
+                ClientTcpChannelOptionsFactory.getInstance());
     }
 
     @Override

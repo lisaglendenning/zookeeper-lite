@@ -26,12 +26,12 @@ public class SimpleServerBootstrapFactory implements ParameterizedFactory<Factor
     
     @SuppressWarnings("unchecked")
     public static <T> ServerBootstrap option(ServerBootstrap bootstrap, ChannelOption<T> key, Object value) {
-        return bootstrap.option(key, (T)value);
+        return bootstrap.option(key, (T) value);
     }
 
     @SuppressWarnings("unchecked")
     public static <T> ServerBootstrap childOption(ServerBootstrap bootstrap, ChannelOption<T> key, Object value) {
-        return bootstrap.childOption(key, (T)value);
+        return bootstrap.childOption(key, (T) value);
     }
     
     protected SimpleServerBootstrapFactory(

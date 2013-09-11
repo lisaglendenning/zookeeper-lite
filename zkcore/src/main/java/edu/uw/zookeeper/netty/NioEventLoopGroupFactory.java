@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.netty.nio;
+package edu.uw.zookeeper.netty;
 
 import java.util.concurrent.ThreadFactory;
 
