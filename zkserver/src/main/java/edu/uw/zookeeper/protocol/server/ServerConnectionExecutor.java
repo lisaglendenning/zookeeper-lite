@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.protocol.server;
 
+import java.lang.ref.WeakReference;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -102,7 +103,7 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
         this.sessionExecutor = sessionExecutor;
         this.session = SettableFuturePromise.create();
         this.failure = new AtomicReference<Throwable>(null);
-        this.timeOut = new TimeOutClient(TimeOutParameters.create(timeOut), executor);
+        this.timeOut = new TimeOutClient(TimeOutParameters.create(timeOut), executor, this);
         this.outbound = new OutboundActor();
         this.inbound = new InboundActor();
         
@@ -174,11 +175,15 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
                 .toString();
     }
     
-    protected class TimeOutClient extends TimeOutActor<Message.Client> implements FutureCallback<ConnectMessage.Response> {
+    protected static class TimeOutClient extends TimeOutActor<Message.Client> implements FutureCallback<ConnectMessage.Response> {
 
+        protected final WeakReference<ServerConnectionExecutor<?>> connection;
+        
         public TimeOutClient(TimeOutParameters parameters,
-                ScheduledExecutorService executor) {
+                ScheduledExecutorService executor,
+                ServerConnectionExecutor<?> connection) {
             super(parameters, executor);
+            this.connection = new WeakReference<ServerConnectionExecutor<?>>(connection);
         }
 
         @Override
@@ -195,7 +200,10 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
 
         @Override
         public void onFailure(Throwable t) {
-            ServerConnectionExecutor.this.onFailure(t);
+            ServerConnectionExecutor<?> connection = this.connection.get();
+            if (connection != null) {
+                connection.onFailure(t);
+            }
         }
     }
 

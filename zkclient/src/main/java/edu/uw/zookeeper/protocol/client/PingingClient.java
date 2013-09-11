@@ -1,6 +1,10 @@
 package edu.uw.zookeeper.protocol.client;
 
+import java.lang.ref.WeakReference;
 import java.util.concurrent.ScheduledExecutorService;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
@@ -54,7 +58,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
             C connection) {
         super(codec, connection);
         
-        this.pingTask = new PingingTask(pingParameters, executor);
+        this.pingTask = new PingingTask(pingParameters, executor, this);
         if (codec.state() == ProtocolState.CONNECTED) {
             pingTask.run();
         }
@@ -85,15 +89,19 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         pingTask.send(message);
     }
 
-    protected class PingingTask extends TimeOutActor<Object> implements Actor<Object>, FutureCallback<Object> {
+    protected static class PingingTask extends TimeOutActor<Object> implements Actor<Object>, FutureCallback<Object> {
 
+        private final Logger logger = LogManager.getLogger(getClass());
         private volatile Ping.Request lastPing = null;
+        private final WeakReference<PingingClient<?,?,?>> connection;
 
         public PingingTask(
                 TimeOutParameters parameters,
-                ScheduledExecutorService executor) {
+                ScheduledExecutorService executor,
+                PingingClient<?,?,?> connection) {
             super(parameters, executor);
             lastPing = null;
+            this.connection = new WeakReference<PingingClient<?,?,?>>(connection);
         }
         
         public Ping.Request lastPing() {
@@ -106,7 +114,10 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
 
         @Override
         public void onFailure(Throwable t) {
-            close();
+            PingingClient<?,?,?> connection = this.connection.get();
+            if (connection != null) {
+                connection.close();
+            }
         }
 
         @Override
@@ -146,8 +157,13 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         }
 
         @Override
-        protected void doRun() {            
-            switch (codec().state()) {
+        protected void doRun() {   
+            PingingClient<?,?,?> connection = this.connection.get();
+            if (connection == null) {
+                return;
+            }
+            
+            switch (connection.codec().state()) {
             case ANONYMOUS:
             case CONNECTING:
                 throw new AssertionError();
@@ -164,9 +180,9 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
             if (parameters.remaining() < parameters.getTimeOut() / 2) {
                 Operation.ProtocolRequest<Ping.Request> message = ProtocolRequestMessage.from(Ping.Request.newInstance());
                 try {
-                    Futures.addCallback(delegate().write(message), this);
+                    Futures.addCallback(connection.delegate().write(message), this);
                 } catch (Exception e) {
-                    close();
+                    connection.close();
                     return;
                 }
 
@@ -181,9 +197,13 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         @Override
         protected synchronized void doSchedule() {
             if (parameters.getTimeOut() != Session.Parameters.NEVER_TIMEOUT) {
-                // somewhat arbitrary...
-                long tick = Math.max(parameters.remaining() / 2, 0);
-                future = executor.schedule(this, tick, parameters.getUnit());
+                if (executor.isShutdown()) {
+                    stop();
+                } else {
+                    // somewhat arbitrary...
+                    long tick = Math.max(parameters.remaining() / 2, 0);
+                    future = executor.schedule(this, tick, parameters.getUnit());
+                }
             } else {
                 state.compareAndSet(State.SCHEDULED, State.WAITING);
             }

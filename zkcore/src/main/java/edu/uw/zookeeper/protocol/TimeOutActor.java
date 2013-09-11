@@ -61,7 +61,11 @@ public abstract class TimeOutActor<V> implements Actor<V> {
     
     protected synchronized void doSchedule() {
         if (parameters.getTimeOut() != NEVER_TIMEOUT) {
-            future = executor.schedule(this, parameters.getTimeOut(), parameters.getUnit());
+            if (executor.isShutdown()) {
+                stop();
+            } else {
+                future = executor.schedule(this, parameters.getTimeOut(), parameters.getUnit());
+            }
         } else {
             state.compareAndSet(State.SCHEDULED, State.WAITING);
         }

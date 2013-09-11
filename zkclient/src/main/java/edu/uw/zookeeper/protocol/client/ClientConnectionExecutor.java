@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.protocol.client;
 
+import java.lang.ref.WeakReference;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -107,7 +108,7 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
         this.connection = connection;
         this.xids = xids;
         this.session = session;
-        this.timeOut = new TimeOutServer(TimeOutParameters.create(timeOut), executor);
+        this.timeOut = new TimeOutServer(TimeOutParameters.create(timeOut), executor, this);
         this.failure = new AtomicReference<Throwable>(null);
         this.pending = new ConcurrentLinkedQueue<PendingResponseTask>();
         this.mailbox = new ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<?>>>();
@@ -280,11 +281,16 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
         }
     }
     
-    protected class TimeOutServer extends TimeOutActor<Message.Server> implements FutureCallback<ConnectMessage.Response> {
+    protected static class TimeOutServer extends TimeOutActor<Message.Server> implements FutureCallback<ConnectMessage.Response> {
 
-        public TimeOutServer(TimeOutParameters parameters,
-                ScheduledExecutorService executor) {
+        protected final WeakReference<ClientConnectionExecutor<?>> connection;
+        
+        public TimeOutServer(
+                TimeOutParameters parameters,
+                ScheduledExecutorService executor,
+                ClientConnectionExecutor<?> connection) {
             super(parameters, executor);
+            this.connection = new WeakReference<ClientConnectionExecutor<?>>(connection);
         }
 
         @Override
@@ -304,7 +310,10 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
 
         @Override
         public void onFailure(Throwable t) {
-            ClientConnectionExecutor.this.onFailure(t);
+            ClientConnectionExecutor<?> connection = this.connection.get();
+            if (connection != null) {
+                connection.onFailure(t);
+            }
         }
     }
 
