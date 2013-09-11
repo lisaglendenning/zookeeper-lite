@@ -55,5 +55,6 @@ public class DecoderHandler extends ByteToMessageDecoder {
                 break;
             }
         }
+        input.discardSomeReadBytes();
     }
 }

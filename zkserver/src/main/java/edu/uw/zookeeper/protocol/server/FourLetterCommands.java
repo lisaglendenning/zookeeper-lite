@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.protocol.server;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -98,8 +99,9 @@ public abstract class FourLetterCommands {
 
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
-            ByteBuf arg = input.second().get();
-            long trace = arg.getLong(arg.readerIndex());
+            ByteBuf arg = Unpooled.wrappedBuffer(input.second());
+            long trace = arg.readLong();
+            arg.release();
             return FourLetterResponse.create(new StringBuilder().append(trace).toString());
         }
     }

@@ -5,14 +5,14 @@ import io.netty.buffer.ByteBuf;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
-public class IntHeader implements Encodable {
+public final class IntHeader implements Encodable {
 
     public static IntHeader of(int intValue) {
         return new IntHeader(intValue);
     }
 
     public static Optional<IntHeader> decode(ByteBuf input) {
-        if (input.readableBytes() >= IntHeader.length()) {
+        if (input.readableBytes() >= LENGTH) {
             int value = input.readInt();
             return Optional.of(IntHeader.of(value));
         } else {
@@ -38,12 +38,12 @@ public class IntHeader implements Encodable {
 
     @Override
     public void encode(ByteBuf output) {
-        output.writeInt(intValue());
+        output.writeInt(intValue);
     }
     
     @Override
     public String toString() {
-        return String.valueOf(intValue());
+        return String.format("0x%08x", intValue);
     }
     
     @Override
@@ -55,11 +55,11 @@ public class IntHeader implements Encodable {
             return false;
         }
         IntHeader other = (IntHeader) obj;
-        return Objects.equal(intValue(), other.intValue());
+        return Objects.equal(intValue, other.intValue);
     }
     
     @Override
     public int hashCode() {
-        return intValue();
+        return intValue;
     }
 }
