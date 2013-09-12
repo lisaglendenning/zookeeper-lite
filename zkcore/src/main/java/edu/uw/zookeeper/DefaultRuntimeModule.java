@@ -78,7 +78,7 @@ public class DefaultRuntimeModule implements RuntimeModule {
             return executor;
         }
         
-        private static final TimeValue PURGE_INTERVAL = TimeValue.seconds(1);
+        private static final TimeValue PURGE_INTERVAL = TimeValue.seconds(30);
         
         public ThreadPoolExecutorPurger(ScheduledExecutorService scheduler, ThreadPoolExecutor executor) {
             super(scheduler, executor);
