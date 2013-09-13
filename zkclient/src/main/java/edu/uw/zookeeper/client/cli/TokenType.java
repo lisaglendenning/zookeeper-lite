@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.client.console;
+package edu.uw.zookeeper.client.cli;
 
 public enum TokenType {
     INTEGER, STRING, PATH, ENUM;

@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.client.console;
+package edu.uw.zookeeper.client.cli;
 
 import com.google.common.base.Joiner;
 

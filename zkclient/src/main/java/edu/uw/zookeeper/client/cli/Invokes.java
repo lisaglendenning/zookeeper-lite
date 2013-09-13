@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.client.console;
+package edu.uw.zookeeper.client.cli;
 
 import java.lang.annotation.*;
 
@@ -6,5 +6,5 @@ import java.lang.annotation.*;
 @Inherited
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Invokes {
-    ConsoleCommand[] commands();
+    Class<?>[] commands();
 }

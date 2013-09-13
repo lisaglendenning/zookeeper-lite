@@ -1,29 +1,22 @@
-package edu.uw.zookeeper.client.console;
+package edu.uw.zookeeper.client.cli;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.Map;
-
 import com.google.common.base.Joiner;
 
-public class Invocation {
 
-    private final Map<String, Object> environment;
-    private final ConsoleCommand command;
+public class Invocation<T> {
+
+    private final T command;
     private final Object[] arguments;
 
-    public Invocation(Map<String, Object> environment, ConsoleCommand command, Object[] arguments) {
+    public Invocation(T command, Object[] arguments) {
         super();
-        this.environment = checkNotNull(environment);
         this.command = checkNotNull(command);
         this.arguments = checkNotNull(arguments);
     }
     
-    public Map<String, Object> getEnvironment() {
-        return environment;
-    }
-
-    public ConsoleCommand getCommand() {
+    public T getCommand() {
         return command;
     }
 

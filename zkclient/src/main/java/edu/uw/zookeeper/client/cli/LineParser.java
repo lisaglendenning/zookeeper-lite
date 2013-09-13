@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.client.console;
+package edu.uw.zookeeper.client.cli;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -13,7 +13,7 @@ import com.google.common.collect.Lists;
 
 public class LineParser implements Function<String, List<String>> {
 
-    public static LineParser create() {
+    public static LineParser defaults() {
         return new LineParser();
     }
     

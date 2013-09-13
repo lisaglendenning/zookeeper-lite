@@ -1,5 +1,5 @@
 ## Quickstart
 
 <pre>
-$ mvn exec:java -Dexec.mainClass="edu.uw.zookeeper.client.console.Main" -Dexec.args="--help"
+$ mvn exec:java -Dexec.mainClass="edu.uw.zookeeper.client.cli.Main" -Dexec.args="--help"
 </pre>
