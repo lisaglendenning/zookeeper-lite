@@ -431,7 +431,8 @@ public abstract class Commands {
         public ListenableFuture<String> apply(Invocation input)
                 throws Exception {
             ZNodeLabel.Path root = (ZNodeLabel.Path) input.getArguments()[1];
-            return Futures.transform(TreeFetcher.<Set<ZNodeLabel.Path>>builder().setClient(client).setResult(new ComputeLeaves()).build().apply(root), new DeleteRoot(root));
+            return Futures.transform(
+                    TreeFetcher.<Set<ZNodeLabel.Path>>builder().setClient(client).setResult(new ComputeLeaves()).setRoot(root).build(), new DeleteRoot(root));
         }
 
         protected static class ComputeLeaves implements Processor<Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<Set<ZNodeLabel.Path>>> {
