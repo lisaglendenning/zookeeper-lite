@@ -31,9 +31,17 @@ import edu.uw.zookeeper.protocol.proto.Records;
 
 class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoker.Command> {
 
+    @Invokes(commands={Command.class})
+    public static RmrInvoker create(Shell shell) {
+        return new RmrInvoker(shell);
+    }
+
     public static enum Command {
-        @CommandDescriptor(description="Recursive delete", arguments = {
-                @ArgumentDescriptor(token = TokenType.PATH)})
+        @CommandDescriptor(
+                names = {"rmr", "deleteall"}, 
+                description="Recursive delete", 
+                arguments = {
+                        @ArgumentDescriptor(token = TokenType.PATH)})
         RMR;
     }
     
@@ -57,7 +65,8 @@ class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoker.Comma
             public void onSuccess(DeleteRoot result) {
                 pending.remove(future);
                 try {
-                    shell.getReader().println(String.format("%s => OK", input));
+                    shell.println(String.format("%s => OK", input));
+                    shell.flush();
                 } catch (IOException e) {
                     onFailure(e);
                 }
@@ -78,6 +87,9 @@ class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoker.Comma
 
     @Override
     protected void startUp() throws Exception {
+        for (Command command: Command.values()) {
+            shell.getCommands().withCommand(command);
+        }
     }
 
     @Override

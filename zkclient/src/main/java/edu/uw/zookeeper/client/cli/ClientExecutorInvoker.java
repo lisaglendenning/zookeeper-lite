@@ -14,10 +14,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
+
 import edu.uw.zookeeper.client.ClientBuilder;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.data.CreateMode;
@@ -32,7 +34,7 @@ import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class ClientExecutorInvoker extends AbstractIdleService implements Invoker<ClientExecutorInvoker.Command> {
+public class ClientExecutorInvoker extends AbstractIdleService implements Invoker<ClientExecutorInvoker.Command>, FutureCallback<String> {
 
     @Invokes(commands={Command.class})
     public static ClientExecutorInvoker create(Shell shell) {
@@ -149,7 +151,22 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
 
         Records.Request request = operator.apply(input);
         ClientExecutor<? super Operation.Request, ?> client = shell.getEnvironment().get(CLIENT_KEY).getClientConnectionExecutor();
-        new RequestSubmitter(client, request).call();
+        Futures.addCallback(new RequestSubmitter(client, request).call(), this);
+    }
+
+    @Override
+    public void onSuccess(String result) {
+        try {
+            shell.println(result);
+            shell.flush();
+        } catch (IOException e) {
+            onFailure(e);
+        }
+    }
+
+    @Override
+    public void onFailure(Throwable t) {
+        stopAsync();
     }
 
     @Override

@@ -2,11 +2,11 @@ package edu.uw.zookeeper.client.cli;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractIdleService;
+
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.data.ZNodeLabel;
 
@@ -98,20 +98,19 @@ public class ShellInvoker extends AbstractIdleService implements Invoker<ShellIn
     protected void help(Invocation<Command> invocation) throws Exception {
         Joiner joiner = Joiner.on('\t');
         StringBuilder str = new StringBuilder();
-        for (Map.Entry<String, Pair<CommandDescriptor, Object>> e: shell.getCommands().getCommands()) {
-            joiner.appendTo(str, getUsage(e.getValue().first())).append('\n');
+        for (Pair<CommandDescriptor, Object> command: shell.getCommands().getCommands()) {
+            joiner.appendTo(str, getUsage(command)).append('\n');
         }
         String output =  str.toString();
         shell.getReader().println(output);
     }
 
-    protected List<String> getUsage(CommandDescriptor command) {
+    protected List<String> getUsage(Pair<CommandDescriptor, Object> command) {
         ImmutableList.Builder<String> tokens = ImmutableList.builder();
-        String names = Joiner.on(',')
-                .appendTo(new StringBuilder().append('{'), command.names()).append('}')
-                .toString();
-        tokens.add(names);
-        for (ArgumentDescriptor a : command.arguments()) {
+        tokens.add(Joiner.on(',')
+                    .appendTo(new StringBuilder().append('{'), CommandParser.getCommandNames(command)).append('}')
+                    .toString());
+        for (ArgumentDescriptor a : command.first().arguments()) {
             StringBuilder argument = new StringBuilder();
             if (!a.name().isEmpty()) {
                 argument.append(a.name()).append('=');
@@ -143,8 +142,8 @@ public class ShellInvoker extends AbstractIdleService implements Invoker<ShellIn
             }
             tokens.add(argument.toString());
         }
-        if (!command.description().isEmpty()) {
-            tokens.add(command.description());
+        if (!command.first().description().isEmpty()) {
+            tokens.add(command.first().description());
         }
         return tokens.build();
     }

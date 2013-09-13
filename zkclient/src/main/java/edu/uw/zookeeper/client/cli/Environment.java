@@ -53,6 +53,11 @@ public class Environment {
             }
             return value;
         }
+        
+        @Override
+        public String toString() {
+            return first;
+        }
     }
 
     protected final ConcurrentMap<Key<?>, Object> env;

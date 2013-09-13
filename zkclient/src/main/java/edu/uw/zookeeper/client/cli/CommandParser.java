@@ -3,17 +3,24 @@ package edu.uw.zookeeper.client.cli;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.lang.reflect.AnnotatedElement;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import jline.console.completer.Completer;
 import jline.console.completer.NullCompleter;
 
+import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
+import com.google.common.collect.MapMaker;
 
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.data.ZNodeLabel;
@@ -21,7 +28,8 @@ import edu.uw.zookeeper.data.ZNodeLabel;
 public class CommandParser implements Function<Iterable<String>, Invocation<?>> {
 
     public static CommandParser empty(Environment environment) {
-        return new CommandParser(environment, Maps.<String, Pair<CommandDescriptor, Object>>newHashMap());
+        return new CommandParser(environment, 
+                new MapMaker().<String, Pair<CommandDescriptor, Object>>makeMap());
     }
     
     protected static CommandDescriptor getCommandDescriptor(Object command) {
@@ -43,6 +51,17 @@ public class CommandParser implements Function<Iterable<String>, Invocation<?>> 
         }
     }
     
+    protected static Iterable<String> getCommandNames(Pair<CommandDescriptor, Object> descriptor) {
+        Iterable<String> names;
+        if (descriptor.first().names().length > 0) {
+            names = Arrays.asList(descriptor.first().names());
+        } else {
+            names = ImmutableList.of(CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, ((Enum<?>) descriptor.second()).name()));
+        }
+        return names;
+    }
+    
+    protected final Logger logger = LogManager.getLogger(getClass());
     protected final Environment environment;
     protected final Map<String, Pair<CommandDescriptor, Object>> commands;
     
@@ -70,15 +89,16 @@ public class CommandParser implements Function<Iterable<String>, Invocation<?>> 
 
     public CommandParser withCommand(Object command) {
         Pair<CommandDescriptor, Object> descriptor = Pair.create(getCommandDescriptor(command), command);
-        for (String name: descriptor.first().names()) {
+        for (String name: getCommandNames(descriptor)) {
+            logger.debug("Adding command {} => {}", name, command);
             checkArgument(! commands.containsKey(name));
             commands.put(name, descriptor);
         }
         return this;
     }
     
-    public Set<Map.Entry<String, Pair<CommandDescriptor, Object>>> getCommands() {
-        return ImmutableSortedMap.copyOf(commands).entrySet();
+    public Set<Pair<CommandDescriptor, Object>> getCommands() {
+        return ImmutableSet.copyOf(ImmutableSortedMap.copyOf(commands).values());
     }
     
     @Override
