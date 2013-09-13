@@ -94,7 +94,7 @@ public class DispatchingInvoker extends AbstractExecutionThreadService implement
     @Override
     protected void run() throws Exception {
         String line = null;
-        while (isRunning() && ((line = shell.readLine()) != null)) {
+        while (isRunning() && shell.isRunning() && ((line = shell.readLine()) != null)) {
             try {
                 List<String> tokens = shell.getTokenizer().apply(line);
                 Invocation<Object> invocation = shell.getCommands().apply(tokens);
