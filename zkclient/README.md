@@ -1,7 +1,7 @@
 ## Quickstart
 
 <pre>
-> mvn exec:java -Dexec.mainClass="edu.uw.zookeeper.client.cli.Main"
+> cd zkclient && mvn exec:java -Dexec.mainClass="edu.uw.zookeeper.client.cli.Main"
 / $ help
 </pre>
 
@@ -9,4 +9,4 @@
 
 - multi operation support
 - current working directory
-- Tab-completion for paths
+- tab-completion for paths
