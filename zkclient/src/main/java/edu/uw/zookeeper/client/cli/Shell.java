@@ -2,9 +2,7 @@ package edu.uw.zookeeper.client.cli;
 
 import java.io.Flushable;
 import java.io.IOException;
-
 import jline.console.ConsoleReader;
-
 import com.google.common.util.concurrent.AbstractIdleService;
 
 import edu.uw.zookeeper.common.RuntimeModule;
@@ -14,21 +12,21 @@ public class Shell extends AbstractIdleService implements Flushable {
     public static Shell create(RuntimeModule runtime) throws IOException {
         Environment environment = Environment.empty();
         ConsoleReader reader = new ConsoleReader();
-        return new Shell(runtime, environment, CommandParser.empty(environment), reader, LineParser.defaults());
+        return new Shell(runtime, environment, CommandParser.empty(environment), reader, TokenParser.defaults());
     }
     
     protected final RuntimeModule runtime;
     protected final Environment environment;
     protected final CommandParser commands;
     protected final ConsoleReader reader;
-    protected final LineParser tokenizer;
+    protected final TokenParser tokenizer;
     
     protected Shell(
             RuntimeModule runtime,
             Environment environment,
             CommandParser commands,
             ConsoleReader reader,
-            LineParser tokenizer) {
+            TokenParser tokenizer) {
         this.runtime = runtime;
         this.environment = environment;
         this.commands = commands;
@@ -52,7 +50,7 @@ public class Shell extends AbstractIdleService implements Flushable {
         return reader;
     }
     
-    public LineParser getTokenizer() {
+    public TokenParser getTokenizer() {
         return tokenizer;
     }
     
@@ -84,7 +82,6 @@ public class Shell extends AbstractIdleService implements Flushable {
 
     @Override
     protected void startUp() throws Exception {
-        reader.addCompleter(commands.getCompleter());
     }
     
     @Override

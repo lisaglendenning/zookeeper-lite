@@ -1,28 +1,12 @@
 package edu.uw.zookeeper.client.cli;
 
-import jline.console.completer.Completer;
-import jline.console.completer.EnumCompleter;
-
-import com.google.common.base.Joiner;
-
 import edu.uw.zookeeper.data.CreateMode;
 
-public enum ModeArgument {
+public enum CreateModeArgument {
     P, PS, E, ES;
     
-    protected static String USAGE = Joiner.on(',')
-            .appendTo(new StringBuilder().append('{'), values()).append('}').toString();
-
-    public static Completer getCompleter() {
-        return new EnumCompleter(ModeArgument.class);
-    }
-
-    public static String getUsage() {
-        return USAGE;
-    }
-
-    public static ModeArgument fromString(String value) {
-        for (ModeArgument e : values()) {
+    public static CreateModeArgument fromString(String value) {
+        for (CreateModeArgument e : values()) {
             if (e.toString().equals(value)) {
                 return e;
             }

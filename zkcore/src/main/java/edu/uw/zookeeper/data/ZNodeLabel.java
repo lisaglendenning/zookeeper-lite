@@ -46,7 +46,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             }
             if (builder.length() == 0) {
                 builder.append(component);
-            } else {
+            } else if (! component.isEmpty()) {
                 if (component.charAt(0) == SLASH) {
                     if (component.length() == 1) {
                         continue;
@@ -294,7 +294,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             }
             String canonicalized;
             if (builder == null) {
-                canonicalized = path;
+                canonicalized = ((path.length() < 2) || (path.charAt(path.length() - 1) != SLASH)) ? path : path.substring(0, path.length() - 1);
             } else {
                 // trailing slash?
                 int buildLength = builder.length();

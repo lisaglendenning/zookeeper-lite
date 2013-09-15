@@ -11,14 +11,9 @@ import java.util.Set;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
-import jline.console.completer.Completer;
-import jline.console.completer.NullCompleter;
-
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
 
@@ -29,7 +24,7 @@ public class CommandParser implements Function<Iterable<String>, Invocation<?>> 
 
     public static CommandParser empty(Environment environment) {
         return new CommandParser(environment, 
-                new MapMaker().<String, Pair<CommandDescriptor, Object>>makeMap());
+                new MapMaker().<CharSequence, Pair<CommandDescriptor, Object>>makeMap());
     }
     
     protected static CommandDescriptor getCommandDescriptor(Object command) {
@@ -63,25 +58,20 @@ public class CommandParser implements Function<Iterable<String>, Invocation<?>> 
     
     protected final Logger logger = LogManager.getLogger(getClass());
     protected final Environment environment;
-    protected final Map<String, Pair<CommandDescriptor, Object>> commands;
+    protected final Map<CharSequence, Pair<CommandDescriptor, Object>> commands;
     
     protected CommandParser(
             Environment environment,
-            Map<String, Pair<CommandDescriptor, Object>> commands) {
+            Map<CharSequence, Pair<CommandDescriptor, Object>> commands) {
         this.environment = environment;
         this.commands = commands;
     }
     
-    public Completer getCompleter() {
-        // TODO
-        return new NullCompleter();
-    }
-    
     @SuppressWarnings("unchecked")
-    public <T> T getCommand(String name) {
+    public <T> Pair<CommandDescriptor, T> getCommand(CharSequence name) {
         Pair<CommandDescriptor, Object> descriptor = commands.get(name);
         if (descriptor != null) {
-            return (T) descriptor.second();
+            return (Pair<CommandDescriptor, T>) descriptor;
         } else {
             return null;
         }
@@ -97,8 +87,8 @@ public class CommandParser implements Function<Iterable<String>, Invocation<?>> 
         return this;
     }
     
-    public Set<Pair<CommandDescriptor, Object>> getCommands() {
-        return ImmutableSet.copyOf(ImmutableSortedMap.copyOf(commands).values());
+    public Set<Map.Entry<CharSequence, Pair<CommandDescriptor, Object>>> getCommands() {
+        return commands.entrySet();
     }
     
     @Override
@@ -107,11 +97,10 @@ public class CommandParser implements Function<Iterable<String>, Invocation<?>> 
         if (name == null) {
             return null;
         }
-        Object command = getCommand(name);
+        Pair<CommandDescriptor, Object> command = getCommand(name);
         checkArgument(command != null, String.format(
                 "Not a command: '%s'", name));
-        CommandDescriptor cd = getCommandDescriptor(command);
-        ArgumentDescriptor[] ads = cd.arguments();
+        ArgumentDescriptor[] ads = command.first().arguments();
         Object[] arguments = new Object[ads.length + 1];
         Iterator<String> itr = tokens.iterator();
         checkArgument(itr.hasNext());
@@ -124,17 +113,14 @@ public class CommandParser implements Function<Iterable<String>, Invocation<?>> 
             } else {
                 token = ad.value();
             }
-            Object argument;
+            Object argument = null;
             switch (ad.token()) {
             case ENUM:
-                if (ad.type() == BooleanArgument.class) {
-                    argument = Boolean.valueOf(BooleanArgument.fromString(token).booleanValue());
-                } else if (ad.type() == ModeArgument.class) {
-                    argument = ModeArgument.fromString(token).value();
-                } else if (ad.type() == MultiArgument.class) {
-                    argument = MultiArgument.fromString(token);
-                } else {
-                    throw new AssertionError(String.valueOf(ad.type()));
+                for (Object e: ad.type().getEnumConstants()) {
+                    if (e.toString().equals(token)) {
+                        argument = e;
+                        break;
+                    }
                 }
                 break;
             case STRING:

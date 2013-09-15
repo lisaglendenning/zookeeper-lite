@@ -1,23 +1,7 @@
 package edu.uw.zookeeper.client.cli;
 
-import com.google.common.base.Joiner;
-
-import jline.console.completer.Completer;
-import jline.console.completer.EnumCompleter;
-
 public enum BooleanArgument {
     N, NO, FALSE, Y, YES, TRUE;
-
-    protected static String USAGE = Joiner.on(',')
-            .appendTo(new StringBuilder().append('{'), values()).append('}').toString();
-
-    public static Completer getCompleter() {
-        return new EnumCompleter(BooleanArgument.class);
-    }
-
-    public static String getUsage() {
-        return USAGE;
-    }
 
     public static BooleanArgument fromString(String value) {
         for (BooleanArgument e : values()) {

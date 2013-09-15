@@ -2,9 +2,11 @@ package edu.uw.zookeeper.client.cli;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AbstractIdleService;
 
 import edu.uw.zookeeper.common.Pair;
@@ -48,7 +50,7 @@ public class ShellInvoker extends AbstractIdleService implements Invoker<ShellIn
     @Override
     public void invoke(Invocation<Command> input)
             throws Exception {
-        switch (input.getCommand()) {
+        switch (input.getCommand().second()) {
         case HELP:
             help(input);
             break;
@@ -65,7 +67,7 @@ public class ShellInvoker extends AbstractIdleService implements Invoker<ShellIn
             throw new IllegalArgumentException(String.valueOf(input));
         }
     }
-    
+
     @Override
     protected void startUp() throws Exception {
         shell.getEnvironment().put(PROMPT_KEY, DEFAULT_PROMPT);
@@ -98,7 +100,11 @@ public class ShellInvoker extends AbstractIdleService implements Invoker<ShellIn
     protected void help(Invocation<Command> invocation) throws Exception {
         Joiner joiner = Joiner.on('\t');
         StringBuilder str = new StringBuilder();
-        for (Pair<CommandDescriptor, Object> command: shell.getCommands().getCommands()) {
+        ImmutableSet.Builder<Pair<CommandDescriptor, Object>> commands = ImmutableSet.builder();
+        for (Map.Entry<CharSequence, Pair<CommandDescriptor, Object>> e: shell.getCommands().getCommands()) {
+            commands.add(e.getValue());
+        }
+        for (Pair<CommandDescriptor, Object> command: commands.build()) {
             joiner.appendTo(str, getUsage(command)).append('\n');
         }
         String output =  str.toString();
@@ -126,15 +132,10 @@ public class ShellInvoker extends AbstractIdleService implements Invoker<ShellIn
                 argument.append("int");
                 break;
             case ENUM:
-                if (a.type() == BooleanArgument.class) {
-                    argument.append(BooleanArgument.getUsage());
-                } else if (a.type() == ModeArgument.class) {
-                    argument.append(ModeArgument.getUsage());
-                } else if (a.type() == MultiArgument.class) {
-                    argument.append(MultiArgument.getUsage());
-                } else {
-                    throw new AssertionError(String.valueOf(a.token()));
-                }
+                Joiner.on(',').appendTo(
+                    argument.append('{'), 
+                    a.type().getEnumConstants())
+                    .append('}').toString();
                 break;
             }
             if (!a.value().isEmpty()) {

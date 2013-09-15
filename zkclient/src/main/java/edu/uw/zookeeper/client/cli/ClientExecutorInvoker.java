@@ -22,7 +22,6 @@ import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.client.ClientBuilder;
 import edu.uw.zookeeper.client.ClientExecutor;
-import edu.uw.zookeeper.data.CreateMode;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.WatchEvent;
 import edu.uw.zookeeper.data.ZNodeLabel;
@@ -51,7 +50,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         @CommandDescriptor(arguments = {
                 @ArgumentDescriptor(token = TokenType.PATH),
                 @ArgumentDescriptor(name="data", token = TokenType.STRING),
-                @ArgumentDescriptor(name="mode", token = TokenType.ENUM, type = ModeArgument.class, value="p"),
+                @ArgumentDescriptor(name="mode", token = TokenType.ENUM, type = CreateModeArgument.class, value="p"),
                 @ArgumentDescriptor(name = "stat", token = TokenType.ENUM, type = BooleanArgument.class, value = "n") })
         CREATE,
         
@@ -116,7 +115,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
     @Override
     public void invoke(Invocation<Command> input)
             throws Exception {
-        if (input.getCommand() == Command.MULTI) {
+        if (input.getCommand().second() == Command.MULTI) {
             switch ((MultiArgument) input.getArguments()[1]) {
             case BEGIN:
             {
@@ -314,7 +313,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         @SuppressWarnings("unchecked")
         @Override
         public Records.Request apply(Invocation<ClientExecutorInvoker.Command> input) {
-            switch (input.getCommand()) {
+            switch (input.getCommand().second()) {
             case MULTI:
             {
                 ImmutableList.Builder<Records.MultiOpRequest> requests = ImmutableList.builder();
@@ -327,13 +326,13 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
                 return Operations.Requests.create()
                         .setPath((ZNodeLabel.Path) input.getArguments()[1])
                         .setData(((String) input.getArguments()[2]).getBytes())
-                        .setMode((CreateMode) input.getArguments()[3])
-                        .setStat((Boolean) input.getArguments()[4])
+                        .setMode(((CreateModeArgument) input.getArguments()[3]).value())
+                        .setStat(((BooleanArgument) input.getArguments()[4]).booleanValue())
                         .build();
             case EXISTS:
                 return Operations.Requests.exists()
                         .setPath((ZNodeLabel.Path) input.getArguments()[1])
-                        .setWatch((Boolean) input.getArguments()[2])
+                        .setWatch(((BooleanArgument) input.getArguments()[2]).booleanValue())
                         .build();
             case GETACL:
                 return Operations.Requests.getAcl()
@@ -342,13 +341,13 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
             case GET:
                 return Operations.Requests.getData()
                         .setPath((ZNodeLabel.Path) input.getArguments()[1])
-                        .setWatch((Boolean) input.getArguments()[2])
+                        .setWatch(((BooleanArgument) input.getArguments()[2]).booleanValue())
                         .build();
             case LS:
                 return Operations.Requests.getChildren()
                         .setPath((ZNodeLabel.Path) input.getArguments()[1])
-                        .setWatch((Boolean) input.getArguments()[2])
-                        .setStat((Boolean) input.getArguments()[3])
+                        .setWatch(((BooleanArgument) input.getArguments()[2]).booleanValue())
+                        .setStat(((BooleanArgument) input.getArguments()[3]).booleanValue())
                         .build();
             case RM:
                 return Operations.Requests.delete()
