@@ -1,13 +1,12 @@
 edu.uw.zookeeper
 edu.uw.zookeeper.client
-edu.uw.zookeeper.client.console
+edu.uw.zookeeper.client.cli
 edu.uw.zookeeper.common
 edu.uw.zookeeper.data
 edu.uw.zookeeper.net
 edu.uw.zookeeper.net.intravm
 edu.uw.zookeeper.netty
 edu.uw.zookeeper.netty.client
-edu.uw.zookeeper.netty.nio
 edu.uw.zookeeper.netty.server
 edu.uw.zookeeper.protocol
 edu.uw.zookeeper.protocol.client
