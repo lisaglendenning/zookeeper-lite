@@ -54,8 +54,8 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         implements ClientExecutor<I, V> {
 
     public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<SimpleZNodeCache,I,V> newInstance(
-            Publisher publisher, ClientExecutor<I,V> client) {
-        return newInstance(publisher, client, SimpleZNodeCache.root());
+            ClientExecutor<I,V> client) {
+        return newInstance(client, client, SimpleZNodeCache.root());
     }
     
     public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<E,I,V> newInstance(
@@ -389,6 +389,11 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
     }
 
     @Override
+    public void post(Object object) {
+        publisher.post(object);
+    }
+
+    @Override
     public ListenableFuture<V> submit(I request) {
         return client.submit(request, new PromiseWrapper(request));
     }
@@ -614,10 +619,6 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         return node;
     }
 
-    protected void post(Object object) {
-        publisher.post(object);
-    }
-    
     @Override
     public String toString() {
         return Objects.toStringHelper(this).addValue(trie().toString()).toString();

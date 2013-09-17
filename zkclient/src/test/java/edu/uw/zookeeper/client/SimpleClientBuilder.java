@@ -1,11 +1,7 @@
 package edu.uw.zookeeper.client;
 
-import java.util.concurrent.ScheduledExecutorService;
-
-import com.google.common.util.concurrent.ListenableFuture;
-
+import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
@@ -15,10 +11,9 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.client.AssignXidCodec;
-import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;
 
-public class SimpleClientBuilder extends ClientBuilder {
+public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder {
     
     public static SimpleClientBuilder defaults(
             ServerInetAddressView serverAddress,
@@ -109,16 +104,7 @@ public class SimpleClientBuilder extends ClientBuilder {
     }
     
     @Override    
-    protected ClientConnectionExecutorService getDefaultClientConnectionExecutorService() {
-        Factory<? extends ListenableFuture<? extends ClientConnectionExecutor<?>>> factory = 
-                ServerViewFactory.newInstance(
-                        clientConnectionFactory, 
-                        serverAddress, 
-                        getConnectionBuilder().getTimeOut(), 
-                        getRuntimeModule().getExecutors().get(ScheduledExecutorService.class));
-        ClientConnectionExecutorService service =
-                ClientConnectionExecutorService.newInstance(
-                        factory);
-        return service;
+    protected EnsembleView<ServerInetAddressView> getDefaultEnsemble() {
+        return EnsembleView.of(serverAddress);
     }
 }

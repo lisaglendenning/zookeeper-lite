@@ -46,5 +46,10 @@ public class SessionClientExecutor<V extends Operation.ProtocolResponse<?>> impl
     public void unregister(Object handler) {
         delegate.unregister(handler);
     }
+
+    @Override
+    public void post(Object event) {
+        delegate.post(event);
+    }
     
 }

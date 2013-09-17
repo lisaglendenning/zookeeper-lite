@@ -20,13 +20,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
-import edu.uw.zookeeper.client.ClientBuilder;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.WatchEvent;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
+import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
@@ -37,7 +37,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
 
     @Invokes(commands={Command.class})
     public static ClientExecutorInvoker create(Shell shell) {
-        ClientBuilder client = ClientBuilder.defaults().setRuntimeModule(shell.getRuntime()).setDefaults();
+        ClientConnectionExecutorService.Builder client = ClientConnectionExecutorService.builder().setRuntimeModule(shell.getRuntime()).setDefaults();
         return new ClientExecutorInvoker(client, shell);
     }
 
@@ -93,7 +93,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         SYNC;
     };
     
-    public static Environment.Key<ClientBuilder> CLIENT_KEY = Environment.Key.create("CLIENT", ClientBuilder.class);
+    public static Environment.Key<ClientConnectionExecutorService.Builder> CLIENT_KEY = Environment.Key.create("CLIENT", ClientConnectionExecutorService.Builder.class);
     public static Environment.Key<List<Invocation<Command>>> MULTI_KEY = Environment.Key.create("MULTI", List.class);
     
     protected static final String MULTI_PROMPT = "(multi)> ";
@@ -102,10 +102,10 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
     
     protected final Shell shell;
     protected final RequestBuilder operator;
-    protected final ClientBuilder client;
+    protected final ClientConnectionExecutorService.Builder client;
     
     protected ClientExecutorInvoker(
-            ClientBuilder client,
+            ClientConnectionExecutorService.Builder client,
             Shell shell) {
         this.client = client;
         this.shell = shell;

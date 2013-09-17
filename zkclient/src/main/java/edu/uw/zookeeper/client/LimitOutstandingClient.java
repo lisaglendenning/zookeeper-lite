@@ -115,6 +115,11 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
         delegate.unregister(handler);
     }
     
+    @Override
+    public void post(Object event) {
+        delegate.post(event);
+    }
+
     private class Listener implements Runnable {
         @Override
         public void run() {
