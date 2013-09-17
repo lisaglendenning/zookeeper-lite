@@ -229,27 +229,19 @@ public class ClientConnectionExecutorService extends AbstractIdleService
 
     @Override
     public ListenableFuture<Message.ServerResponse<?>> submit(Operation.Request request) {
-        if (isRunning()) {
-            try {
-                return get().get().submit(request);
-            } catch (Exception e) {
-                return Futures.immediateFailedFuture(e);
-            }
-        } else {
-            throw new IllegalStateException(state().toString());
+        try {
+            return get().get().submit(request);
+        } catch (Exception e) {
+            return Futures.immediateFailedFuture(e);
         }
     }
 
     @Override
     public ListenableFuture<Message.ServerResponse<?>> submit(Operation.Request request, Promise<Message.ServerResponse<?>> promise) {
-        if (isRunning()) {
-            try {
-                return get().get().submit(request, promise);
-            } catch (Exception e) {
-                return Futures.immediateFailedFuture(e);
-            }
-        } else {
-            throw new IllegalStateException(state().toString());
+        try {
+            return get().get().submit(request, promise);
+        } catch (Exception e) {
+            return Futures.immediateFailedFuture(e);
         }
     }
 

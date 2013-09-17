@@ -30,9 +30,8 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
     public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<?>> Materializer<V> newInstance(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
-            Publisher publisher,
             ClientExecutor<? super Records.Request, V> client) {
-        return new Materializer<V>(schema, codec, publisher, client);
+        return new Materializer<V>(schema, codec, client, client);
     }
     
     public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> 
