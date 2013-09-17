@@ -2,10 +2,13 @@ package edu.uw.zookeeper.client;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import java.nio.channels.ClosedChannelException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -400,9 +403,12 @@ public class ClientConnectionExecutorService extends AbstractIdleService
                     if (isDone()) {
                         try {
                             if (get().session().isDone()) {
-                                ConnectMessage.Response session = get().session().get();
-                                if (session instanceof ConnectMessage.Response.Valid) {
-                                    future = factory.get(server).get(session.toSession());
+                                ConnectMessage.Response response = get().session().get();
+                                if (response instanceof ConnectMessage.Response.Valid) {
+                                    backoff();
+                                    Session session = response.toSession();
+                                    logger.info("Reconnecting session {} to {}", session, server);
+                                    future = factory.get(server).get(session);
                                 }
                             }
                         } catch (Exception e) {
@@ -411,6 +417,7 @@ public class ClientConnectionExecutorService extends AbstractIdleService
                         promise = newPromise();
                     }
                     if (future == null) {
+                        logger.info("Connecting new session to {}", server);
                         future = factory.get(server).get();
                     }
                     future.addListener(this, executor);
@@ -426,7 +433,12 @@ public class ClientConnectionExecutorService extends AbstractIdleService
                         try {
                             ClientConnectionExecutor<?> connection = future.get();
                             if (connection.session().isDone()) {
-                                ConnectMessage.Response session = connection.session().get();
+                                ConnectMessage.Response session;
+                                try {
+                                    session = connection.session().get();
+                                } catch (CancellationException e) {
+                                    throw new ExecutionException(e);
+                                }
                                 if (session instanceof ConnectMessage.Response.Valid) {
                                     set(connection);
                                     return;
@@ -460,6 +472,15 @@ public class ClientConnectionExecutorService extends AbstractIdleService
                 }
             }
         }
+        
+        protected void backoff() throws InterruptedException {
+            // it seems that when the ensemble is undergoing election
+            // that connections may be refused
+            // so we'll wait a little while before trying to connect
+            Random random = new Random();
+            int millis = random.nextInt(1000) + 1000;
+            Thread.sleep(millis);
+        }
 
         @Override
         protected Promise<ClientConnectionExecutor<?>> delegate() {
@@ -479,13 +500,19 @@ public class ClientConnectionExecutorService extends AbstractIdleService
             public void handleStateEvent(Automaton.Transition<?> event) {
                 if (Connection.State.CONNECTION_CLOSED == event.to()) {
                     synchronized (Client.this) {
-                        if (isDone() && !isCancelled()) {
-                            try {
-                                if (get() == instance) {
-                                    future = null;
-                                    run();
-                                }
-                            } catch (Exception e) {}
+                        if (isRunning()) {
+                            logger.warn("Connection closed to {}", server);
+                            if (factory.view().size() > 1) {
+                                ServerInetAddressView prevServer = server;
+                                do {
+                                    server = factory.select();
+                                } while (server.equals(prevServer));
+                                future = null;
+                                run();
+                                return;
+                            } else {
+                                setException(new ClosedChannelException());
+                            }
                         }
                     }
                     try {
