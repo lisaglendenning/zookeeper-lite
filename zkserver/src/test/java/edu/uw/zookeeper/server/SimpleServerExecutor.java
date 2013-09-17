@@ -28,7 +28,6 @@ import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.server.AssignZxidProcessor;
 import edu.uw.zookeeper.protocol.server.ProtocolResponseProcessor;
-import edu.uw.zookeeper.protocol.server.ServerConnectionExecutorsService;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
 import edu.uw.zookeeper.protocol.server.SessionRequestExecutor;
 import edu.uw.zookeeper.protocol.server.ToTxnRequestProcessor;

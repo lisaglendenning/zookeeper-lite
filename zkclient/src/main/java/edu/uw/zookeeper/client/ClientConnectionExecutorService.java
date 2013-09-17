@@ -315,7 +315,7 @@ public class ClientConnectionExecutorService extends AbstractIdleService
 
 
     @Override
-    protected synchronized void startUp() throws Exception {
+    protected void startUp() throws Exception {
         client.run();
         client.get();
     }

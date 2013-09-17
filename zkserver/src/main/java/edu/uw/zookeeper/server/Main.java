@@ -7,7 +7,6 @@ import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.Application;
 import edu.uw.zookeeper.common.ServiceApplication;
 import edu.uw.zookeeper.common.ServiceMonitor;
-import edu.uw.zookeeper.protocol.server.ServerConnectionExecutorsService;
 
 public class Main extends ZooKeeperApplication {
 
