@@ -4,8 +4,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.net.SocketAddress;
 
-import com.google.common.base.Function;
-
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.*;
@@ -15,7 +13,7 @@ import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.netty.server.NettyServerModule;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
-import edu.uw.zookeeper.protocol.server.*;
+import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 
 public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.RuntimeBuilder<ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>, ServerConnectionFactoryBuilder> {
 
@@ -23,23 +21,6 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         return new ServerConnectionFactoryBuilder();
     }
     
-    @Configurable(arg="clientAddress", key="ClientAddress", value=":2181", help="Address:Port")
-    public static class ConfigurableServerAddressView implements Function<Configuration, ServerInetAddressView> {
-
-        public static ServerInetAddressView get(Configuration configuration) {
-            return new ConfigurableServerAddressView().apply(configuration);
-        }
-        
-        @Override
-        public ServerInetAddressView apply(Configuration configuration) {
-            Configurable configurable = getClass().getAnnotation(Configurable.class);
-            return ServerInetAddressView.fromString(
-                    configuration.withConfigurable(configurable)
-                        .getConfigOrEmpty(configurable.path())
-                            .getString(configurable.key()));
-        }
-    }
-
     protected final RuntimeModule runtime;
     protected final TimeValue timeOut;
     protected final NetServerModule serverModule;

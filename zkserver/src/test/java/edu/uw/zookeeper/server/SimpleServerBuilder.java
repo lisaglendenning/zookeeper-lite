@@ -17,7 +17,7 @@ import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
 import edu.uw.zookeeper.server.SimpleServerExecutor;
 
-public class SimpleServerBuilder extends ServerBuilder {
+public class SimpleServerBuilder extends ServerConnectionExecutorsService.Builder {
 
     public static SimpleServerBuilder defaults(
             IntraVmNetModule net) {

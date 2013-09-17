@@ -11,7 +11,6 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.client.AssignXidCodec;
-import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;
 
 public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder {
     

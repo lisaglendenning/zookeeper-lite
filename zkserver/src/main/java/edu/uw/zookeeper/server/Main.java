@@ -7,6 +7,7 @@ import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.Application;
 import edu.uw.zookeeper.common.ServiceApplication;
 import edu.uw.zookeeper.common.ServiceMonitor;
+import edu.uw.zookeeper.protocol.server.ServerConnectionExecutorsService;
 
 public class Main extends ZooKeeperApplication {
 
@@ -26,21 +27,21 @@ public class Main extends ZooKeeperApplication {
         application.run();
     }
 
-    protected static class MainBuilder extends ZooKeeperApplication.ForwardingBuilder<Main, ServerBuilder, MainBuilder> {
+    protected static class MainBuilder extends ZooKeeperApplication.ForwardingBuilder<Main, ServerConnectionExecutorsService.Builder, MainBuilder> {
         
     	protected static final String DESCRIPTION = "ZooKeeper Standalone In-Memory Server";
     	
         public MainBuilder() {
-            this(ServerBuilder.defaults());
+            this(ServerConnectionExecutorsService.builder());
         }
 
         public MainBuilder(
-                ServerBuilder delegate) {
+                ServerConnectionExecutorsService.Builder delegate) {
             super(delegate);
         }
 
         @Override
-        protected MainBuilder newInstance(ServerBuilder delegate) {
+        protected MainBuilder newInstance(ServerConnectionExecutorsService.Builder delegate) {
             return new MainBuilder(delegate);
         }
 

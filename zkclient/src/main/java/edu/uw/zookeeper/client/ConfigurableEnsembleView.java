@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.protocol.client;
+package edu.uw.zookeeper.client;
 
 import com.google.common.base.Function;
 

@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.protocol.client;
+package edu.uw.zookeeper.client;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -29,10 +29,6 @@ import com.google.common.util.concurrent.Service;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ZooKeeperApplication;
-import edu.uw.zookeeper.client.ClientConnectionFactoryBuilder;
-import edu.uw.zookeeper.client.ClientExecutor;
-import edu.uw.zookeeper.client.EnsembleViewFactory;
-import edu.uw.zookeeper.client.ServerViewFactory;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.ForwardingPromise;
 import edu.uw.zookeeper.common.LoggingPromise;
@@ -49,6 +45,8 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.Session;
+import edu.uw.zookeeper.protocol.client.AssignXidCodec;
+import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 
 public class ClientConnectionExecutorService extends AbstractIdleService 
         implements Supplier<ListenableFuture<ClientConnectionExecutor<?>>>, 

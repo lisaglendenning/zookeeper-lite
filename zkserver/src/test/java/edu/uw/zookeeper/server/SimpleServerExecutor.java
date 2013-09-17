@@ -28,6 +28,7 @@ import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.server.AssignZxidProcessor;
 import edu.uw.zookeeper.protocol.server.ProtocolResponseProcessor;
+import edu.uw.zookeeper.protocol.server.ServerConnectionExecutorsService;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
 import edu.uw.zookeeper.protocol.server.SessionRequestExecutor;
 import edu.uw.zookeeper.protocol.server.ToTxnRequestProcessor;
@@ -61,7 +62,7 @@ public class SimpleServerExecutor extends ServerTaskExecutor {
                         ToTxnRequestProcessor.create(
                                 AssignZxidProcessor.newInstance(zxids)), 
                         ProtocolResponseProcessor.create(
-                                ServerBuilder.defaultTxnProcessor(dataTrie, sessions,
+                                ServerConnectionExecutorsService.Builder.defaultTxnProcessor(dataTrie, sessions,
                                         new Function<Long, Publisher>() {
                                             @Override
                                             public @Nullable Publisher apply(Long input) {
@@ -78,7 +79,7 @@ public class SimpleServerExecutor extends ServerTaskExecutor {
         ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
         SessionRequestExecutor sessionExecutor = newSessionExecutor(
                 MoreExecutors.sameThreadExecutor(), zxids, dataTrie, listeners, sessions);
-        return ServerBuilder.defaultServerExecutor(zxids, sessions, listeners, sessionExecutor);
+        return ServerConnectionExecutorsService.Builder.defaultServerExecutor(zxids, sessions, listeners, sessionExecutor);
     }
     
     protected final SessionTable sessions;

@@ -20,13 +20,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
+import edu.uw.zookeeper.client.ClientConnectionExecutorService;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.WatchEvent;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
-import edu.uw.zookeeper.protocol.client.ClientConnectionExecutorService;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
