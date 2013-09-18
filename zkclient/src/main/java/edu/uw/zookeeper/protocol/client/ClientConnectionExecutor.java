@@ -2,7 +2,6 @@ package edu.uw.zookeeper.protocol.client;
 
 import java.lang.ref.WeakReference;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -115,7 +114,7 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
                 
         this.connection.register(this);
         this.timeOut.run();
-        Futures.addCallback(this.session, this.timeOut);
+        Futures.addCallback(this.session, this.timeOut, executor());
     }
 
     public ListenableFuture<ConnectMessage.Response> session() {
@@ -137,7 +136,9 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
             Operation.Request request, Promise<Message.ServerResponse<?>> promise) {
         PromiseTask<Operation.Request, Message.ServerResponse<?>> task = 
                 PromiseTask.of(request, LoggingPromise.create(logger, promise));
-        send(task);
+        if (! send(task)) {
+            task.cancel(true);
+        }
         return task;
     }
 
@@ -194,12 +195,14 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
     public String toString() {
         String sessionStr = null;
         if (session().isDone()) {
-            try {
-                sessionStr = Session.toString(session().get().getSessionId());
-            } catch (CancellationException e) {
+            if (session.isCancelled()) {
                 sessionStr = "cancelled";
-            } catch (Exception e) {
-                sessionStr = e.toString();
+            } else {
+                try {
+                    sessionStr = Session.toString(session().get().getSessionId());
+                } catch (Exception e) {
+                    sessionStr = e.toString();
+                }
             }
         }
         return Objects.toStringHelper(this).add("session", sessionStr).add("connection", get()).toString();
@@ -338,7 +341,7 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
         public ListenableFuture<?> call() {
             try {
                 writeFuture = ClientConnectionExecutor.this.get().write(task());
-                Futures.addCallback(writeFuture, this);
+                Futures.addCallback(writeFuture, this, executor());
             } catch (Throwable t) {
                 onFailure(t);
             }

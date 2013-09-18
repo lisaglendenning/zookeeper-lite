@@ -11,6 +11,10 @@ public class EventBusPublisher extends EventBus implements Publisher {
         return new EventBusPublisher();
     }
 
+    public static EventBusPublisher newInstance(String identifier) {
+        return new EventBusPublisher(identifier);
+    }
+
     public static Factory<EventBusPublisher> factory() {
         return new Factory<EventBusPublisher>() {
             @Override
@@ -22,5 +26,9 @@ public class EventBusPublisher extends EventBus implements Publisher {
     
     public EventBusPublisher() {
         super();
+    }
+
+    public EventBusPublisher(String identifier) {
+        super(identifier);
     }
 }

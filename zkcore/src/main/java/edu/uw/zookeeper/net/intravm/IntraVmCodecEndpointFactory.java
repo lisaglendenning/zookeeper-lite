@@ -8,7 +8,9 @@ import java.net.SocketAddress;
 import java.util.concurrent.Executor;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Supplier;
 
+import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
@@ -18,17 +20,17 @@ import edu.uw.zookeeper.protocol.Codec;
 public class IntraVmCodecEndpointFactory<I, T extends Codec<? super I, ? extends Optional<?>>> extends IntraVmEndpointFactory<ByteBuf> {
 
     public static <I, T extends Codec<? super I, ? extends Optional<?>>> IntraVmCodecEndpointFactory<I,T> defaults(
-            Factory<? extends SocketAddress> addresses,
+            Supplier<? extends SocketAddress> addresses,
             ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecs) {
-        return create(codecs, unpooled(), addresses, eventBusPublishers(), sameThreadExecutors());
+        return create(codecs, unpooled(), addresses, EventBusPublisher.factory(), sameThreadExecutors());
     }
     
     public static <I, T extends Codec<? super I, ? extends Optional<?>>> IntraVmCodecEndpointFactory<I,T> create(
             ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecs,
-            Factory<? extends ByteBufAllocator> allocators,
-            Factory<? extends SocketAddress> addresses,
-            Factory<? extends Publisher> publishers, 
-            Factory<? extends Executor> executors) {
+            Supplier<? extends ByteBufAllocator> allocators,
+            Supplier<? extends SocketAddress> addresses,
+            Supplier<? extends Publisher> publishers, 
+            Supplier<? extends Executor> executors) {
         return new IntraVmCodecEndpointFactory<I,T>(
                 codecs, allocators, addresses, publishers, executors);
     }
@@ -42,15 +44,15 @@ public class IntraVmCodecEndpointFactory<I, T extends Codec<? super I, ? extends
         };
     }
 
-    protected final Factory<? extends ByteBufAllocator> allocators;
+    protected final Supplier<? extends ByteBufAllocator> allocators;
     protected final ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecs;
 
     public IntraVmCodecEndpointFactory(
             ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecs,
-            Factory<? extends ByteBufAllocator> allocators,
-            Factory<? extends SocketAddress> addresses,
-            Factory<? extends Publisher> publishers, 
-            Factory<? extends Executor> executors) {
+            Supplier<? extends ByteBufAllocator> allocators,
+            Supplier<? extends SocketAddress> addresses,
+            Supplier<? extends Publisher> publishers, 
+            Supplier<? extends Executor> executors) {
         super(addresses, publishers, executors);
         this.allocators = allocators;
         this.codecs = codecs;
@@ -58,7 +60,7 @@ public class IntraVmCodecEndpointFactory<I, T extends Codec<? super I, ? extends
     
     @Override
     public IntraVmCodecEndpoint<I,T> get() {
-        IntraVmCodecEndpoint.Builder<I,T> builder = IntraVmCodecEndpoint.Builder.<I,T>create(allocators.get(), addresses.get(), publishers.get(), executors.get());
+        IntraVmCodecEndpoint.Builder<I,T> builder = IntraVmCodecEndpoint.<I,T>builder(allocators.get(), addresses.get(), publishers.get(), executors.get());
         return builder.setCodec(codecs.get(builder.getPublisher())).build();
     }
 }

@@ -8,8 +8,10 @@ import javax.annotation.Nullable;
 import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Function;
+import com.google.common.base.Supplier;
 import com.google.common.collect.MapMaker;
 
+import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.LoggingPublisher;
 import edu.uw.zookeeper.common.ParameterizedFactory;
@@ -21,23 +23,23 @@ public class IntraVmFactory {
     public static IntraVmFactory defaults() {
         return newInstance(
                 IntraVmEndpointFactory.loopbackAddresses(1),
-                IntraVmEndpointFactory.eventBusPublishers());
+                EventBusPublisher.factory());
     }
     
     public static IntraVmFactory newInstance(
-            Factory<? extends SocketAddress> addresses,
-            Factory<? extends Publisher> publishers) {
+            Supplier<? extends SocketAddress> addresses,
+            Supplier<? extends Publisher> publishers) {
         return new IntraVmFactory(addresses, publishers);
     }
     
     protected final ConcurrentMap<SocketAddress, IntraVmServerConnectionFactory<?,?>> servers;
     protected final Function<SocketAddress, IntraVmServerConnectionFactory<?,?>> connector;
-    protected final Factory<? extends Publisher> publishers;
-    protected final Factory<? extends SocketAddress> addresses;
+    protected final Supplier<? extends Publisher> publishers;
+    protected final Supplier<? extends SocketAddress> addresses;
     
     public IntraVmFactory(
-            Factory<? extends SocketAddress> addresses,
-            Factory<? extends Publisher> publishers) {
+            Supplier<? extends SocketAddress> addresses,
+            Supplier<? extends Publisher> publishers) {
         this.addresses = addresses;
         this.publishers = publishers;
         this.servers = new MapMaker().makeMap();
@@ -49,11 +51,11 @@ public class IntraVmFactory {
         };
     }
 
-    public Factory<? extends SocketAddress> addresses() {
+    public Supplier<? extends SocketAddress> addresses() {
         return addresses;
     }
     
-    public Factory<? extends Publisher> publishers() {
+    public Supplier<? extends Publisher> publishers() {
         return publishers;
     }
 

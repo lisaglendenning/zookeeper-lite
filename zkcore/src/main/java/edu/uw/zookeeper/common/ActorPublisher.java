@@ -1,22 +1,33 @@
 package edu.uw.zookeeper.common;
 
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.google.common.collect.Queues;
 
 public class ActorPublisher extends CallbackActor<Object> implements Publisher {
 
     public static ActorPublisher newInstance(
             Publisher publisher,
             Executor executor) {
+        return newInstance(
+                publisher,
+                executor,
+                LogManager.getLogger(ActorPublisher.class));
+    }
+
+    public static ActorPublisher newInstance(
+            Publisher publisher,
+            Executor executor,
+            Logger logger) {
         return new ActorPublisher(
                 publisher,
                 executor,
-                new ConcurrentLinkedQueue<Object>(),
-                LogManager.getLogger(ActorPublisher.class));
+                Queues.<Object>newConcurrentLinkedQueue(),
+                logger);
     }
 
     protected final Executor executor;

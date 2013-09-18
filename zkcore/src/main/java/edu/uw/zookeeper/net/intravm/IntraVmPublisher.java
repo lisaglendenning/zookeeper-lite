@@ -1,12 +1,12 @@
 package edu.uw.zookeeper.net.intravm;
 
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.google.common.collect.Queues;
 
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.ActorPublisher;
@@ -16,14 +16,25 @@ public class IntraVmPublisher extends ActorPublisher {
     public static IntraVmPublisher newInstance(
             Publisher publisher,
             Executor executor) {
-        return new IntraVmPublisher(
+        return newInstance(
                 publisher,
                 executor,
-                new ConcurrentLinkedQueue<Object>(),
                 LogManager.getLogger(IntraVmPublisher.class));
     }
 
-    protected final AtomicBoolean registered;
+    public static IntraVmPublisher newInstance(
+            Publisher publisher,
+            Executor executor,
+            Logger logger) {
+        return new IntraVmPublisher(
+                publisher,
+                executor,
+                Queues.<Object>newConcurrentLinkedQueue(),
+                logger);
+    }
+
+    // don't post events until someone is listening
+    protected volatile boolean registered;
     
     protected IntraVmPublisher(
             Publisher publisher,
@@ -31,20 +42,21 @@ public class IntraVmPublisher extends ActorPublisher {
             Queue<Object> mailbox,
             Logger logger) {
         super(publisher, executor, mailbox, logger);
-        this.registered = new AtomicBoolean(false);
+        this.registered = false;
     }
 
     @Override
     public void register(Object object) {
         super.register(object);
-        if (registered.compareAndSet(false, true)) {
+        if (! registered) {
+            registered = true;
             run();
         }
     }
     
     @Override
     protected boolean schedule() {
-        if (! registered.get()) {
+        if (! registered) {
             return false;
         } else {
             return super.schedule();

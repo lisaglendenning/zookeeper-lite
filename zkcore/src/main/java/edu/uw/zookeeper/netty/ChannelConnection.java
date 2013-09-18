@@ -3,6 +3,7 @@ package edu.uw.zookeeper.netty;
 import static com.google.common.base.Preconditions.*;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 
 import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
@@ -13,6 +14,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Automaton;
@@ -49,7 +51,8 @@ public class ChannelConnection<I>
         this.channel = checkNotNull(channel);
         this.publisher = ActorPublisher.newInstance(
                 LoggingPublisher.create(logger, publisher, this), 
-                this);
+                this,
+                logger);
         this.state = ConnectionStateHandler.newAutomaton(this);
         this.outbound = new OutboundActor();
     }
@@ -99,7 +102,9 @@ public class ChannelConnection<I>
     @Override
     public <T extends I> ListenableFuture<T> write(T message) {
         PromiseTask<T,T> task = PromiseTask.of(message, SettableFuturePromise.<T>create());
-        outbound.send(task);
+        if (! outbound.send(task)) {
+            task.setException(new ClosedChannelException());
+        }
         return task;
     }
     
@@ -111,10 +116,7 @@ public class ChannelConnection<I>
     @Override
     public ListenableFuture<Connection<I>> close() {
         state.apply(State.CONNECTION_CLOSING);
-        ChannelFuture future = channel.close();
-        ChannelFutureWrapper<Connection<I>> wrapper = ChannelFutureWrapper
-                .of(future, (Connection<I>) this);
-        return wrapper;
+        return ChannelFutureWrapper.of(channel.close(), (Connection<I>) this);
     }
 
     @Override
@@ -138,12 +140,18 @@ public class ChannelConnection<I>
                 .addValue(channel).toString();
     }
 
-    protected class OutboundActor extends ExecutedActor<PromiseTask<? extends I, ? extends I>> {
+    protected final class OutboundActor extends ExecutedActor<PromiseTask<? extends I, ? extends I>> implements ChannelFutureListener {
 
-        protected final ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>> mailbox;
+        private final ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>> mailbox;
         
         public OutboundActor() {
-            this.mailbox = new ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>>();
+            this.mailbox = Queues.newConcurrentLinkedQueue();
+            channel.closeFuture().addListener(this);
+        }
+
+        @Override
+        public void operationComplete(ChannelFuture future) {
+            stop();
         }
         
         @Override
@@ -162,9 +170,9 @@ public class ChannelConnection<I>
         }
         
         @Override
-        protected void doRun() throws Exception {
-            super.doRun();
+        protected void runExit() {
             channel.flush();
+            super.runExit();
         }
         
         @SuppressWarnings("unchecked")
@@ -183,8 +191,8 @@ public class ChannelConnection<I>
                         default:
                         {
                             I task = input.task();
-                            ChannelFuture future = channel.write(task);
-                            ChannelFutureWrapper.of(future, task, (Promise<I>) input);
+                            ChannelFutureWrapper.of(
+                                    channel.write(task), task, (Promise<I>) input);
                             break;
                         }
                     }

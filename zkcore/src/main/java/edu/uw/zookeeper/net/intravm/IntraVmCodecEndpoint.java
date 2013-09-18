@@ -34,23 +34,23 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
             SocketAddress address,
             Publisher publisher,
             Executor executor) {
-        return Builder.<I,T>create(
+        return IntraVmCodecEndpoint.<I,T>builder(
                 allocator,
                 address, 
                 publisher,
                 executor).setCodec(codec).build();
     }
 
+    public static <I, T extends Codec<? super I, ? extends Optional<?>>> Builder<I,T> builder(
+            ByteBufAllocator allocator,
+            SocketAddress address,
+            Publisher publisher,
+            Executor executor) {
+        return new Builder<I,T>(allocator, address, publisher, executor);
+    }
+    
     public static class Builder<I, T extends Codec<? super I, ? extends Optional<?>>> extends IntraVmEndpoint.Builder<ByteBuf> {
 
-        public static <I, T extends Codec<? super I, ? extends Optional<?>>> Builder<I,T> create(
-                ByteBufAllocator allocator,
-                SocketAddress address,
-                Publisher publisher,
-                Executor executor) {
-            return new Builder<I,T>(allocator, address, publisher, executor);
-        }
-        
         protected final ByteBufAllocator allocator;
         protected Pair<Class<I>, T> codec;
         
@@ -78,6 +78,7 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
             return this;
         }
         
+        @Override
         public IntraVmCodecEndpoint<I,T> build() {
             checkState(codec != null);
             

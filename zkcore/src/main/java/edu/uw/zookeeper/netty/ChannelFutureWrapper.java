@@ -33,8 +33,8 @@ public class ChannelFutureWrapper<V> extends PromiseTask<ChannelFuture, V> imple
     
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
-        if (task().cancel(mayInterruptIfRunning)) {
-            return super.cancel(mayInterruptIfRunning);
+        if (super.cancel(mayInterruptIfRunning)) {
+            return task.cancel(mayInterruptIfRunning);
         }
         return false;
     }

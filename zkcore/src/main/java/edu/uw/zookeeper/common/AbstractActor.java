@@ -24,15 +24,15 @@ public abstract class AbstractActor<T> implements Actor<T> {
     public boolean send(T message) {
         if (state() == State.TERMINATED) {
             return false;
-        } else {
-            mailbox().add(message);
-            if (! schedule() && (state() == State.TERMINATED)) {
-                mailbox().remove(message);
-                return false;
-            } else {
-                return true;
-            }
         }
+        if (! mailbox().offer(message)) {
+            return false;
+        }
+        if (! schedule() && (state() == State.TERMINATED)) {
+            mailbox().remove(message);
+            return false;
+        }
+        return true;
     }
     
     @Override

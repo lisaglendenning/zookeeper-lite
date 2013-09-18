@@ -2,7 +2,6 @@ package edu.uw.zookeeper.net.intravm;
 
 import java.net.SocketAddress;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
 import org.apache.logging.log4j.Logger;
@@ -10,6 +9,7 @@ import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.ExecutedActor;
@@ -28,20 +28,20 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
             SocketAddress address,
             Publisher publisher,
             Executor executor) {
-        return Builder.<V>create(
+        return IntraVmEndpoint.<V>builder(
                 address, 
                 publisher,
                 executor).build();
     }
+
+    public static <V> Builder<V> builder(
+            SocketAddress address,
+            Publisher publisher,
+            Executor executor) {
+        return new Builder<V>(address, publisher, executor);
+    }
     
-    public static class Builder<V> {
-        
-        public static <V> Builder<V> create(
-                SocketAddress address,
-                Publisher publisher,
-                Executor executor) {
-            return new Builder<V>(address, publisher, executor);
-        }
+    public static class Builder<V> implements edu.uw.zookeeper.common.Builder<IntraVmEndpoint<V>> {
         
         protected final SocketAddress address;
         protected final Logger logger;
@@ -67,17 +67,19 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
             this.executor = executor;
             this.publisher = IntraVmPublisher.newInstance(
                     LoggingPublisher.create(
-                            this.logger, publisher, address), 
-                    this.executor);
+                            logger, publisher, address), 
+                    executor,
+                    logger);
             this.stopped = LoggingPromise.create(
                     logger, SettableFuturePromise.<IntraVmEndpoint<V>>create());
-            this.mailbox = new ConcurrentLinkedQueue<Optional<? extends V>>();
+            this.mailbox = Queues.<Optional<? extends V>>newConcurrentLinkedQueue();
         }
         
         public IntraVmPublisher getPublisher() {
             return publisher;
         }
         
+        @Override
         public IntraVmEndpoint<V> build() {
             return new IntraVmEndpoint<V>(address, logger, executor, publisher, mailbox, stopped);
         }
@@ -89,7 +91,10 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
     protected final IntraVmPublisher publisher;
     protected final SocketAddress address;
     protected final Promise<IntraVmEndpoint<V>> stopped;
-    
+
+    /**
+     * @param executor execute order preserves submit order
+     */
     protected IntraVmEndpoint(
             SocketAddress address,
             Logger logger,
@@ -180,7 +185,6 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
                 }
             }
         }
-        
         mailbox.clear();
         // synchronized because we want to make sure that we don't post any messages
         // after declaring that we are closed
@@ -216,9 +220,9 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
         
         @Override
         public synchronized void run() {
-            if(!isDone()) {
-                if (remote.send(task())) {
-                    set(task().orNull());
+            if (!isDone()) {
+                if (remote.send(task)) {
+                    set(task.orNull());
                 } else {
                     setException(new IllegalStateException(Connection.State.CONNECTION_CLOSING.toString()));
                 }

@@ -7,6 +7,7 @@ import java.net.UnknownHostException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.ActorExecutor;
@@ -17,13 +18,13 @@ import edu.uw.zookeeper.common.Publisher;
 public class IntraVmEndpointFactory<V> implements Factory<IntraVmEndpoint<V>> {
 
     public static <V> IntraVmEndpointFactory<V> defaults() {
-        return create(loopbackAddresses(1), eventBusPublishers(), sameThreadExecutors());
+        return create(loopbackAddresses(1), EventBusPublisher.factory(), sameThreadExecutors());
     }
     
     public static <V> IntraVmEndpointFactory<V> create(
-            Factory<? extends SocketAddress> addresses,
-            Factory<? extends Publisher> publishers, 
-            Factory<? extends Executor> executors) {
+            Supplier<? extends SocketAddress> addresses,
+            Supplier<? extends Publisher> publishers, 
+            Supplier<? extends Executor> executors) {
         return new IntraVmEndpointFactory<V>(addresses, publishers, executors);
     }
 
@@ -37,20 +38,15 @@ public class IntraVmEndpointFactory<V> implements Factory<IntraVmEndpoint<V>> {
     }
 
     public static Factory<? extends Executor> sameThreadExecutors() {
-        final Executor executor = MoreExecutors.sameThreadExecutor();
+        return actorExecutors(MoreExecutors.sameThreadExecutor());
+    }
+    
+    public static Factory<? extends Executor> actorExecutors(
+            final Executor executor) {
         return new Factory<Executor>() {
             @Override
             public Executor get() {
                 return ActorExecutor.newInstance(executor);
-            }
-        };
-    }
-    
-    public static Factory<EventBusPublisher> eventBusPublishers() {
-        return new Factory<EventBusPublisher>() {
-            @Override
-            public EventBusPublisher get() {
-                return EventBusPublisher.newInstance();
             }
         };
     }
@@ -70,28 +66,28 @@ public class IntraVmEndpointFactory<V> implements Factory<IntraVmEndpoint<V>> {
         };
     }
     
-    protected final Factory<? extends SocketAddress> addresses;
-    protected final Factory<? extends Publisher> publishers;
-    protected final Factory<? extends Executor> executors;
+    protected final Supplier<? extends SocketAddress> addresses;
+    protected final Supplier<? extends Publisher> publishers;
+    protected final Supplier<? extends Executor> executors;
     
     public IntraVmEndpointFactory(
-            Factory<? extends SocketAddress> addresses,
-            Factory<? extends Publisher> publishers, 
-            Factory<? extends Executor> executors) {
+            Supplier<? extends SocketAddress> addresses,
+            Supplier<? extends Publisher> publishers, 
+            Supplier<? extends Executor> executors) {
         this.addresses = addresses;
         this.publishers = publishers;
         this.executors = executors;
     }
     
-    public Factory<? extends SocketAddress> addresses() {
+    public Supplier<? extends SocketAddress> addresses() {
         return addresses;
     }
     
-    public Factory<? extends Publisher> publishers() {
+    public Supplier<? extends Publisher> publishers() {
         return publishers;
     }
     
-    public Factory<? extends Executor> executors() {
+    public Supplier<? extends Executor> executors() {
         return executors;
     }
     
