@@ -63,11 +63,11 @@ public class Shell extends AbstractIdleService implements Flushable {
         reader.println(s);
     }
 
-    public void printException(Exception e) throws IOException {
+    public void printThrowable(Throwable t) throws IOException {
         if (reader.getTerminal().isAnsiSupported()) {
-            reader.println(new StringBuilder().append("\u001b[31m").append(e.toString()).append("\u001b[0m").toString());
+            reader.println(new StringBuilder().append("\u001b[31m").append(t.toString()).append("\u001b[0m").toString());
         } else {
-            reader.println(e.toString());
+            reader.println(t.toString());
         }
         reader.flush();
     }

@@ -68,7 +68,7 @@ public class Main extends ZooKeeperApplication.ForwardingApplication {
                 throw Throwables.propagate(e);
             }
             monitor.add(shell);
-            monitor.add(DispatchingInvoker.create(shell));
+            monitor.add(DispatchingInvoker.defaults(shell));
             return new Main(ServiceApplication.newInstance(monitor));
         }
 

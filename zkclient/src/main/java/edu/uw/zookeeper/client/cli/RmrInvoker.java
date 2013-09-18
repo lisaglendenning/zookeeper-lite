@@ -29,7 +29,7 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoker.Command> {
+public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoker.Command> {
 
     @Invokes(commands={Command.class})
     public static RmrInvoker create(Shell shell) {
@@ -54,7 +54,7 @@ class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoker.Comma
     }
 
     @Override
-    public void invoke (final Invocation<Command> input)
+    public void invoke(final Invocation<Command> input)
             throws Exception {
         ZNodeLabel.Path root = (ZNodeLabel.Path) input.getArguments()[1];
         ClientExecutor<? super Records.Request, ?> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getClientConnectionExecutor();
@@ -75,7 +75,7 @@ class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoker.Comma
             public void onFailure(Throwable t) {
                 pending.remove(future);
                 try {
-                    shell.printException(new RuntimeException(String.format("%s => FAILED (%s)", input, t)));
+                    shell.printThrowable(new RuntimeException(String.format("%s => FAILED (%s)", input, t)));
                 } catch (IOException e) {
                 }
                 if (isRunning()) {

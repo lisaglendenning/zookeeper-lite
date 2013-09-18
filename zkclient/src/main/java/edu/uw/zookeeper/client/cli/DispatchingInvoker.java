@@ -30,8 +30,15 @@ import edu.uw.zookeeper.protocol.proto.Records;
 public class DispatchingInvoker extends AbstractExecutionThreadService implements Invoker<Object>, Completer {
     
     @Invokes(commands={Object.class})
-    public static DispatchingInvoker create(Shell shell) {
-        return forInvokers(shell, ShellInvoker.class, ClientExecutorInvoker.class, RmrInvoker.class);
+    public static DispatchingInvoker defaults(Shell shell, Class<?>...types) {
+        Class<?>[] withDefaults = new Class<?>[types.length + 3];
+        withDefaults[0] = ShellInvoker.class;
+        withDefaults[1] = ClientExecutorInvoker.class;
+        withDefaults[2] = RmrInvoker.class;
+        for (int i=0; i<types.length; ++i) {
+            withDefaults[i+3] = types[i];
+        }
+        return forInvokers(shell, withDefaults);
     }
 
     public static DispatchingInvoker forInvokers(Shell shell, Class<?>...types) {
@@ -241,7 +248,7 @@ public class DispatchingInvoker extends AbstractExecutionThreadService implement
                 }
                 invoke(invocation);
             } catch (IllegalArgumentException e) {
-                shell.printException(e);
+                shell.printThrowable(e);
                 continue;
             }
         }
