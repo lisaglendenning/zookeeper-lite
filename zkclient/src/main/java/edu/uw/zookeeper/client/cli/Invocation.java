@@ -9,6 +9,10 @@ import edu.uw.zookeeper.common.Pair;
 
 public class Invocation<T> {
 
+    public static <T> Invocation<T> create(Pair<CommandDescriptor, T> command, Object[] arguments) {
+        return new Invocation<T>(command, arguments);
+    }
+    
     private final Pair<CommandDescriptor, T> command;
     private final Object[] arguments;
 
@@ -28,6 +32,6 @@ public class Invocation<T> {
 
     @Override
     public String toString() {
-        return Joiner.on(' ').join(getArguments()).toString();
+        return Joiner.on(' ').join(getArguments());
     }
 }

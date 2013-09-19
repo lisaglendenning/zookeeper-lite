@@ -131,7 +131,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
                 checkArgument(invocations != null, "\"multi end\" missing preceding \"multi begin\"");
                 shell.getEnvironment().put(ShellInvoker.PROMPT_KEY, shell.getEnvironment().get(ShellInvoker.PROMPT_KEY).replace(MULTI_PROMPT, ""));
                 Object[] arguments = { input.getArguments()[0], invocations };
-                input = new Invocation<Command>(input.getCommand(), arguments);
+                input = Invocation.create(input.getCommand(), arguments);
                 break;
             }
             case CANCEL:

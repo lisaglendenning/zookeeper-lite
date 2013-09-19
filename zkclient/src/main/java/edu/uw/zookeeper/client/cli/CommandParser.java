@@ -145,6 +145,6 @@ public class CommandParser implements Function<Iterable<String>, Invocation<?>> 
             arguments[i+1] = argument;
         }
         checkArgument(! itr.hasNext(), String.format("Extra arguments after #%d", ads.length));
-        return new Invocation<Object>(command, arguments);
+        return Invocation.create(command, arguments);
     }
 }
