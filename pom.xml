@@ -8,8 +8,8 @@
     <parent>
        <groupId>edu.uw.zookeeper</groupId>
        <artifactId>lite</artifactId>
-       <version>0.5.3</version>
        <relativePath>parent</relativePath>
+       <version>0.5.4-SNAPSHOT</version>
     </parent>
 	<modules>
 	    <module>apache</module>
