@@ -19,8 +19,9 @@ public class TokenParser implements Function<CharSequence, Iterator<Pair<Integer
     public static TokenParser defaults() {
         return new TokenParser(SPACE);
     }
-    
-    protected static char QUOTE_CHAR = '"';
+
+    protected static char SINGLE_QUOTE_CHAR = '\'';
+    protected static char DOUBLE_QUOTE_CHAR = '"';
 
     protected static char ESCAPE_CHAR = '\\';
 
@@ -45,7 +46,8 @@ public class TokenParser implements Function<CharSequence, Iterator<Pair<Integer
     protected static enum State {
         START,
         TOKEN,
-        QUOTED,
+        SINGLE_QUOTED,
+        DOUBLE_QUOTED,
         ESCAPED;
     }
 
@@ -89,7 +91,8 @@ public class TokenParser implements Function<CharSequence, Iterator<Pair<Integer
                             token = Pair.create(tokenStart, tokenBuilder.toString());
                             states.pop();
                             break;
-                        case QUOTED:
+                        case SINGLE_QUOTED:
+                        case DOUBLE_QUOTED:
                             tokenBuilder.append(c);
                             break;
                         case ESCAPED:
@@ -97,15 +100,38 @@ public class TokenParser implements Function<CharSequence, Iterator<Pair<Integer
                             states.pop(); 
                             break;
                         }
-                    } else if (QUOTE_CHAR == c) {
+                    } else if (SINGLE_QUOTE_CHAR == c) {
                         switch (states.peek()) {
                         case START:
-                            states.push(State.QUOTED);
+                            states.push(State.SINGLE_QUOTED);
                             tokenStart = index;
                             break;
                         case TOKEN:
                             throw new IllegalArgumentException("Embedded quote must be escaped");
-                        case QUOTED:
+                        case SINGLE_QUOTED:
+                            token = Pair.create(tokenStart, tokenBuilder.toString());
+                            states.pop(); 
+                            break;
+                        case DOUBLE_QUOTED:
+                            tokenBuilder.append(c);
+                            break;
+                        case ESCAPED:
+                            tokenBuilder.append(c);
+                            states.pop(); 
+                            break;
+                        }
+                    } else if (DOUBLE_QUOTE_CHAR == c) {
+                        switch (states.peek()) {
+                        case START:
+                            states.push(State.DOUBLE_QUOTED);
+                            tokenStart = index;
+                            break;
+                        case TOKEN:
+                            throw new IllegalArgumentException("Embedded quote must be escaped");
+                        case SINGLE_QUOTED:
+                            tokenBuilder.append(c);
+                            break;
+                        case DOUBLE_QUOTED:
                             token = Pair.create(tokenStart, tokenBuilder.toString());
                             states.pop(); 
                             break;
@@ -118,7 +144,8 @@ public class TokenParser implements Function<CharSequence, Iterator<Pair<Integer
                         switch (states.peek()) {
                         case START:
                         case TOKEN:
-                        case QUOTED:
+                        case DOUBLE_QUOTED:
+                        case SINGLE_QUOTED:
                             states.push(State.ESCAPED);
                             tokenStart = index;
                             break;
@@ -135,7 +162,8 @@ public class TokenParser implements Function<CharSequence, Iterator<Pair<Integer
                             tokenStart = index;
                             break;
                         case TOKEN:
-                        case QUOTED:
+                        case DOUBLE_QUOTED:
+                        case SINGLE_QUOTED:
                             tokenBuilder.append(c);
                             break;
                         case ESCAPED:
@@ -146,7 +174,8 @@ public class TokenParser implements Function<CharSequence, Iterator<Pair<Integer
                     }
                 } else {
                     switch (states.peek()) {
-                    case QUOTED:
+                    case DOUBLE_QUOTED:
+                    case SINGLE_QUOTED:
                         throw new IllegalArgumentException("Incomplete quote");
                     case ESCAPED:
                         throw new IllegalArgumentException("Incomplete escape");
