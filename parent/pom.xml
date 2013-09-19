@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>edu.uw.zookeeper</groupId>
 	<artifactId>lite</artifactId>
-	<version>0.5.3-SNAPSHOT</version>
+	<version>0.5.3</version>
 	<packaging>pom</packaging>
 	<name>ZooKeeper-Lite POM</name>
 	<url>http://lisaglendenning.github.io/zookeeper-lite</url>
