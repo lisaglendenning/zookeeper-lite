@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.*;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
@@ -18,8 +19,15 @@ public class ServerInetAddressView extends Factories.Holder<InetSocketAddress> i
         public static final char TOKEN_SEP = ':';
         private static final Splitter SPLITTER = Splitter.on(TOKEN_SEP).trimResults().limit(2);
         
+        /**
+         * Convert an InetSocketAddress to a String of the form "Address:Port".
+         * 
+         * @param address InetSocketAddress to represent
+         * @return "Address:Port"
+         */
         @Serializes(from=InetSocketAddress.class, to=String.class)
         public static String toString(InetSocketAddress address) {
+            checkNotNull(address);
             // Prefer IP address, otherwise use the hostname
             String host;
             InetAddress ip = address.getAddress();
@@ -31,21 +39,42 @@ public class ServerInetAddressView extends Factories.Holder<InetSocketAddress> i
             return String.format("%s%c%d", host, TOKEN_SEP, address.getPort());
         }
 
+        /**
+         * Convert a String the form "Address:Port" to an InetSocketAddress.
+         * 
+         * A port of 0 directs the system to pick an ephemeral port.
+         * An empty string is interpreted as ":0".
+         * An empty address is interpreted as the wildcard address.
+         * An address string can be either a hostname or an IP address.
+         * 
+         * @param input "Address:Port"
+         * @return InetSocketAddress representing input
+         * @throws UnknownHostException 
+         */
         @Serializes(from=String.class, to=InetSocketAddress.class)
-        public static InetSocketAddress fromString(String input) {
+        public static InetSocketAddress fromString(String input) throws UnknownHostException {
             checkNotNull(input);
             String[] fields = Iterables.toArray(SPLITTER.split(input), String.class);
+            InetSocketAddress address;
             if (fields.length == 0) {
-                return new InetSocketAddress(0);
+                address = new InetSocketAddress(0);
             } else {
                 String portField = (fields.length > 1) ? fields[1] : fields[0];
                 int port = Integer.parseInt(portField);
-                if (fields.length > 1) {
-                    return new InetSocketAddress(fields[0], port);
+                if (fields.length == 1) {
+                    address = new InetSocketAddress(port);
                 } else {
-                    return new InetSocketAddress(port);
+                    String field = fields[0];
+                    if (field.equals("*")) {
+                        address = new InetSocketAddress(port);
+                    } else if (field.equals("localhost")) {
+                        address = new InetSocketAddress(InetAddress.getLocalHost(), port);
+                    } else {
+                        address = new InetSocketAddress(InetAddress.getByName(field), port);
+                    }
                 }
             }        
+            return address;
         }
 
         private Address() {}
@@ -58,7 +87,7 @@ public class ServerInetAddressView extends Factories.Holder<InetSocketAddress> i
 
     @Serializes(from=String.class, to=ServerInetAddressView.class)
     public static ServerInetAddressView fromString(String input)
-            throws IllegalArgumentException {
+            throws UnknownHostException {
         return of(Address.fromString(input));
     }
 

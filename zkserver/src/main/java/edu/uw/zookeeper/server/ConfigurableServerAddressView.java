@@ -1,5 +1,7 @@
 package edu.uw.zookeeper.server;
 
+import java.net.UnknownHostException;
+
 import com.google.common.base.Function;
 
 import edu.uw.zookeeper.ServerInetAddressView;
@@ -16,9 +18,14 @@ public class ConfigurableServerAddressView implements Function<Configuration, Se
     @Override
     public ServerInetAddressView apply(Configuration configuration) {
         Configurable configurable = getClass().getAnnotation(Configurable.class);
-        return ServerInetAddressView.fromString(
+        String value = 
                 configuration.withConfigurable(configurable)
-                    .getConfigOrEmpty(configurable.path())
-                        .getString(configurable.key()));
+                .getConfigOrEmpty(configurable.path())
+                    .getString(configurable.key());
+        try {
+            return ServerInetAddressView.fromString(value);
+        } catch (UnknownHostException e) {
+            throw new IllegalArgumentException(value, e);
+        }
     }
 }
