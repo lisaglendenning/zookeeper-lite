@@ -7,7 +7,7 @@ import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 
-@Configurable(arg="ensemble", key="Ensemble", value="localhost:2181", help="Address:Port,...")
+@Configurable(arg="servers", key="Servers", value="localhost:2181", help="Address:Port,...")
 public class ConfigurableEnsembleView implements Function<Configuration, EnsembleView<ServerInetAddressView>> {
 
     public static EnsembleView<ServerInetAddressView> get(Configuration configuration) {
