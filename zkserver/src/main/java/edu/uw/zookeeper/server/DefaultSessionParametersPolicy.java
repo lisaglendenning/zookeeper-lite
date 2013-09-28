@@ -26,22 +26,20 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
         return new DefaultSessionParametersPolicy(minTimeout, maxTimeout);
     }
 
-    @Configurable(path="Sessions", key="MinTimeout", value="0 seconds", help="Time")
+    @Configurable(path="sessions", key="minTimeout", value="0 seconds", help="time")
     public static class ConfigurableMinTimeout extends ZooKeeperApplication.ConfigurableTimeout {
         
         public static TimeValue get(Configuration configuration) {
             return new ConfigurableMinTimeout().apply(configuration);
         }
-
     }
 
-    @Configurable(path="Sessions", key="MaxTimeout", value="0 seconds", help="Time")
+    @Configurable(path="sessions", key="maxTimeout", value="0 seconds", help="time")
     public static class ConfigurableMaxTimeout extends ZooKeeperApplication.ConfigurableTimeout {
 
         public static TimeValue get(Configuration configuration) {
             return new ConfigurableMaxTimeout().apply(configuration);
         }
-        
     }
 
     public static final ByteOrder BYTE_ORDER = ByteOrder.BIG_ENDIAN;

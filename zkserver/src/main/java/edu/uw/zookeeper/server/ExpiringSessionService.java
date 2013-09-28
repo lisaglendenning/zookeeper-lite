@@ -13,7 +13,7 @@ import edu.uw.zookeeper.common.TimeValue;
 public class ExpiringSessionService extends AbstractScheduledService implements
         Reference<ExpiringSessionTable> {
 
-    @Configurable(path="Sessions", key="ExpireTick", value="2 seconds", help="Time")
+    @Configurable(path="sessions", key="expireTick", value="2 seconds", help="time")
     public static class ConfigurableTickTime extends ZooKeeperApplication.ConfigurableTimeout {
 
         public static TimeValue get(Configuration configuration) {

@@ -97,7 +97,7 @@ public abstract class ZooKeeperApplication implements Application {
         }
     }
     
-    @Configurable(arg="timeout", key="Timeout", value="30 seconds", help="Time")
+    @Configurable(arg="timeout", key="timeout", value="30 seconds", help="time")
     public static class ConfigurableTimeout implements Function<Configuration, TimeValue> {
     
         public static TimeValue get(Configuration configuration) {

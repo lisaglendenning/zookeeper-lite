@@ -8,7 +8,7 @@ import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 
-@Configurable(arg="clientAddress", key="ClientAddress", value=":2181", help="Address:Port")
+@Configurable(arg="clientAddress", key="clientAddress", value=":2181", help="address:port")
 public class ConfigurableServerAddressView implements Function<Configuration, ServerInetAddressView> {
 
     public static ServerInetAddressView get(Configuration configuration) {
