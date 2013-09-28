@@ -1,3 +1,5 @@
+Java ZooKeeper client library and command-line interface.
+
 ## Quickstart
 
 <pre>

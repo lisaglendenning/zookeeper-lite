@@ -2,6 +2,14 @@ A "lite" implementation of both the server and client ZooKeeper 3.5.0 protocol.
 
 See [project website](http://lisaglendenning.github.io/zookeeper-lite).
 
+## Quickstart
+
+<pre>
+> cd zklite-all-0.5.4
+> bin/server.py --help
+> bin/client.py --help
+</pre>
+
 ## Building
 
 zookeeper-lite is a [Maven project](http://maven.apache.org/).
