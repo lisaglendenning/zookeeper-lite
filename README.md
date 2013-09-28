@@ -5,7 +5,7 @@ See [project website](http://lisaglendenning.github.io/zookeeper-lite).
 ## Quickstart
 
 <pre>
-> cd zklite-all-0.5.4
+> tar xzf zklite-all-*.tar.gz && cd zklite-all-*
 > bin/server.py --help
 > bin/client.py --help
 </pre>

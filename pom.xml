@@ -9,7 +9,7 @@
        <groupId>edu.uw.zookeeper</groupId>
        <artifactId>lite</artifactId>
        <relativePath>parent</relativePath>
-       <version>0.5.4-SNAPSHOT</version>
+       <version>0.5.4</version>
     </parent>
 	<modules>
 	    <module>apache</module>
