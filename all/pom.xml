@@ -8,18 +8,21 @@
 	<parent>
 		<groupId>edu.uw.zookeeper</groupId>
 		<artifactId>lite</artifactId>
-		<version>0.5.4</version>
+		<version>0.5.5-SNAPSHOT</version>
 		<relativePath>../parent</relativePath>
 	</parent>
+	<properties>
+        <zookeeper.lite.source>${project.basedir}/..</zookeeper.lite.source>
+	</properties>
 	<build>
         <resources>
             <resource>
-                <directory>../zkcore/src/main/resources</directory>
+                <directory>${zookeeper.lite.source}/zkcore/src/main/resources</directory>
             </resource>
         </resources>
         <testResources>
             <testResource>
-                <directory>../zkcore/src/test/resources</directory>
+                <directory>${zookeeper.lite.source}/zkcore/src/test/resources</directory>
             </testResource>
         </testResources>
 		<plugins>
