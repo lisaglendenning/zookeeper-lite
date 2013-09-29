@@ -28,11 +28,10 @@ def main(argv, environ, env_prefix, main_class):
                 'log4j2.xml':
             f = os.path.join(etc, candidate)
             if os.path.isfile(f):
-                log_config = \
-                    "-Dlog4j.configurationFile=%s" % f
+                log_config = f
                 break
     if log_config:
-        java_args.append(log_config)
+        java_args.append("-Dlog4j.configurationFile=%s" % log_config)
             
     config_file = environ.get(env_prefix + 'CONFIG_FILE')
     if not config_file:
@@ -41,11 +40,10 @@ def main(argv, environ, env_prefix, main_class):
                 'application.properties':
             f = os.path.join(etc, candidate)
             if os.path.isfile(f):
-                config_file = \
-                    "-Dconfig.file=%s" % f
+                config_file = f
                 break
     if config_file:
-        java_args.append(config_file)
+        java_args.append("-Dconfig.file=%s" % config_file)
         
     if 'JAVA_ARGS' in environ:
         java_args.extend(shlex.split(environ['JAVA_ARGS']))
