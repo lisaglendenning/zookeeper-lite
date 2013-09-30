@@ -11,7 +11,8 @@ import sys, os, shlex
 def main(argv, environ, env_prefix, main_class):
     prefix = environ.get(
                 env_prefix + 'PREFIX',
-                os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+                os.path.abspath(os.path.dirname(os.path.dirname(
+                            os.path.realpath(__file__)))))
     lib = environ.get(
                 env_prefix + 'LIB',
                 os.path.join(prefix, 'lib'))
