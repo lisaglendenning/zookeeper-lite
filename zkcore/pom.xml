@@ -14,12 +14,17 @@
 	<build>
 		<resources>
 			<resource>
-                <directory>${project.basedir}/src/main/resources</directory>
-            </resource>
-            <resource>
-				<directory>${project.basedir}/src/main/bin</directory>
-            </resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<resource>
+				<directory>src/main/bin</directory>
+			</resource>
 		</resources>
+		<testResources>
+			<testResource>
+				<directory>src/test/resources</directory>
+			</testResource>
+		</testResources>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -50,6 +55,8 @@
 						</goals>
 						<configuration>
 							<excludes>
+								<exclude>log4j2.xml</exclude>
+								<exclude>log4j2-test.xml</exclude>
 								<exclude>main.py</exclude>
 							</excludes>
 						</configuration>
@@ -58,6 +65,12 @@
 						<goals>
 							<goal>test-jar</goal>
 						</goals>
+						<configuration>
+							<excludes>
+								<exclude>log4j2.xml</exclude>
+								<exclude>log4j2-test.xml</exclude>
+							</excludes>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>
