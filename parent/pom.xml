@@ -7,13 +7,13 @@
 	<packaging>pom</packaging>
 	<name>ZooKeeper-Lite POM</name>
 	<url>http://lisaglendenning.github.io/zookeeper-lite</url>
-    <parent>
-       <groupId>edu.uw</groupId>
-       <artifactId>zookeeper</artifactId>
-       <version>1.0.0</version>
-       <relativePath>zookeeper</relativePath>
-    </parent>
-    <properties>
-        <maven.build.timestamp.format>yyyy-MM-dd-HH:mm</maven.build.timestamp.format>
-    </properties>
+	<parent>
+		<groupId>edu.uw</groupId>
+		<artifactId>zookeeper</artifactId>
+		<version>1.0.0</version>
+		<relativePath>zookeeper</relativePath>
+	</parent>
+	<properties>
+		<maven.build.timestamp.format>yyyy-MM-dd-HH:mm</maven.build.timestamp.format>
+	</properties>
 </project>
