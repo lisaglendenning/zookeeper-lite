@@ -176,10 +176,10 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
             if (! ((xid == OpCodeXid.PING.xid()) || (xid == OpCodeXid.NOTIFICATION.xid()))) {
                 PendingResponseTask next = pending.peek();
                 if ((next != null) && (next.getXid() == xid)) {
-                    pending.remove(next);
                     next.set(message);
                 } else {
-                    // FIXME is this an error?
+                    // This could happen if someone submitted a message without
+                    // going through us
                     logger.warn("{} != {} ({})", next, message, this);
                 }
             }
@@ -227,6 +227,7 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
     protected boolean apply(PromiseTask<Operation.Request, Message.ServerResponse<?>> input) {
         if (! input.isDone()) {
             if (state() != State.TERMINATED) {
+                // Assign xids here so we can properly track message request -> response
                 Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
     
                 // mark pings as done on write because ZooKeeper doesn't care about their ordering
@@ -370,7 +371,11 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
         @Override
         public boolean set(Message.ServerResponse<?> result) {
             assert (getXid() == result.xid());
-            return super.set(result);
+            boolean doSet = super.set(result);
+            if (doSet) {
+                pending.remove(this);
+            }
+            return doSet;
         }
         
         @Override

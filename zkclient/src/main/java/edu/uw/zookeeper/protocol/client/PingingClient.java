@@ -21,7 +21,6 @@ import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Logging;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.Ping;
 import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
@@ -29,17 +28,18 @@ import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
+import edu.uw.zookeeper.protocol.proto.IPingRequest;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<?, ?>, C extends Connection<? super Operation.Request>> extends ProtocolCodecConnection<I, T, C> {
+public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> extends ProtocolCodecConnection<I, T, C> {
 
-    public static <I extends Operation.Request, T extends ProtocolCodec<?, ?>, C extends Connection<? super Operation.Request>> ParameterizedFactory<Pair<Pair<Class<I>, T>, C>, PingingClient<I,T,C>> factory(
+    public static <I extends Operation.Request, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, C>, PingingClient<I,T,C>> factory(
                 final TimeValue defaultTimeOut,
                 final ScheduledExecutorService executor) {
-        return new ParameterizedFactory<Pair<Pair<Class<I>, T>, C>, PingingClient<I,T,C>>() {
+        return new ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, C>, PingingClient<I,T,C>>() {
                     @Override
-                    public PingingClient<I,T,C> get(Pair<Pair<Class<I>, T>, C> value) {
+                    public PingingClient<I,T,C> get(Pair<? extends Pair<Class<I>, ? extends T>, C> value) {
                         return new PingingClient<I,T,C>(
                                 TimeOutParameters.create(defaultTimeOut),
                                 executor,
@@ -49,7 +49,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                 };
     }
     
-    private final PingingTask pingTask;
+    private final PingingTask<I> pingTask;
 
     protected PingingClient(
             TimeOutParameters pingParameters,
@@ -58,7 +58,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
             C connection) {
         super(codec, connection);
         
-        this.pingTask = new PingingTask(pingParameters, executor, this);
+        this.pingTask = new PingingTask<I>(pingParameters, executor, this);
         if (codec.state() == ProtocolState.CONNECTED) {
             pingTask.run();
         }
@@ -89,22 +89,24 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         pingTask.send(message);
     }
 
-    protected static class PingingTask extends TimeOutActor<Object> implements Actor<Object>, FutureCallback<Object> {
+    protected static class PingingTask<I extends Operation.Request> extends TimeOutActor<Object> implements Actor<Object>, FutureCallback<Object> {
 
         private final Logger logger = LogManager.getLogger(getClass());
-        private volatile Ping.Request lastPing = null;
-        private final WeakReference<PingingClient<?,?,?>> connection;
+        private final Message.ClientRequest<IPingRequest> pingRequest;
+        private volatile TimeValue lastPing = null;
+        private final WeakReference<PingingClient<I,?,?>> connection;
 
         public PingingTask(
                 TimeOutParameters parameters,
                 ScheduledExecutorService executor,
-                PingingClient<?,?,?> connection) {
+                PingingClient<I,?,?> connection) {
             super(parameters, executor);
-            lastPing = null;
-            this.connection = new WeakReference<PingingClient<?,?,?>>(connection);
+            this.connection = new WeakReference<PingingClient<I,?,?>>(connection);
+            this.pingRequest = ProtocolRequestMessage.from(Records.newInstance(IPingRequest.class));
+            this.lastPing = null;
         }
         
-        public Ping.Request lastPing() {
+        public TimeValue lastPing() {
             return lastPing;
         }
         
@@ -114,7 +116,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
 
         @Override
         public void onFailure(Throwable t) {
-            PingingClient<?,?,?> connection = this.connection.get();
+            PingingClient<I,?,?> connection = this.connection.get();
             if (connection != null) {
                 connection.close();
             }
@@ -138,12 +140,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                         if (message instanceof Message.ServerResponse) {
                             Records.Response response = ((Message.ServerResponse<?>) message).record();
                             if (response.opcode() == OpCode.PING) {
-                                Ping.Response pong;
-                                if (response instanceof Ping.Response) {
-                                    pong = (Ping.Response) response;
-                                } else {
-                                    pong = Ping.Response.newInstance();
-                                }
+                                TimeValue pong = TimeValue.milliseconds(System.currentTimeMillis());
                                 // of course, this pong could be for an earlier ping,
                                 // so this time difference is not very accurate...
                                 logger.trace(Logging.PING_MARKER, String.format("PONG %s: %s",
@@ -156,9 +153,10 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
             return (state() != State.TERMINATED);
         }
 
+        @SuppressWarnings("unchecked")
         @Override
         protected void doRun() {   
-            PingingClient<?,?,?> connection = this.connection.get();
+            PingingClient<I,?,?> connection = this.connection.get();
             if (connection == null) {
                 return;
             }
@@ -178,16 +176,14 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                 
             // should ping now, or ok to wait a while?
             if (parameters.remaining() < parameters.getTimeOut() / 2) {
-                Operation.ProtocolRequest<Ping.Request> message = ProtocolRequestMessage.from(Ping.Request.newInstance());
                 try {
-                    Futures.addCallback(connection.delegate().write(message), this);
+                    Futures.addCallback(connection.write((I) pingRequest), this);
                 } catch (Exception e) {
                     connection.close();
                     return;
                 }
 
-                parameters.touch();
-                lastPing = message.record();
+                lastPing = TimeValue.milliseconds(System.currentTimeMillis());
                 if (logger.isTraceEnabled()) {
                     logger.trace(Logging.PING_MARKER, "PING: {}", lastPing);
                 }

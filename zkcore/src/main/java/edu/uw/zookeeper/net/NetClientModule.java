@@ -11,6 +11,6 @@ import edu.uw.zookeeper.protocol.Codec;
 public interface NetClientModule {
     
     <I, T extends Codec<? super I, ? extends Optional<?>>, C extends Connection<?>> Factory<? extends ClientConnectionFactory<C>> getClientConnectionFactory(
-            ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
-            ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory);
+            ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecFactory,
+            ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, Connection<I>>, C> connectionFactory);
 }

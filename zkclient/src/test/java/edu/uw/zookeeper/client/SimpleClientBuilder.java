@@ -7,10 +7,10 @@ import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.NetClientModule;
-import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.Session;
-import edu.uw.zookeeper.protocol.client.AssignXidCodec;
 
 public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder {
     
@@ -30,7 +30,7 @@ public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder
         return ClientConnectionFactoryBuilder.defaults()
                 .setClientModule(clientModule)
                 .setTimeOut(TimeValue.create(Session.Parameters.NEVER_TIMEOUT, Session.Parameters.TIMEOUT_UNIT))
-                .setConnectionFactory(ProtocolCodecConnection.<Operation.Request,AssignXidCodec,Connection<Operation.Request>>factory());
+                .setConnectionFactory(ProtocolCodecConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory());
     }
     
     protected final ServerInetAddressView serverAddress;
@@ -38,7 +38,7 @@ public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder
     protected SimpleClientBuilder(
             ServerInetAddressView serverAddress,
             ClientConnectionFactoryBuilder connectionBuilder,
-            ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory,
+            ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
             ClientConnectionExecutorService clientExecutor,
             RuntimeModule runtime) {
         super(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
@@ -69,7 +69,7 @@ public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder
 
     @Override
     public SimpleClientBuilder setClientConnectionFactory(
-            ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory) {
+            ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory) {
         return (SimpleClientBuilder) super.setClientConnectionFactory(clientConnectionFactory);
     }
 
@@ -87,7 +87,7 @@ public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder
     @Override
     protected SimpleClientBuilder newInstance(
             ClientConnectionFactoryBuilder connectionBuilder,
-            ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory,
+            ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
             ClientConnectionExecutorService clientExecutor,
             RuntimeModule runtime) {
         return newInstance(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
@@ -96,7 +96,7 @@ public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder
     protected SimpleClientBuilder newInstance(
             ServerInetAddressView serverAddress,
             ClientConnectionFactoryBuilder connectionBuilder,
-            ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> clientConnectionFactory,
+            ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
             ClientConnectionExecutorService clientExecutor,
             RuntimeModule runtime) {
         return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor, runtime);

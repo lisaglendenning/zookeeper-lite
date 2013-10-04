@@ -15,12 +15,13 @@ import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.NetClientModule;
 import edu.uw.zookeeper.netty.client.NettyClientModule;
-import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
-import edu.uw.zookeeper.protocol.client.AssignXidCodec;
+import edu.uw.zookeeper.protocol.client.ClientProtocolCodec;
 import edu.uw.zookeeper.protocol.client.PingingClient;
 
-public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.RuntimeBuilder<ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>>, ClientConnectionFactoryBuilder> {
+public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.RuntimeBuilder<ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>>, ClientConnectionFactoryBuilder> {
 
     public static ClientConnectionFactoryBuilder defaults() {
         return new ClientConnectionFactoryBuilder();
@@ -29,8 +30,8 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     protected final RuntimeModule runtime;
     protected final NetClientModule clientModule;
     protected final TimeValue timeOut;
-    protected final ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory;
-    protected final ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> connectionFactory;
+    protected final ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory;
+    protected final ParameterizedFactory<Pair<? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>, Connection<Message.ClientSession>>, ? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> connectionFactory;
     
     public ClientConnectionFactoryBuilder() {
         this(null, null, null, null, null);
@@ -40,8 +41,8 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
             RuntimeModule runtime,
             NetClientModule clientModule,
             TimeValue timeOut,
-            ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory,
-            ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> connectionFactory) {
+            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory,
+            ParameterizedFactory<Pair<? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>, Connection<Message.ClientSession>>, ? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> connectionFactory) {
         super();
         this.runtime = runtime;
         this.clientModule = clientModule;
@@ -88,12 +89,12 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         }
     }
 
-    public ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> getCodecFactory() {
+    public ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> getCodecFactory() {
         return codecFactory;
     }
 
     public ClientConnectionFactoryBuilder setCodecFactory(
-            ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory) {
+            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory) {
         if (this.codecFactory == codecFactory) {
             return this;
         } else {
@@ -101,17 +102,13 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         }
     }
 
-    public ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> getConnectionFactory() {
+    public ParameterizedFactory<? extends Pair<? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>, Connection<Message.ClientSession>>, ? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> getConnectionFactory() {
         return connectionFactory;
     }
 
     public ClientConnectionFactoryBuilder setConnectionFactory(
-            ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> connectionFactory) {
-        if (this.connectionFactory == connectionFactory) {
-            return this;
-        } else {
-            return newInstance(runtime, clientModule, timeOut, codecFactory, connectionFactory);
-        }
+            ParameterizedFactory<Pair<? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>, Connection<Message.ClientSession>>, ? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> connectionFactory) {
+        return newInstance(runtime, clientModule, timeOut, codecFactory, connectionFactory);
     }
 
     @Override
@@ -134,7 +131,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
 
     @Override
-    public ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> build() {
+    public ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> build() {
         return setDefaults().getDefaultClientConnectionFactory();
     }
 
@@ -142,8 +139,8 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
             RuntimeModule runtime,
             NetClientModule clientModule,
             TimeValue timeOut,
-            ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory,
-            ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> connectionFactory) {
+            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory,
+            ParameterizedFactory<Pair<? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>, Connection<Message.ClientSession>>, ? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> connectionFactory) {
         return new ClientConnectionFactoryBuilder(runtime, clientModule, timeOut, codecFactory, connectionFactory);
     }
 
@@ -155,16 +152,16 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         return NettyClientModule.newInstance(runtime);
     }
     
-    protected ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> getDefaultCodecFactory() {
-        return AssignXidCodec.factory();
+    protected ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> getDefaultCodecFactory() {
+        return ClientProtocolCodec.factory();
     }
     
-    protected ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> getDefaultConnectionFactory() {
+    protected ParameterizedFactory<Pair<? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>, Connection<Message.ClientSession>>, ? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> getDefaultConnectionFactory() {
         return PingingClient.factory(timeOut, runtime.getExecutors().get(ScheduledExecutorService.class));
     }
     
-    protected ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> getDefaultClientConnectionFactory() {
-        ClientConnectionFactory<? extends ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = 
+    protected ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> getDefaultClientConnectionFactory() {
+        ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnections = 
                 clientModule.getClientConnectionFactory(
                             codecFactory, connectionFactory).get();
         return clientConnections;

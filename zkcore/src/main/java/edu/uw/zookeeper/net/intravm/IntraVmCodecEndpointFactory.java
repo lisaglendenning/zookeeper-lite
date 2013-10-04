@@ -21,12 +21,12 @@ public class IntraVmCodecEndpointFactory<I, T extends Codec<? super I, ? extends
 
     public static <I, T extends Codec<? super I, ? extends Optional<?>>> IntraVmCodecEndpointFactory<I,T> defaults(
             Supplier<? extends SocketAddress> addresses,
-            ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecs) {
+            ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecs) {
         return create(codecs, unpooled(), addresses, EventBusPublisher.factory(), sameThreadExecutors());
     }
     
     public static <I, T extends Codec<? super I, ? extends Optional<?>>> IntraVmCodecEndpointFactory<I,T> create(
-            ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecs,
+            ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecs,
             Supplier<? extends ByteBufAllocator> allocators,
             Supplier<? extends SocketAddress> addresses,
             Supplier<? extends Publisher> publishers, 
@@ -45,10 +45,10 @@ public class IntraVmCodecEndpointFactory<I, T extends Codec<? super I, ? extends
     }
 
     protected final Supplier<? extends ByteBufAllocator> allocators;
-    protected final ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecs;
+    protected final ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecs;
 
     public IntraVmCodecEndpointFactory(
-            ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecs,
+            ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecs,
             Supplier<? extends ByteBufAllocator> allocators,
             Supplier<? extends SocketAddress> addresses,
             Supplier<? extends Publisher> publishers, 

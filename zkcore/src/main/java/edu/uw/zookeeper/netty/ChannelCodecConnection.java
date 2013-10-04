@@ -14,8 +14,8 @@ public class ChannelCodecConnection<I> extends ChannelConnection<I> {
     
     public static <I, T extends Codec<? super I,  ? extends Optional<?>>, C extends Connection<?>> FromCodecFactory<I,T,C> factory(
             Factory<? extends Publisher> publisherFactory,
-            ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
-            ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
+            ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecFactory,
+            ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, Connection<I>>, C> connectionFactory) {
         return FromCodecFactory.newInstance(publisherFactory, codecFactory, connectionFactory);
     }
 
@@ -23,19 +23,19 @@ public class ChannelCodecConnection<I> extends ChannelConnection<I> {
 
         public static <I, T extends Codec<? super I,  ? extends Optional<?>>, C extends Connection<?>> FromCodecFactory<I,T,C> newInstance(
                 Factory<? extends Publisher> publisherFactory,
-                ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
-                ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
+                ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecFactory,
+                ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, Connection<I>>, C> connectionFactory) {
             return new FromCodecFactory<I,T,C>(publisherFactory, codecFactory, connectionFactory);
         }
         
         private final Factory<? extends Publisher> publisherFactory;
-        private final ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory;
-        private final ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory;
+        private final ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecFactory;
+        private final ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, Connection<I>>, C> connectionFactory;
         
         private FromCodecFactory(
                 Factory<? extends Publisher> publisherFactory,
-                ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
-                ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
+                ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecFactory,
+                ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, Connection<I>>, C> connectionFactory) {
             super();
             this.publisherFactory = publisherFactory;
             this.codecFactory = codecFactory;
@@ -46,9 +46,9 @@ public class ChannelCodecConnection<I> extends ChannelConnection<I> {
         public C get(Channel channel) {
             Publisher publisher = publisherFactory.get();
             ChannelCodecConnection<I> connection = new ChannelCodecConnection<I>(channel, publisher);
-            Pair<Class<I>,T> codec = codecFactory.get(connection);
+            Pair<Class<I>, ? extends T> codec = codecFactory.get(connection);
             connection.attach(codec.first(), codec.second());
-            return connectionFactory.get(Pair.<Pair<Class<I>, T>, Connection<I>>create(codec, connection));
+            return connectionFactory.get(Pair.<Pair<Class<I>, ? extends T>, Connection<I>>create(codec, connection));
         }
     }
 

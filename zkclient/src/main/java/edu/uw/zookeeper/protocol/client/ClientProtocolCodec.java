@@ -12,6 +12,7 @@ import com.google.common.base.Optional;
 
 import edu.uw.zookeeper.common.Automatons;
 import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.Stateful;
@@ -35,6 +36,17 @@ import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 public class ClientProtocolCodec
     implements ProtocolCodec<Message.ClientSession, Message.ServerSession> {
 
+    public static ParameterizedFactory<Publisher, Pair<Class<Message.ClientSession>, ClientProtocolCodec>> factory() {
+        return new ParameterizedFactory<Publisher, Pair<Class<Message.ClientSession>, ClientProtocolCodec>>() {
+            @Override
+            public Pair<Class<Message.ClientSession>, ClientProtocolCodec> get(
+                    Publisher value) {
+                return Pair.create(Message.ClientSession.class,
+                        ClientProtocolCodec.newInstance(value));
+            }
+        };
+    }
+    
     public static ClientProtocolCodec newInstance(
             Publisher publisher) {
         return newInstance(publisher, ProtocolState.ANONYMOUS);

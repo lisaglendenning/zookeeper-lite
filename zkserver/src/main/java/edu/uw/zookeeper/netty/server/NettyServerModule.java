@@ -46,8 +46,8 @@ public class NettyServerModule implements NetServerModule {
     
     @Override
     public <I, T extends Codec<? super I,  ? extends Optional<?>>, C extends Connection<?>> ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<C>> getServerConnectionFactory(
-            ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
-            ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
+            ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecFactory,
+            ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, Connection<I>>, C> connectionFactory) {
         ParameterizedFactory<Channel, C> factory = 
                 ChannelCodecConnection.factory(publisherFactory, codecFactory, connectionFactory);
         return ChannelServerConnectionFactory.parameterizedFactory(publisherFactory, factory, bootstrapFactory);

@@ -63,8 +63,8 @@ public class IntraVmNetModule implements NetClientModule, NetServerModule {
 
     @Override
     public <I, T extends Codec<? super I, ? extends Optional<?>>, C extends Connection<?>> Factory<IntraVmClientConnectionFactory<C,I>> getClientConnectionFactory(
-            final ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
-            final ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
+            final ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecFactory,
+            final ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, Connection<I>>, C> connectionFactory) {
         final IntraVmCodecEndpointFactory<I,T> endpoints = getEndpointFactory(codecFactory);
         final ParameterizedFactory<IntraVmConnection<I>, C> connections = getConnectionFactory(connectionFactory);
         return new Factory<IntraVmClientConnectionFactory<C,I>>() {
@@ -77,8 +77,8 @@ public class IntraVmNetModule implements NetClientModule, NetServerModule {
     
     @Override
     public <I, T extends Codec<? super I,  ? extends Optional<?>>, C extends Connection<?>> ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<C>> getServerConnectionFactory(
-            ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory,
-            ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
+            ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecFactory,
+            ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, Connection<I>>, C> connectionFactory) {
         final IntraVmCodecEndpointFactory<I,T> endpoints = getEndpointFactory(codecFactory);
         final ParameterizedFactory<IntraVmConnection<I>, C> connections = getConnectionFactory(connectionFactory);
         return new ParameterizedFactory<SocketAddress, IntraVmServerConnectionFactory<C,I>>() {
@@ -90,13 +90,13 @@ public class IntraVmNetModule implements NetClientModule, NetServerModule {
     }
 
     public <I, T extends Codec<? super I, ? extends Optional<?>>> IntraVmCodecEndpointFactory<I,T> getEndpointFactory(
-            final ParameterizedFactory<Publisher, Pair<Class<I>, T>> codecFactory) {
+            final ParameterizedFactory<Publisher, ? extends Pair<Class<I>, ? extends T>> codecFactory) {
         return IntraVmCodecEndpointFactory.create(
                 codecFactory, allocators, factory.addresses(), factory.publishers(), executors);
     }
     
     public <I, T extends Codec<? super I,  ? extends Optional<?>>, C extends Connection<?>> ParameterizedFactory<IntraVmConnection<I>, C> getConnectionFactory(
-            final ParameterizedFactory<Pair<Pair<Class<I>, T>, Connection<I>>, C> connectionFactory) {
+            final ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, Connection<I>>, C> connectionFactory) {
         return new ParameterizedFactory<IntraVmConnection<I>, C>() {
             @Override
             public C get(IntraVmConnection<I> value) {

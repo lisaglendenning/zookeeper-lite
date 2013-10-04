@@ -24,8 +24,8 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     protected final RuntimeModule runtime;
     protected final TimeValue timeOut;
     protected final NetServerModule serverModule;
-    protected final ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> codecFactory;
-    protected final ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory;
+    protected final ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory;
+    protected final ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory;
     protected final ServerInetAddressView address;
     
     public ServerConnectionFactoryBuilder() {
@@ -36,8 +36,8 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
             RuntimeModule runtime,
             TimeValue timeOut,
             NetServerModule serverModule,
-            ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> codecFactory,
-            ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory,
+            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory,
+            ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory,
             ServerInetAddressView address) {
         this.runtime = runtime;
         this.timeOut = timeOut;
@@ -85,12 +85,12 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         }
     }
 
-    public ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> getCodecFactory() {
+    public ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> getCodecFactory() {
         return codecFactory;
     }
 
     public ServerConnectionFactoryBuilder setCodecFactory(
-            ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> codecFactory) {
+            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory) {
         if (this.codecFactory == codecFactory) {
             return this;
         } else {
@@ -98,12 +98,12 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         }
     }
 
-    public ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getConnectionFactory() {
+    public ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getConnectionFactory() {
         return connectionFactory;
     }
 
     public ServerConnectionFactoryBuilder setConnectionFactory(
-            ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory) {
+            ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory) {
         if (this.connectionFactory == connectionFactory) {
             return this;
         } else {
@@ -154,8 +154,8 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
             RuntimeModule runtime,
             TimeValue timeOut,
             NetServerModule serverModule,
-            ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> codecFactory,
-            ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory,
+            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory,
+            ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory,
             ServerInetAddressView address) {
         return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
     }
@@ -168,11 +168,11 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         return NettyServerModule.newInstance(runtime);
     }
 
-    protected ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> getDefaultCodecFactory() {
+    protected ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> getDefaultCodecFactory() {
         return ServerProtocolCodec.factory();
     }
     
-    protected ParameterizedFactory<Pair<Pair<Class<Message.Server>, ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getDefaultConnectionFactory() {
+    protected ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getDefaultConnectionFactory() {
         return ProtocolCodecConnection.factory();
     }
     

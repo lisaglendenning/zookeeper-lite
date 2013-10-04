@@ -52,7 +52,7 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
     public static class Builder<I, T extends Codec<? super I, ? extends Optional<?>>> extends IntraVmEndpoint.Builder<ByteBuf> {
 
         protected final ByteBufAllocator allocator;
-        protected Pair<Class<I>, T> codec;
+        protected Pair<Class<I>, ? extends T> codec;
         
         public Builder(
                 ByteBufAllocator allocator,
@@ -73,7 +73,7 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
             this.codec = null;
         }
         
-        public Builder<I,T> setCodec(Pair<Class<I>, T> codec) {
+        public Builder<I,T> setCodec(Pair<Class<I>, ? extends T> codec) {
             this.codec = codec;
             return this;
         }
@@ -93,7 +93,7 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
     
     protected IntraVmCodecEndpoint(
             ByteBufAllocator allocator,
-            Pair<Class<I>, T> codec,
+            Pair<Class<I>, ? extends T> codec,
             SocketAddress address,
             Logger logger,
             Executor executor,
