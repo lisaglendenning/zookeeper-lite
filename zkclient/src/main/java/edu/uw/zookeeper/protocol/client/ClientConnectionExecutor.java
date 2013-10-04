@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.protocol.client;
 
 import java.lang.ref.WeakReference;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -23,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.ExecutedActor;
+import edu.uw.zookeeper.common.ForwardingPromise;
 import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
@@ -230,16 +230,22 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
                 Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
     
                 // mark pings as done on write because ZooKeeper doesn't care about their ordering
-                MessageTask task;
+                PendingTask task;
                 if (message.xid() == OpCodeXid.PING.xid()) {
-                    task = new SetOnCallbackTask(message, input);
+                    task = new SetOnCallbackTask(message.xid(), input);
                 } else {
                     // task needs to be in the queue before calling write
-                    PendingResponseTask p = new PendingResponseTask(message, input);
+                    PendingResponseTask p = new PendingResponseTask(message.xid(), input);
                     task = p;
                     pending.add(p);
                 }
-                task.call();
+                
+                try {
+                    ListenableFuture<?> writeFuture = connection.write(message);
+                    Futures.addCallback(writeFuture, task, executor());
+                } catch (Throwable t) {
+                    task.onFailure(t);
+                }
             } else {
                 input.cancel(true);
             }
@@ -320,48 +326,26 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
         }
     }
 
-    protected abstract class MessageTask
-        extends PromiseTask<Message.ClientRequest<?>, Message.ServerResponse<?>>
-        implements FutureCallback<Object>, Callable<ListenableFuture<?>> {
+    protected abstract class PendingTask
+        extends ForwardingPromise<Message.ServerResponse<?>>
+        implements FutureCallback<Object> {
 
-        protected volatile ListenableFuture<?> writeFuture;
+        protected final int xid;
+        protected final Promise<Message.ServerResponse<?>> promise;
         
-        public MessageTask(
-                Message.ClientRequest<?> task,
-                Promise<Message.ServerResponse<?>> delegate) {
-            super(task, delegate);
-            this.writeFuture = null;
+        protected PendingTask(
+                int xid,
+                Promise<Message.ServerResponse<?>> promise) {
+            this.xid = xid;
+            this.promise = promise;
         }
         
         public int getXid() {
-            return task().xid();
+            return xid;
         }
         
-        @Override
-        public ListenableFuture<?> call() {
-            try {
-                writeFuture = ClientConnectionExecutor.this.get().write(task());
-                Futures.addCallback(writeFuture, this, executor());
-            } catch (Throwable t) {
-                onFailure(t);
-            }
-            return writeFuture;
-        }
-        
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning) {
-            boolean doCancel = super.cancel(mayInterruptIfRunning);
-            if (doCancel) {
-                if (writeFuture != null) {
-                    writeFuture.cancel(mayInterruptIfRunning);
-                }
-            }
-            return doCancel;
-        }
-
         @Override
         public void onSuccess(Object result) {
-            assert (task() == result);
         }
         
         @Override
@@ -371,16 +355,16 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
         
         @Override
         public Promise<Message.ServerResponse<?>> delegate() {
-            return delegate;
+            return promise;
         }
     } 
     
-    protected class PendingResponseTask extends MessageTask {
+    protected class PendingResponseTask extends PendingTask {
 
         public PendingResponseTask(
-                Message.ClientRequest<?> task,
-                Promise<Message.ServerResponse<?>> delegate) {
-            super(task, delegate);
+                int xid,
+                Promise<Message.ServerResponse<?>> promise) {
+            super(xid, promise);
         }
 
         @Override
@@ -399,12 +383,12 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
         }
     } 
     
-    protected class SetOnCallbackTask extends MessageTask {
+    protected class SetOnCallbackTask extends PendingTask {
 
         public SetOnCallbackTask(
-                Message.ClientRequest<?> task,
-                Promise<Message.ServerResponse<?>> delegate) {
-            super(task, delegate);
+                int xid,
+                Promise<Message.ServerResponse<?>> promise) {
+            super(xid, promise);
         }
 
         @Override
