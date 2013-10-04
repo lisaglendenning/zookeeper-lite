@@ -16,7 +16,6 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Publisher;
@@ -24,7 +23,7 @@ import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ConnectionFactory;
 
 public abstract class AbstractConnectionFactory<C extends Connection<?>> extends AbstractIdleService
-        implements ConnectionFactory<C>, Service {
+        implements ConnectionFactory<C> {
 
     protected final Logger logger;
     protected final Publisher publisher;

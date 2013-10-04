@@ -124,7 +124,7 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
         try { 
             output = codec.decode(input);
         } catch (IOException e) {
-            logger.warn(Logging.NET_MARKER, "{}", e);
+            logger.warn(Logging.NET_MARKER, "{}", input, e);
             stop();
             return;
         }

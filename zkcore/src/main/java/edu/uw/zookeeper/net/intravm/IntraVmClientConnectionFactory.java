@@ -1,5 +1,7 @@
 package edu.uw.zookeeper.net.intravm;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.net.SocketAddress;
 
 import com.google.common.base.Function;
@@ -35,10 +37,9 @@ public class IntraVmClientConnectionFactory<C extends Connection<?>, V> extends 
     
     @Override
     public ListenableFuture<C> connect(SocketAddress remoteAddress) {
+        logger.debug("Connecting => {}", remoteAddress);
         IntraVmServerConnectionFactory<?,?> server = connector.apply(remoteAddress);
-        if (server == null) {
-            throw new IllegalArgumentException(String.valueOf(remoteAddress));
-        }
+        checkArgument(server != null, remoteAddress);
         C connection = server.connect(endpointFactory.get(), connectionFactory);
         if (add(connection)) {
             return Futures.immediateFuture(connection);

@@ -72,6 +72,10 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
     public static ZNodeLabel joined(Iterator<?> components) {
         return of(join(Iterators.transform(components, Functions.toStringFunction())));
     }
+    
+    public static None none() {
+        return None.getInstance();
+    }
 
     public static final class None extends ZNodeLabel {
 
@@ -392,15 +396,16 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             return Component.of(tail);
         }
         
-        public ZNodeLabel suffix() {
-            String suffix = toString();
-            int slash = suffix.indexOf(SLASH);
-            suffix = suffix.substring(slash + 1);
-            slash = suffix.indexOf(SLASH);
-            if (slash > 0) {
-                return new Path(suffix);
+        public ZNodeLabel suffix(int index) {
+            int length = length();
+            if ((index < 0) || (index > length)) {
+                throw new IndexOutOfBoundsException(String.valueOf(index));
+            }
+            if (index == length) {
+                return ZNodeLabel.none();
             } else {
-                return new Component(suffix);
+                checkArgument(charAt(index) == SLASH, index);
+                return ZNodeLabel.of(label.substring(index + 1));
             }
         }
         
