@@ -41,7 +41,6 @@ import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.TelnetCloseRequest;
 import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
-import edu.uw.zookeeper.protocol.proto.Records;
 
 public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>>
         implements Publisher, Reference<T> {
@@ -304,10 +303,9 @@ public class ServerConnectionExecutor<T extends ProtocolCodecConnection<Message.
                 throttle(true);
                 Futures.addCallback(connectExecutor.submit(Pair.create((ConnectMessage.Request) input, (Publisher) outbound)), this);
             } else {
-                @SuppressWarnings("unchecked")
-                Message.ClientRequest<Records.Request> request = (Message.ClientRequest<Records.Request>) input;
+                Message.ClientRequest<?> request = (Message.ClientRequest<?>) input;
                 long sessionId = Futures.getUnchecked(session()).getSessionId();
-                Futures.addCallback(sessionExecutor.submit(SessionRequest.of(sessionId, request, request)), this);
+                Futures.addCallback(sessionExecutor.submit(SessionRequest.of(sessionId, request)), this);
             }
             
             return (state() != State.TERMINATED);

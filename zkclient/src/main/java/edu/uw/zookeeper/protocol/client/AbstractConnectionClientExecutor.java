@@ -5,7 +5,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.LogManager;
@@ -14,6 +13,7 @@ import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Queues;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -22,8 +22,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.ExecutedActor;
-import edu.uw.zookeeper.common.ForwardingPromise;
-import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
@@ -43,74 +41,36 @@ import edu.uw.zookeeper.protocol.TimeOutParameters;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 
-public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>>
-    extends ExecutedActor<PromiseTask<Operation.Request, Message.ServerResponse<?>>>
-    implements ClientExecutor<Operation.Request, Message.ServerResponse<?>>,
+public abstract class AbstractConnectionClientExecutor<I extends Operation.Request, 
+    V extends PromiseTask<I, Message.ServerResponse<?>>,
+    C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>>
+    extends ExecutedActor<V>
+    implements ClientExecutor<I, Message.ServerResponse<?>>,
         Publisher,
-        Reference<C> {
+        Reference<C>,
+        FutureCallback<AbstractConnectionClientExecutor.PendingTask> {
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ClientConnectionExecutor<C> newInstance(
-            ConnectMessage.Request request,
-            C connection,
-            ScheduledExecutorService executor) {
-        return newInstance(
-                request,
-                AssignXidProcessor.newInstance(),
-                connection,
-                executor);
-    }
-
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ClientConnectionExecutor<C> newInstance(
-            ConnectMessage.Request request,
-            AssignXidProcessor xids,
-            C connection,
-            ScheduledExecutorService executor) {
-        return newInstance(
-                ConnectTask.create(connection, request),
-                xids,
-                connection,
-                TimeValue.create(Long.valueOf(request.getTimeOut()), TimeUnit.MILLISECONDS),
-                executor);
-    }
-
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ClientConnectionExecutor<C> newInstance(
-            ListenableFuture<ConnectMessage.Response> session,
-            AssignXidProcessor xids,
-            C connection,
-            TimeValue timeOut,
-            ScheduledExecutorService executor) {
-        return new ClientConnectionExecutor<C>(
-                session,
-                xids,
-                connection,
-                timeOut,
-                executor);
-    }
-    
     protected final Logger logger;
     protected final C connection;
     protected final ListenableFuture<ConnectMessage.Response> session;
-    protected final AssignXidProcessor xids;
-    protected final ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<?>>> mailbox;
-    protected final ConcurrentLinkedQueue<PendingResponseTask> pending;
+    protected final ConcurrentLinkedQueue<V> mailbox;
+    protected final ConcurrentLinkedQueue<PendingTask> pending;
     protected final AtomicReference<Throwable> failure;
     protected final TimeOutServer timeOut;
     
-    protected ClientConnectionExecutor(
+    protected AbstractConnectionClientExecutor(
             ListenableFuture<ConnectMessage.Response> session,
-            AssignXidProcessor xids,
             C connection,
             TimeValue timeOut,
             ScheduledExecutorService executor) {
         super();
         this.logger = LogManager.getLogger(getClass());
         this.connection = connection;
-        this.xids = xids;
         this.session = session;
         this.timeOut = new TimeOutServer(TimeOutParameters.create(timeOut), executor, this);
         this.failure = new AtomicReference<Throwable>(null);
-        this.pending = new ConcurrentLinkedQueue<PendingResponseTask>();
-        this.mailbox = new ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<?>>>();
+        this.pending = Queues.newConcurrentLinkedQueue();
+        this.mailbox = Queues.newConcurrentLinkedQueue();
                 
         this.connection.register(this);
         this.timeOut.run();
@@ -127,19 +87,8 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
     }
     
     @Override
-    public ListenableFuture<Message.ServerResponse<?>> submit(Operation.Request request) {
+    public ListenableFuture<Message.ServerResponse<?>> submit(I request) {
         return submit(request, SettableFuturePromise.<Message.ServerResponse<?>>create());
-    }
-
-    @Override
-    public ListenableFuture<Message.ServerResponse<?>> submit(
-            Operation.Request request, Promise<Message.ServerResponse<?>> promise) {
-        PromiseTask<Operation.Request, Message.ServerResponse<?>> task = 
-                PromiseTask.of(request, LoggingPromise.create(logger, promise));
-        if (! send(task)) {
-            task.cancel(true);
-        }
-        return task;
     }
 
     @Override
@@ -174,18 +123,29 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
             timeOut.send(message);
             int xid = message.xid();
             if (! ((xid == OpCodeXid.PING.xid()) || (xid == OpCodeXid.NOTIFICATION.xid()))) {
-                PendingResponseTask next = pending.peek();
-                if ((next != null) && (next.getXid() == xid)) {
+                PendingTask next = pending.peek();
+                if ((next != null) && (next.xid() == xid)) {
                     next.set(message);
+                    pending.remove(next);
                 } else {
                     // This could happen if someone submitted a message without
                     // going through us
-                    logger.warn("{} != {} ({})", next, message, this);
+                    // or, it could be a bug
+                    logger.warn("{}.xid != {}.xid ({})", next, message, this);
                 }
             }
         }
     }
     
+    @Override
+    public void onSuccess(PendingTask result) {
+        // mark pings as done on write because ZooKeeper doesn't care about their ordering
+        if (result.xid() == OpCodeXid.PING.xid()) {
+            result.set(null);
+        }
+    }
+
+    @Override
     public void onFailure(Throwable t) {
         failure.compareAndSet(null, t);
         stop();
@@ -214,45 +174,13 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
     }
 
     @Override
-    protected ConcurrentLinkedQueue<PromiseTask<Operation.Request, Message.ServerResponse<?>>> mailbox() {
+    protected ConcurrentLinkedQueue<V> mailbox() {
         return mailbox;
     }
 
     @Override
     protected Logger logger() {
         return logger;
-    }
-    
-    @Override
-    protected boolean apply(PromiseTask<Operation.Request, Message.ServerResponse<?>> input) {
-        if (! input.isDone()) {
-            if (state() != State.TERMINATED) {
-                // Assign xids here so we can properly track message request -> response
-                Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
-    
-                // mark pings as done on write because ZooKeeper doesn't care about their ordering
-                PendingTask task;
-                if (message.xid() == OpCodeXid.PING.xid()) {
-                    task = new SetOnCallbackTask(message.xid(), input);
-                } else {
-                    // task needs to be in the queue before calling write
-                    PendingResponseTask p = new PendingResponseTask(message.xid(), input);
-                    task = p;
-                    pending.add(p);
-                }
-                
-                try {
-                    ListenableFuture<?> writeFuture = connection.write(message);
-                    Futures.addCallback(writeFuture, task, executor());
-                } catch (Throwable t) {
-                    task.onFailure(t);
-                }
-            } else {
-                input.cancel(true);
-            }
-        }
-        
-        return (state() != State.TERMINATED);
     }
 
     @Override
@@ -267,13 +195,13 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
             session.cancel(true);
         }
 
-        PromiseTask<Operation.Request, Message.ServerResponse<?>> request;
+        V request;
         while ((request = mailbox.poll()) != null) {
             request.cancel(true);
         }
 
         Throwable failure = this.failure.get();
-        PendingResponseTask task;
+        PendingTask task;
         while ((task = pending.poll()) != null) {
             if (failure == null) {
                 task.cancel(true);
@@ -293,14 +221,14 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
     
     protected static class TimeOutServer extends TimeOutActor<Message.Server> implements FutureCallback<ConnectMessage.Response> {
 
-        protected final WeakReference<ClientConnectionExecutor<?>> connection;
+        protected final WeakReference<FutureCallback<?>> callback;
         
         public TimeOutServer(
                 TimeOutParameters parameters,
                 ScheduledExecutorService executor,
-                ClientConnectionExecutor<?> connection) {
+                FutureCallback<?> connection) {
             super(parameters, executor);
-            this.connection = new WeakReference<ClientConnectionExecutor<?>>(connection);
+            this.callback = new WeakReference<FutureCallback<?>>(connection);
         }
 
         @Override
@@ -320,85 +248,50 @@ public class ClientConnectionExecutor<C extends ProtocolCodecConnection<? super 
 
         @Override
         public void onFailure(Throwable t) {
-            ClientConnectionExecutor<?> connection = this.connection.get();
-            if (connection != null) {
-                connection.onFailure(t);
+            FutureCallback<?> callback = this.callback.get();
+            if (callback != null) {
+                callback.onFailure(t);
             }
         }
     }
 
-    protected abstract class PendingTask
-        extends ForwardingPromise<Message.ServerResponse<?>>
-        implements FutureCallback<Object> {
+    protected static class PendingTask
+        extends PromiseTask<FutureCallback<? super PendingTask>, Message.ServerResponse<?>>
+        implements Operation.RequestId, FutureCallback<Message.ClientRequest<?>> {
 
         protected final int xid;
-        protected final Promise<Message.ServerResponse<?>> promise;
         
-        protected PendingTask(
+        public PendingTask(
                 int xid,
+                FutureCallback<? super PendingTask> callback,
                 Promise<Message.ServerResponse<?>> promise) {
+            super(callback, promise);
             this.xid = xid;
-            this.promise = promise;
+
         }
         
-        public int getXid() {
+        @Override
+        public int xid() {
             return xid;
         }
-        
-        @Override
-        public void onSuccess(Object result) {
-        }
-        
-        @Override
-        public void onFailure(Throwable t) {
-            setException(t);
-        }
-        
-        @Override
-        public Promise<Message.ServerResponse<?>> delegate() {
-            return promise;
-        }
-    } 
-    
-    protected class PendingResponseTask extends PendingTask {
 
-        public PendingResponseTask(
-                int xid,
-                Promise<Message.ServerResponse<?>> promise) {
-            super(xid, promise);
-        }
-
-        @Override
-        public boolean set(Message.ServerResponse<?> result) {
-            assert (getXid() == result.xid());
-            boolean doSet = super.set(result);
-            if (doSet) {
-                pending.remove(this);
-            }
-            return doSet;
-        }
-        
         @Override
         public boolean setException(Throwable t) {
             boolean doSet = super.setException(t);
             if (doSet) {
-                pending.remove(this);
+                task().onFailure(t);
             }
             return doSet;
         }
-    } 
-    
-    protected class SetOnCallbackTask extends PendingTask {
 
-        public SetOnCallbackTask(
-                int xid,
-                Promise<Message.ServerResponse<?>> promise) {
-            super(xid, promise);
+        @Override
+        public void onSuccess(Message.ClientRequest<?> result) {
+            task().onSuccess(this);
         }
 
         @Override
-        public void onSuccess(Object result) {
-            set(null);
+        public void onFailure(Throwable t) {
+            setException(t);
         }
-    }
+    } 
 }

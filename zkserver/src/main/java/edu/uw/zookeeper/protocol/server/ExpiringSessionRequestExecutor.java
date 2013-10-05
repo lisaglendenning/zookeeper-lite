@@ -9,7 +9,6 @@ import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.SessionRequest;
@@ -54,8 +53,8 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
         switch (event.event()) {
         case SESSION_EXPIRED:
         {
-            Operation.ProtocolRequest<Records.Request> request = ProtocolRequestMessage.of(0, Records.Requests.getInstance().get(OpCode.CLOSE_SESSION));
-            submit(SessionRequest.of(event.session().id(), request, request));
+            Message.ClientRequest<Records.Request> request = ProtocolRequestMessage.of(0, Records.Requests.getInstance().get(OpCode.CLOSE_SESSION));
+            submit(SessionRequest.of(event.session().id(), request));
             break;
         }
         default:

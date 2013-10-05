@@ -1,14 +1,14 @@
 package edu.uw.zookeeper.client;
 
+import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 
 import javax.annotation.Nullable;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.MapMaker;
+import com.google.common.collect.Maps;
 
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ServerInetAddressView;
@@ -20,20 +20,18 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.Session;
-import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
+import edu.uw.zookeeper.protocol.client.OperationClientExecutor;
 
 public class EnsembleViewFactory<T> implements DefaultsFactory<ServerInetAddressView, T> {
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> EnsembleViewFactory<ServerViewFactory<Session, ClientConnectionExecutor<C>>> fromSession(
+    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> EnsembleViewFactory<ServerViewFactory<Session, OperationClientExecutor<C>>> fromSession(
             ClientConnectionFactory<C> connections,
             EnsembleView<ServerInetAddressView> view, 
             TimeValue timeOut,
             ScheduledExecutorService executor) {
         return random(
                 view,  
-                InstanceFactory.newInstance(
-                        ServerViewFactories.<C>newInstance(connections, timeOut, executor), 
-                        new MapMaker().<ServerInetAddressView, ServerViewFactory<Session, ClientConnectionExecutor<C>>>makeMap()));
+                ServerViewFactories.<C>newInstance(connections, timeOut, executor));
     }
 
     public static <T> EnsembleViewFactory<T> random(
@@ -49,7 +47,9 @@ public class EnsembleViewFactory<T> implements DefaultsFactory<ServerInetAddress
             EnsembleView<ServerInetAddressView> view,
             Function<ServerInetAddressView[], ServerInetAddressView> selector,
             ParameterizedFactory<ServerInetAddressView, T> factory) {
-        return new EnsembleViewFactory<T>(view, selector, factory);
+        return new EnsembleViewFactory<T>(
+                view, selector, 
+                InstanceFactory.newInstance(factory));
     }
     
     public static class RandomSelector<T> implements Function<T[], T> {
@@ -74,33 +74,33 @@ public class EnsembleViewFactory<T> implements DefaultsFactory<ServerInetAddress
     public static class InstanceFactory<V,T> implements ParameterizedFactory<V,T> {
 
         public static <V,T> InstanceFactory<V, T> newInstance(
-                ParameterizedFactory<V,T> factory,
-                ConcurrentMap<V,T> instances) {
-            return new InstanceFactory<V,T>(factory, instances);
+                ParameterizedFactory<V,T> factory) {
+            return new InstanceFactory<V,T>(factory, 
+                    Maps.<V,T>newHashMap());
         }
         
         protected final ParameterizedFactory<V, T> factory;
-        protected final ConcurrentMap<V, T> instances;
+        protected final Map<V, T> instances;
         
         protected InstanceFactory(
                 ParameterizedFactory<V, T> factory,
-                ConcurrentMap<V, T> instances) {
+                Map<V, T> instances) {
             this.factory = factory;
             this.instances = instances;
         }
 
         @Override
-        public T get(V value) {
+        public synchronized T get(V value) {
             T instance = instances.get(value);
             if (instance == null) {
-                instances.putIfAbsent(value, factory.get(value));
-                instance = instances.get(value);
+                instance = factory.get(value);
+                instances.put(value, instance);
             }
             return instance;
         }
     }
     
-    public static class ServerViewFactories<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements ParameterizedFactory<ServerInetAddressView, ServerViewFactory<Session, ClientConnectionExecutor<C>>> {
+    public static class ServerViewFactories<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements ParameterizedFactory<ServerInetAddressView, ServerViewFactory<Session, OperationClientExecutor<C>>> {
 
         public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactories<C> newInstance(
                 ClientConnectionFactory<C> connections,
@@ -123,7 +123,7 @@ public class EnsembleViewFactory<T> implements DefaultsFactory<ServerInetAddress
         }
 
         @Override
-        public ServerViewFactory<Session, ClientConnectionExecutor<C>> get(ServerInetAddressView view) {
+        public ServerViewFactory<Session, OperationClientExecutor<C>> get(ServerInetAddressView view) {
             return ServerViewFactory.newInstance(connections, view, timeOut, executor);
         }
     }

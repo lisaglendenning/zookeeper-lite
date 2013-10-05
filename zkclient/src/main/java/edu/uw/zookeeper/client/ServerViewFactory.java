@@ -1,10 +1,12 @@
 package edu.uw.zookeeper.client;
 
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.common.DefaultsFactory;
@@ -17,12 +19,13 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.Session;
-import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
+import edu.uw.zookeeper.protocol.client.AbstractConnectionClientExecutor;
+import edu.uw.zookeeper.protocol.client.OperationClientExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 
-public class ServerViewFactory<V, C extends ClientConnectionExecutor<?>> extends Pair<ServerInetAddressView, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<C>>, Function<C, C> {
+public class ServerViewFactory<V, C extends AbstractConnectionClientExecutor<?,?,?>> extends Pair<ServerInetAddressView, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<C>>, Function<C, C> {
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactory<Session, ClientConnectionExecutor<C>> newInstance(
+    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactory<Session, OperationClientExecutor<C>> newInstance(
             ClientConnectionFactory<C> connections,
             ServerInetAddressView view,
             TimeValue timeOut,
@@ -33,30 +36,30 @@ public class ServerViewFactory<V, C extends ClientConnectionExecutor<?>> extends
                 FromRequestFactory.create(
                         FixedClientConnectionFactory.create(view.get(), connections),
                         executor);
-        return new ServerViewFactory<Session, ClientConnectionExecutor<C>>(
+        return new ServerViewFactory<Session, OperationClientExecutor<C>>(
                 view,
-                new DefaultsFactory<Session, ListenableFuture<? extends ClientConnectionExecutor<C>>>() {
+                new DefaultsFactory<Session, ListenableFuture<? extends OperationClientExecutor<C>>>() {
                     @Override
-                    public ListenableFuture<ClientConnectionExecutor<C>> get() {
+                    public ListenableFuture<OperationClientExecutor<C>> get() {
                         return delegate.get(requestFactory.get());
                     }
 
                     @Override
-                    public ListenableFuture<ClientConnectionExecutor<C>> get(Session value) {
+                    public ListenableFuture<OperationClientExecutor<C>> get(Session value) {
                         return delegate.get(requestFactory.get(value));
                     }
                 }, 
                 zxids);
     }
     
-    public static <V, C extends ClientConnectionExecutor<?>> ServerViewFactory<V,C> newInstance(
+    public static <V, C extends AbstractConnectionClientExecutor<?,?,?>> ServerViewFactory<V,C> newInstance(
             ServerInetAddressView view,
             DefaultsFactory<V, ? extends ListenableFuture<? extends C>> delegate,
             ZxidTracker zxids) {
         return new ServerViewFactory<V,C>(view, delegate, zxids);
     }
     
-    public static class FromRequestFactory<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements DefaultsFactory<ConnectMessage.Request, ListenableFuture<ClientConnectionExecutor<C>>> {
+    public static class FromRequestFactory<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements DefaultsFactory<ConnectMessage.Request, ListenableFuture<OperationClientExecutor<C>>> {
     
         public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> FromRequestFactory<C> create(
                 Factory<ListenableFuture<C>> connections,
@@ -75,16 +78,16 @@ public class ServerViewFactory<V, C extends ClientConnectionExecutor<?>> extends
         }
 
         @Override
-        public ListenableFuture<ClientConnectionExecutor<C>> get() {
+        public ListenableFuture<OperationClientExecutor<C>> get() {
             return get(ConnectMessage.Request.NewRequest.newInstance());
         }
         
         @Override
-        public ListenableFuture<ClientConnectionExecutor<C>> get(ConnectMessage.Request request) {
-            return Futures.transform(connections.get(), new Constructor(request));
+        public ListenableFuture<OperationClientExecutor<C>> get(ConnectMessage.Request request) {
+            return Futures.transform(connections.get(), new Constructor(request), sameThreadExecutor);
         }
         
-        protected class Constructor implements Function<C, ClientConnectionExecutor<C>> {
+        protected class Constructor implements Function<C, OperationClientExecutor<C>> {
 
             protected final ConnectMessage.Request task;
             
@@ -93,12 +96,14 @@ public class ServerViewFactory<V, C extends ClientConnectionExecutor<?>> extends
             }
             
             @Override
-            public ClientConnectionExecutor<C> apply(C input) {
-                return ClientConnectionExecutor.newInstance(
+            public OperationClientExecutor<C> apply(C input) {
+                return OperationClientExecutor.newInstance(
                         task, input, executor);
             }
         }
     }
+    
+    protected final static Executor sameThreadExecutor = MoreExecutors.sameThreadExecutor();
 
     protected final DefaultsFactory<V, ? extends ListenableFuture<? extends C>> delegate;
     
@@ -112,12 +117,12 @@ public class ServerViewFactory<V, C extends ClientConnectionExecutor<?>> extends
     
     @Override
     public ListenableFuture<C> get() {
-        return Futures.transform(delegate.get(), this);
+        return Futures.transform(delegate.get(), this, sameThreadExecutor);
     }
 
     @Override
     public ListenableFuture<C> get(V value) {
-        return Futures.transform(delegate.get(value), this);
+        return Futures.transform(delegate.get(value), this, sameThreadExecutor);
     }
 
     @Override

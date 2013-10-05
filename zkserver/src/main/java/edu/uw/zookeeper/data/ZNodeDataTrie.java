@@ -19,7 +19,7 @@ import com.google.common.collect.Maps;
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.ZNodeLabel;
-import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.proto.*;
@@ -350,11 +350,11 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 if (error != null) {
                     result = error;
                 } else {
-                    Operation.ProtocolRequest<?> nestedRequest = ProtocolRequestMessage.of(input.xid(), request);
+                    Message.ClientRequest<?> nestedRequest = ProtocolRequestMessage.of(input.xid(), request);
                     TxnOperation.Request<?> nested = TxnRequest.of(
                             input.getTime(), 
                             input.zxid(), 
-                            SessionRequest.of(input.getSessionId(), nestedRequest, nestedRequest));
+                            SessionRequest.of(input.getSessionId(), nestedRequest));
                     try {
                         switch (request.opcode()) {
                         case CHECK:

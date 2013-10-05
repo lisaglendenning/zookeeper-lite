@@ -20,7 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
-import edu.uw.zookeeper.client.ClientConnectionExecutorService;
+import edu.uw.zookeeper.client.ConnectionClientExecutorService;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.WatchEvent;
@@ -37,7 +37,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
 
     @Invokes(commands={Command.class})
     public static ClientExecutorInvoker create(Shell shell) {
-        ClientConnectionExecutorService.Builder client = ClientConnectionExecutorService.builder().setRuntimeModule(shell.getRuntime()).setDefaults();
+        ConnectionClientExecutorService.Builder client = ConnectionClientExecutorService.builder().setRuntimeModule(shell.getRuntime()).setDefaults();
         return new ClientExecutorInvoker(client, shell);
     }
 
@@ -93,7 +93,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         SYNC;
     };
     
-    public static Environment.Key<ClientConnectionExecutorService.Builder> CLIENT_KEY = Environment.Key.create("CLIENT", ClientConnectionExecutorService.Builder.class);
+    public static Environment.Key<ConnectionClientExecutorService.Builder> CLIENT_KEY = Environment.Key.create("CLIENT", ConnectionClientExecutorService.Builder.class);
     public static Environment.Key<List<Invocation<Command>>> MULTI_KEY = Environment.Key.create("MULTI", List.class);
     
     protected static final String MULTI_PROMPT = "(multi)> ";
@@ -102,10 +102,10 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
     
     protected final Shell shell;
     protected final RequestBuilder operator;
-    protected final ClientConnectionExecutorService.Builder client;
+    protected final ConnectionClientExecutorService.Builder client;
     
     protected ClientExecutorInvoker(
-            ClientConnectionExecutorService.Builder client,
+            ConnectionClientExecutorService.Builder client,
             Shell shell) {
         this.client = client;
         this.shell = shell;
@@ -149,7 +149,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         }
 
         Records.Request request = operator.apply(input);
-        ClientExecutor<? super Operation.Request, ?> client = shell.getEnvironment().get(CLIENT_KEY).getClientConnectionExecutor();
+        ClientExecutor<Operation.Request, ?> client = shell.getEnvironment().get(CLIENT_KEY).getClientConnectionExecutor();
         Futures.addCallback(new RequestSubmitter(client, request).call(), this);
     }
 
@@ -193,9 +193,9 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
     
     protected class NotificationCallback extends Service.Listener {
         
-        protected final ClientExecutor<? super Operation.Request, ?> client;
+        protected final ClientExecutor<?, ?> client;
         
-        public NotificationCallback(ClientExecutor<? super Operation.Request, ?> client) {
+        public NotificationCallback(ClientExecutor<?, ?> client) {
             this.client = client;
         }
         

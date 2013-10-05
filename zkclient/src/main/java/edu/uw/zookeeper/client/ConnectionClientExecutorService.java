@@ -13,6 +13,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -47,19 +48,38 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.Session;
-import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
+import edu.uw.zookeeper.protocol.client.AbstractConnectionClientExecutor;
+import edu.uw.zookeeper.protocol.client.OperationClientExecutor;
 
-public class ClientConnectionExecutorService extends AbstractIdleService 
-        implements Supplier<ListenableFuture<ClientConnectionExecutor<?>>>, 
+public class ConnectionClientExecutorService<I extends Operation.Request> extends AbstractIdleService 
+        implements Supplier<ListenableFuture<AbstractConnectionClientExecutor<I,?,?>>>, 
         Publisher, 
-        ClientExecutor<Operation.Request, Message.ServerResponse<?>>,
-        FutureCallback<ClientConnectionExecutor<?>> {
+        ClientExecutor<I, Message.ServerResponse<?>>,
+        FutureCallback<AbstractConnectionClientExecutor<I,?,?>> {
 
-    public static ClientConnectionExecutorService newInstance(
-            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ClientConnectionExecutor<?>>> factory) {
-        return new ClientConnectionExecutorService(factory);
+    public static <I extends Operation.Request> ConnectionClientExecutorService<I> newInstance(
+            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends AbstractConnectionClientExecutor<I,?,?>>> factory) {
+        return new ConnectionClientExecutorService<I>(factory);
+    }
+    
+    public static <I extends Operation.Request> Message.ServerResponse<?> disconnect(AbstractConnectionClientExecutor<I,?,?> client) throws InterruptedException, ExecutionException, TimeoutException {
+        Message.ServerResponse<?> response = null;
+        if (((client.get().codec().state().compareTo(ProtocolState.CONNECTED)) <= 0) && 
+                (client.get().state().compareTo(Connection.State.CONNECTION_CLOSING) < 0)) {
+            @SuppressWarnings("unchecked")
+            ListenableFuture<Message.ServerResponse<?>> future = client.submit(
+                   (I) ProtocolRequestMessage.of(0, Operations.Requests.disconnect().build()));
+            int timeOut = client.session().get().getTimeOut();
+            if (timeOut > 0) {
+                response = future.get(timeOut, TimeUnit.MILLISECONDS);
+            } else {
+                response = future.get();
+            }
+        }
+        return response;
     }
 
     public static Builder builder() {
@@ -71,12 +91,12 @@ public class ClientConnectionExecutorService extends AbstractIdleService
         protected final RuntimeModule runtime;
         protected final ClientConnectionFactoryBuilder connectionBuilder;
         protected final ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory;
-        protected final ClientConnectionExecutorService clientExecutor;
+        protected final ConnectionClientExecutorService<Operation.Request> clientExecutor;
         
         protected Builder(
                 ClientConnectionFactoryBuilder connectionBuilder,
                 ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
-                ClientConnectionExecutorService clientExecutor,
+                ConnectionClientExecutorService<Operation.Request> clientExecutor,
                 RuntimeModule runtime) {
             this.runtime = runtime;
             this.connectionBuilder = connectionBuilder;
@@ -127,12 +147,12 @@ public class ClientConnectionExecutorService extends AbstractIdleService
             }
         }
         
-        public ClientConnectionExecutorService getClientConnectionExecutor() {
+        public ConnectionClientExecutorService<Operation.Request> getClientConnectionExecutor() {
             return clientExecutor;
         }
 
         public Builder setClientConnectionExecutor(
-                ClientConnectionExecutorService clientExecutor) {
+                ConnectionClientExecutorService<Operation.Request> clientExecutor) {
             if (this.clientExecutor == clientExecutor) {
                 return this;
             } else {
@@ -168,7 +188,7 @@ public class ClientConnectionExecutorService extends AbstractIdleService
         protected Builder newInstance(
                 ClientConnectionFactoryBuilder connectionBuilder,
                 ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
-                ClientConnectionExecutorService clientExecutor,
+                ConnectionClientExecutorService<Operation.Request> clientExecutor,
                 RuntimeModule runtime) {
             return new Builder(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
         }
@@ -185,15 +205,15 @@ public class ClientConnectionExecutorService extends AbstractIdleService
             return ConfigurableEnsembleView.get(getRuntimeModule().getConfiguration());
         }
 
-        protected ClientConnectionExecutorService getDefaultClientConnectionExecutorService() {
-            EnsembleViewFactory<? extends ServerViewFactory<Session, ?>> ensembleFactory = 
+        protected ConnectionClientExecutorService<Operation.Request> getDefaultClientConnectionExecutorService() {
+            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends OperationClientExecutor<?>>> ensembleFactory = 
                     EnsembleViewFactory.fromSession(
                         getClientConnectionFactory(),
                         getDefaultEnsemble(), 
                         getConnectionBuilder().getTimeOut(),
                         getRuntimeModule().getExecutors().get(ScheduledExecutorService.class));
-            ClientConnectionExecutorService service =
-                    ClientConnectionExecutorService.newInstance(
+            ConnectionClientExecutorService<Operation.Request> service =
+                    ConnectionClientExecutorService.newInstance(
                             ensembleFactory);
             return service;
         }
@@ -207,13 +227,13 @@ public class ClientConnectionExecutorService extends AbstractIdleService
 
     protected final Logger logger;
     protected final Executor executor;
-    protected final EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ClientConnectionExecutor<?>>> factory;
+    protected final EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends AbstractConnectionClientExecutor<I,?,?>>> factory;
     protected final Set<Object> handlers;
     protected final Queue<Object> events;
     protected final Client client;
     
-    protected ClientConnectionExecutorService(
-            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ClientConnectionExecutor<?>>> factory) {
+    protected ConnectionClientExecutorService(
+            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends AbstractConnectionClientExecutor<I,?,?>>> factory) {
         this.logger = LogManager.getLogger(getClass());
         this.factory = factory;
         this.handlers = Collections.synchronizedSet(Sets.newHashSet());
@@ -223,12 +243,12 @@ public class ClientConnectionExecutorService extends AbstractIdleService
     }
 
     @Override
-    public ListenableFuture<ClientConnectionExecutor<?>> get() {
+    public ListenableFuture<AbstractConnectionClientExecutor<I,?,?>> get() {
         return client;
     }
 
     @Override
-    public ListenableFuture<Message.ServerResponse<?>> submit(Operation.Request request) {
+    public ListenableFuture<Message.ServerResponse<?>> submit(I request) {
         try {
             return get().get().submit(request);
         } catch (Exception e) {
@@ -237,7 +257,7 @@ public class ClientConnectionExecutorService extends AbstractIdleService
     }
 
     @Override
-    public ListenableFuture<Message.ServerResponse<?>> submit(Operation.Request request, Promise<Message.ServerResponse<?>> promise) {
+    public ListenableFuture<Message.ServerResponse<?>> submit(I request, Promise<Message.ServerResponse<?>> promise) {
         try {
             return get().get().submit(request, promise);
         } catch (Exception e) {
@@ -250,7 +270,7 @@ public class ClientConnectionExecutorService extends AbstractIdleService
         if (!client.isDone() || !events.isEmpty()) {
             events.add(event);
         } else {
-            ClientConnectionExecutor<?> client;
+            AbstractConnectionClientExecutor<I,?,?> client;
             try {
                 client = this.client.get(0, TimeUnit.MILLISECONDS);
             } catch (Exception e) {
@@ -284,7 +304,7 @@ public class ClientConnectionExecutorService extends AbstractIdleService
     }
 
     @Override
-    public synchronized void onSuccess(ClientConnectionExecutor<?> result) {
+    public synchronized void onSuccess(AbstractConnectionClientExecutor<I,?,?> result) {
         try {
             synchronized (handlers) {
                 for (Object handler: handlers) {
@@ -319,16 +339,7 @@ public class ClientConnectionExecutorService extends AbstractIdleService
     protected synchronized void shutDown() throws Exception {
         try {
             if (client.isDone()) {
-                if (((client.get().get().codec().state().compareTo(ProtocolState.CONNECTED)) <= 0) && 
-                        (client.get().get().state().compareTo(Connection.State.CONNECTION_CLOSING) < 0)) {
-                    ListenableFuture<Message.ServerResponse<?>> future = client.get().submit(Operations.Requests.disconnect().build());
-                    int timeOut = client.get().session().get().getTimeOut();
-                    if (timeOut > 0) {
-                        future.get(timeOut, TimeUnit.MILLISECONDS);
-                    } else {
-                        future.get();
-                    }
-                }
+                disconnect(client.get());
             }            
         } finally {
             try {
@@ -342,11 +353,11 @@ public class ClientConnectionExecutorService extends AbstractIdleService
         }
     }
     
-    protected class Client extends ForwardingPromise<ClientConnectionExecutor<?>> implements Runnable {
+    protected class Client extends ForwardingPromise<AbstractConnectionClientExecutor<I,?,?>> implements Runnable {
 
         protected volatile ServerInetAddressView server;
-        protected volatile ListenableFuture<? extends ClientConnectionExecutor<?>> future;
-        protected volatile Promise<ClientConnectionExecutor<?>> promise;
+        protected volatile ListenableFuture<? extends AbstractConnectionClientExecutor<I,?,?>> future;
+        protected volatile Promise<AbstractConnectionClientExecutor<I,?,?>> promise;
         
         public Client() {
             this.server = null;
@@ -354,8 +365,9 @@ public class ClientConnectionExecutorService extends AbstractIdleService
             this.promise = newPromise();
         }
         
-        protected Promise<ClientConnectionExecutor<?>> newPromise() {
-            return LoggingPromise.create(logger, SettableFuturePromise.<ClientConnectionExecutor<?>>create());
+        protected Promise<AbstractConnectionClientExecutor<I,?,?>> newPromise() {
+            return LoggingPromise.create(logger, 
+                    SettableFuturePromise.<AbstractConnectionClientExecutor<I,?,?>>create());
         }
         
         @Override
@@ -367,10 +379,10 @@ public class ClientConnectionExecutorService extends AbstractIdleService
         }
 
         @Override
-        public synchronized boolean set(ClientConnectionExecutor<?> value) {
+        public synchronized boolean set(AbstractConnectionClientExecutor<I,?,?> value) {
             if (! isDone()) {
                 new Handler(value);
-                ClientConnectionExecutorService.this.onSuccess(value);
+                ConnectionClientExecutorService.this.onSuccess(value);
                 return super.set(value);
             }
             return false;
@@ -423,7 +435,7 @@ public class ClientConnectionExecutorService extends AbstractIdleService
                         cancel(true);
                     } else {
                         try {
-                            ClientConnectionExecutor<?> connection = future.get();
+                            AbstractConnectionClientExecutor<I,?,?> connection = future.get();
                             if (connection.session().isDone()) {
                                 ConnectMessage.Response session;
                                 try {
@@ -475,15 +487,15 @@ public class ClientConnectionExecutorService extends AbstractIdleService
         }
 
         @Override
-        protected Promise<ClientConnectionExecutor<?>> delegate() {
+        protected Promise<AbstractConnectionClientExecutor<I,?,?>> delegate() {
             return promise;
         }
         
         protected class Handler {
 
-            protected final ClientConnectionExecutor<?> instance;
+            protected final AbstractConnectionClientExecutor<I,?,?> instance;
             
-            public Handler(ClientConnectionExecutor<?> instance) {
+            public Handler(AbstractConnectionClientExecutor<I,?,?> instance) {
                 this.instance = instance;
                 instance.register(this);
             }

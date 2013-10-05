@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.client;
 
 import edu.uw.zookeeper.common.Processors;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.SessionOperation;
@@ -36,8 +37,8 @@ public class SessionClientProcessor implements Processors.UncheckedProcessor<Rec
         } else {
             xid = next();
         }
-        Operation.ProtocolRequest<Records.Request> protocolRequest = ProtocolRequestMessage.of(xid, input); 
-        return SessionRequest.of(getSessionId(), protocolRequest, protocolRequest);
+        Message.ClientRequest<Records.Request> protocolRequest = ProtocolRequestMessage.of(xid, input); 
+        return SessionRequest.of(getSessionId(), protocolRequest);
     }
 
     @Override

@@ -104,11 +104,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
 
     public ServerConnectionFactoryBuilder setConnectionFactory(
             ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory) {
-        if (this.connectionFactory == connectionFactory) {
-            return this;
-        } else {
         return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
-        }
     }
     
     public ServerInetAddressView getAddress() {

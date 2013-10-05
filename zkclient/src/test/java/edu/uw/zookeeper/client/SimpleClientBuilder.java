@@ -8,11 +8,12 @@ import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.NetClientModule;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.Session;
 
-public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder {
+public class SimpleClientBuilder extends ConnectionClientExecutorService.Builder {
     
     public static SimpleClientBuilder defaults(
             ServerInetAddressView serverAddress,
@@ -39,7 +40,7 @@ public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder
             ServerInetAddressView serverAddress,
             ClientConnectionFactoryBuilder connectionBuilder,
             ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
-            ClientConnectionExecutorService clientExecutor,
+            ConnectionClientExecutorService<Operation.Request> clientExecutor,
             RuntimeModule runtime) {
         super(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
         this.serverAddress = serverAddress;
@@ -75,7 +76,7 @@ public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder
 
     @Override
     public SimpleClientBuilder setClientConnectionExecutor(
-            ClientConnectionExecutorService clientExecutor) {
+            ConnectionClientExecutorService<Operation.Request> clientExecutor) {
         return (SimpleClientBuilder) super.setClientConnectionExecutor(clientExecutor);
     }
 
@@ -88,7 +89,7 @@ public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder
     protected SimpleClientBuilder newInstance(
             ClientConnectionFactoryBuilder connectionBuilder,
             ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
-            ClientConnectionExecutorService clientExecutor,
+            ConnectionClientExecutorService<Operation.Request> clientExecutor,
             RuntimeModule runtime) {
         return newInstance(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
     }
@@ -97,7 +98,7 @@ public class SimpleClientBuilder extends ClientConnectionExecutorService.Builder
             ServerInetAddressView serverAddress,
             ClientConnectionFactoryBuilder connectionBuilder,
             ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
-            ClientConnectionExecutorService clientExecutor,
+            ConnectionClientExecutorService<Operation.Request> clientExecutor,
             RuntimeModule runtime) {
         return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
     }

@@ -20,11 +20,12 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 
-import edu.uw.zookeeper.client.ClientConnectionExecutorService;
+import edu.uw.zookeeper.client.ConnectionClientExecutorService;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 public class DispatchingInvoker extends AbstractExecutionThreadService implements Invoker<Object>, Completer {
@@ -168,7 +169,7 @@ public class DispatchingInvoker extends AbstractExecutionThreadService implement
                 break;
             case PATH:
             {
-                ClientConnectionExecutorService client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getClientConnectionExecutor();
+                ConnectionClientExecutorService<Operation.Request> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getClientConnectionExecutor();
                 ZNodeLabel.Path path = ZNodeLabel.Path.canonicalized(ZNodeLabel.Path.join(shell.getEnvironment().get(ShellInvoker.CWD_KEY).toString(), token));
                 try {
                     Operations.Requests.GetChildren request = Operations.Requests.getChildren();
