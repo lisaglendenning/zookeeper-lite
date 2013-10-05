@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.protocol.client;
 
 import java.lang.ref.WeakReference;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -13,19 +12,16 @@ import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Queues;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
-import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.ExecutedActor;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
-import edu.uw.zookeeper.common.Publisher;
-import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
@@ -38,23 +34,21 @@ import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
-import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 
 public abstract class AbstractConnectionClientExecutor<I extends Operation.Request, 
-    V extends PromiseTask<I, Message.ServerResponse<?>>,
-    C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>>
+    V extends PromiseTask<I, ? extends Message.ServerResponse<?>>,
+    C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>,
+    T>
     extends ExecutedActor<V>
-    implements ClientExecutor<I, Message.ServerResponse<?>>,
-        Publisher,
-        Reference<C>,
-        FutureCallback<AbstractConnectionClientExecutor.PendingTask> {
+    implements ConnectionClientExecutor<I, C>,
+        FutureCallback<T> {
+    
+    protected static final Executor sameThreadExecutor = MoreExecutors.sameThreadExecutor();
 
     protected final Logger logger;
     protected final C connection;
     protected final ListenableFuture<ConnectMessage.Response> session;
-    protected final ConcurrentLinkedQueue<V> mailbox;
-    protected final ConcurrentLinkedQueue<PendingTask> pending;
     protected final AtomicReference<Throwable> failure;
     protected final TimeOutServer timeOut;
     
@@ -69,20 +63,17 @@ public abstract class AbstractConnectionClientExecutor<I extends Operation.Reque
         this.session = session;
         this.timeOut = new TimeOutServer(TimeOutParameters.create(timeOut), executor, this);
         this.failure = new AtomicReference<Throwable>(null);
-        this.pending = Queues.newConcurrentLinkedQueue();
-        this.mailbox = Queues.newConcurrentLinkedQueue();
                 
         this.connection.register(this);
         this.timeOut.run();
-        Futures.addCallback(this.session, this.timeOut, executor());
+        Futures.addCallback(this.session, this.timeOut, sameThreadExecutor);
     }
 
     public ListenableFuture<ConnectMessage.Response> session() {
         return session;
     }
     
-    @Override
-    public C get() {
+    public C connection() {
         return connection;
     }
     
@@ -109,7 +100,7 @@ public abstract class AbstractConnectionClientExecutor<I extends Operation.Reque
     @Subscribe
     public void handleTransition(Automaton.Transition<?> event) {
         if (Connection.State.CONNECTION_CLOSED == event.to()) {
-            if (get().codec().state() != ProtocolState.DISCONNECTED) {
+            if (connection.codec().state() != ProtocolState.DISCONNECTED) {
                 onFailure(new KeeperException.ConnectionLossException());
             } else {
                 stop();
@@ -119,32 +110,9 @@ public abstract class AbstractConnectionClientExecutor<I extends Operation.Reque
 
     @Subscribe
     public void handleResponse(Message.ServerResponse<?> message) {
-        if (state() != State.TERMINATED) {
-            timeOut.send(message);
-            int xid = message.xid();
-            if (! ((xid == OpCodeXid.PING.xid()) || (xid == OpCodeXid.NOTIFICATION.xid()))) {
-                PendingTask next = pending.peek();
-                if ((next != null) && (next.xid() == xid)) {
-                    next.set(message);
-                    pending.remove(next);
-                } else {
-                    // This could happen if someone submitted a message without
-                    // going through us
-                    // or, it could be a bug
-                    logger.warn("{}.xid != {}.xid ({})", next, message, this);
-                }
-            }
-        }
+        timeOut.send(message);
     }
     
-    @Override
-    public void onSuccess(PendingTask result) {
-        // mark pings as done on write because ZooKeeper doesn't care about their ordering
-        if (result.xid() == OpCodeXid.PING.xid()) {
-            result.set(null);
-        }
-    }
-
     @Override
     public void onFailure(Throwable t) {
         failure.compareAndSet(null, t);
@@ -165,17 +133,12 @@ public abstract class AbstractConnectionClientExecutor<I extends Operation.Reque
                 }
             }
         }
-        return Objects.toStringHelper(this).add("session", sessionStr).add("connection", get()).toString();
+        return Objects.toStringHelper(this).add("session", sessionStr).add("connection", connection).toString();
     }
 
     @Override
     protected Executor executor() {
         return connection;
-    }
-
-    @Override
-    protected ConcurrentLinkedQueue<V> mailbox() {
-        return mailbox;
     }
 
     @Override
@@ -196,20 +159,10 @@ public abstract class AbstractConnectionClientExecutor<I extends Operation.Reque
         }
 
         V request;
-        while ((request = mailbox.poll()) != null) {
+        while ((request = mailbox().poll()) != null) {
             request.cancel(true);
         }
 
-        Throwable failure = this.failure.get();
-        PendingTask task;
-        while ((task = pending.poll()) != null) {
-            if (failure == null) {
-                task.cancel(true);
-            } else {
-                task.setException(failure);
-            }
-        }
-        
         try {
             connection.close().get();
         } catch (InterruptedException e) {
@@ -279,14 +232,14 @@ public abstract class AbstractConnectionClientExecutor<I extends Operation.Reque
         public boolean setException(Throwable t) {
             boolean doSet = super.setException(t);
             if (doSet) {
-                task().onFailure(t);
+                task.onFailure(t);
             }
             return doSet;
         }
 
         @Override
         public void onSuccess(Message.ClientRequest<?> result) {
-            task().onSuccess(this);
+            task.onSuccess(this);
         }
 
         @Override

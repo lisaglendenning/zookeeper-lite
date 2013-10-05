@@ -19,11 +19,11 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.Session;
-import edu.uw.zookeeper.protocol.client.AbstractConnectionClientExecutor;
+import edu.uw.zookeeper.protocol.client.ConnectionClientExecutor;
 import edu.uw.zookeeper.protocol.client.OperationClientExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 
-public class ServerViewFactory<V, C extends AbstractConnectionClientExecutor<?,?,?>> extends Pair<ServerInetAddressView, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<C>>, Function<C, C> {
+public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?>> extends Pair<ServerInetAddressView, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<C>>, Function<C, C> {
 
     public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactory<Session, OperationClientExecutor<C>> newInstance(
             ClientConnectionFactory<C> connections,
@@ -52,7 +52,7 @@ public class ServerViewFactory<V, C extends AbstractConnectionClientExecutor<?,?
                 zxids);
     }
     
-    public static <V, C extends AbstractConnectionClientExecutor<?,?,?>> ServerViewFactory<V,C> newInstance(
+    public static <V, C extends ConnectionClientExecutor<?,?>> ServerViewFactory<V,C> newInstance(
             ServerInetAddressView view,
             DefaultsFactory<V, ? extends ListenableFuture<? extends C>> delegate,
             ZxidTracker zxids) {
@@ -127,7 +127,7 @@ public class ServerViewFactory<V, C extends AbstractConnectionClientExecutor<?,?
 
     @Override
     public C apply(C input) {
-        ZxidTracker.ZxidListener.create(second(), input.get());
+        ZxidTracker.ZxidListener.create(second(), input.connection());
         return input;
     }
 }

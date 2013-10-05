@@ -51,28 +51,28 @@ import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.Session;
-import edu.uw.zookeeper.protocol.client.AbstractConnectionClientExecutor;
+import edu.uw.zookeeper.protocol.client.ConnectionClientExecutor;
 import edu.uw.zookeeper.protocol.client.OperationClientExecutor;
 
 public class ConnectionClientExecutorService<I extends Operation.Request> extends AbstractIdleService 
-        implements Supplier<ListenableFuture<AbstractConnectionClientExecutor<I,?,?>>>, 
+        implements Supplier<ListenableFuture<ConnectionClientExecutor<I,?>>>, 
         Publisher, 
         ClientExecutor<I, Message.ServerResponse<?>>,
-        FutureCallback<AbstractConnectionClientExecutor<I,?,?>> {
+        FutureCallback<ConnectionClientExecutor<I,?>> {
 
     public static <I extends Operation.Request> ConnectionClientExecutorService<I> newInstance(
-            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends AbstractConnectionClientExecutor<I,?,?>>> factory) {
+            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,?>>> factory) {
         return new ConnectionClientExecutorService<I>(factory);
     }
     
-    public static <I extends Operation.Request> Message.ServerResponse<?> disconnect(AbstractConnectionClientExecutor<I,?,?> client) throws InterruptedException, ExecutionException, TimeoutException {
+    public static <I extends Operation.Request> Message.ServerResponse<?> disconnect(ConnectionClientExecutor<I,?> client) throws InterruptedException, ExecutionException, TimeoutException {
         Message.ServerResponse<?> response = null;
-        if (((client.get().codec().state().compareTo(ProtocolState.CONNECTED)) <= 0) && 
-                (client.get().state().compareTo(Connection.State.CONNECTION_CLOSING) < 0)) {
+        if (((client.connection().codec().state().compareTo(ProtocolState.CONNECTED)) <= 0) && 
+                (client.connection().state().compareTo(Connection.State.CONNECTION_CLOSING) < 0)) {
             @SuppressWarnings("unchecked")
             ListenableFuture<Message.ServerResponse<?>> future = client.submit(
                    (I) ProtocolRequestMessage.of(0, Operations.Requests.disconnect().build()));
-            int timeOut = client.session().get().getTimeOut();
+            int timeOut = client.session().isDone() ? client.session().get().getTimeOut() : 0;
             if (timeOut > 0) {
                 response = future.get(timeOut, TimeUnit.MILLISECONDS);
             } else {
@@ -227,13 +227,13 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
 
     protected final Logger logger;
     protected final Executor executor;
-    protected final EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends AbstractConnectionClientExecutor<I,?,?>>> factory;
+    protected final EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,?>>> factory;
     protected final Set<Object> handlers;
     protected final Queue<Object> events;
     protected final Client client;
     
     protected ConnectionClientExecutorService(
-            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends AbstractConnectionClientExecutor<I,?,?>>> factory) {
+            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,?>>> factory) {
         this.logger = LogManager.getLogger(getClass());
         this.factory = factory;
         this.handlers = Collections.synchronizedSet(Sets.newHashSet());
@@ -243,7 +243,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
     }
 
     @Override
-    public ListenableFuture<AbstractConnectionClientExecutor<I,?,?>> get() {
+    public ListenableFuture<ConnectionClientExecutor<I,?>> get() {
         return client;
     }
 
@@ -270,7 +270,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
         if (!client.isDone() || !events.isEmpty()) {
             events.add(event);
         } else {
-            AbstractConnectionClientExecutor<I,?,?> client;
+            ConnectionClientExecutor<I,?> client;
             try {
                 client = this.client.get(0, TimeUnit.MILLISECONDS);
             } catch (Exception e) {
@@ -304,7 +304,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
     }
 
     @Override
-    public synchronized void onSuccess(AbstractConnectionClientExecutor<I,?,?> result) {
+    public synchronized void onSuccess(ConnectionClientExecutor<I,?> result) {
         try {
             synchronized (handlers) {
                 for (Object handler: handlers) {
@@ -328,7 +328,6 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
         stopAsync();
     }
 
-
     @Override
     protected void startUp() throws Exception {
         client.run();
@@ -337,27 +336,29 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
     
     @Override
     protected synchronized void shutDown() throws Exception {
-        try {
-            if (client.isDone()) {
-                disconnect(client.get());
-            }            
-        } finally {
+        if (client.isDone()) {
             try {
-                client.get().stop();
-            } catch (Exception e) {}
-            
+                    disconnect(client.get());      
+            } finally {
+                try {
+                    client.get().connection().close();
+                } catch (Exception e) {}
+            } 
+        } else {
             client.cancel(true);
-            
-            handlers.clear();
-            events.clear();
         }
+        handlers.clear();
+        events.clear();
     }
     
-    protected class Client extends ForwardingPromise<AbstractConnectionClientExecutor<I,?,?>> implements Runnable {
+    /**
+     * Opens a new connection to a different server if the current connection drops.
+     */
+    protected class Client extends ForwardingPromise<ConnectionClientExecutor<I,?>> implements Runnable {
 
         protected volatile ServerInetAddressView server;
-        protected volatile ListenableFuture<? extends AbstractConnectionClientExecutor<I,?,?>> future;
-        protected volatile Promise<AbstractConnectionClientExecutor<I,?,?>> promise;
+        protected volatile ListenableFuture<? extends ConnectionClientExecutor<I,?>> future;
+        protected volatile Promise<ConnectionClientExecutor<I,?>> promise;
         
         public Client() {
             this.server = null;
@@ -365,9 +366,9 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
             this.promise = newPromise();
         }
         
-        protected Promise<AbstractConnectionClientExecutor<I,?,?>> newPromise() {
+        protected Promise<ConnectionClientExecutor<I,?>> newPromise() {
             return LoggingPromise.create(logger, 
-                    SettableFuturePromise.<AbstractConnectionClientExecutor<I,?,?>>create());
+                    SettableFuturePromise.<ConnectionClientExecutor<I,?>>create());
         }
         
         @Override
@@ -379,7 +380,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
         }
 
         @Override
-        public synchronized boolean set(AbstractConnectionClientExecutor<I,?,?> value) {
+        public synchronized boolean set(ConnectionClientExecutor<I,?> value) {
             if (! isDone()) {
                 new Handler(value);
                 ConnectionClientExecutorService.this.onSuccess(value);
@@ -435,7 +436,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
                         cancel(true);
                     } else {
                         try {
-                            AbstractConnectionClientExecutor<I,?,?> connection = future.get();
+                            ConnectionClientExecutor<I,?> connection = future.get();
                             if (connection.session().isDone()) {
                                 ConnectMessage.Response session;
                                 try {
@@ -487,15 +488,15 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
         }
 
         @Override
-        protected Promise<AbstractConnectionClientExecutor<I,?,?>> delegate() {
+        protected Promise<ConnectionClientExecutor<I,?>> delegate() {
             return promise;
         }
         
         protected class Handler {
 
-            protected final AbstractConnectionClientExecutor<I,?,?> instance;
+            protected final ConnectionClientExecutor<I,?> instance;
             
-            public Handler(AbstractConnectionClientExecutor<I,?,?> instance) {
+            public Handler(ConnectionClientExecutor<I,?> instance) {
                 this.instance = instance;
                 instance.register(this);
             }

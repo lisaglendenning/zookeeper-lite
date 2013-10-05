@@ -17,7 +17,7 @@ import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 
 public class OperationClientExecutor<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>>
-    extends AbstractConnectionClientExecutor<Operation.Request, PromiseTask<Operation.Request, Message.ServerResponse<?>>, C> {
+    extends PendingQueueClientExecutor<Operation.Request, PromiseTask<Operation.Request, Message.ServerResponse<?>>, C> {
 
     public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> OperationClientExecutor<C> newInstance(
             ConnectMessage.Request request,

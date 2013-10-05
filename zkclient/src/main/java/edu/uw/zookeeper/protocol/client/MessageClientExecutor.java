@@ -16,7 +16,7 @@ import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 
 public class MessageClientExecutor<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>>
-    extends AbstractConnectionClientExecutor<Message.ClientRequest<?>, PromiseTask<Message.ClientRequest<?>, Message.ServerResponse<?>>, C> {
+    extends PendingQueueClientExecutor<Message.ClientRequest<?>, PromiseTask<Message.ClientRequest<?>, Message.ServerResponse<?>>, C> {
 
     public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> MessageClientExecutor<C> newInstance(
             ConnectMessage.Request request,
@@ -64,7 +64,6 @@ public class MessageClientExecutor<C extends ProtocolCodecConnection<? super Mes
     protected boolean apply(PromiseTask<Message.ClientRequest<?>, Message.ServerResponse<?>> input) {
         if (! input.isDone()) {
             if (state() != State.TERMINATED) {
-                // Assign xids here so we can properly track message request -> response
                 PendingTask task = new PendingTask(input.task().xid(), this, input);
                 if (task.xid() != OpCodeXid.PING.xid()) {
                     // task needs to be in the queue before calling write
