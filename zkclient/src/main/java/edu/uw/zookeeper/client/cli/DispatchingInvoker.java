@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 
-import edu.uw.zookeeper.client.ConnectionClientExecutorService;
+import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.ZNodeLabel;
@@ -169,7 +169,7 @@ public class DispatchingInvoker extends AbstractExecutionThreadService implement
                 break;
             case PATH:
             {
-                ConnectionClientExecutorService<Operation.Request> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getClientConnectionExecutor();
+                ClientExecutor<Operation.Request, ? extends Message.ServerResponse<?>> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getConnectionClientExecutor();
                 ZNodeLabel.Path path = ZNodeLabel.Path.canonicalized(ZNodeLabel.Path.join(shell.getEnvironment().get(ShellInvoker.CWD_KEY).toString(), token));
                 try {
                     Operations.Requests.GetChildren request = Operations.Requests.getChildren();

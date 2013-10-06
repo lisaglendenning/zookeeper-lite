@@ -23,7 +23,7 @@ import edu.uw.zookeeper.protocol.client.ConnectionClientExecutor;
 import edu.uw.zookeeper.protocol.client.OperationClientExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 
-public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?>> extends Pair<ServerInetAddressView, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<C>>, Function<C, C> {
+public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?>> extends Pair<ServerInetAddressView, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<C>>, Function<C, C> {
 
     public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactory<Session, OperationClientExecutor<C>> newInstance(
             ClientConnectionFactory<C> connections,
@@ -52,7 +52,7 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?>> exten
                 zxids);
     }
     
-    public static <V, C extends ConnectionClientExecutor<?,?>> ServerViewFactory<V,C> newInstance(
+    public static <V, C extends ConnectionClientExecutor<?,?,?>> ServerViewFactory<V,C> newInstance(
             ServerInetAddressView view,
             DefaultsFactory<V, ? extends ListenableFuture<? extends C>> delegate,
             ZxidTracker zxids) {

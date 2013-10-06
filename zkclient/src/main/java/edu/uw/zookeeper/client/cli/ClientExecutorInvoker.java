@@ -149,7 +149,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         }
 
         Records.Request request = operator.apply(input);
-        ClientExecutor<Operation.Request, ?> client = shell.getEnvironment().get(CLIENT_KEY).getClientConnectionExecutor();
+        ClientExecutor<Operation.Request, ?> client = shell.getEnvironment().get(CLIENT_KEY).getConnectionClientExecutor();
         Futures.addCallback(new RequestSubmitter(client, request).call(), this);
     }
 
@@ -182,9 +182,9 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
             }
         }
         
-        NotificationCallback cb = new NotificationCallback(client.getClientConnectionExecutor());
+        NotificationCallback cb = new NotificationCallback(client.getConnectionClientExecutor());
         addListener(cb, executor);
-        client.getClientConnectionExecutor().register(cb);
+        client.getConnectionClientExecutor().register(cb);
     }
 
     @Override

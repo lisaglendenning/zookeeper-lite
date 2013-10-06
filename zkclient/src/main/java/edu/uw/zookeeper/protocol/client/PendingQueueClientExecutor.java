@@ -18,12 +18,14 @@ import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 
-public abstract class PendingQueueClientExecutor<I extends Operation.Request, 
-    V extends PromiseTask<I, ? extends Message.ServerResponse<?>>,
+public abstract class PendingQueueClientExecutor<
+    I extends Operation.Request, 
+    V extends Message.ServerResponse<?>,
+    T extends PromiseTask<I, V>,
     C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>>
-    extends AbstractConnectionClientExecutor<I,V,C,PendingQueueClientExecutor.PendingTask> {
+    extends AbstractConnectionClientExecutor<I,V,T,C,PendingQueueClientExecutor.PendingTask> {
 
-    protected final ConcurrentLinkedQueue<V> mailbox;
+    protected final ConcurrentLinkedQueue<T> mailbox;
     protected final ConcurrentLinkedQueue<PendingTask> pending;
     
     protected PendingQueueClientExecutor(
@@ -66,7 +68,7 @@ public abstract class PendingQueueClientExecutor<I extends Operation.Request,
     }
 
     @Override
-    protected ConcurrentLinkedQueue<V> mailbox() {
+    protected ConcurrentLinkedQueue<T> mailbox() {
         return mailbox;
     }
 

@@ -54,23 +54,23 @@ import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.client.ConnectionClientExecutor;
 import edu.uw.zookeeper.protocol.client.OperationClientExecutor;
 
-public class ConnectionClientExecutorService<I extends Operation.Request> extends AbstractIdleService 
-        implements Supplier<ListenableFuture<ConnectionClientExecutor<I,?>>>, 
+public class ConnectionClientExecutorService<I extends Operation.Request, V extends Message.ServerResponse<?>> extends AbstractIdleService 
+        implements Supplier<ListenableFuture<ConnectionClientExecutor<I,V,?>>>, 
         Publisher, 
-        ClientExecutor<I, Message.ServerResponse<?>>,
-        FutureCallback<ConnectionClientExecutor<I,?>> {
+        ClientExecutor<I, V>,
+        FutureCallback<ConnectionClientExecutor<I,V,?>> {
 
-    public static <I extends Operation.Request> ConnectionClientExecutorService<I> newInstance(
-            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,?>>> factory) {
-        return new ConnectionClientExecutorService<I>(factory);
+    public static <I extends Operation.Request, V extends Message.ServerResponse<?>> ConnectionClientExecutorService<I,V> newInstance(
+            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,V,?>>> factory) {
+        return new ConnectionClientExecutorService<I,V>(factory);
     }
     
-    public static <I extends Operation.Request> Message.ServerResponse<?> disconnect(ConnectionClientExecutor<I,?> client) throws InterruptedException, ExecutionException, TimeoutException {
-        Message.ServerResponse<?> response = null;
+    public static <I extends Operation.Request, V extends Message.ServerResponse<?>> V disconnect(ConnectionClientExecutor<I,V,?> client) throws InterruptedException, ExecutionException, TimeoutException {
+        V response = null;
         if (((client.connection().codec().state().compareTo(ProtocolState.CONNECTED)) <= 0) && 
                 (client.connection().state().compareTo(Connection.State.CONNECTION_CLOSING) < 0)) {
             @SuppressWarnings("unchecked")
-            ListenableFuture<Message.ServerResponse<?>> future = client.submit(
+            ListenableFuture<V> future = client.submit(
                    (I) ProtocolRequestMessage.of(0, Operations.Requests.disconnect().build()));
             int timeOut = client.session().isDone() ? client.session().get().getTimeOut() : 0;
             if (timeOut > 0) {
@@ -91,12 +91,12 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
         protected final RuntimeModule runtime;
         protected final ClientConnectionFactoryBuilder connectionBuilder;
         protected final ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory;
-        protected final ConnectionClientExecutorService<Operation.Request> clientExecutor;
+        protected final ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> clientExecutor;
         
         protected Builder(
                 ClientConnectionFactoryBuilder connectionBuilder,
                 ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
-                ConnectionClientExecutorService<Operation.Request> clientExecutor,
+                ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> clientExecutor,
                 RuntimeModule runtime) {
             this.runtime = runtime;
             this.connectionBuilder = connectionBuilder;
@@ -147,12 +147,12 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
             }
         }
         
-        public ConnectionClientExecutorService<Operation.Request> getClientConnectionExecutor() {
+        public ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> getConnectionClientExecutor() {
             return clientExecutor;
         }
 
-        public Builder setClientConnectionExecutor(
-                ConnectionClientExecutorService<Operation.Request> clientExecutor) {
+        public Builder setConnectionClientExecutor(
+                ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> clientExecutor) {
             if (this.clientExecutor == clientExecutor) {
                 return this;
             } else {
@@ -175,7 +175,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
                 return setClientConnectionFactory(getDefaultClientConnectionFactory()).setDefaults();
             }
             if (clientExecutor == null) {
-                return setClientConnectionExecutor(getDefaultClientConnectionExecutorService()).setDefaults();
+                return setConnectionClientExecutor(getDefaultConnectionClientExecutorService()).setDefaults();
             }
             return this;
         }
@@ -188,7 +188,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
         protected Builder newInstance(
                 ClientConnectionFactoryBuilder connectionBuilder,
                 ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
-                ConnectionClientExecutorService<Operation.Request> clientExecutor,
+                ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> clientExecutor,
                 RuntimeModule runtime) {
             return new Builder(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
         }
@@ -205,14 +205,14 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
             return ConfigurableEnsembleView.get(getRuntimeModule().getConfiguration());
         }
 
-        protected ConnectionClientExecutorService<Operation.Request> getDefaultClientConnectionExecutorService() {
+        protected ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> getDefaultConnectionClientExecutorService() {
             EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends OperationClientExecutor<?>>> ensembleFactory = 
                     EnsembleViewFactory.fromSession(
                         getClientConnectionFactory(),
                         getDefaultEnsemble(), 
                         getConnectionBuilder().getTimeOut(),
                         getRuntimeModule().getExecutors().get(ScheduledExecutorService.class));
-            ConnectionClientExecutorService<Operation.Request> service =
+            ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> service =
                     ConnectionClientExecutorService.newInstance(
                             ensembleFactory);
             return service;
@@ -221,19 +221,19 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
         protected List<Service> getServices() {
             return Lists.<Service>newArrayList(
                     getClientConnectionFactory(), 
-                    getClientConnectionExecutor());
+                    getConnectionClientExecutor());
         }   
     }
 
     protected final Logger logger;
     protected final Executor executor;
-    protected final EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,?>>> factory;
+    protected final EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,V,?>>> factory;
     protected final Set<Object> handlers;
     protected final Queue<Object> events;
     protected final Client client;
     
     protected ConnectionClientExecutorService(
-            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,?>>> factory) {
+            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,V,?>>> factory) {
         this.logger = LogManager.getLogger(getClass());
         this.factory = factory;
         this.handlers = Collections.synchronizedSet(Sets.newHashSet());
@@ -243,12 +243,12 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
     }
 
     @Override
-    public ListenableFuture<ConnectionClientExecutor<I,?>> get() {
+    public ListenableFuture<ConnectionClientExecutor<I,V,?>> get() {
         return client;
     }
 
     @Override
-    public ListenableFuture<Message.ServerResponse<?>> submit(I request) {
+    public ListenableFuture<V> submit(I request) {
         try {
             return get().get().submit(request);
         } catch (Exception e) {
@@ -257,7 +257,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
     }
 
     @Override
-    public ListenableFuture<Message.ServerResponse<?>> submit(I request, Promise<Message.ServerResponse<?>> promise) {
+    public ListenableFuture<V> submit(I request, Promise<V> promise) {
         try {
             return get().get().submit(request, promise);
         } catch (Exception e) {
@@ -270,7 +270,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
         if (!client.isDone() || !events.isEmpty()) {
             events.add(event);
         } else {
-            ConnectionClientExecutor<I,?> client;
+            ConnectionClientExecutor<I,V,?> client;
             try {
                 client = this.client.get(0, TimeUnit.MILLISECONDS);
             } catch (Exception e) {
@@ -304,7 +304,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
     }
 
     @Override
-    public synchronized void onSuccess(ConnectionClientExecutor<I,?> result) {
+    public synchronized void onSuccess(ConnectionClientExecutor<I,V,?> result) {
         try {
             synchronized (handlers) {
                 for (Object handler: handlers) {
@@ -354,11 +354,11 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
     /**
      * Opens a new connection to a different server if the current connection drops.
      */
-    protected class Client extends ForwardingPromise<ConnectionClientExecutor<I,?>> implements Runnable {
+    protected class Client extends ForwardingPromise<ConnectionClientExecutor<I,V,?>> implements Runnable {
 
         protected volatile ServerInetAddressView server;
-        protected volatile ListenableFuture<? extends ConnectionClientExecutor<I,?>> future;
-        protected volatile Promise<ConnectionClientExecutor<I,?>> promise;
+        protected volatile ListenableFuture<? extends ConnectionClientExecutor<I,V,?>> future;
+        protected volatile Promise<ConnectionClientExecutor<I,V,?>> promise;
         
         public Client() {
             this.server = null;
@@ -366,9 +366,9 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
             this.promise = newPromise();
         }
         
-        protected Promise<ConnectionClientExecutor<I,?>> newPromise() {
+        protected Promise<ConnectionClientExecutor<I,V,?>> newPromise() {
             return LoggingPromise.create(logger, 
-                    SettableFuturePromise.<ConnectionClientExecutor<I,?>>create());
+                    SettableFuturePromise.<ConnectionClientExecutor<I,V,?>>create());
         }
         
         @Override
@@ -380,7 +380,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
         }
 
         @Override
-        public synchronized boolean set(ConnectionClientExecutor<I,?> value) {
+        public synchronized boolean set(ConnectionClientExecutor<I,V,?> value) {
             if (! isDone()) {
                 new Handler(value);
                 ConnectionClientExecutorService.this.onSuccess(value);
@@ -436,7 +436,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
                         cancel(true);
                     } else {
                         try {
-                            ConnectionClientExecutor<I,?> connection = future.get();
+                            ConnectionClientExecutor<I,V,?> connection = future.get();
                             if (connection.session().isDone()) {
                                 ConnectMessage.Response session;
                                 try {
@@ -488,15 +488,15 @@ public class ConnectionClientExecutorService<I extends Operation.Request> extend
         }
 
         @Override
-        protected Promise<ConnectionClientExecutor<I,?>> delegate() {
+        protected Promise<ConnectionClientExecutor<I,V,?>> delegate() {
             return promise;
         }
         
         protected class Handler {
 
-            protected final ConnectionClientExecutor<I,?> instance;
+            protected final ConnectionClientExecutor<I,V,?> instance;
             
-            public Handler(ConnectionClientExecutor<I,?> instance) {
+            public Handler(ConnectionClientExecutor<I,V,?> instance) {
                 this.instance = instance;
                 instance.register(this);
             }

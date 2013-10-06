@@ -11,8 +11,9 @@ import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 
 public interface ConnectionClientExecutor<
         I extends Operation.Request,
+        V extends Message.ServerResponse<?>,
         C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> 
-            extends ClientExecutor<I, Message.ServerResponse<?>> {
+            extends ClientExecutor<I,V> {
 
     ListenableFuture<ConnectMessage.Response> session();
     

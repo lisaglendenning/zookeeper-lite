@@ -40,7 +40,7 @@ public class SimpleClientBuilder extends ConnectionClientExecutorService.Builder
             ServerInetAddressView serverAddress,
             ClientConnectionFactoryBuilder connectionBuilder,
             ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
-            ConnectionClientExecutorService<Operation.Request> clientExecutor,
+            ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> clientExecutor,
             RuntimeModule runtime) {
         super(connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
         this.serverAddress = serverAddress;
@@ -75,9 +75,9 @@ public class SimpleClientBuilder extends ConnectionClientExecutorService.Builder
     }
 
     @Override
-    public SimpleClientBuilder setClientConnectionExecutor(
-            ConnectionClientExecutorService<Operation.Request> clientExecutor) {
-        return (SimpleClientBuilder) super.setClientConnectionExecutor(clientExecutor);
+    public SimpleClientBuilder setConnectionClientExecutor(
+            ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> clientExecutor) {
+        return (SimpleClientBuilder) super.setConnectionClientExecutor(clientExecutor);
     }
 
     @Override
@@ -89,7 +89,7 @@ public class SimpleClientBuilder extends ConnectionClientExecutorService.Builder
     protected SimpleClientBuilder newInstance(
             ClientConnectionFactoryBuilder connectionBuilder,
             ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
-            ConnectionClientExecutorService<Operation.Request> clientExecutor,
+            ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> clientExecutor,
             RuntimeModule runtime) {
         return newInstance(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
     }
@@ -98,7 +98,7 @@ public class SimpleClientBuilder extends ConnectionClientExecutorService.Builder
             ServerInetAddressView serverAddress,
             ClientConnectionFactoryBuilder connectionBuilder,
             ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
-            ConnectionClientExecutorService<Operation.Request> clientExecutor,
+            ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> clientExecutor,
             RuntimeModule runtime) {
         return new SimpleClientBuilder(serverAddress, connectionBuilder, clientConnectionFactory, clientExecutor, runtime);
     }

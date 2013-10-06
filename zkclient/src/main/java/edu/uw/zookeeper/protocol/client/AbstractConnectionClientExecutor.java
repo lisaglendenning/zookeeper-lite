@@ -3,6 +3,7 @@ package edu.uw.zookeeper.protocol.client;
 import java.lang.ref.WeakReference;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -36,13 +37,15 @@ import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
 
 
-public abstract class AbstractConnectionClientExecutor<I extends Operation.Request, 
-    V extends PromiseTask<I, ? extends Message.ServerResponse<?>>,
+public abstract class AbstractConnectionClientExecutor<
+    I extends Operation.Request, 
+    V extends Message.ServerResponse<?>,
+    T extends Future<?>,
     C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>,
-    T>
-    extends ExecutedActor<V>
-    implements ConnectionClientExecutor<I, C>,
-        FutureCallback<T> {
+    O>
+    extends ExecutedActor<T>
+    implements ConnectionClientExecutor<I,V,C>,
+        FutureCallback<O> {
     
     protected static final Executor sameThreadExecutor = MoreExecutors.sameThreadExecutor();
 
@@ -78,8 +81,8 @@ public abstract class AbstractConnectionClientExecutor<I extends Operation.Reque
     }
     
     @Override
-    public ListenableFuture<Message.ServerResponse<?>> submit(I request) {
-        return submit(request, SettableFuturePromise.<Message.ServerResponse<?>>create());
+    public ListenableFuture<V> submit(I request) {
+        return submit(request, SettableFuturePromise.<V>create());
     }
 
     @Override
@@ -158,7 +161,7 @@ public abstract class AbstractConnectionClientExecutor<I extends Operation.Reque
             session.cancel(true);
         }
 
-        V request;
+        T request;
         while ((request = mailbox().poll()) != null) {
             request.cancel(true);
         }

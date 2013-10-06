@@ -16,7 +16,7 @@ import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 
 public class MessageClientExecutor<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>>
-    extends PendingQueueClientExecutor<Message.ClientRequest<?>, PromiseTask<Message.ClientRequest<?>, Message.ServerResponse<?>>, C> {
+    extends PendingQueueClientExecutor<Message.ClientRequest<?>, Message.ServerResponse<?>, PromiseTask<Message.ClientRequest<?>, Message.ServerResponse<?>>, C> {
 
     public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> MessageClientExecutor<C> newInstance(
             ConnectMessage.Request request,
