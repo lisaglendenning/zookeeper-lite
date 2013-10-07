@@ -395,6 +395,21 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             String tail = toString().substring(lastSlash + 1);
             return Component.of(tail);
         }
+
+        public ZNodeLabel prefix(int index) {
+            int length = length();
+            if ((index < 0) || (index > length)) {
+                throw new IndexOutOfBoundsException(String.valueOf(index));
+            }
+            if (index == 0) {
+                return ZNodeLabel.none();
+            } else if (index == length) {
+                return this;
+            } else {
+                checkArgument(charAt(index) == SLASH, index);
+                return ZNodeLabel.of(label.substring(0, index));
+            }
+        }
         
         public ZNodeLabel suffix(int index) {
             int length = length();

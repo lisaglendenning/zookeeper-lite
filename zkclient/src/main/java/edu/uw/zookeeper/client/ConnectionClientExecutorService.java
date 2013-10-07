@@ -17,6 +17,7 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
@@ -65,7 +66,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
         return new ConnectionClientExecutorService<I,V>(factory);
     }
     
-    public static <I extends Operation.Request, V extends Message.ServerResponse<?>> V disconnect(ConnectionClientExecutor<I,V,?> client) throws InterruptedException, ExecutionException, TimeoutException {
+    public static <I extends Operation.Request, V extends Message.ServerResponse<?>> V disconnect(ConnectionClientExecutor<I,V,?> client) throws InterruptedException, ExecutionException, TimeoutException, KeeperException {
         V response = null;
         if (((client.connection().codec().state().compareTo(ProtocolState.CONNECTED)) <= 0) && 
                 (client.connection().state().compareTo(Connection.State.CONNECTION_CLOSING) < 0)) {
@@ -79,6 +80,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                 response = future.get();
             }
         }
+        Operations.unlessError(response.record());
         return response;
     }
 

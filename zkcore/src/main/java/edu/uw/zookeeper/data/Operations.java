@@ -1574,7 +1574,7 @@ public abstract class Operations {
             }
             return error;
         } else {
-            throw new IllegalArgumentException("Unexpected Response " + response.toString());
+            throw new IllegalArgumentException(String.format("Unexpected Response: %s (%s)", response, message));
         }
     }
 
