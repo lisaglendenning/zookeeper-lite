@@ -180,7 +180,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
         
         public boolean remove() {
             if (parent().isPresent()) {
-                E node = parent().orNull().get().remove(parent().orNull().label());
+                E node = parent().get().get().remove(parent().get().label());
                 return (node != null);
             } else {
                 return false;
@@ -550,7 +550,7 @@ public class ZNodeLabelTrie<E extends ZNodeLabelTrie.Node<E>> implements Map<ZNo
             if (parent != null) {
                 parent.get().remove(parent.label());
             } else {
-                throw new IllegalArgumentException(k.toString());
+                throw new IllegalArgumentException(String.valueOf(k));
             }
         }
         return e;

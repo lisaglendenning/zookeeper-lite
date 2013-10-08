@@ -79,8 +79,8 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
             } else {
                 response = future.get();
             }
+            Operations.unlessError(response.record());
         }
-        Operations.unlessError(response.record());
         return response;
     }
 

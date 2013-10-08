@@ -2,6 +2,7 @@ package edu.uw.zookeeper.data;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -34,7 +35,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
     public static interface Operator<V extends Records.Response> extends Reference<ZNodeDataTrie>, Processors.CheckedProcessor<TxnOperation.Request<?>, V, KeeperException> {
     }
 
-    public static abstract class AbstractOperator<V extends Records.Response> implements Operator<V> {
+    public static abstract class AbstractProcessor<V> implements Processors.CheckedProcessor<TxnOperation.Request<?>, V, KeeperException>, Reference<ZNodeDataTrie> {
 
         public static ZNodeLabel.Path getPath(Records.PathGetter record) {
             return ZNodeLabel.Path.validated(record.getPath());
@@ -50,7 +51,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         
         protected final ZNodeDataTrie trie;
         
-        protected AbstractOperator(ZNodeDataTrie trie) {
+        protected AbstractProcessor(ZNodeDataTrie trie) {
             this.trie = trie;
         }
         
@@ -58,6 +59,99 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         public ZNodeDataTrie get() {
             return trie;
         }
+    }
+    
+    public static abstract class AbstractCreate<V> extends AbstractProcessor<V> {
+
+        protected AbstractCreate(ZNodeDataTrie trie) {
+            super(trie);
+        }
+        
+        @Override
+        public V apply(TxnOperation.Request<?> request) throws KeeperException {
+            Records.CreateModeGetter record = (Records.CreateModeGetter) request.record();
+            ZNodeLabel.Path path = getPath(record);
+            CreateMode mode = CreateMode.valueOf(record.getFlags());
+            if (! mode.contains(CreateFlag.SEQUENTIAL) && get().containsKey(path)) {
+                throw new KeeperException.NodeExistsException(path.toString());
+            }
+            ZNodeLabel parentPath = path.head();
+            ZNodeStateNode parent = getNode(get(), parentPath);
+            if (parent.state().getCreate().isEphemeral()) {
+                throw new KeeperException.NoChildrenForEphemeralsException(parentPath.toString());
+            }
+            
+            return doCreate(request, record, mode, parent, path);
+        }
+        
+        protected abstract V doCreate(
+                TxnOperation.Request<?> request,
+                Records.CreateModeGetter record,
+                CreateMode mode,
+                ZNodeStateNode parent,
+                ZNodeLabel.Path path);
+    }
+
+    @Operational(OpCode.DELETE)
+    public static abstract class AbstractDelete<V> extends AbstractProcessor<V> {
+    
+        protected AbstractDelete(ZNodeDataTrie trie) {
+            super(trie);
+        }
+    
+        @Override
+        public V apply(TxnOperation.Request<?> request)
+                throws KeeperException {
+            IDeleteRequest record = (IDeleteRequest) request.record();
+            ZNodeLabel.Path path = getPath(record);
+            if (path.isRoot()) {
+                throw new KeeperException.BadArgumentsException(path.toString());
+            }
+            ZNodeStateNode node = getNode(get(), path);
+            if (node.size() > 0) {
+                throw new KeeperException.NotEmptyException(path.toString());
+            }
+            if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
+                throw new KeeperException.BadVersionException(path.toString());
+            }
+            ZNodeStateNode parent = getNode(get(), path.head());
+            
+            return doDelete(request, record, path, node, parent);
+        }
+        
+        protected abstract V doDelete(
+                TxnOperation.Request<?> request,
+                IDeleteRequest record,
+                ZNodeLabel.Path path,
+                ZNodeStateNode node,
+                ZNodeStateNode parent);
+    }
+    
+    @Operational(OpCode.SET_DATA)
+    public static abstract class AbstractSetData<V> extends AbstractProcessor<V> {
+
+        protected AbstractSetData(ZNodeDataTrie trie) {
+            super(trie);
+        }
+
+        @Override
+        public V apply(TxnOperation.Request<?> request)
+                throws KeeperException {
+            ISetDataRequest record = (ISetDataRequest) request.record();
+            ZNodeLabel.Path path = getPath(record);
+            ZNodeStateNode node = getNode(get(), path);
+            if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
+                throw new KeeperException.BadVersionException(path.toString());
+            }
+            
+            return doSetData(request, record, path, node);
+        }
+        
+        protected abstract V doSetData(
+                TxnOperation.Request<?> request,
+                ISetDataRequest record,
+                ZNodeLabel.Path path,
+                ZNodeStateNode node);
     }
 
     public static abstract class Operators {
@@ -91,7 +185,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.CHECK)
-        public static class CheckOperator extends AbstractOperator<ICheckVersionResponse> {
+        public static class CheckOperator extends AbstractProcessor<ICheckVersionResponse> implements Operator<ICheckVersionResponse> {
         
             public CheckOperator(ZNodeDataTrie trie) {
                 super(trie);
@@ -111,26 +205,19 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational({OpCode.CREATE, OpCode.CREATE2})
-        public static class CreateOperator extends AbstractOperator<Records.Response> {
+        public static class CreateOperator extends AbstractCreate<Records.Response> implements Operator<Records.Response> {
     
             public CreateOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public Records.Response apply(TxnOperation.Request<?> request) throws KeeperException {
-                Records.CreateModeGetter record = (Records.CreateModeGetter) request.record();
-                ZNodeLabel.Path path = getPath(record);
-                ZNodeLabel parentPath = path.head();
-                ZNodeStateNode parent = getNode(get(), parentPath);
-                if (parent.state().getCreate().isEphemeral()) {
-                    throw new KeeperException.NoChildrenForEphemeralsException(parentPath.toString());
-                }
-                CreateMode mode = CreateMode.valueOf(record.getFlags());
-                if (! mode.contains(CreateFlag.SEQUENTIAL) && (get().get(path) != null)) {
-                    throw new KeeperException.NodeExistsException(path.toString());
-                }
-                
+            protected Records.Response doCreate(
+                    TxnOperation.Request<?> request,
+                    Records.CreateModeGetter record,
+                    CreateMode mode,
+                    ZNodeStateNode parent,
+                    ZNodeLabel.Path path) {
                 int cversion = parent.state().getChildren().getAndIncrement(request.zxid());
                 if (mode.contains(CreateFlag.SEQUENTIAL)) {
                     path = ZNodeLabel.Path.of(Sequenced.toString(path, cversion));
@@ -140,10 +227,10 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 Stats.CreateStat createStat = Stats.CreateStat.of(request.zxid(), request.getTime(), ephemeralOwner);
                 byte[] bytes = record.getData();
                 bytes = (bytes == null) ? ZNodeData.emptyBytes() : bytes;
-                ZNodeData data = ZNodeData.newInstance(Stats.DataStat.newInstance(request.zxid(), request.getTime()), bytes);
-                ZNodeAcl acl = ZNodeAcl.newInstance(Acls.Acl.fromRecordList(record.getAcl()));
-                Stats.ChildrenStat childrenStat = Stats.ChildrenStat.newInstance(request.zxid());
-                ZNodeState state = ZNodeState.newInstance(createStat, data, acl, childrenStat);
+                ZNodeData data = ZNodeData.of(Stats.DataStat.initialVersion(request.zxid(), request.getTime()), bytes);
+                ZNodeAcl acl = ZNodeAcl.initialVersion(Acls.Acl.fromRecordList(record.getAcl()));
+                Stats.ChildrenStat childrenStat = Stats.ChildrenStat.initialVersion(request.zxid());
+                ZNodeState state = ZNodeState.of(createStat, data, acl, childrenStat);
                 
                 ZNodeStateNode node = parent.add((ZNodeLabel.Component) path.tail(), state);
                 Operations.Responses.Create builder = 
@@ -156,28 +243,19 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.DELETE)
-        public static class DeleteOperator extends AbstractOperator<IDeleteResponse> {
+        public static class DeleteOperator extends AbstractDelete<IDeleteResponse> implements Operator<IDeleteResponse> {
     
             public DeleteOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public IDeleteResponse apply(TxnOperation.Request<?> request)
-                    throws KeeperException {
-                IDeleteRequest record = (IDeleteRequest) request.record();
-                ZNodeLabel.Path path = getPath(record);
-                if (path.isRoot()) {
-                    throw new KeeperException.BadArgumentsException(path.toString());
-                }
-                ZNodeStateNode node = getNode(get(), path);
-                if (node.size() > 0) {
-                    throw new KeeperException.NotEmptyException(path.toString());
-                }
-                if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
-                    throw new KeeperException.BadVersionException(path.toString());
-                }
-                ZNodeStateNode parent = getNode(get(), path.head());
+            protected IDeleteResponse doDelete(
+                    TxnOperation.Request<?> request,
+                    IDeleteRequest record,
+                    ZNodeLabel.Path path,
+                    ZNodeStateNode node,
+                    ZNodeStateNode parent) {
                 get().remove(path);
                 parent.state().getChildren().getAndIncrement(request.zxid());
                 return Operations.Responses.delete().build();
@@ -185,7 +263,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.EXISTS)
-        public static class ExistsOperator extends AbstractOperator<IExistsResponse> {
+        public static class ExistsOperator extends AbstractProcessor<IExistsResponse> implements Operator<IExistsResponse> {
     
             public ExistsOperator(ZNodeDataTrie trie) {
                 super(trie);
@@ -202,7 +280,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.GET_DATA)
-        public static class GetDataOperator extends AbstractOperator<IGetDataResponse> {
+        public static class GetDataOperator extends AbstractProcessor<IGetDataResponse> implements Operator<IGetDataResponse> {
     
             public GetDataOperator(ZNodeDataTrie trie) {
                 super(trie);
@@ -219,21 +297,18 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.SET_DATA)
-        public static class SetDataOperator extends AbstractOperator<ISetDataResponse> {
+        public static class SetDataOperator extends AbstractSetData<ISetDataResponse> implements Operator<ISetDataResponse> {
     
             public SetDataOperator(ZNodeDataTrie trie) {
                 super(trie);
             }
     
             @Override
-            public ISetDataResponse apply(TxnOperation.Request<?> request)
-                    throws KeeperException {
-                ISetDataRequest record = (ISetDataRequest) request.record();
-                ZNodeLabel.Path path = getPath(record);
-                ZNodeStateNode node = getNode(get(), path);
-                if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
-                    throw new KeeperException.BadVersionException(path.toString());
-                }
+            protected ISetDataResponse doSetData(
+                    TxnOperation.Request<?> request,
+                    ISetDataRequest record,
+                    ZNodeLabel.Path path,
+                    ZNodeStateNode node) {
                 node.state().getData().getStat().getAndIncrement(request.zxid(), request.getTime());
                 byte[] bytes = record.getData();
                 bytes = (bytes == null) ? ZNodeData.emptyBytes() : bytes;
@@ -243,7 +318,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.GET_ACL)
-        public static class GetAclOperator extends AbstractOperator<IGetACLResponse> {
+        public static class GetAclOperator extends AbstractProcessor<IGetACLResponse> implements Operator<IGetACLResponse> {
     
             public GetAclOperator(ZNodeDataTrie trie) {
                 super(trie);
@@ -260,7 +335,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.SET_ACL)
-        public static class SetAclOperator extends AbstractOperator<ISetACLResponse> {
+        public static class SetAclOperator extends AbstractProcessor<ISetACLResponse> implements Operator<ISetACLResponse> {
     
             public SetAclOperator(ZNodeDataTrie trie) {
                 super(trie);
@@ -282,7 +357,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational({OpCode.GET_CHILDREN, OpCode.GET_CHILDREN2})
-        public static class GetChildrenOperator extends AbstractOperator<Records.Response> {
+        public static class GetChildrenOperator extends AbstractProcessor<Records.Response> implements Operator<Records.Response> {
     
             public GetChildrenOperator(ZNodeDataTrie trie) {
                 super(trie);
@@ -303,7 +378,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
 
         @Operational(OpCode.SYNC)
-        public static class SyncOperator extends AbstractOperator<ISyncResponse> {
+        public static class SyncOperator extends AbstractProcessor<ISyncResponse> implements Operator<ISyncResponse> {
     
             public SyncOperator(ZNodeDataTrie trie) {
                 super(trie);
@@ -320,8 +395,153 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
     }
     
+    public static abstract class AbstractUndo implements Processors.UncheckedProcessor<Records.Response, Void> {
+
+        protected final TxnOperation.Request<?> request;
+        protected final ZNodeDataTrie trie;
+        
+        protected AbstractUndo(
+                TxnOperation.Request<?> request,
+                ZNodeDataTrie trie) {
+            this.request = request;
+            this.trie = trie;
+        }
+    }
+    
+    @Operational({OpCode.CREATE, OpCode.CREATE2})    
+    public static class CreateUndo extends AbstractUndo {
+        
+        protected final Stats.ChildrenStat parentStat;
+        
+        public CreateUndo(
+                Stats.ChildrenStat parentStat,
+                TxnOperation.Request<?> request,
+                ZNodeDataTrie trie) {
+            super(request, trie);
+            this.parentStat = parentStat;
+        }
+        
+        @Override
+        public Void apply(Records.Response result) {
+            ZNodeStateNode node = trie.get(((Records.PathGetter) result).getPath());
+            ZNodeStateNode parent = node.parent().get().get();
+            node.remove();
+            parent.state().setChildren(parentStat);
+            return null;
+        }
+    }
+    
+    @Operational(OpCode.DELETE)    
+    public static class DeleteUndo extends AbstractUndo {
+        
+        protected final Stats.ChildrenStat parentStat;
+        protected final ZNodeState state;
+        
+        public DeleteUndo(
+                Stats.ChildrenStat parentStat,
+                ZNodeState state,
+                TxnOperation.Request<?> request,
+                ZNodeDataTrie trie) {
+            super(request, trie);
+            this.parentStat = parentStat;
+            this.state = state;
+        }
+
+        @Override
+        public Void apply(Records.Response result) {
+            ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request.record()).getPath());
+            ZNodeStateNode parent = trie.get(path.head());
+            parent.add((ZNodeLabel.Component) path.tail(), state);
+            return null;
+        }
+    }
+
+    @Operational(OpCode.SET_DATA)    
+    public static class SetDataUndo extends AbstractUndo {
+        
+        protected final ZNodeData data;
+        
+        public SetDataUndo(
+                ZNodeData data,
+                TxnOperation.Request<?> request,
+                ZNodeDataTrie trie) {
+            super(request, trie);
+            this.data = data;
+        }
+
+        @Override
+        public Void apply(Records.Response result) {
+            ZNodeStateNode node = trie.get(((Records.PathGetter) request.record()).getPath());
+            node.state().getData().set(data);
+            return null;
+        }
+    }
+    
+    @Operational({OpCode.CREATE, OpCode.CREATE2})
+    public static class CreateCopyState extends AbstractCreate<CreateUndo> {
+
+        public CreateCopyState(ZNodeDataTrie trie) {
+            super(trie);
+        }
+
+        @Override
+        protected CreateUndo doCreate(
+                TxnOperation.Request<?> request,
+                Records.CreateModeGetter record,
+                CreateMode mode,
+                ZNodeStateNode parent,
+                ZNodeLabel.Path path) {
+            return new CreateUndo(
+                    Stats.ChildrenStat.copyOf(parent.state().getChildren()),
+                    request,
+                    get());
+        }
+    }
+
+    @Operational(OpCode.DELETE)
+    public static class DeleteCopyState extends AbstractDelete<DeleteUndo> {
+
+        public DeleteCopyState(ZNodeDataTrie trie) {
+            super(trie);
+        }
+
+        @Override
+        protected DeleteUndo doDelete(
+                TxnOperation.Request<?> request,
+                IDeleteRequest record,
+                ZNodeLabel.Path path,
+                ZNodeStateNode node,
+                ZNodeStateNode parent) {
+            return new DeleteUndo(
+                    Stats.ChildrenStat.copyOf(parent.state().getChildren()),
+                    ZNodeState.copyOf(node.state()),
+                    request,
+                    get());
+        }
+    }
+
+    @Operational(OpCode.SET_DATA)
+    public static class SetDataCopyState extends AbstractSetData<SetDataUndo> {
+
+        public SetDataCopyState(ZNodeDataTrie trie) {
+            super(trie);
+        }
+
+        @Override
+        protected SetDataUndo doSetData(
+                TxnOperation.Request<?> request,
+                ISetDataRequest record,
+                ZNodeLabel.Path path,
+                ZNodeStateNode node) {
+            return new SetDataUndo(
+                    ZNodeData.copyOf(node.state().getData()),
+                    request,
+                    get());
+        }
+    }
+
     @Operational(OpCode.MULTI)        
-    public static class MultiOperator extends AbstractOperator<IMultiResponse> {
+    public static class MultiOperator extends AbstractProcessor<IMultiResponse> implements Operator<IMultiResponse> {
 
         public static MultiOperator of(ZNodeDataTrie trie) {
             return of(trie, ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(Operators.of(trie))));
@@ -331,6 +551,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             return new MultiOperator(trie, delegate);
         }
         
+        protected final Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends AbstractUndo, KeeperException>> copiers;
         protected final Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate;
         
         protected MultiOperator(
@@ -338,47 +559,72 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate) {
             super(trie);
             this.delegate = delegate;
+            List<Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends AbstractUndo, KeeperException>> copiers = 
+                    ImmutableList.<Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends AbstractUndo, KeeperException>>of(
+                            new CreateCopyState(trie),
+                            new DeleteCopyState(trie),
+                            new SetDataCopyState(trie));
+            ImmutableMap.Builder<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends AbstractUndo, KeeperException>> builder = ImmutableMap.builder();
+            for (Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends AbstractUndo, KeeperException> copier: copiers) {
+                for (OpCode code: copier.getClass().getAnnotation(Operational.class).value()) {
+                    builder.put(code, copier);
+                }
+            }
+            this.copiers = builder.build();
         }
 
         @Override
         public IMultiResponse apply(TxnOperation.Request<?> input)
                 throws KeeperException {
+            IMultiRequest record = (IMultiRequest) input.record();
             IErrorResponse error = null;
-            List<Records.MultiOpResponse> results = Lists.newArrayList();
-            for (Records.MultiOpRequest request: (IMultiRequest) input.record()) {
-                Records.MultiOpResponse result;
+            List<AbstractUndo> undos = Lists.newArrayListWithCapacity(record.size());
+            List<Records.MultiOpResponse> results = Lists.newArrayListWithCapacity(record.size());
+            for (Records.MultiOpRequest request: record) {
+                Records.MultiOpResponse result = null;
                 if (error != null) {
                     result = error;
                 } else {
-                    Message.ClientRequest<?> nestedRequest = ProtocolRequestMessage.of(input.xid(), request);
+                    Message.ClientRequest<?> nestedRequest = ProtocolRequestMessage.of(
+                            input.xid(), request);
                     TxnOperation.Request<?> nested = TxnRequest.of(
                             input.getTime(), 
                             input.zxid(), 
                             SessionRequest.of(input.getSessionId(), nestedRequest));
+                    AbstractUndo undo = null;
                     try {
                         switch (request.opcode()) {
-                        case CHECK:
-                            break;
                         case CREATE:
                         case CREATE2:
-                            break;
                         case DELETE:
-                            break;
                         case SET_DATA:
+                            undo = copiers.get(request.opcode()).apply(nested);
+                            break;
+                        case CHECK:
                             break;
                         default:
-                            throw new AssertionError(request.toString());
+                            throw new AssertionError(String.valueOf(request));
                         }
                         
                         result = (Records.MultiOpResponse) delegate.apply(nested);
+                        
+                        undos.add(undo);
                     } catch (KeeperException e) {
+                        result = Operations.Responses.error().setError(e.code()).build();
                         assert (error == null);
                         error = Operations.Responses.error().setError(KeeperException.Code.RUNTIMEINCONSISTENCY).build();
-                        // NOTE: save partial results...
-                        // FIXME: rollback effects!!
-                        throw new UnsupportedOperationException();
+                        
+                        for (int i=undos.size()-1;  i>=0;  --i) {
+                            undos.get(i).apply(results.get(i));
+                        }
+                        
+                        IErrorResponse ok = Operations.Responses.error().setError(KeeperException.Code.OK).build();
+                        for (int i=0; i<undos.size();  ++i) {
+                            results.set(i, ok);
+                        }
                     }
                 }
+                
                 results.add(result);
             }
             return new IMultiResponse(results);
@@ -392,11 +638,18 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
         
         public static ZNodeData empty(Stats.DataStat stat) {
-            return newInstance(stat, emptyBytes());
+            return of(stat, emptyBytes());
         }
         
-        public static ZNodeData newInstance(Stats.DataStat stat, byte[] data) {
+        public static ZNodeData of(Stats.DataStat stat, byte[] data) {
             return new ZNodeData(stat, data);
+        }
+        
+        public static ZNodeData copyOf(ZNodeData value) {
+            return of(Stats.DataStat.copyOf(value.getStat()),
+                    (value.getData() == null) ? null 
+                            : Arrays.copyOf(value.getData(), 
+                                    value.getData().length));
         }
 
         protected final Stats.DataStat stat;
@@ -423,6 +676,11 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             return data.length;
         }
         
+        public void set(ZNodeData value) {
+            setData(value.getData());
+            stat.set(value.getStat());
+        }
+        
         @Override
         public String toString() {
             return Objects.toStringHelper(this)
@@ -435,15 +693,21 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
     public static class ZNodeAcl implements Records.AclStatSetter {
 
         public static ZNodeAcl anyoneAll() {
-            return newInstance(Acls.Definition.ANYONE_ALL.asList());
+            return initialVersion(Acls.Definition.ANYONE_ALL.asList());
         }
 
-        public static ZNodeAcl newInstance(List<Acls.Acl> acl) {
-            return newInstance(acl, Stats.initialVersion());
+        public static ZNodeAcl initialVersion(List<Acls.Acl> acl) {
+            return of(acl, Stats.initialVersion());
         }
 
-        public static ZNodeAcl newInstance(List<Acls.Acl> acl, int aversion) {
+        public static ZNodeAcl of(List<Acls.Acl> acl, int aversion) {
             return new ZNodeAcl(acl, aversion);
+        }
+
+        public static ZNodeAcl copyOf(ZNodeAcl value) {
+            return of((value.getAcl() == null) ? null 
+                    : Lists.newArrayList(value.getAcl()), 
+                    value.getAversion());
         }
         
         protected int aversion;
@@ -499,14 +763,21 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
 
         public static ZNodeState defaults(long zxid) {
             long time = Stats.getTime();
-            return newInstance(
+            return of(
                     Stats.CreateStat.nonEphemeral(zxid, time),
-                    ZNodeData.empty(Stats.DataStat.newInstance(zxid, time)),
+                    ZNodeData.empty(Stats.DataStat.initialVersion(zxid, time)),
                     ZNodeAcl.anyoneAll(),
-                    Stats.ChildrenStat.newInstance(zxid));
+                    Stats.ChildrenStat.initialVersion(zxid));
         }
 
-        public static ZNodeState newInstance(
+        public static ZNodeState copyOf(ZNodeState value) {
+            return of(Stats.CreateStat.copyOf(value.getCreate()),
+                    ZNodeData.copyOf(value.getData()),
+                    ZNodeAcl.copyOf(value.getAcl()),
+                    Stats.ChildrenStat.copyOf(value.getChildren()));
+        }
+                
+        public static ZNodeState of(
                 Stats.CreateStat createStat,
                 ZNodeData data,
                 ZNodeAcl acl,
@@ -534,6 +805,10 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
             return data;
         }
         
+        public void setData(ZNodeData data) {
+            this.data.set(data);
+        }
+        
         public Stats.CreateStat getCreate() {
             return create;
         }
@@ -544,6 +819,10 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         
         public Stats.ChildrenStat getChildren() {
             return children;
+        }
+        
+        public void setChildren(Stats.ChildrenStat children) {
+            this.children.set(children);
         }
         
         public Stats.CompositeStatPersistedGetter asStatPersisted() {
@@ -601,7 +880,8 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         public Stats.ImmutableStat asStat() {
             int dataLength = state.getData().getDataLength();
             int numChildren = children.size();
-            return Stats.ImmutableStat.copyOf(Stats.CompositeStatGetter.of(state.asStatPersisted(), dataLength, numChildren));
+            return Stats.ImmutableStat.copyOf(Stats.CompositeStatGetter.of(
+                    state.asStatPersisted(), dataLength, numChildren));
         }
 
         @Override

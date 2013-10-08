@@ -4,8 +4,7 @@ import org.apache.jute.InputArchive;
 import org.apache.zookeeper.data.Stat;
 
 import com.google.common.base.Objects;
-
-import edu.uw.zookeeper.common.Singleton;
+import com.google.common.base.Supplier;
 
 
 public class Stats {
@@ -64,6 +63,14 @@ public class Stats {
         public static CreateStat of(long czxid, long ctime, long ephemeralOwner) {
             return new CreateStat(czxid, ctime, ephemeralOwner);
         }
+
+        public static CreateStat copyOf(Records.CreateStatGetter value) {
+            if (value instanceof CreateStat) {
+                return (CreateStat) value;
+            } else {
+                return of(value.getCzxid(), value.getCtime(), value.getEphemeralOwner());
+            }
+        }
         
         private final long czxid;
         private final long ctime;
@@ -106,16 +113,20 @@ public class Stats {
     
     public static class DataStat implements Records.DataStatSetter {
 
-        public static DataStat newInstance(long mzxid) {
-            return of(mzxid, getTime(), initialVersion());
+        public static DataStat initialVersion(long mzxid) {
+            return of(mzxid, getTime(), Stats.initialVersion());
         }
 
-        public static DataStat newInstance(long mzxid, long mtime) {
-            return of(mzxid, mtime, initialVersion());
+        public static DataStat initialVersion(long mzxid, long mtime) {
+            return of(mzxid, mtime, Stats.initialVersion());
         }
         
         public static DataStat of(long mzxid, long mtime, int version) {
             return new DataStat(mzxid, mtime, version);
+        }
+
+        public static DataStat copyOf(Records.DataStatGetter value) {
+            return of(value.getMzxid(), value.getMtime(), value.getVersion());
         }
         
         private long mzxid;
@@ -162,6 +173,12 @@ public class Stats {
         public boolean compareVersion(int version) {
             return Stats.compareVersion(version, getVersion());
         }
+        
+        public void set(Records.DataStatGetter value) {
+            setMzxid(value.getMzxid());
+            setMtime(value.getMtime());
+            setVersion(value.getVersion());
+        }
 
         public int getAndIncrement(long mzxid, long mtime) {
             int prev = this.version;
@@ -183,12 +200,16 @@ public class Stats {
     
     public static class ChildrenStat implements Records.ChildrenStatSetter {
 
-        public static ChildrenStat newInstance(long pzxid) {
-            return of(pzxid, initialVersion());
+        public static ChildrenStat initialVersion(long pzxid) {
+            return of(pzxid, Stats.initialVersion());
         }
         
         public static ChildrenStat of(long pzxid, int cversion) {
             return new ChildrenStat(pzxid, cversion);
+        }
+
+        public static ChildrenStat copyOf(Records.ChildrenStatGetter value) {
+            return of(value.getPzxid(), value.getCversion());
         }
         
         private long pzxid;
@@ -218,6 +239,11 @@ public class Stats {
         @Override
         public void setPzxid(long pzxid) {
             this.pzxid = pzxid;
+        }
+        
+        public void set(Records.ChildrenStatGetter value) {
+            setPzxid(value.getPzxid());
+            setCversion(value.getCversion());
         }
         
         public boolean compareVersion(int cversion) {
@@ -391,7 +417,7 @@ public class Stats {
                     ephemeralOwner, dataLength, numChildren, pzxid);
         }
         
-        public static enum Holder implements Singleton<ImmutableStat> {
+        public static enum Holder implements Supplier<ImmutableStat> {
             ZEROS(new ImmutableStat());
             
             private final ImmutableStat instance;
