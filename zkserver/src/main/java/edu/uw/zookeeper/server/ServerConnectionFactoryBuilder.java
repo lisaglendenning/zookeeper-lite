@@ -22,25 +22,22 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
     
     protected final RuntimeModule runtime;
-    protected final TimeValue timeOut;
     protected final NetServerModule serverModule;
     protected final ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory;
     protected final ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory;
     protected final ServerInetAddressView address;
     
     public ServerConnectionFactoryBuilder() {
-        this(null, null, null, null, null, null);
+        this(null, null, null, null, null);
     }
 
     public ServerConnectionFactoryBuilder(
             RuntimeModule runtime,
-            TimeValue timeOut,
             NetServerModule serverModule,
             ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory,
             ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory,
             ServerInetAddressView address) {
         this.runtime = runtime;
-        this.timeOut = timeOut;
         this.serverModule = serverModule;
         this.codecFactory = codecFactory;
         this.connectionFactory = connectionFactory;
@@ -57,22 +54,10 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.runtime == runtime) {
             return this;
         } else {
-            return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+            return newInstance(runtime, serverModule, codecFactory, connectionFactory, address);
         }
     }
     
-    public TimeValue getTimeOut() {
-        return timeOut;
-    }
-
-    public ServerConnectionFactoryBuilder setTimeOut(TimeValue timeOut) {
-        if (this.timeOut == timeOut) {
-            return this;
-        } else {
-            return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
-        }
-    }
-
     public NetServerModule getServerModule() {
         return serverModule;
     }
@@ -81,7 +66,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.serverModule == serverModule) {
             return this;
         } else {
-        return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        return newInstance(runtime, serverModule, codecFactory, connectionFactory, address);
         }
     }
 
@@ -94,7 +79,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.codecFactory == codecFactory) {
             return this;
         } else {
-        return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        return newInstance(runtime, serverModule, codecFactory, connectionFactory, address);
         }
     }
 
@@ -104,7 +89,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
 
     public ServerConnectionFactoryBuilder setConnectionFactory(
             ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory) {
-        return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        return newInstance(runtime, serverModule, codecFactory, connectionFactory, address);
     }
     
     public ServerInetAddressView getAddress() {
@@ -115,7 +100,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         if (this.address == address) {
             return this;
         } else {
-            return newInstance(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+            return newInstance(runtime, serverModule, codecFactory, connectionFactory, address);
         }
     }
 
@@ -125,9 +110,6 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         
         if (serverModule == null) {
             return setServerModule(getDefaultServerModule()).setDefaults();
-        }
-        if (timeOut == null) {
-            return setTimeOut(getDefaultTimeOut()).setDefaults();
         }
         if (codecFactory == null) {
             return setCodecFactory(getDefaultCodecFactory()).setDefaults();
@@ -148,18 +130,13 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     
     protected ServerConnectionFactoryBuilder newInstance(
             RuntimeModule runtime,
-            TimeValue timeOut,
             NetServerModule serverModule,
             ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory,
             ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory,
             ServerInetAddressView address) {
-        return new ServerConnectionFactoryBuilder(runtime, timeOut, serverModule, codecFactory, connectionFactory, address);
+        return new ServerConnectionFactoryBuilder(runtime, serverModule, codecFactory, connectionFactory, address);
     }
 
-    protected TimeValue getDefaultTimeOut() {
-        return ZooKeeperApplication.ConfigurableTimeout.get(runtime.getConfiguration());
-    }
-    
     protected NetServerModule getDefaultServerModule() {
         return NettyServerModule.newInstance(runtime);
     }

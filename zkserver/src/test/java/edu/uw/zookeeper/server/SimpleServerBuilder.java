@@ -27,8 +27,9 @@ public class SimpleServerBuilder extends ServerConnectionExecutorsService.Builde
     public static SimpleServerBuilder defaults(
             ServerInetAddressView address,
             NetServerModule serverModule) {
-        return new SimpleServerBuilder(
-                connectionBuilder(address, serverModule), null, null, null, null);
+        return new SimpleServerBuilder(null, null, null, null, null, null)
+                .setTimeOut(TimeValue.create(Session.Parameters.NEVER_TIMEOUT, Session.Parameters.TIMEOUT_UNIT))
+                .setConnectionBuilder(connectionBuilder(address, serverModule));
     }
     
     public static ServerConnectionFactoryBuilder connectionBuilder(
@@ -36,8 +37,7 @@ public class SimpleServerBuilder extends ServerConnectionExecutorsService.Builde
             NetServerModule serverModule) {
         return ServerConnectionFactoryBuilder.defaults()
                 .setServerModule(serverModule)
-                .setAddress(address)
-                .setTimeOut(TimeValue.create(Session.Parameters.NEVER_TIMEOUT, Session.Parameters.TIMEOUT_UNIT));
+                .setAddress(address);
     }
     
     protected SimpleServerBuilder(
@@ -45,8 +45,9 @@ public class SimpleServerBuilder extends ServerConnectionExecutorsService.Builde
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             SimpleServerExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            TimeValue timeOut,
             RuntimeModule runtime) {
-        super(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        super(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
     }
 
     @Override
@@ -57,6 +58,11 @@ public class SimpleServerBuilder extends ServerConnectionExecutorsService.Builde
     @Override
     public SimpleServerBuilder setRuntimeModule(RuntimeModule runtime) {
         return (SimpleServerBuilder) super.setRuntimeModule(runtime);
+    }
+    
+    @Override
+    public SimpleServerBuilder setTimeOut(TimeValue timeOut) {
+        return (SimpleServerBuilder) super.setTimeOut(timeOut);
     }
 
     @Override
@@ -91,8 +97,9 @@ public class SimpleServerBuilder extends ServerConnectionExecutorsService.Builde
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            TimeValue timeOut,
             RuntimeModule runtime) {
-        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, (SimpleServerExecutor) serverTaskExecutor, connectionExecutors, runtime);
+        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, (SimpleServerExecutor) serverTaskExecutor, connectionExecutors, timeOut, runtime);
     }
     
     @Override

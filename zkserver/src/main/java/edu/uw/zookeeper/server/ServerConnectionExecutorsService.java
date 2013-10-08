@@ -86,7 +86,7 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
     }
 
     public static Builder builder() {
-        return new Builder(null, null, null, null, null);
+        return new Builder(null, null, null, null, null, null);
     }
     
     public static class Builder implements ZooKeeperApplication.RuntimeBuilder<List<Service>, Builder> {
@@ -163,6 +163,7 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
         }
 
         protected final RuntimeModule runtime;
+        protected final TimeValue timeOut;
         protected final ServerConnectionFactoryBuilder connectionBuilder;
         protected final ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory;
         protected final ServerTaskExecutor serverTaskExecutor;
@@ -173,11 +174,13 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
                 ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
                 ServerTaskExecutor serverTaskExecutor,
                 ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+                TimeValue timeOut,
                 RuntimeModule runtime) {
             this.connectionBuilder = connectionBuilder;
             this.serverConnectionFactory = serverConnectionFactory;
             this.serverTaskExecutor = serverTaskExecutor;
             this.connectionExecutors = connectionExecutors;
+            this.timeOut = timeOut;
             this.runtime = runtime;
         }
 
@@ -196,10 +199,23 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
                         serverConnectionFactory, 
                         serverTaskExecutor, 
                         connectionExecutors, 
+                        timeOut,
                         runtime);
             }
         }
-        
+
+        public TimeValue getTimeOut() {
+            return timeOut;
+        }
+
+        public Builder setTimeOut(TimeValue timeOut) {
+            if (this.timeOut == timeOut) {
+                return this;
+            } else {
+                return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
+            }
+        }
+
         public ServerConnectionFactoryBuilder getConnectionBuilder() {
             return connectionBuilder;
         }
@@ -208,7 +224,7 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
             if (this.connectionBuilder == connectionBuilder) {
                 return this;
             } else {
-                return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+                return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
             }
         }
         
@@ -221,7 +237,7 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
             if (this.serverConnectionFactory == serverConnectionFactory) {
                 return this;
             } else {
-                return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+                return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
             }
         }
 
@@ -233,7 +249,7 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
             if (this.serverTaskExecutor == serverTaskExecutor) {
                 return this;
             } else {
-                return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+                return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
             }
         }
 
@@ -245,7 +261,7 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
             if (this.connectionExecutors == connectionExecutors) {
                 return this;
             } else {
-                return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+                return newInstance(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
             }
         }
         
@@ -256,7 +272,10 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
 
         public Builder setDefaults() {
             checkState(getRuntimeModule() != null);
-        
+
+            if (timeOut == null) {
+                return setTimeOut(getDefaultTimeOut()).setDefaults();
+            }
             if (this.connectionBuilder == null) {
                 return setConnectionBuilder(getDefaultServerConnectionFactoryBuilder()).setDefaults();
             }
@@ -281,8 +300,13 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
                 ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
                 ServerTaskExecutor serverTaskExecutor,
                 ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+                TimeValue timeOut,
                 RuntimeModule runtime) {
-            return new Builder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+            return new Builder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
+        }
+
+        protected TimeValue getDefaultTimeOut() {
+            return ZooKeeperApplication.ConfigurableTimeout.get(runtime.getConfiguration());
         }
         
         protected ServerConnectionFactoryBuilder getDefaultServerConnectionFactoryBuilder() {
@@ -327,7 +351,7 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
         protected ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getDefaultConnectionExecutorsService() {
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> instance = ServerConnectionExecutorsService.newInstance(
                     getServerConnectionFactory(), 
-                    getConnectionBuilder().getTimeOut(),
+                    getTimeOut(),
                     getRuntimeModule().getExecutors().get(ScheduledExecutorService.class),
                     getServerTaskExecutor());
             return instance;

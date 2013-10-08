@@ -93,8 +93,8 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
     @Override
     public TimeValue boundTimeout(TimeValue timeOut) {
         TimeValue maxTimeout = maxTimeout();
-        if (maxTimeout.value() != Session.Parameters.NEVER_TIMEOUT
-                && maxTimeout.value() < timeOut.value(maxTimeout.unit())) {
+        if ((maxTimeout.value() != Session.Parameters.NEVER_TIMEOUT)
+                && (maxTimeout.value() < timeOut.value(maxTimeout.unit()))) {
             timeOut = maxTimeout;
         } else {
             TimeValue minTimeout = minTimeout();
