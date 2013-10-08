@@ -615,7 +615,9 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                         error = Operations.Responses.error().setError(KeeperException.Code.RUNTIMEINCONSISTENCY).build();
                         
                         for (int i=undos.size()-1;  i>=0;  --i) {
-                            undos.get(i).apply(results.get(i));
+                            if (undos.get(i) != null) {
+                                undos.get(i).apply(results.get(i));
+                            }
                         }
                         
                         IErrorResponse ok = Operations.Responses.error().setError(KeeperException.Code.OK).build();
