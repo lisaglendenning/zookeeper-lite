@@ -112,10 +112,15 @@ public abstract class AbstractConnectionClientExecutor<
     }
 
     @Subscribe
-    public void handleResponse(Message.ServerResponse<?> message) {
+    public void handleResponse(Operation.ProtocolResponse<?> message) {
+        logger.debug("Received: {}", message);
         timeOut.send(message);
     }
-    
+
+    @Override
+    public void onSuccess(O result) {
+    }
+
     @Override
     public void onFailure(Throwable t) {
         failure.compareAndSet(null, t);
@@ -175,7 +180,7 @@ public abstract class AbstractConnectionClientExecutor<
         }
     }
     
-    protected static class TimeOutServer extends TimeOutActor<Message.Server> implements FutureCallback<ConnectMessage.Response> {
+    protected static class TimeOutServer extends TimeOutActor<Operation.Response> implements FutureCallback<ConnectMessage.Response> {
 
         protected final WeakReference<FutureCallback<?>> callback;
         

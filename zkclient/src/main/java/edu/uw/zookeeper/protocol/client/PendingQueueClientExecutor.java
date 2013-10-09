@@ -2,9 +2,11 @@ package edu.uw.zookeeper.protocol.client;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledExecutorService;
+
 import com.google.common.collect.Queues;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Promise;
@@ -20,13 +22,13 @@ import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 public abstract class PendingQueueClientExecutor<
     I extends Operation.Request, 
-    V extends Message.ServerResponse<?>,
-    T extends PromiseTask<I, V>,
+    V extends Operation.ProtocolResponse<?>,
+    T extends PendingQueueClientExecutor.RequestTask<I, V>,
     C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>>
-    extends AbstractConnectionClientExecutor<I,V,T,C,PendingQueueClientExecutor.PendingTask> {
+    extends AbstractConnectionClientExecutor<I,V,T,C,PendingQueueClientExecutor.PendingTask<V>> {
 
     protected final ConcurrentLinkedQueue<T> mailbox;
-    protected final ConcurrentLinkedQueue<PendingTask> pending;
+    protected final ConcurrentLinkedQueue<PendingTask<V>> pending;
     
     protected PendingQueueClientExecutor(
             ListenableFuture<ConnectMessage.Response> session,
@@ -39,15 +41,16 @@ public abstract class PendingQueueClientExecutor<
         this.mailbox = Queues.newConcurrentLinkedQueue();
     }
 
+    @SuppressWarnings("unchecked")
     @Subscribe
-    public void handleResponse(Message.ServerResponse<?> message) {
+    public void handleResponse(Operation.ProtocolResponse<?> message) {
         super.handleResponse(message);
         if (state() != State.TERMINATED) {
             int xid = message.xid();
             if (! ((xid == OpCodeXid.PING.xid()) || (xid == OpCodeXid.NOTIFICATION.xid()))) {
-                PendingTask next = pending.peek();
+                PendingTask<V> next = pending.peek();
                 if ((next != null) && (next.xid() == xid)) {
-                    next.set(message);
+                    next.set((V) message);
                     pending.remove(next);
                 } else {
                     // This could happen if someone submitted a message without
@@ -60,7 +63,7 @@ public abstract class PendingQueueClientExecutor<
     }
     
     @Override
-    public void onSuccess(PendingTask result) {
+    public void onSuccess(PendingTask<V> result) {
         // mark pings as done on write because ZooKeeper doesn't care about their ordering
         if (result.xid() == OpCodeXid.PING.xid()) {
             result.set(null);
@@ -75,7 +78,7 @@ public abstract class PendingQueueClientExecutor<
     @Override
     protected void doStop() {
         Throwable failure = this.failure.get();
-        PendingTask task;
+        PendingTask<V> task;
         while ((task = pending.poll()) != null) {
             if (failure == null) {
                 task.cancel(true);
@@ -86,17 +89,54 @@ public abstract class PendingQueueClientExecutor<
         
         super.doStop();
     }
+
+    protected PendingTask<V> write(Message.ClientRequest<?> message, Promise<V> promise) {
+        PendingTask<V> task = PendingTask.of(message.xid(), this, promise);
+        if (task.xid() != OpCodeXid.PING.xid()) {
+            // task needs to be in the queue before calling write
+            pending.add(task);
+        }
+        try {
+            ListenableFuture<? extends Message.ClientRequest<?>> writeFuture = connection.write(message);
+            Futures.addCallback(writeFuture, task, executor());
+        } catch (Throwable t) {
+            task.onFailure(t);
+        }
+        return task;
+    }
     
-    protected static class PendingTask
-        extends PromiseTask<FutureCallback<? super PendingTask>, Message.ServerResponse<?>>
+    public static class RequestTask<I extends Operation.Request, V extends Operation.ProtocolResponse<?>> extends PromiseTask<I,V> {
+
+        public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> RequestTask<I,V> of(I task, Promise<V> promise) {
+            return new RequestTask<I,V>(task, promise);
+        }
+        
+        public RequestTask(I task, Promise<V> promise) {
+            super(task, promise);
+        }
+        
+        public Promise<V> promise() {
+            return delegate();
+        }
+    }
+    
+    public static class PendingTask<V extends Operation.ProtocolResponse<?>>
+        extends PromiseTask<FutureCallback<? super PendingTask<V>>, V>
         implements Operation.RequestId, FutureCallback<Message.ClientRequest<?>> {
+        
+        public static <V extends Operation.ProtocolResponse<?>> PendingTask<V> of(
+                int xid,
+                FutureCallback<? super PendingTask<V>> callback,
+                Promise<V> promise) {
+            return new PendingTask<V>(xid, callback, promise);
+        }
 
         protected final int xid;
         
         public PendingTask(
                 int xid,
-                FutureCallback<? super PendingTask> callback,
-                Promise<Message.ServerResponse<?>> promise) {
+                FutureCallback<? super PendingTask<V>> callback,
+                Promise<V> promise) {
             super(callback, promise);
             this.xid = xid;
 
