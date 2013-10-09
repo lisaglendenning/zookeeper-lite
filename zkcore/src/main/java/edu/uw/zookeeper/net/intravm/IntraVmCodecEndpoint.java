@@ -129,8 +129,9 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
             return;
         }
         if (output.isPresent()) {
-            logger.trace(LoggingMarker.NET_MARKER.get(), "Decoded: {}", output);
-            publisher.post(output.get());
+            Object value = output.get();
+            logger.trace(LoggingMarker.NET_MARKER.get(), "Decoded: {}", value);
+            publisher.post(value);
         }
     }
 
