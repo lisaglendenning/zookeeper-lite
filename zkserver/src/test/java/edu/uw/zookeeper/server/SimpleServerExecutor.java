@@ -61,7 +61,7 @@ public class SimpleServerExecutor extends ServerTaskExecutor {
                         ToTxnRequestProcessor.create(
                                 AssignZxidProcessor.newInstance(zxids)), 
                         ProtocolResponseProcessor.create(
-                                ServerConnectionExecutorsService.Builder.defaultTxnProcessor(dataTrie, sessions,
+                                ConnectionServerExecutorsService.Builder.defaultTxnProcessor(dataTrie, sessions,
                                         new Function<Long, Publisher>() {
                                             @Override
                                             public @Nullable Publisher apply(Long input) {
@@ -78,7 +78,7 @@ public class SimpleServerExecutor extends ServerTaskExecutor {
         ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
         SessionRequestExecutor sessionExecutor = newSessionExecutor(
                 MoreExecutors.sameThreadExecutor(), zxids, dataTrie, listeners, sessions);
-        return ServerConnectionExecutorsService.Builder.defaultServerExecutor(zxids, sessions, listeners, sessionExecutor);
+        return ConnectionServerExecutorsService.Builder.defaultServerExecutor(zxids, sessions, listeners, sessionExecutor);
     }
     
     protected final SessionTable sessions;

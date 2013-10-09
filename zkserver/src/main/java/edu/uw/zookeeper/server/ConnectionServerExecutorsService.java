@@ -60,7 +60,7 @@ import edu.uw.zookeeper.protocol.server.FourLetterRequestProcessor;
 import edu.uw.zookeeper.protocol.server.PingProcessor;
 import edu.uw.zookeeper.protocol.server.ProtocolResponseProcessor;
 import edu.uw.zookeeper.protocol.server.RequestErrorProcessor;
-import edu.uw.zookeeper.protocol.server.ServerConnectionExecutor;
+import edu.uw.zookeeper.protocol.server.ConnectionServerExecutor;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
 import edu.uw.zookeeper.protocol.server.ToTxnRequestProcessor;
@@ -68,16 +68,16 @@ import edu.uw.zookeeper.protocol.server.WatcherEventProcessor;
 import edu.uw.zookeeper.protocol.server.ZxidEpochIncrementer;
 import edu.uw.zookeeper.protocol.server.ZxidGenerator;
 
-public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> extends ForwardingService implements Iterable<ServerConnectionExecutor<T>> {
+public class ConnectionServerExecutorsService<T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> extends ForwardingService implements Iterable<ConnectionServerExecutor<T>> {
 
-    public static <T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> ServerConnectionExecutorsService<T> newInstance(
+    public static <T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> ConnectionServerExecutorsService<T> newInstance(
             ServerConnectionFactory<T> connections,
             TimeValue timeOut,
             ScheduledExecutorService executor,
             ServerTaskExecutor server) {
-        return new ServerConnectionExecutorsService<T>(
+        return new ConnectionServerExecutorsService<T>(
                 connections, 
-                ServerConnectionExecutor.<T>factory(
+                ConnectionServerExecutor.<T>factory(
                         timeOut,
                         executor,
                         server.getAnonymousExecutor(), 
@@ -167,13 +167,13 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
         protected final ServerConnectionFactoryBuilder connectionBuilder;
         protected final ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory;
         protected final ServerTaskExecutor serverTaskExecutor;
-        protected final ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors;
+        protected final ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors;
 
         protected Builder(
                 ServerConnectionFactoryBuilder connectionBuilder,
                 ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
                 ServerTaskExecutor serverTaskExecutor,
-                ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+                ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
                 TimeValue timeOut,
                 RuntimeModule runtime) {
             this.connectionBuilder = connectionBuilder;
@@ -253,11 +253,11 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
             }
         }
 
-        public ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getConnectionExecutors() {
+        public ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getConnectionExecutors() {
             return connectionExecutors;
         }
 
-        public Builder setConnectionExecutors(ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
+        public Builder setConnectionExecutors(ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
             if (this.connectionExecutors == connectionExecutors) {
                 return this;
             } else {
@@ -299,7 +299,7 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
                 ServerConnectionFactoryBuilder connectionBuilder,
                 ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
                 ServerTaskExecutor serverTaskExecutor,
-                ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+                ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
                 TimeValue timeOut,
                 RuntimeModule runtime) {
             return new Builder(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
@@ -348,8 +348,8 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
                     sessionExecutor);
         }
         
-        protected ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getDefaultConnectionExecutorsService() {
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> instance = ServerConnectionExecutorsService.newInstance(
+        protected ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getDefaultConnectionExecutorsService() {
+            ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> instance = ConnectionServerExecutorsService.newInstance(
                     getServerConnectionFactory(), 
                     getTimeOut(),
                     getRuntimeModule().getExecutors().get(ScheduledExecutorService.class),
@@ -364,19 +364,19 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
     }
 
     protected final ServerConnectionFactory<T> connections;
-    protected final ParameterizedFactory<T, ServerConnectionExecutor<T>> factory;
-    protected final ConcurrentMap<T, ServerConnectionExecutor<T>> handlers;
+    protected final ParameterizedFactory<T, ConnectionServerExecutor<T>> factory;
+    protected final ConcurrentMap<T, ConnectionServerExecutor<T>> handlers;
     
-    public ServerConnectionExecutorsService(
+    public ConnectionServerExecutorsService(
             ServerConnectionFactory<T> connections,
-            ParameterizedFactory<T, ServerConnectionExecutor<T>> factory) {
+            ParameterizedFactory<T, ConnectionServerExecutor<T>> factory) {
         this.connections = connections;
         this.factory = factory;
         this.handlers = new MapMaker().makeMap();
     }
     
     @Override
-    public Iterator<ServerConnectionExecutor<T>> iterator() {
+    public Iterator<ConnectionServerExecutor<T>> iterator() {
         return handlers.values().iterator();
     }
 
@@ -410,9 +410,9 @@ public class ServerConnectionExecutorsService<T extends ProtocolCodecConnection<
         } catch (IllegalArgumentException e) {}
     }
 
-    protected class RemoveOnClose extends Pair<T, ServerConnectionExecutor<T>> {
+    protected class RemoveOnClose extends Pair<T, ConnectionServerExecutor<T>> {
         
-        public RemoveOnClose(T connection, ServerConnectionExecutor<T> handler) {
+        public RemoveOnClose(T connection, ConnectionServerExecutor<T> handler) {
             super(connection, handler);
             if (handlers.putIfAbsent(connection, handler) != null) {
                 throw new AssertionError();

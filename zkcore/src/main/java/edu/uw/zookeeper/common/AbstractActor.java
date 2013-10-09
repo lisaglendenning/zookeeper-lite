@@ -1,6 +1,5 @@
 package edu.uw.zookeeper.common;
 
-import java.util.Queue;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.Logger;
@@ -13,27 +12,24 @@ public abstract class AbstractActor<T> implements Actor<T> {
     protected final AtomicReference<State> state;
     
     protected AbstractActor() {
-        this.state = new AtomicReference<State>(State.WAITING);
+        this(State.WAITING);
     }
-    
-    protected abstract Logger logger();
-    
-    protected abstract Queue<T> mailbox();
-    
+
+    protected AbstractActor(State state) {
+        this.state = new AtomicReference<State>(state);
+    }
+
     @Override
     public boolean send(T message) {
+        logger().debug("Received {} ({})", message, this);
         if (state() == State.TERMINATED) {
             return false;
+        } else {
+            return doSend(message);
         }
-        if (! mailbox().offer(message)) {
-            return false;
-        }
-        if (! schedule() && (state() == State.TERMINATED)) {
-            mailbox().remove(message);
-            return false;
-        }
-        return true;
     }
+    
+    protected abstract boolean doSend(T message);
     
     @Override
     public State state() {
@@ -46,7 +42,7 @@ public abstract class AbstractActor<T> implements Actor<T> {
             try {
                 doRun();
             } catch (Throwable e) {
-                logger().warn("Unhandled error", e);
+                logger().warn("Unhandled error ({})", this, e);
                 stop();
                 throw Throwables.propagate(e);
             }
@@ -62,23 +58,10 @@ public abstract class AbstractActor<T> implements Actor<T> {
         }
     }
 
-    protected void doRun() throws Exception {
-        T next;
-        while ((next = mailbox().poll()) != null) {
-            if (! apply(next)) {
-                break;
-            }
-        }
-    }
-
-    protected abstract boolean apply(T input) throws Exception;
-
+    protected abstract void doRun() throws Exception;
+    
     protected void runExit() {
-        if (state.compareAndSet(State.RUNNING, State.WAITING)) {
-            if (! mailbox().isEmpty()) {
-                schedule();
-            }
-        }
+        state.compareAndSet(State.RUNNING, State.WAITING);
     }
 
     @Override
@@ -86,14 +69,13 @@ public abstract class AbstractActor<T> implements Actor<T> {
         boolean stop = (state() != State.TERMINATED)
                 && (state.getAndSet(State.TERMINATED) != State.TERMINATED);
         if (stop) {
+            logger().debug("Stopping ({})", this);
             doStop();
         }
         return stop;
     }
     
-    protected void doStop() {
-        mailbox().clear();
-    }
+    protected abstract void doStop();
 
     protected boolean schedule() {
         boolean schedule = state.compareAndSet(State.WAITING, State.SCHEDULED);
@@ -106,4 +88,6 @@ public abstract class AbstractActor<T> implements Actor<T> {
     protected void doSchedule() {
         run();
     }
+
+    protected abstract Logger logger();
 }

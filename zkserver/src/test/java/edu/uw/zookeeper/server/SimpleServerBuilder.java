@@ -16,7 +16,7 @@ import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
 import edu.uw.zookeeper.server.SimpleServerExecutor;
 
-public class SimpleServerBuilder extends ServerConnectionExecutorsService.Builder {
+public class SimpleServerBuilder extends ConnectionServerExecutorsService.Builder {
 
     public static SimpleServerBuilder defaults(
             IntraVmNetModule net) {
@@ -44,7 +44,7 @@ public class SimpleServerBuilder extends ServerConnectionExecutorsService.Builde
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             SimpleServerExecutor serverTaskExecutor,
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
             TimeValue timeOut,
             RuntimeModule runtime) {
         super(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
@@ -82,7 +82,7 @@ public class SimpleServerBuilder extends ServerConnectionExecutorsService.Builde
     }
 
     @Override
-    public SimpleServerBuilder setConnectionExecutors(ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
+    public SimpleServerBuilder setConnectionExecutors(ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
         return (SimpleServerBuilder) super.setConnectionExecutors(connectionExecutors);
     }
     
@@ -96,7 +96,7 @@ public class SimpleServerBuilder extends ServerConnectionExecutorsService.Builde
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
             TimeValue timeOut,
             RuntimeModule runtime) {
         return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, (SimpleServerExecutor) serverTaskExecutor, connectionExecutors, timeOut, runtime);

@@ -32,10 +32,11 @@ public class PromiseTask<T,V> extends ForwardingPromise<V> {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
-                .add("task", task())
-                .add("future", delegate())
-                .toString();
+        return toString(Objects.toStringHelper(this)).toString();
+    }
+    
+    protected Objects.ToStringHelper toString(Objects.ToStringHelper toString) {
+        return toString.add("task", task).add("future", delegate);
     }
 
     @Override
