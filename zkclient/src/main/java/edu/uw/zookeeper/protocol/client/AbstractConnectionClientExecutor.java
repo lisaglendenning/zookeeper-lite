@@ -39,7 +39,7 @@ import edu.uw.zookeeper.protocol.TimeOutParameters;
 
 public abstract class AbstractConnectionClientExecutor<
     I extends Operation.Request, 
-    V extends Message.ServerResponse<?>,
+    V extends Operation.ProtocolResponse<?>,
     T extends Future<?>,
     C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>,
     O>
