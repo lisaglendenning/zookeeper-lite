@@ -30,8 +30,8 @@ import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.LoggingMarker;
 import edu.uw.zookeeper.netty.ChannelConnectionFactory;
-import edu.uw.zookeeper.netty.Logging;
 
 public class ChannelClientConnectionFactory<C extends Connection<?>> extends ChannelConnectionFactory<C>
         implements ClientConnectionFactory<C> {
@@ -116,7 +116,7 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
         if (! isRunning()) {
             return Futures.immediateFailedFuture(new IllegalStateException(state().toString()));
         }
-        logger.debug(Logging.NETTY_MARKER, "CONNECTING {}", remoteAddress);
+        logger.debug(LoggingMarker.NET_MARKER.get(), "CONNECTING {}", remoteAddress);
         return initializer.connect(bootstrap.connect(remoteAddress));
     }
 

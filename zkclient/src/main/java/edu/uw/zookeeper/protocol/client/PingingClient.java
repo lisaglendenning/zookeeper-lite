@@ -18,7 +18,7 @@ import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
-import edu.uw.zookeeper.protocol.Logging;
+import edu.uw.zookeeper.protocol.LoggingMarker;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.Session;
@@ -143,7 +143,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                                 TimeValue pong = TimeValue.milliseconds(System.currentTimeMillis());
                                 // of course, this pong could be for an earlier ping,
                                 // so this time difference is not very accurate...
-                                logger.trace(Logging.PING_MARKER, String.format("PONG %s: %s",
+                                logger.trace(LoggingMarker.PING_MARKER.get(), String.format("PONG %s: %s",
                                         (lastPing == null) ? 0 : pong.difference(lastPing), pong));
                             }
                         }
@@ -184,9 +184,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                 }
 
                 lastPing = TimeValue.milliseconds(System.currentTimeMillis());
-                if (logger.isTraceEnabled()) {
-                    logger.trace(Logging.PING_MARKER, "PING: {}", lastPing);
-                }
+                logger.trace(LoggingMarker.PING_MARKER.get(), "PING: {}", lastPing);
             }
         }
 

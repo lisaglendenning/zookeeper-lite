@@ -62,7 +62,7 @@ public abstract class AbstractConnectionFactory<C extends Connection<?>> extends
                     if (Connection.State.CONNECTION_CLOSED == connection.state()) {
                         listener.handleStateEvent(Automaton.Transition.create(Connection.State.CONNECTION_OPENING, Connection.State.CONNECTION_CLOSED));
                     } else {
-                        logger.trace(Logging.NET_MARKER, "ADDED {}", connection);
+                        logger.trace(LoggingMarker.NET_MARKER.get(), "ADDED {}", connection);
                         post(connection);
                         return true;
                     }
@@ -78,7 +78,7 @@ public abstract class AbstractConnectionFactory<C extends Connection<?>> extends
     protected boolean remove(C connection) {
         boolean removed = connections().remove(connection);
         if (removed) {
-            logger.trace(Logging.NET_MARKER, "REMOVED {}", connection);
+            logger.trace(LoggingMarker.NET_MARKER.get(), "REMOVED {}", connection);
         }
         return removed;
     }

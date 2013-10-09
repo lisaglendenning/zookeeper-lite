@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import org.apache.logging.log4j.Logger;
 
+import edu.uw.zookeeper.net.LoggingMarker;
 import edu.uw.zookeeper.protocol.Encoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -39,7 +40,7 @@ public class EncoderHandler<I> extends MessageToByteEncoder<I> {
     @Override
     protected void encode(ChannelHandlerContext ctx, I message, ByteBuf output) throws IOException {
         if (logger.isTraceEnabled()) {
-            logger.trace(Logging.NETTY_MARKER, "ENCODING {} ({})", message, ctx.channel());
+            logger.trace(LoggingMarker.NET_MARKER.get(), "ENCODING {} ({})", message, ctx.channel());
         }
         encoder.encode(message, output);
     }

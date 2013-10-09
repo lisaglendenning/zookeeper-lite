@@ -11,8 +11,8 @@
 	<Loggers>
 		<Logger name="edu.uw.zookeeper" level="trace">
 			<!-- <filters> <MarkerFilter marker="EDU_UW_ZOOKEEPER_PROTOCOL_PING" onMatch="DENY" 
-				onMismatch="NEUTRAL"/> <MarkerFilter marker="EDU_UW_ZOOKEEPER_PROTOCOL_NET" 
-				onMatch="DENY" onMismatch="NEUTRAL"/> <MarkerFilter marker="EDU_UW_ZOOKEEPER_PROTOCOL_NETTY" 
+				onMismatch="NEUTRAL"/> <MarkerFilter marker="EDU_UW_ZOOKEEPER_PROTOCOL" 
+				onMatch="DENY" onMismatch="NEUTRAL"/> <MarkerFilter marker="EDU_UW_ZOOKEEPER_NETTY" 
 				onMatch="DENY" onMismatch="NEUTRAL"/> </filters> -->
 		</Logger>
 		<Logger name="io.netty" level="info" />

@@ -7,6 +7,7 @@ import edu.uw.zookeeper.common.Automatons;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Stateful;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.LoggingMarker;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -77,7 +78,7 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
             throws Exception {
-        logger.warn(Logging.NETTY_MARKER, "EXCEPTION {}", ctx.channel(), cause);
+        logger.warn(LoggingMarker.NET_MARKER.get(), "EXCEPTION {}", ctx.channel(), cause);
         ctx.close();
     }
 

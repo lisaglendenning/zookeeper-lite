@@ -20,7 +20,7 @@ import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.net.Logging;
+import edu.uw.zookeeper.net.LoggingMarker;
 
 public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> implements Publisher, Executor {
 
@@ -164,7 +164,7 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
         } else {
             if (logger.isTraceEnabled()) {
                 if (input.isPresent()) {
-                    logger.trace(Logging.NET_MARKER, "DROPPING {}", input.get());
+                    logger.trace(LoggingMarker.NET_MARKER.get(), "DROPPING {}", input.get());
                 }
             }
         }
@@ -181,7 +181,7 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
             Optional<? extends V> next;
             while ((next = mailbox.poll()) != null) {
                 if (next.isPresent()) {
-                    logger.trace(Logging.NET_MARKER, "DROPPING {}", next.get());
+                    logger.trace(LoggingMarker.NET_MARKER.get(), "DROPPING {}", next.get());
                 }
             }
         }

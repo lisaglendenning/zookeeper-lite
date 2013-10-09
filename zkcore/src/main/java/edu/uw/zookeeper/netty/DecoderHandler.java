@@ -9,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.common.base.Optional;
 
+import edu.uw.zookeeper.net.LoggingMarker;
 import edu.uw.zookeeper.protocol.Decoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -48,7 +49,7 @@ public class DecoderHandler extends ByteToMessageDecoder {
             Optional<?> decoded = decoder.decode(input);
             if (decoded.isPresent()) {
                 if (logger.isTraceEnabled()) {
-                    logger.trace(Logging.NETTY_MARKER, "DECODED {} ({})", decoded.get(), ctx.channel());
+                    logger.trace(LoggingMarker.NET_MARKER.get(), "DECODED {} ({})", decoded.get(), ctx.channel());
                 }
                 output.add(decoded.get());
             } else {

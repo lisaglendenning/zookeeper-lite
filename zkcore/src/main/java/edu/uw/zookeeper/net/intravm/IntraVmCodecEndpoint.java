@@ -23,7 +23,7 @@ import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.net.Logging;
+import edu.uw.zookeeper.net.LoggingMarker;
 import edu.uw.zookeeper.protocol.Codec;
 
 public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Optional<?>>> extends IntraVmEndpoint<ByteBuf> {
@@ -124,11 +124,12 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
         try { 
             output = codec.decode(input);
         } catch (IOException e) {
-            logger.warn(Logging.NET_MARKER, "{}", input, e);
+            logger.warn(LoggingMarker.NET_MARKER.get(), "{}", input, e);
             stop();
             return;
         }
         if (output.isPresent()) {
+            logger.trace(LoggingMarker.NET_MARKER.get(), "Decoded: {}", output);
             publisher.post(output.get());
         }
     }
@@ -145,17 +146,19 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
             this.remote = remote;
         }
         
-        @SuppressWarnings("unchecked")
         @Override
         public synchronized void run() {
             if(!isDone()) {
                 ByteBuf output;
                 if (task().isPresent()) {
+                    @SuppressWarnings("unchecked")
+                    I input = (I) task().get();
                     output = allocator.buffer();
+                    logger.trace(LoggingMarker.NET_MARKER.get(), "Encoding: {}", input);
                     try {
-                        codec.encode((I) task().get(), output);
+                        codec.encode(input, output);
                     } catch (IOException e) {
-                        logger.warn(Logging.NET_MARKER, "{}", e);
+                        logger.warn(LoggingMarker.NET_MARKER.get(), "{}", e);
                         setException(e);
                         return;
                     }

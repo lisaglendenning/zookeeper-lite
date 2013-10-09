@@ -17,9 +17,9 @@ import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.LoggingMarker;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.netty.ChannelConnectionFactory;
-import edu.uw.zookeeper.netty.Logging;
 
 public class ChannelServerConnectionFactory<C extends Connection<?>> 
         extends ChannelConnectionFactory<C>
@@ -156,7 +156,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
     protected void startUp() throws Exception {
         assert (serverChannel == null);
         serverChannel = (ServerChannel) serverBootstrap().bind().sync().channel();
-        logger.info(Logging.NETTY_MARKER, "Server listening to {}", serverChannel.localAddress());
+        logger.info(LoggingMarker.NET_MARKER.get(), "Server listening to {}", serverChannel.localAddress());
         serverChannel.closeFuture().addListener(new CloseListener());
         super.startUp();
     }

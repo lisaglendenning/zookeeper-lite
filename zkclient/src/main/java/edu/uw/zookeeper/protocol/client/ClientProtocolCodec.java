@@ -147,7 +147,7 @@ public class ClientProtocolCodec
             // the peek and poll need to be atomic
             Pair<Integer, OpCode> next = pending.peek();
             if ((next != null) && (reply instanceof Operation.RequestId)) {
-                if (next.first().equals(((Operation.RequestId)reply).xid())) {
+                if (next.first().equals(((Operation.RequestId) reply).xid())) {
                     pending.poll();
                 }
             }
