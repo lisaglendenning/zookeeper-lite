@@ -52,7 +52,11 @@ def main(argv, environ, env_prefix, main_class):
     java = os.path.join(environ['JAVA_HOME'], 'bin', 'java') \
             if 'JAVA_HOME' in environ else 'java'
     
-    args = [java] + java_args + [main_class] + argv[1:]
+    main = environ.get(
+                env_prefix + 'MAIN',
+                main_class)
+    
+    args = [java] + java_args + [main] + argv[1:]
     os.execvp(java, args)
 
 if __name__ == "__main__":
