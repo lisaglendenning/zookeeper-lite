@@ -6,7 +6,7 @@
 # Description: Python front end script to ${main.class}
 ##############################################################################
 
-import sys, os, shlex, distutils
+import sys, os, shlex, distutils.spawn
 
 def main(argv, environ, env_prefix, main_class):
     prefix = environ.get(
@@ -58,7 +58,7 @@ def main(argv, environ, env_prefix, main_class):
                 main_class)
     
     args = [java] + java_args + [main] + argv[1:]
-    os.execvp(java, args)
+    os.execv(java, args)
 
 if __name__ == "__main__":
     main(sys.argv, os.environ, '${main.prefix}', '${main.class}')
