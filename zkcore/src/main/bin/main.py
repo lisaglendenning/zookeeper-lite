@@ -6,7 +6,7 @@
 # Description: Python front end script to ${main.class}
 ##############################################################################
 
-import sys, os, shlex
+import sys, os, shlex, distutils
 
 def main(argv, environ, env_prefix, main_class):
     prefix = environ.get(
@@ -50,7 +50,8 @@ def main(argv, environ, env_prefix, main_class):
         java_args.extend(shlex.split(environ['JAVA_ARGS']))
 
     java = os.path.join(environ['JAVA_HOME'], 'bin', 'java') \
-            if 'JAVA_HOME' in environ else 'java'
+            if 'JAVA_HOME' in environ \
+            else distutils.spawn.find_executable('java')
     
     main = environ.get(
                 env_prefix + 'MAIN',
