@@ -123,7 +123,7 @@ public class DefaultRuntimeModule implements RuntimeModule {
         }
     }
     
-    @Configurable(path="Runtime", key="PoolSize", type=ConfigValueType.NUMBER)
+    @Configurable(path="runtime", key="poolSize", value="0", type=ConfigValueType.NUMBER)
     public static class DefaultApplicationExecutorFactory implements Factory<ExecutorService> {
 
         public static DefaultApplicationExecutorFactory configured(
@@ -136,7 +136,10 @@ public class DefaultRuntimeModule implements RuntimeModule {
             Configurable configurable = DefaultApplicationExecutorFactory.class.getAnnotation(Configurable.class);
             Config config = configuration.withConfigurable(configurable)
                     .getConfigOrEmpty(configurable.path());
-            int corePoolSize = config.hasPath(configurable.key()) ? config.getInt(configurable.key()) : availableProcessors();
+            int corePoolSize = config.getInt(configurable.key());
+            if (corePoolSize == 0) {
+                corePoolSize = availableProcessors();
+            }
             int maxPoolSize = corePoolSize;
             return new DefaultApplicationExecutorFactory(
                     corePoolSize,
