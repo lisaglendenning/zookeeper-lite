@@ -53,8 +53,8 @@ public abstract class PendingQueueClientExecutor<
             if (! ((xid == OpCodeXid.PING.xid()) || (xid == OpCodeXid.NOTIFICATION.xid()))) {
                 PendingTask<V> next = pending.peek();
                 if ((next != null) && (next.xid() == xid)) {
-                    next.set((V) message);
                     pending.remove(next);
+                    next.set((V) message);
                 } else {
                     // This could happen if someone submitted a message without
                     // going through us
