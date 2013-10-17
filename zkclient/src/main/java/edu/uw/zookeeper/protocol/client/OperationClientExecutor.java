@@ -71,7 +71,7 @@ public class OperationClientExecutor<C extends ProtocolCodecConnection<? super M
     public ListenableFuture<Message.ServerResponse<?>> submit(
             Operation.Request request, Promise<Message.ServerResponse<?>> promise) {
         RequestTask<Operation.Request, Message.ServerResponse<?>> task = 
-                RequestTask.of(request, LoggingPromise.create(logger, promise));
+                RequestTask.of(request, LoggingPromise.create(logger(), promise));
         if (! send(task)) {
             task.cancel(true);
         }

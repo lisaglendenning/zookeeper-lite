@@ -43,7 +43,7 @@ import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
 
 public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>>
-        implements Publisher, Reference<T> {
+        implements Publisher, Reference<T>, FutureCallback<Object> {
 
     public static <T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> ConnectionServerExecutor<T> newInstance(
             T connection,
@@ -134,6 +134,11 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
         outbound.unregister(handler);
     }
     
+    @Override
+    public void onSuccess(Object result) {
+    }
+
+    @Override
     public void onFailure(Throwable t) {
         failure.compareAndSet(null, t);
         stop();
@@ -176,13 +181,28 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
     
     protected static class TimeOutClient extends TimeOutActor<Message.Client> implements FutureCallback<ConnectMessage.Response> {
 
-        protected final WeakReference<ConnectionServerExecutor<?>> connection;
+        protected final Logger logger;
+        protected final WeakReference<FutureCallback<?>> callback;
         
         public TimeOutClient(TimeOutParameters parameters,
                 ScheduledExecutorService executor,
-                ConnectionServerExecutor<?> connection) {
+                FutureCallback<?> callback) {
             super(parameters, executor);
-            this.connection = new WeakReference<ConnectionServerExecutor<?>>(connection);
+            this.callback = new WeakReference<FutureCallback<?>>(callback);
+            this.logger = LogManager.getLogger(getClass());
+        }
+
+        @Override
+        public void onSuccess(ConnectMessage.Response result) {
+            stop();
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+            FutureCallback<?> callback = this.callback.get();
+            if (callback != null) {
+                callback.onFailure(t);
+            }
         }
 
         @Override
@@ -193,16 +213,17 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
         }
 
         @Override
-        public void onSuccess(ConnectMessage.Response result) {
-            stop();
-        }
-
-        @Override
-        public void onFailure(Throwable t) {
-            ConnectionServerExecutor<?> connection = this.connection.get();
-            if (connection != null) {
-                connection.onFailure(t);
+        protected synchronized void doSchedule() {
+            if (callback.get() == null) {
+                stop();
+            } else {
+                super.doSchedule();
             }
+        }
+        
+        @Override
+        protected Logger logger() {
+            return logger;
         }
     }
 

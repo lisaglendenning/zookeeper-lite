@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.protocol.client;
 
 import java.lang.ref.WeakReference;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -12,7 +11,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -21,8 +19,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.ExecutedActor;
-import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
@@ -41,8 +37,7 @@ public abstract class AbstractConnectionClientExecutor<
     I extends Operation.Request, 
     V extends Operation.ProtocolResponse<?>,
     T extends Future<?>,
-    C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>,
-    O>
+    C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>, O>
     extends ExecutedActor<T>
     implements ConnectionClientExecutor<I,V,C>,
         FutureCallback<O> {
@@ -173,15 +168,14 @@ public abstract class AbstractConnectionClientExecutor<
 
         try {
             connection.close().get();
-        } catch (InterruptedException e) {
-            throw Throwables.propagate(e);
-        } catch (ExecutionException e) {
+        } catch (Exception e) {
             logger.debug("Ignoring {}", e);
         }
     }
     
     protected static class TimeOutServer extends TimeOutActor<Operation.Response> implements FutureCallback<ConnectMessage.Response> {
 
+        protected final Logger logger;
         protected final WeakReference<FutureCallback<?>> callback;
         
         public TimeOutServer(
@@ -190,13 +184,7 @@ public abstract class AbstractConnectionClientExecutor<
                 FutureCallback<?> connection) {
             super(parameters, executor);
             this.callback = new WeakReference<FutureCallback<?>>(connection);
-        }
-
-        @Override
-        protected void doRun() {
-            if (parameters.remaining() <= 0) {
-                onFailure(new KeeperException.OperationTimeoutException());
-            }
+            this.logger = LogManager.getLogger(getClass());
         }
 
         @Override
@@ -214,45 +202,26 @@ public abstract class AbstractConnectionClientExecutor<
                 callback.onFailure(t);
             }
         }
-    }
-
-    protected static class PendingTask
-        extends PromiseTask<FutureCallback<? super PendingTask>, Message.ServerResponse<?>>
-        implements Operation.RequestId, FutureCallback<Message.ClientRequest<?>> {
-
-        protected final int xid;
-        
-        public PendingTask(
-                int xid,
-                FutureCallback<? super PendingTask> callback,
-                Promise<Message.ServerResponse<?>> promise) {
-            super(callback, promise);
-            this.xid = xid;
-
-        }
-        
-        @Override
-        public int xid() {
-            return xid;
-        }
 
         @Override
-        public boolean setException(Throwable t) {
-            boolean doSet = super.setException(t);
-            if (doSet) {
-                task.onFailure(t);
+        protected void doRun() {
+            if (parameters.remaining() <= 0) {
+                onFailure(new KeeperException.OperationTimeoutException());
             }
-            return doSet;
         }
 
         @Override
-        public void onSuccess(Message.ClientRequest<?> result) {
-            task.onSuccess(this);
+        protected synchronized void doSchedule() {
+            if (callback.get() == null) {
+                stop();
+            } else {
+                super.doSchedule();
+            }
         }
-
+        
         @Override
-        public void onFailure(Throwable t) {
-            setException(t);
+        protected Logger logger() {
+            return logger;
         }
-    } 
+    }
 }

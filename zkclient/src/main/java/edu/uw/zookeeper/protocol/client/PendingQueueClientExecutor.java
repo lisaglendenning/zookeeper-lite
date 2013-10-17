@@ -42,10 +42,12 @@ public abstract class PendingQueueClientExecutor<
         this.mailbox = Queues.newConcurrentLinkedQueue();
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     @Subscribe
     public void handleResponse(Operation.ProtocolResponse<?> message) {
         super.handleResponse(message);
+        
         if (state() != State.TERMINATED) {
             int xid = message.xid();
             if (! ((xid == OpCodeXid.PING.xid()) || (xid == OpCodeXid.NOTIFICATION.xid()))) {
@@ -140,7 +142,6 @@ public abstract class PendingQueueClientExecutor<
                 Promise<V> promise) {
             super(callback, promise);
             this.xid = xid;
-
         }
         
         @Override

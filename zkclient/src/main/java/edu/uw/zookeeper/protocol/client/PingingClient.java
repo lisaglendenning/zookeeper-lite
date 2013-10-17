@@ -123,34 +123,31 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         }
 
         @Override
-        public boolean send(Object message) {
+        protected boolean doSend(Object message) {
             if (message instanceof Operation.Request) {
                 parameters.touch();
-            } else if (message instanceof Message.Server) {
-                if (message instanceof ConnectMessage.Response) {
-                    if (message instanceof ConnectMessage.Response.Valid) {
-                        parameters.setTimeOut(((ConnectMessage.Response) message).toParameters().timeOut().value());
-                        parameters.touch();
-                        run();
-                    } else {
-                        stop();
-                    }
+            } else if (message instanceof ConnectMessage.Response) {
+                if (message instanceof ConnectMessage.Response.Valid) {
+                    parameters.setTimeOut(((ConnectMessage.Response) message).toParameters().timeOut().value());
+                    parameters.touch();
+                    run();
                 } else {
-                    if (logger.isTraceEnabled()) {
-                        if (message instanceof Message.ServerResponse) {
-                            Records.Response response = ((Message.ServerResponse<?>) message).record();
-                            if (response.opcode() == OpCode.PING) {
-                                TimeValue pong = TimeValue.milliseconds(System.currentTimeMillis());
-                                // of course, this pong could be for an earlier ping,
-                                // so this time difference is not very accurate...
-                                logger.trace(LoggingMarker.PING_MARKER.get(), String.format("PONG %s: %s",
-                                        (lastPing == null) ? 0 : pong.difference(lastPing), pong));
-                            }
+                    stop();
+                }
+            } else {
+                if (logger().isTraceEnabled()) {
+                    if (message instanceof Operation.ProtocolResponse<?>) {
+                        if (((Operation.ProtocolResponse<?>) message).record().opcode() == OpCode.PING) {
+                            TimeValue pong = TimeValue.milliseconds(System.currentTimeMillis());
+                            // of course, this pong could be for an earlier ping,
+                            // so this time difference is not very accurate...
+                            logger().trace(LoggingMarker.PING_MARKER.get(), String.format("PONG %s: %s",
+                                    (lastPing == null) ? 0 : pong.difference(lastPing), pong));
                         }
                     }
                 }
             }
-            return (state() != State.TERMINATED);
+            return true;
         }
 
         @SuppressWarnings("unchecked")
@@ -158,6 +155,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         protected void doRun() {   
             PingingClient<I,?,?> connection = this.connection.get();
             if (connection == null) {
+                stop();
                 return;
             }
             
@@ -179,7 +177,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
                 try {
                     Futures.addCallback(connection.write((I) pingRequest), this);
                 } catch (Exception e) {
-                    connection.close();
+                    stop();
                     return;
                 }
 
@@ -190,17 +188,24 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
 
         @Override
         protected synchronized void doSchedule() {
-            if (parameters.getTimeOut() != Session.Parameters.NEVER_TIMEOUT) {
-                if (executor.isShutdown()) {
-                    stop();
-                } else {
+            if (connection.get() == null) {
+                stop();
+            } else if (parameters.getTimeOut() != Session.Parameters.NEVER_TIMEOUT) {
+                if (!executor.isShutdown()) {
                     // somewhat arbitrary...
                     long tick = Math.max(parameters.remaining() / 2, 0);
                     future = executor.schedule(this, tick, parameters.getUnit());
+                } else {
+                    stop();
                 }
             } else {
                 state.compareAndSet(State.SCHEDULED, State.WAITING);
             }
+        }
+
+        @Override
+        protected Logger logger() {
+            return logger;
         }
     }
 }
