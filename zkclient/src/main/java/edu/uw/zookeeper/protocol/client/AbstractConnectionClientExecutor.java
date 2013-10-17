@@ -42,7 +42,7 @@ public abstract class AbstractConnectionClientExecutor<
     implements ConnectionClientExecutor<I,V,C>,
         FutureCallback<O> {
     
-    protected static final Executor sameThreadExecutor = MoreExecutors.sameThreadExecutor();
+    protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
 
     protected final Logger logger;
     protected final C connection;
@@ -64,7 +64,7 @@ public abstract class AbstractConnectionClientExecutor<
                 
         this.connection.register(this);
         this.timeOut.run();
-        Futures.addCallback(this.session, this.timeOut, sameThreadExecutor);
+        Futures.addCallback(this.session, this.timeOut, SAME_THREAD_EXECUTOR);
     }
 
     public ListenableFuture<ConnectMessage.Response> session() {
