@@ -38,12 +38,12 @@ public class LoggingPublisher implements Publisher, Reference<Publisher> {
     
     @Override
     public void register(Object handler) {
-        get().register(handler);
+        delegate.register(handler);
     }
 
     @Override
     public void unregister(Object handler) {
-        get().unregister(handler);
+        delegate.unregister(handler);
     }
 
     @Override
@@ -55,16 +55,16 @@ public class LoggingPublisher implements Publisher, Reference<Publisher> {
             for (int i=1; i<nparams; ++i) {
                 params[i] = this.params[i-1];
             }
-            getLogger().entry(params);
+            logger.entry(params);
         }
-        get().post(event);
+        delegate.post(event);
         if (logger.isTraceEnabled()) {
-            getLogger().exit();
+            logger.exit();
         }
     }
     
     @Override
     public String toString() {
-        return get().toString();
+        return delegate.toString();
     }
 }
