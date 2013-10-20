@@ -38,18 +38,17 @@ public class SessionClientExecutor<V extends Operation.ProtocolResponse<?>> impl
     }
     
     @Override
-    public void register(Object handler) {
-        delegate.register(handler);
+    public void subscribe(Object handler) {
+        delegate.subscribe(handler);
     }
 
     @Override
-    public void unregister(Object handler) {
-        delegate.unregister(handler);
+    public boolean unsubscribe(Object handler) {
+        return delegate.unsubscribe(handler);
     }
 
     @Override
-    public void post(Object event) {
-        delegate.post(event);
+    public void publish(Object event) {
+        delegate.publish(event);
     }
-    
 }

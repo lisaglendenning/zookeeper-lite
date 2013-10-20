@@ -3,9 +3,10 @@ package edu.uw.zookeeper.protocol.client;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledExecutorService;
 
+import net.engio.mbassy.listener.Handler;
+
 import com.google.common.base.Objects;
 import com.google.common.collect.Queues;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -44,7 +45,7 @@ public abstract class PendingQueueClientExecutor<
 
     @Override
     @SuppressWarnings("unchecked")
-    @Subscribe
+    @Handler
     public void handleResponse(Operation.ProtocolResponse<?> message) {
         super.handleResponse(message);
         

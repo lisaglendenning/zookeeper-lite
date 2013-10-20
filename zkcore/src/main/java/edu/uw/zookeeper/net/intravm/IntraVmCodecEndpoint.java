@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.net.intravm;
 
 import static com.google.common.base.Preconditions.checkState;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 
@@ -9,6 +8,8 @@ import java.io.IOException;
 import java.net.SocketAddress;
 import java.util.Queue;
 import java.util.concurrent.Executor;
+
+import net.engio.mbassy.PubSubSupport;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -20,7 +21,6 @@ import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.LoggingMarker;
@@ -32,7 +32,7 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
             ByteBufAllocator allocator,
             Pair<Class<I>, T> codec,
             SocketAddress address,
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             Executor executor) {
         return IntraVmCodecEndpoint.<I,T>builder(
                 allocator,
@@ -44,7 +44,7 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
     public static <I, T extends Codec<? super I, ? extends Optional<?>>> Builder<I,T> builder(
             ByteBufAllocator allocator,
             SocketAddress address,
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             Executor executor) {
         return new Builder<I,T>(allocator, address, publisher, executor);
     }
@@ -57,7 +57,7 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
         public Builder(
                 ByteBufAllocator allocator,
                 SocketAddress address,
-                Publisher publisher,
+                PubSubSupport<Object> publisher,
                 Executor executor) {
             this(allocator, address, publisher, executor, LogManager.getLogger(IntraVmCodecEndpoint.class));
         }
@@ -65,7 +65,7 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
         public Builder(
                 ByteBufAllocator allocator,
                 SocketAddress address,
-                Publisher publisher,
+                PubSubSupport<Object> publisher,
                 Executor executor,
                 Logger logger) {
             super(address, publisher, executor, logger);
@@ -119,7 +119,7 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
     }
 
     @Override
-    protected void doPost(ByteBuf input) {
+    protected void doPublish(ByteBuf input) {
         Optional<?> output;
         try { 
             output = codec.decode(input);
@@ -131,7 +131,7 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
         if (output.isPresent()) {
             Object value = output.get();
             logger.trace(LoggingMarker.NET_MARKER.get(), "Decoded: {}", value);
-            publisher.post(value);
+            publisher.publish(value);
         }
     }
 

@@ -5,6 +5,8 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Map;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.jute.Record;
 
 import com.google.common.base.Objects;
@@ -13,7 +15,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.Schema;
@@ -46,7 +47,7 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
     public Materializer(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             ClientExecutor<? super Records.Request, V> client) {
         super(publisher, client, ZNodeLabelTrie.of(MaterializedNode.root(schema, codec)));
         this.schema = schema;

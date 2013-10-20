@@ -1,34 +1,48 @@
 package edu.uw.zookeeper.client;
 
-import com.google.common.eventbus.Subscribe;
+import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.listener.Handler;
 
-import edu.uw.zookeeper.common.Eventful;
-import edu.uw.zookeeper.common.ForwardingEventful;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.data.WatchEvent;
-import edu.uw.zookeeper.net.UnregisterOnClose;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 // Republishes a notification message as a WatchEvent
-public class WatchEventPublisher extends ForwardingEventful {
+public class WatchEventPublisher implements PubSubSupport<WatchEvent> {
     
-    public static WatchEventPublisher create(Publisher publisher, Eventful eventful) {
+    public static WatchEventPublisher create(PubSubSupport<? super WatchEvent> publisher, PubSubSupport<?> eventful) {
         WatchEventPublisher instance = new WatchEventPublisher(publisher);
-        UnregisterOnClose.create(instance, eventful);
+        eventful.subscribe(instance);
         return instance;
     }
     
-    public WatchEventPublisher(Publisher publisher) {
-        super(publisher);
+    protected final PubSubSupport<? super WatchEvent> publisher;
+    
+    public WatchEventPublisher(PubSubSupport<? super WatchEvent> publisher) {
+        this.publisher = publisher;
     }
 
-    @Subscribe
+    @Override
+    public void subscribe(Object listener) {
+        publisher.subscribe(listener);
+    }
+
+    @Override
+    public boolean unsubscribe(Object listener) {
+        return publisher.unsubscribe(listener);
+    }
+
+    @Override
+    public void publish(WatchEvent event) {
+        publisher.publish(event);
+    }
+    
+    @Handler
     public void handleReply(Operation.ProtocolResponse<?> message) {
         if (OpCodeXid.NOTIFICATION.xid() == message.xid()) {
             WatchEvent event = WatchEvent.fromRecord((IWatcherEvent) message.record());
-            post(event);
+            publish(event);
         }
     }
 }

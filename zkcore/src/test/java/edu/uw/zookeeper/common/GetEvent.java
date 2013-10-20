@@ -1,9 +1,10 @@
 package edu.uw.zookeeper.common;
 
-import com.google.common.eventbus.Subscribe;
+import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.listener.Handler;
+
 import com.google.common.reflect.TypeToken;
 
-import edu.uw.zookeeper.common.Eventful;
 import edu.uw.zookeeper.common.ForwardingPromise;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.SettableFuturePromise;
@@ -11,13 +12,13 @@ import edu.uw.zookeeper.common.SettableFuturePromise;
 public class GetEvent<T> extends ForwardingPromise<T> {
 
     public static <T> GetEvent<T> create(
-            Eventful eventful) {
+            PubSubSupport<? super T> eventful) {
         Promise<T> delegate = SettableFuturePromise.create();
         return create(eventful, delegate);
     }
     
     public static <T> GetEvent<T> create(
-            Eventful eventful,
+            PubSubSupport<? super T> eventful,
             Promise<T> delegate) {
         return new GetEvent<T>(eventful, delegate);
     }
@@ -25,20 +26,20 @@ public class GetEvent<T> extends ForwardingPromise<T> {
     @SuppressWarnings("serial")
     protected final TypeToken<T> type = new TypeToken<T>(getClass()) {};
     protected final Promise<T> delegate;
-    protected final Eventful eventful;
+    protected final PubSubSupport<? super T> eventful;
     
     public GetEvent(
-            Eventful eventful,
+            PubSubSupport<? super T> eventful,
             Promise<T> delegate) {
         this.eventful = eventful;
         this.delegate = delegate;
-        eventful.register(this);
+        eventful.subscribe(this);
     }
     
-    @Subscribe
+    @Handler
     public void handleEvent(T event) {
         if (type.getRawType().isAssignableFrom(event.getClass())) {
-            eventful.unregister(this);
+            eventful.unsubscribe(this);
             set(event);
         }
     }

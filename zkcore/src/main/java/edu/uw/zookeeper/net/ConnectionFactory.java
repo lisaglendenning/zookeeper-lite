@@ -1,8 +1,8 @@
 package edu.uw.zookeeper.net;
 
-import com.google.common.util.concurrent.Service;
+import net.engio.mbassy.PubSubSupport;
 
-import edu.uw.zookeeper.common.Publisher;
+import com.google.common.util.concurrent.Service;
 
 /**
  * Collection of Connections.
@@ -12,5 +12,5 @@ import edu.uw.zookeeper.common.Publisher;
  * <li> C when a new C is added
  * </ul>
  */
-public interface ConnectionFactory<C extends Connection<?>> extends Iterable<C>, Publisher, Service {
+public interface ConnectionFactory<C extends Connection<?>> extends Iterable<C>, PubSubSupport<Object>, Service {
 }

@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
+import net.engio.mbassy.PubSubSupport;
+
 import com.google.common.collect.Iterators;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Sets;
@@ -27,7 +29,6 @@ import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.LoggingMarker;
@@ -37,7 +38,7 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
         implements ClientConnectionFactory<C> {
     
     public static <C extends Connection<?>> ClientFactoryBuilder<C> factory(
-            Factory<? extends Publisher> publisherFactory,
+            Factory<? extends PubSubSupport<Object>> publisherFactory,
             ParameterizedFactory<Channel, C> connectionFactory,
             Factory<Bootstrap> bootstrapFactory) {
         return ClientFactoryBuilder.newInstance(
@@ -49,7 +50,7 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
     public static class ClientFactoryBuilder<C extends Connection<?>> extends FactoryBuilder<C> implements Factory<ChannelClientConnectionFactory<C>> {
 
         public static <C extends Connection<?>> ClientFactoryBuilder<C> newInstance(
-                Factory<? extends Publisher> publisherFactory,
+                Factory<? extends PubSubSupport<Object>> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 Factory<Bootstrap> bootstrapFactory) {
             return new ClientFactoryBuilder<C>(publisherFactory, connectionFactory, bootstrapFactory);
@@ -58,7 +59,7 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
         private final Factory<Bootstrap> bootstrapFactory;
         
         private ClientFactoryBuilder(
-                Factory<? extends Publisher> publisherFactory,
+                Factory<? extends PubSubSupport<Object>> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 Factory<Bootstrap> bootstrapFactory) {
             super(publisherFactory, connectionFactory);
@@ -75,7 +76,7 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
     }
 
     public static <C extends Connection<?>> ChannelClientConnectionFactory<C> newInstance(
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             Bootstrap bootstrap) {
         ChannelGroup channels = new DefaultChannelGroup(ChannelClientConnectionFactory.class.getSimpleName(), bootstrap.group().next());
@@ -87,7 +88,7 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
     }
     
     public static <C extends Connection<?>> ChannelClientConnectionFactory<C> newInstance(
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             ChannelGroup channels,
             Bootstrap bootstrap) {
@@ -102,7 +103,7 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
     protected final Bootstrap bootstrap;
 
     protected ChannelClientConnectionFactory(
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             ChannelGroup channels,
             Bootstrap bootstrap) {

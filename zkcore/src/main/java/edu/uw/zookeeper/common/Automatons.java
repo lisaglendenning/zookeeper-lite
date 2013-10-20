@@ -5,6 +5,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import net.engio.mbassy.PubSubSupport;
+
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -26,13 +28,13 @@ public abstract class Automatons {
     }
     
     public static <Q,I> EventfulAutomaton<Q,I> createEventful(
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             Automaton<Q,I> automaton) {
         return EventfulAutomaton.create(publisher, automaton);
     }
 
     public static <Q,I> SynchronizedEventfulAutomaton<Q,I> createSynchronizedEventful(
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             Automaton<Q,I> automaton) {
         return SynchronizedEventfulAutomaton.create(publisher, automaton);
     } 
@@ -112,20 +114,21 @@ public abstract class Automatons {
         }
     }
     
-    public static class EventfulAutomaton<Q,I> extends ForwardingEventful implements Automaton<Q,I>, Eventful {
+    public static class EventfulAutomaton<Q,I> implements Automaton<Q,I>, PubSubSupport<Object> {
 
         public static <Q,I> EventfulAutomaton<Q,I> create(
-                Publisher publisher,
+                PubSubSupport<Object> publisher,
                 Automaton<Q,I> automaton) {
             return new EventfulAutomaton<Q,I>(publisher, automaton);
         }
 
+        private final PubSubSupport<Object> publisher;
         private final Automaton<Q,I> automaton;
 
         protected EventfulAutomaton(
-                Publisher publisher,
+                PubSubSupport<Object> publisher,
                 Automaton<Q,I> automaton) {
-            super(publisher);
+            this.publisher = checkNotNull(publisher);
             this.automaton = checkNotNull(automaton);
         }
         
@@ -144,7 +147,7 @@ public abstract class Automatons {
             Q curState = automaton().state();
             Optional<Q> nextState = automaton().apply(input);
             if (nextState.isPresent() && ! curState.equals(nextState.get())) {
-                post(Automaton.Transition.create(curState, nextState.get()));
+                publish(Automaton.Transition.create(curState, nextState.get()));
             }
             return nextState;
         }
@@ -152,13 +155,28 @@ public abstract class Automatons {
         @Override
         public String toString() {
             return Objects.toStringHelper(Automaton.class).add("state", state()).toString();
+        }
+
+        @Override
+        public void subscribe(Object listener) {
+            publisher.subscribe(listener);
+        }
+
+        @Override
+        public boolean unsubscribe(Object listener) {
+            return publisher.unsubscribe(listener);
+        }
+
+        @Override
+        public void publish(Object message) {
+            publisher.publish(message);
         }    
     }
     
     public static class SynchronizedEventfulAutomaton<Q,I> extends EventfulAutomaton<Q,I> {
 
         public static <Q,I> SynchronizedEventfulAutomaton<Q,I> create(
-                Publisher publisher,
+                PubSubSupport<Object> publisher,
                 Automaton<Q,I> automaton) {
             return new SynchronizedEventfulAutomaton<Q,I>(publisher, automaton);
         }
@@ -166,7 +184,7 @@ public abstract class Automatons {
         private final ReadWriteLock lock;
         
         protected SynchronizedEventfulAutomaton(
-                Publisher publisher,
+                PubSubSupport<Object> publisher,
                 Automaton<Q,I> automaton) {
             super(publisher, automaton);
             this.lock = new ReentrantReadWriteLock();
@@ -194,7 +212,7 @@ public abstract class Automatons {
                 lock.writeLock().unlock();
             }
             if (nextState.isPresent() && ! curState.equals(nextState.get())) {
-                post(Automaton.Transition.create(curState, nextState.get()));
+                publish(Automaton.Transition.create(curState, nextState.get()));
             }
             return nextState;
         }

@@ -3,12 +3,12 @@ package edu.uw.zookeeper.net;
 import java.net.SocketAddress;
 import java.util.concurrent.Executor;
 
+import net.engio.mbassy.PubSubSupport;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.common.Publisher;
 
 /**
  * Asynchronous communication channel.
@@ -23,7 +23,7 @@ import edu.uw.zookeeper.common.Publisher;
  * 
  * @see edu.uw.zookeeper.netty
  */
-public interface Connection<I> extends Publisher, Executor {
+public interface Connection<I> extends PubSubSupport<Object>, Executor {
 
     public static enum State implements Function<State, Optional<State>> {
         CONNECTION_OPENING {

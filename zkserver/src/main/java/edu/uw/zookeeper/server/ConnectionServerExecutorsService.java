@@ -12,6 +12,12 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import javax.annotation.Nullable;
 
+import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.bus.SyncBusConfiguration;
+import net.engio.mbassy.bus.SyncMessageBus;
+import net.engio.mbassy.listener.Handler;
+import net.engio.mbassy.listener.References;
+
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Function;
@@ -19,18 +25,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.Automaton;
-import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.ForwardingService;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Processors;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.common.TimeValue;
@@ -94,7 +97,7 @@ public class ConnectionServerExecutorsService<T extends ProtocolCodecConnection<
         public static Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> defaultTxnProcessor(
                 ZNodeDataTrie trie,
                 final SessionTable sessions,
-                Function<Long, Publisher> publishers) {
+                Function<Long, PubSubSupport<Object>> publishers) {
             Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> processors = Maps.newEnumMap(OpCode.class);
             processors = ZNodeDataTrie.Operators.of(trie, processors);
             processors.put(OpCode.MULTI, 
@@ -132,7 +135,7 @@ public class ConnectionServerExecutorsService<T extends ProtocolCodecConnection<
                 Executor executor,
                 ZxidGenerator zxids,
                 ZNodeDataTrie dataTrie,
-                final Map<Long, Publisher> listeners,
+                final Map<Long, PubSubSupport<Object>> listeners,
                 ExpiringSessionTable sessions) {
             Processor<SessionOperation.Request<?>, Message.ServerResponse<?>> processor = 
                     Processors.bridge(
@@ -140,9 +143,9 @@ public class ConnectionServerExecutorsService<T extends ProtocolCodecConnection<
                                     AssignZxidProcessor.newInstance(zxids)), 
                             ProtocolResponseProcessor.create(
                                     defaultTxnProcessor(dataTrie, sessions,
-                                            new Function<Long, Publisher>() {
+                                            new Function<Long, PubSubSupport<Object>>() {
                                                 @Override
-                                                public @Nullable Publisher apply(@Nullable Long input) {
+                                                public @Nullable PubSubSupport<Object> apply(@Nullable Long input) {
                                                     return listeners.get(input);
                                                 }
                                     })));
@@ -152,11 +155,11 @@ public class ConnectionServerExecutorsService<T extends ProtocolCodecConnection<
         public static ServerTaskExecutor defaultServerExecutor(
                 ZxidReference zxids,
                 SessionTable sessions,
-                Map<Long, Publisher> listeners,
+                Map<Long, PubSubSupport<Object>> listeners,
                 TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> sessionExecutor) {
             TaskExecutor<FourLetterRequest, FourLetterResponse> anonymousExecutor = 
                     ServerTaskExecutor.ProcessorExecutor.of(FourLetterRequestProcessor.newInstance());
-            TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> connectExecutor = 
+            TaskExecutor<Pair<ConnectMessage.Request, PubSubSupport<Object>>, ConnectMessage.Response> connectExecutor = 
                     ServerTaskExecutor.ProcessorExecutor.of(ConnectListenerProcessor.newInstance(
                             ConnectTableProcessor.create(sessions, zxids), listeners));
             return ServerTaskExecutor.newInstance(anonymousExecutor, connectExecutor, sessionExecutor);
@@ -320,8 +323,9 @@ public class ConnectionServerExecutorsService<T extends ProtocolCodecConnection<
         protected ExpiringSessionTable getDefaultExpiringSessionTable() {
             SessionParametersPolicy policy = 
                     DefaultSessionParametersPolicy.create(getRuntimeModule().getConfiguration());
+            @SuppressWarnings("rawtypes")
             ExpiringSessionTable sessions = 
-                    ExpiringSessionTable.newInstance(EventBusPublisher.newInstance(), policy);
+                    ExpiringSessionTable.newInstance(new SyncMessageBus<Object>(new SyncBusConfiguration()), policy);
             getRuntimeModule().getServiceMonitor().add(
                     ExpiringSessionService.newInstance(
                             sessions, 
@@ -334,7 +338,7 @@ public class ConnectionServerExecutorsService<T extends ProtocolCodecConnection<
             ZxidEpochIncrementer zxids = ZxidEpochIncrementer.fromZero();
             ExpiringSessionTable sessionTable = getDefaultExpiringSessionTable();
             ZNodeDataTrie dataTrie = ZNodeDataTrie.newInstance();
-            ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
+            ConcurrentMap<Long, PubSubSupport<Object>> listeners = new MapMaker().makeMap();
             ExpiringSessionRequestExecutor sessionExecutor = defaultSessionExecutor(
                     getRuntimeModule().getExecutors().get(ExecutorService.class),
                     zxids,
@@ -384,7 +388,7 @@ public class ConnectionServerExecutorsService<T extends ProtocolCodecConnection<
         return connections;
     }
 
-    @Subscribe
+    @Handler
     public void handleNewConnection(T connection) {
         new RemoveOnClose(connection, factory.get(connection));
     }
@@ -396,7 +400,7 @@ public class ConnectionServerExecutorsService<T extends ProtocolCodecConnection<
 
     @Override
     protected void startUp() throws Exception {
-        connections.register(this);
+        connections.subscribe(this);
         
         super.startUp();
     }
@@ -406,10 +410,11 @@ public class ConnectionServerExecutorsService<T extends ProtocolCodecConnection<
         super.shutDown();
         
         try {
-            connections.unregister(this);
+            connections.unsubscribe(this);
         } catch (IllegalArgumentException e) {}
     }
 
+    @net.engio.mbassy.listener.Listener(references = References.Strong)
     protected class RemoveOnClose extends Pair<T, ConnectionServerExecutor<T>> {
         
         public RemoveOnClose(T connection, ConnectionServerExecutor<T> handler) {
@@ -417,14 +422,14 @@ public class ConnectionServerExecutorsService<T extends ProtocolCodecConnection<
             if (handlers.putIfAbsent(connection, handler) != null) {
                 throw new AssertionError();
             }
-            connection.register(this);
+            connection.subscribe(this);
         }
-    
-        @Subscribe
+
+        @Handler
         public void handleStateEvent(Automaton.Transition<?> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
                 try {
-                    first().unregister(this);
+                    first().unsubscribe(this);
                 } catch (IllegalArgumentException e) {}
                 handlers.remove(first(), second());
             }

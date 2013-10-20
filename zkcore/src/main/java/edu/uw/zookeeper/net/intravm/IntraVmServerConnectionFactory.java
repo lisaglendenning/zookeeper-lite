@@ -2,9 +2,9 @@ package edu.uw.zookeeper.net.intravm;
 
 import java.net.SocketAddress;
 
+import net.engio.mbassy.PubSubSupport;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 
@@ -12,7 +12,7 @@ public class IntraVmServerConnectionFactory<C extends Connection<?>, V> extends 
 
     public static <C extends Connection<?>, V> IntraVmServerConnectionFactory<C,V> newInstance(
             SocketAddress listenAddress,
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             Factory<? extends IntraVmEndpoint<?>> endpointFactory,
             ParameterizedFactory<? super IntraVmConnection<V>, C> connectionFactory) {
         return new IntraVmServerConnectionFactory<C,V>(listenAddress, publisher, endpointFactory, connectionFactory);
@@ -22,7 +22,7 @@ public class IntraVmServerConnectionFactory<C extends Connection<?>, V> extends 
     
     public IntraVmServerConnectionFactory(
             SocketAddress listenAddress,
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             Factory<? extends IntraVmEndpoint<?>> endpointFactory,
             ParameterizedFactory<? super IntraVmConnection<V>, C> connectionFactory) {
         super(publisher, endpointFactory, connectionFactory);

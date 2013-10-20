@@ -7,16 +7,18 @@ import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
 
+import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.bus.SyncBusConfiguration;
+import net.engio.mbassy.bus.SyncMessageBus;
+
 import com.google.common.base.Function;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.MoreExecutors;
 
-import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Processors;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
@@ -43,9 +45,10 @@ public class SimpleServerExecutor extends ServerTaskExecutor {
         return new SimpleServerExecutor(sessions, data, tasks.getAnonymousExecutor(), tasks.getConnectExecutor(), tasks.getSessionExecutor());
     }
 
+    @SuppressWarnings("rawtypes")
     public static SimpleSessionTable newSessionTable() {
         return new SimpleSessionTable(
-                EventBusPublisher.newInstance(),
+                new SyncMessageBus<Object>(new SyncBusConfiguration()),
                 Maps.<Long, Session>newHashMap(),
                 TimeValue.create(Session.Parameters.NEVER_TIMEOUT, TimeUnit.MILLISECONDS));
     }
@@ -54,7 +57,7 @@ public class SimpleServerExecutor extends ServerTaskExecutor {
             Executor executor,
             ZxidGenerator zxids,
             ZNodeDataTrie dataTrie,
-            final Map<Long, Publisher> listeners,
+            final Map<Long, PubSubSupport<Object>> listeners,
             SessionTable sessions) {
         Processor<SessionOperation.Request<?>, Message.ServerResponse<?>> processor = 
                 Processors.bridge(
@@ -62,9 +65,9 @@ public class SimpleServerExecutor extends ServerTaskExecutor {
                                 AssignZxidProcessor.newInstance(zxids)), 
                         ProtocolResponseProcessor.create(
                                 ConnectionServerExecutorsService.Builder.defaultTxnProcessor(dataTrie, sessions,
-                                        new Function<Long, Publisher>() {
+                                        new Function<Long, PubSubSupport<Object>>() {
                                             @Override
-                                            public @Nullable Publisher apply(Long input) {
+                                            public @Nullable PubSubSupport<Object> apply(Long input) {
                                                 return listeners.get(input);
                                             }
                                 })));
@@ -75,7 +78,7 @@ public class SimpleServerExecutor extends ServerTaskExecutor {
             ZNodeDataTrie dataTrie) {
         SessionTable sessions = newSessionTable();
         ZxidIncrementer zxids = ZxidIncrementer.fromZero();
-        ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
+        ConcurrentMap<Long, PubSubSupport<Object>> listeners = new MapMaker().makeMap();
         SessionRequestExecutor sessionExecutor = newSessionExecutor(
                 MoreExecutors.sameThreadExecutor(), zxids, dataTrie, listeners, sessions);
         return ConnectionServerExecutorsService.Builder.defaultServerExecutor(zxids, sessions, listeners, sessionExecutor);
@@ -88,7 +91,7 @@ public class SimpleServerExecutor extends ServerTaskExecutor {
             SessionTable sessions,
             ZNodeDataTrie data,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
-            TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
+            TaskExecutor<? super Pair<ConnectMessage.Request, PubSubSupport<Object>>, ? extends ConnectMessage.Response> connectExecutor,
             TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
         super(anonymousExecutor, connectExecutor, sessionExecutor);
         this.sessions = sessions;

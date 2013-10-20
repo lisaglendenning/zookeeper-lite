@@ -1,9 +1,9 @@
 package edu.uw.zookeeper.protocol;
 
+import net.engio.mbassy.listener.Handler;
+
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
-
-import com.google.common.eventbus.Subscribe;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Pair;
@@ -42,7 +42,7 @@ public class ProtocolCodecConnection<I, T extends ProtocolCodec<?, ?>, C extends
         this.connection = connection;
         this.logger = LogManager.getLogger(getClass());
         
-        register(this);
+        subscribe(this);
     }
     
     public T codec() {
@@ -50,23 +50,22 @@ public class ProtocolCodecConnection<I, T extends ProtocolCodec<?, ?>, C extends
     }
     
     @Override
-    public void register(Object handler) {
-        codec.register(handler);
-        connection.register(handler);
+    public void subscribe(Object handler) {
+        codec.subscribe(handler);
+        connection.subscribe(handler);
     }
 
     @Override
-    public void unregister(Object handler) {
-        codec.unregister(handler);
-        try {
-            connection.unregister(handler);
-        } catch (IllegalArgumentException e) {}
+    public boolean unsubscribe(Object handler) {
+        boolean unsubscribed = codec.unsubscribe(handler);
+        unsubscribed = connection.unsubscribe(handler) || unsubscribed;
+        return unsubscribed;
     }
     
-    @Subscribe
+    @Handler
     public void handleTransitionEvent(Automaton.Transition<?> event) {
         if (Connection.State.CONNECTION_CLOSED == event.to()) {
-            unregister(this);
+            unsubscribe(this);
         } else if (ProtocolState.DISCONNECTED == event.to() || ProtocolState.ERROR == event.to()) {
             flush();
             read();

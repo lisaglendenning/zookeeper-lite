@@ -8,11 +8,12 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 
+import net.engio.mbassy.listener.Handler;
+
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -184,7 +185,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         
         NotificationCallback cb = new NotificationCallback(client.getConnectionClientExecutor());
         addListener(cb, executor);
-        client.getConnectionClientExecutor().register(cb);
+        client.getConnectionClientExecutor().subscribe(cb);
     }
 
     @Override
@@ -202,18 +203,18 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         @Override
         public void stopping(State from) {
             try {
-                client.unregister(this);
+                client.unsubscribe(this);
             } catch (IllegalArgumentException e) {}
         }
         
         @Override
         public void failed(State from, Throwable failure) {
             try {
-                client.unregister(this);
+                client.unsubscribe(this);
             } catch (IllegalArgumentException e) {}
         }
         
-        @Subscribe
+        @Handler
         public void handleResponse(Operation.ProtocolResponse<?> response) {
             if (response.xid() == OpCodeXid.NOTIFICATION.xid()) {
                 WatchEvent event = WatchEvent.fromRecord((IWatcherEvent) response.record());

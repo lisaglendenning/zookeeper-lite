@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.net.SocketAddress;
 
+import net.engio.mbassy.PubSubSupport;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.*;
@@ -23,7 +24,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     
     protected final RuntimeModule runtime;
     protected final NetServerModule serverModule;
-    protected final ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory;
+    protected final ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory;
     protected final ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory;
     protected final ServerInetAddressView address;
     
@@ -34,7 +35,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     public ServerConnectionFactoryBuilder(
             RuntimeModule runtime,
             NetServerModule serverModule,
-            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory,
+            ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory,
             ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory,
             ServerInetAddressView address) {
         this.runtime = runtime;
@@ -70,12 +71,12 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         }
     }
 
-    public ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> getCodecFactory() {
+    public ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> getCodecFactory() {
         return codecFactory;
     }
 
     public ServerConnectionFactoryBuilder setCodecFactory(
-            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory) {
+            ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory) {
         if (this.codecFactory == codecFactory) {
             return this;
         } else {
@@ -131,7 +132,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     protected ServerConnectionFactoryBuilder newInstance(
             RuntimeModule runtime,
             NetServerModule serverModule,
-            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory,
+            ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> codecFactory,
             ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionFactory,
             ServerInetAddressView address) {
         return new ServerConnectionFactoryBuilder(runtime, serverModule, codecFactory, connectionFactory, address);
@@ -141,7 +142,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         return NettyServerModule.newInstance(runtime);
     }
 
-    protected ParameterizedFactory<Publisher, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> getDefaultCodecFactory() {
+    protected ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>> getDefaultCodecFactory() {
         return ServerProtocolCodec.factory();
     }
     

@@ -6,12 +6,14 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
+import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.listener.Handler;
+
 import org.apache.zookeeper.KeeperException;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Objects;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -22,7 +24,6 @@ import edu.uw.zookeeper.common.ExecutedActor;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.ActorPublisher;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.SettableFuturePromise;
@@ -43,14 +44,14 @@ import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
 
 public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>>
-        implements Publisher, Reference<T>, FutureCallback<Object> {
+        implements PubSubSupport<Object>, Reference<T>, FutureCallback<Object> {
 
     public static <T extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> ConnectionServerExecutor<T> newInstance(
             T connection,
             TimeValue timeOut,
             ScheduledExecutorService executor,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
-            TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
+            TaskExecutor<? super Pair<ConnectMessage.Request, PubSubSupport<Object>>, ? extends ConnectMessage.Response> connectExecutor,
             TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
         return new ConnectionServerExecutor<T>(
                 connection, timeOut, executor, anonymousExecutor, connectExecutor, sessionExecutor);
@@ -60,7 +61,7 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
             final TimeValue timeOut,
             final ScheduledExecutorService executor,
             final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
-            final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
+            final TaskExecutor<? super Pair<ConnectMessage.Request, PubSubSupport<Object>>, ? extends ConnectMessage.Response> connectExecutor,
             final TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
         return new ParameterizedFactory<T, ConnectionServerExecutor<T>>() {
             @Override
@@ -79,7 +80,7 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
 
     protected final Logger logger;
     protected final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor;
-    protected final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor;
+    protected final TaskExecutor<? super Pair<ConnectMessage.Request, PubSubSupport<Object>>, ? extends ConnectMessage.Response> connectExecutor;
     protected final TaskExecutor<? super SessionOperation.Request<?>, ? extends Operation.ProtocolResponse<?>> sessionExecutor;
     protected final T connection;
     protected final InboundActor inbound;
@@ -93,7 +94,7 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
             TimeValue timeOut,
             ScheduledExecutorService executor,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
-            TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
+            TaskExecutor<? super Pair<ConnectMessage.Request, PubSubSupport<Object>>, ? extends ConnectMessage.Response> connectExecutor,
             TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
         this.logger = LogManager.getLogger(getClass());
         this.connection = connection;
@@ -120,18 +121,18 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
     }
 
     @Override
-    public void post(Object event) {
-        outbound.post(event);
+    public void publish(Object event) {
+        outbound.publish(event);
     }
 
     @Override
-    public void register(Object handler) {
-        outbound.register(handler);
+    public void subscribe(Object handler) {
+        outbound.subscribe(handler);
     }
 
     @Override
-    public void unregister(Object handler) {
-        outbound.unregister(handler);
+    public boolean unsubscribe(Object handler) {
+        return outbound.unsubscribe(handler);
     }
     
     @Override
@@ -238,7 +239,7 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
             this.mailbox = new ConcurrentLinkedQueue<Message.Client>();
             this.throttled = false;
             
-            connection.register(this);
+            connection.subscribe(this);
         }
         
         public void throttle(boolean throttled) {
@@ -247,8 +248,8 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
                 run();
             }
         }
-    
-        @Subscribe
+
+        @Handler
         public void handleTransitionEvent(Automaton.Transition<?> event) {
             if (Connection.State.CONNECTION_CLOSED == event.to()) {
                 switch (connection.codec().state()) {
@@ -266,7 +267,7 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
         @Override
         public void onSuccess(Object result) {  
             if (result instanceof FourLetterResponse) {
-                outbound.post(result);
+                outbound.publish(result);
             } else if (result instanceof ConnectMessage.Response) {
                 session.set((ConnectMessage.Response) result);
                 if (result instanceof ConnectMessage.Response.Valid) {
@@ -282,8 +283,8 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
         public void onFailure(Throwable t) {
             ConnectionServerExecutor.this.onFailure(t);
         }
-    
-        @Subscribe
+
+        @Handler
         public void handleMessage(Message.Client message) {
             timeOut.send(message);
             send(message);
@@ -322,7 +323,7 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
                 }
             } else if (input instanceof ConnectMessage.Request) {
                 throttle(true);
-                Futures.addCallback(connectExecutor.submit(Pair.create((ConnectMessage.Request) input, (Publisher) outbound)), this);
+                Futures.addCallback(connectExecutor.submit(Pair.create((ConnectMessage.Request) input, (PubSubSupport<Object>) outbound)), this);
             } else {
                 Message.ClientRequest<?> request = (Message.ClientRequest<?>) input;
                 long sessionId = Futures.getUnchecked(session()).getSessionId();
@@ -335,7 +336,7 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
         @Override
         protected void doStop() {
             try {
-                connection.unregister(this);
+                connection.unsubscribe(this);
             } catch (Exception e) {}
             
             if (logger.isDebugEnabled()) {
@@ -363,7 +364,7 @@ public class ConnectionServerExecutor<T extends ProtocolCodecConnection<Message.
         }
     }
 
-    protected class OutboundActor extends ActorPublisher 
+    protected class OutboundActor extends ActorPublisher<Object>
         implements FutureCallback<Object> {
     
         public OutboundActor() {

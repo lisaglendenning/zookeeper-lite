@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import net.engio.mbassy.PubSubSupport;
+
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -13,7 +15,6 @@ import com.google.common.base.Optional;
 import edu.uw.zookeeper.common.Automatons;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.Stateful;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -36,11 +37,11 @@ import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 public class ClientProtocolCodec
     implements ProtocolCodec<Message.ClientSession, Message.ServerSession> {
 
-    public static ParameterizedFactory<Publisher, Pair<Class<Message.ClientSession>, ClientProtocolCodec>> factory() {
-        return new ParameterizedFactory<Publisher, Pair<Class<Message.ClientSession>, ClientProtocolCodec>>() {
+    public static ParameterizedFactory<PubSubSupport<Object>, Pair<Class<Message.ClientSession>, ClientProtocolCodec>> factory() {
+        return new ParameterizedFactory<PubSubSupport<Object>, Pair<Class<Message.ClientSession>, ClientProtocolCodec>>() {
             @Override
             public Pair<Class<Message.ClientSession>, ClientProtocolCodec> get(
-                    Publisher value) {
+                    PubSubSupport<Object> value) {
                 return Pair.create(Message.ClientSession.class,
                         ClientProtocolCodec.newInstance(value));
             }
@@ -48,12 +49,12 @@ public class ClientProtocolCodec
     }
     
     public static ClientProtocolCodec newInstance(
-            Publisher publisher) {
+            PubSubSupport<Object> publisher) {
         return newInstance(publisher, ProtocolState.ANONYMOUS);
     }
     
     public static ClientProtocolCodec newInstance(
-            Publisher publisher, ProtocolState state) {
+            PubSubSupport<Object> publisher, ProtocolState state) {
         Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton =
                 Automatons.createSynchronizedEventful(publisher, 
                         Automatons.createSimple(state));
@@ -161,15 +162,20 @@ public class ClientProtocolCodec
     }
 
     @Override
-    public void register(Object handler) {
-        automaton.register(handler);
+    public void subscribe(Object listener) {
+        automaton.subscribe(listener);
     }
 
     @Override
-    public void unregister(Object handler) {
-        automaton.unregister(handler);
+    public boolean unsubscribe(Object listener) {
+        return automaton.unsubscribe(listener);
     }
 
+    @Override
+    public void publish(Object message) {
+        automaton.publish(message);
+    }
+    
     @Override
     public String toString() {
         return Objects.toStringHelper(this).add("state", state()).toString();

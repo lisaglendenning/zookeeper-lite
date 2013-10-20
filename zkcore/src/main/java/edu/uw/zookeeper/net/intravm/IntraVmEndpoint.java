@@ -4,6 +4,8 @@ import java.net.SocketAddress;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
@@ -17,16 +19,15 @@ import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.LoggingPublisher;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.LoggingMarker;
 
-public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> implements Publisher, Executor {
+public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> implements PubSubSupport<Object>, Executor {
 
     public static <V> IntraVmEndpoint<V> create(
             SocketAddress address,
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             Executor executor) {
         return IntraVmEndpoint.<V>builder(
                 address, 
@@ -36,7 +37,7 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
 
     public static <V> Builder<V> builder(
             SocketAddress address,
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             Executor executor) {
         return new Builder<V>(address, publisher, executor);
     }
@@ -52,14 +53,14 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
         
         public Builder(
                 SocketAddress address,
-                Publisher publisher,
+                PubSubSupport<Object> publisher,
                 Executor executor) {
             this(address, publisher, executor, LogManager.getLogger(IntraVmEndpoint.class));
         }
         
         public Builder(
                 SocketAddress address,
-                Publisher publisher,
+                PubSubSupport<Object> publisher,
                 Executor executor,
                 Logger logger) {
             this.logger = logger;
@@ -132,18 +133,18 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
     }
 
     @Override
-    public void post(Object object) {
-        publisher.post(object);
+    public void publish(Object object) {
+        publisher.publish(object);
     }
 
     @Override
-    public void register(Object object) {
-        publisher.register(object);
+    public void subscribe(Object object) {
+        publisher.subscribe(object);
     }
 
     @Override
-    public void unregister(Object object) {
-        publisher.unregister(object);
+    public boolean unsubscribe(Object object) {
+        return publisher.unsubscribe(object);
     }
 
     @Override
@@ -157,7 +158,7 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
     protected synchronized boolean apply(Optional<? extends V> input) {
         if (state() != State.TERMINATED) {
             if (input.isPresent()) {
-                doPost(input.get());
+                doPublish(input.get());
             } else {
                 stop();
             }
@@ -170,11 +171,11 @@ public class IntraVmEndpoint<V> extends ExecutedActor<Optional<? extends V>> imp
         }
         return (state() != State.TERMINATED);
     }
-    
-    protected void doPost(V input) {
-        publisher.post(input);
-    }
 
+    protected void doPublish(V event) {
+        publisher.publish(event);
+    }
+    
     @Override
     protected synchronized void doStop() {
         if (logger.isTraceEnabled()) {

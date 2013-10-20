@@ -2,29 +2,28 @@ package edu.uw.zookeeper.protocol.client;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import com.google.common.eventbus.Subscribe;
-
-import edu.uw.zookeeper.common.Eventful;
+import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.listener.Handler;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ZxidReference;
 
 public class ZxidTracker implements ZxidReference  {
     
-    public static class ZxidListener extends Pair<ZxidTracker, Eventful> {
+    public static class ZxidListener extends Pair<ZxidTracker, PubSubSupport<Object>> {
 
         public static ZxidListener create(
                 ZxidTracker tracker,
-                Eventful eventful) {
+                PubSubSupport<Object> eventful) {
             return new ZxidListener(tracker, eventful);
         }
         
-        public ZxidListener(ZxidTracker tracker, Eventful eventful) {
+        public ZxidListener(ZxidTracker tracker, PubSubSupport<Object> eventful) {
             super(tracker, eventful);
-            eventful.register(this);
+            eventful.subscribe(this);
         }
 
-        @Subscribe
+        @Handler
         public void handleSessionReply(Operation.ProtocolResponse<?> message) {
             first().update(message.zxid());
         }

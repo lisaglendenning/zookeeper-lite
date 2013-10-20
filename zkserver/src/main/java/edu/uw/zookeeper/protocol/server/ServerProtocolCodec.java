@@ -4,6 +4,8 @@ import io.netty.buffer.ByteBuf;
 
 import java.io.IOException;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.jute.BinaryInputArchive;
 
 import com.google.common.base.Objects;
@@ -13,7 +15,6 @@ import com.google.common.collect.Range;
 import edu.uw.zookeeper.common.Automatons;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Stateful;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Decoder;
@@ -31,23 +32,23 @@ import edu.uw.zookeeper.protocol.TelnetCloseRequest;
 public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Message.Client> {
     
     public static ServerProtocolCodec newInstance(
-            Publisher publisher) {
+            PubSubSupport<Object> publisher) {
         return newInstance(publisher, ProtocolState.ANONYMOUS);
     }
     
     public static ServerProtocolCodec newInstance(
-            Publisher publisher, ProtocolState state) {
+            PubSubSupport<Object> publisher, ProtocolState state) {
         Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton =
                 Automatons.createSynchronizedEventful(publisher, 
                         Automatons.createSimple(state));
         return new ServerProtocolCodec(automaton, ServerProtocolEncoder.create(automaton), ServerProtocolDecoder.create(automaton));
     }
 
-    public static ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>> factory() {
-        return new ParameterizedFactory<Publisher, Pair<Class<Message.Server>, ServerProtocolCodec>>() {
+    public static ParameterizedFactory<PubSubSupport<Object>, Pair<Class<Message.Server>, ServerProtocolCodec>> factory() {
+        return new ParameterizedFactory<PubSubSupport<Object>, Pair<Class<Message.Server>, ServerProtocolCodec>>() {
             @Override
             public Pair<Class<Message.Server>, ServerProtocolCodec> get(
-                    Publisher value) {
+                    PubSubSupport<Object> value) {
                 return Pair.create(
                         Message.Server.class, 
                         ServerProtocolCodec.newInstance(value));
@@ -96,13 +97,18 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
     }
 
     @Override
-    public void register(Object handler) {
-        automaton.register(handler);
+    public void publish(Object event) {
+        automaton.publish(event);
     }
 
     @Override
-    public void unregister(Object handler) {
-        automaton.unregister(handler);
+    public void subscribe(Object listener) {
+        automaton.subscribe(listener);
+    }
+
+    @Override
+    public boolean unsubscribe(Object listener) {
+        return automaton.unsubscribe(listener);
     }
 
     @Override

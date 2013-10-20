@@ -16,18 +16,18 @@ public abstract class ForwardingConnection<I> implements Connection<I> {
     }
     
     @Override
-    public void post(Object object) {
-        delegate().post(object);
+    public void publish(Object object) {
+        delegate().publish(object);
     }
 
     @Override
-    public void register(Object object) {
-        delegate().register(object);
+    public void subscribe(Object listener) {
+        delegate().subscribe(listener);
     }
 
     @Override
-    public void unregister(Object object) {
-        delegate().unregister(object);
+    public boolean unsubscribe(Object listener) {
+        return delegate().unsubscribe(listener);
     }
 
     @Override

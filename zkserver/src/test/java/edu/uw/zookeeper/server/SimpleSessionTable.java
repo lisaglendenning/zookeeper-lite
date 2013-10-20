@@ -5,19 +5,19 @@ import static com.google.common.base.Preconditions.*;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-import edu.uw.zookeeper.common.Publisher;
+import net.engio.mbassy.PubSubSupport;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.Session;
 
 public class SimpleSessionTable extends SessionTableAdapter {
 
-    protected final Publisher publisher;
+    protected final PubSubSupport<Object> publisher;
     protected final Map<Long, Session> sessions;
     protected final AtomicLong counter;
     protected final TimeValue defaultTimeOut;
     
     public SimpleSessionTable(
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             Map<Long, Session> sessions,
             TimeValue defaultTimeOut) {
         this.publisher = publisher;
@@ -69,7 +69,7 @@ public class SimpleSessionTable extends SessionTableAdapter {
     }
 
     @Override
-    protected Publisher publisher() {
+    protected PubSubSupport<Object> publisher() {
         return publisher;
     }
 }

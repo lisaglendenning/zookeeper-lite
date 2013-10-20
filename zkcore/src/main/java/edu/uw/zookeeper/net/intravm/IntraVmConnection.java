@@ -105,18 +105,18 @@ public class IntraVmConnection<V> implements Connection<V> {
     }
 
     @Override
-    public void post(Object object) {
-        local.post(object);
+    public void publish(Object event) {
+        local.publish(event);
     }
 
     @Override
-    public void register(Object object) {
-        local.register(object);
+    public void subscribe(Object listener) {
+        local.subscribe(listener);
     }
 
     @Override
-    public void unregister(Object object) {
-        local.unregister(object);
+    public boolean unsubscribe(Object listener) {
+        return local.unsubscribe(listener);
     }
 
     @Override

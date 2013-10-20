@@ -5,31 +5,32 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
+import net.engio.mbassy.PubSubSupport;
+
 import com.google.common.collect.Maps;
 
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.server.SessionStateEvent;
 
 public class ExpiringSessionTable extends ConcurrentSessionTable {
 
-    public static ExpiringSessionTable newInstance(Publisher publisher,
+    public static ExpiringSessionTable newInstance(PubSubSupport<Object> publisher,
             SessionParametersPolicy policy) {
         return new ExpiringSessionTable(publisher, policy);
     }
 
     protected final ConcurrentMap<Long, Long> touches;
 
-    protected ExpiringSessionTable(Publisher publisher,
+    protected ExpiringSessionTable(PubSubSupport<Object> publisher,
             SessionParametersPolicy policy) {
         this(publisher, policy, Maps.<Long, Long> newConcurrentMap());
     }
 
-    protected ExpiringSessionTable(Publisher publisher,
+    protected ExpiringSessionTable(PubSubSupport<Object> publisher,
             SessionParametersPolicy policy, ConcurrentMap<Long, Long> touches) {
         super(publisher, policy);
         this.touches = touches;
-        register(this);
+        subscribe(this);
     }
 
     public boolean touch(long id) {
@@ -64,7 +65,7 @@ public class ExpiringSessionTable extends ConcurrentSessionTable {
             if (logger.isDebugEnabled()) {
                 logger.debug("Expiring session {}", session);
             }
-            post(SessionStateEvent.create(session,
+            publish(SessionStateEvent.create(session,
                     Session.State.SESSION_EXPIRED));
         }
     }

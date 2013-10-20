@@ -3,42 +3,44 @@ package edu.uw.zookeeper.common;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.google.common.collect.Queues;
 
-public class ActorPublisher extends CallbackActor<Object> implements Publisher {
+public class ActorPublisher<T> extends CallbackActor<T> implements PubSubSupport<T> {
 
-    public static ActorPublisher newInstance(
-            Publisher publisher,
+    public static <T> ActorPublisher<T> newPublisher(
+            PubSubSupport<T> publisher,
             Executor executor) {
-        return newInstance(
+        return newPublisher(
                 publisher,
                 executor,
                 LogManager.getLogger(ActorPublisher.class));
     }
 
-    public static ActorPublisher newInstance(
-            Publisher publisher,
+    public static <T> ActorPublisher<T> newPublisher(
+            PubSubSupport<T> publisher,
             Executor executor,
             Logger logger) {
-        return new ActorPublisher(
+        return new ActorPublisher<T>(
                 publisher,
                 executor,
-                Queues.<Object>newConcurrentLinkedQueue(),
+                Queues.<T>newConcurrentLinkedQueue(),
                 logger);
     }
 
     protected final Executor executor;
-    protected final Queue<Object> mailbox;
-    protected final Publisher publisher;
+    protected final Queue<T> mailbox;
+    protected final PubSubSupport<T> publisher;
     protected final Logger logger;
     
     protected ActorPublisher(
-            Publisher publisher,
+            PubSubSupport<T> publisher,
             Executor executor, 
-            Queue<Object> mailbox,
+            Queue<T> mailbox,
             Logger logger) {
         super();
         this.publisher = publisher;
@@ -48,30 +50,30 @@ public class ActorPublisher extends CallbackActor<Object> implements Publisher {
     }
 
     @Override
-    public void post(Object event) {
+    public void publish(T event) {
         if (! send(event)) {
             flush(event);
         }
     }
     
     @Override
-    public void register(Object object) {
-        publisher.register(object);
+    public void subscribe(Object listener) {
+        publisher.subscribe(listener);
     }
 
     @Override
-    public void unregister(Object object) {
-        publisher.unregister(object);
+    public boolean unsubscribe(Object listener) {
+        return publisher.unsubscribe(listener);
     }
     
     @Override
-    protected boolean apply(Object input) {
-        publisher.post(input);
+    protected boolean apply(T input) {
+        publisher.publish(input);
         return true;
     }
 
     @Override
-    protected Queue<Object> mailbox() {
+    protected Queue<T> mailbox() {
         return mailbox;
     }
 
@@ -85,7 +87,7 @@ public class ActorPublisher extends CallbackActor<Object> implements Publisher {
         return logger;
     }
     
-    protected Publisher publisher() {
+    protected PubSubSupport<T> publisher() {
         return publisher;
     }
 }

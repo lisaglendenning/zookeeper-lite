@@ -1,10 +1,11 @@
 package edu.uw.zookeeper.netty;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.logging.log4j.Logger;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Stateful;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.LoggingMarker;
@@ -38,7 +39,7 @@ public class ConnectionStateHandler extends ChannelDuplexHandler implements Stat
         return new ConnectionStateHandler(state, logger);
     }
     
-    public static Automaton<Connection.State, Connection.State> newAutomaton(Publisher publisher) {
+    public static Automaton<Connection.State, Connection.State> newAutomaton(PubSubSupport<Object> publisher) {
         return Automatons.createSynchronizedEventful(publisher, Automatons.createSimple(Connection.State.CONNECTION_OPENING));
     }
 

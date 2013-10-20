@@ -3,11 +3,10 @@ package edu.uw.zookeeper.protocol.server;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
-import com.google.common.eventbus.Subscribe;
-
+import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.listener.Handler;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.PromiseTask;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.SessionOperation;
@@ -21,7 +20,7 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
     public static ExpiringSessionRequestExecutor newInstance(
             ExpiringSessionTable sessions,
             Executor executor,
-            Map<Long, Publisher> listeners,
+            Map<Long, PubSubSupport<Object>> listeners,
             Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor) {
         return new ExpiringSessionRequestExecutor(sessions, executor, listeners, processor);
     }
@@ -31,12 +30,12 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
     public ExpiringSessionRequestExecutor(
             ExpiringSessionTable sessions,
             Executor executor,
-            Map<Long, Publisher> listeners,
+            Map<Long, PubSubSupport<Object>> listeners,
             Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor) {
         super(executor, listeners, processor);
         this.sessions = sessions;
         
-        sessions.register(this);
+        sessions.subscribe(this);
     }
 
     @Override
@@ -48,7 +47,7 @@ public class ExpiringSessionRequestExecutor extends SessionRequestExecutor {
         return send;
     }
 
-    @Subscribe
+    @Handler
     public void handleSessionStateEvent(SessionStateEvent event) {
         switch (event.event()) {
         case SESSION_EXPIRED:

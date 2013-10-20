@@ -1,23 +1,25 @@
 package edu.uw.zookeeper.common;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.logging.log4j.Logger;
 
 import com.google.common.collect.ImmutableList;
 
-public class LoggingPublisher implements Publisher, Reference<Publisher> {
+public class LoggingPublisher<T> implements PubSubSupport<T>, Reference<PubSubSupport<T>> {
 
-    public static LoggingPublisher create(
+    public static <T>LoggingPublisher<T> create(
             Logger logger,
-            Publisher delegate,
+            PubSubSupport<T> delegate,
             Object...params) {
-        return new LoggingPublisher(logger, delegate, params);
+        return new LoggingPublisher<T>(logger, delegate, params);
     }
 
     private final Logger logger;
-    private final Publisher delegate;
+    private final PubSubSupport<T> delegate;
     private final Object[] params;
     
-    public LoggingPublisher(Logger logger, Publisher delegate, Object...params) {
+    public LoggingPublisher(Logger logger, PubSubSupport<T> delegate, Object...params) {
         this.logger = logger;
         this.delegate = delegate;
         this.params = params;
@@ -32,22 +34,22 @@ public class LoggingPublisher implements Publisher, Reference<Publisher> {
     }
     
     @Override
-    public Publisher get() {
+    public PubSubSupport<T> get() {
         return delegate;
     }
     
     @Override
-    public void register(Object handler) {
-        delegate.register(handler);
+    public void subscribe(Object listener) {
+        delegate.subscribe(listener);
     }
 
     @Override
-    public void unregister(Object handler) {
-        delegate.unregister(handler);
+    public boolean unsubscribe(Object listener) {
+        return delegate.unsubscribe(listener);
     }
 
     @Override
-    public void post(Object event) {
+    public void publish(T event) {
         if (logger.isTraceEnabled()) {
             int nparams = this.params.length + 1;
             Object[] params = new Object[nparams];
@@ -57,7 +59,7 @@ public class LoggingPublisher implements Publisher, Reference<Publisher> {
             }
             logger.entry(params);
         }
-        delegate.post(event);
+        delegate.publish(event);
         if (logger.isTraceEnabled()) {
             logger.exit();
         }

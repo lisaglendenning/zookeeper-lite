@@ -4,6 +4,9 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+
+import net.engio.mbassy.listener.Handler;
+
 import org.apache.zookeeper.Watcher;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -11,7 +14,6 @@ import org.apache.logging.log4j.LogManager;
 import com.google.common.base.Optional;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Promise;
@@ -54,7 +56,7 @@ public class WatchPromiseTrie implements Reference<ZNodeLabelTrie<WatchPromiseTr
         return trie;
     }
 
-    @Subscribe
+    @Handler
     public void handleWatchEvent(WatchEvent event) {
         WatchPromiseNode node = get().get(event.getPath());
         if (node != null) {

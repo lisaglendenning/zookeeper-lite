@@ -3,24 +3,30 @@ package edu.uw.zookeeper.server;
 import java.util.Iterator;
 import java.util.Map;
 
+import net.engio.mbassy.PubSubSupport;
+
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.server.SessionStateEvent;
 
 public abstract class SessionTableAdapter implements SessionTable {
 
     protected SessionTableAdapter() {}
-    
+
     @Override
-    public void register(Object handler) {
-        publisher().register(handler);
+    public void publish(Object event) {
+        publisher().publish(event);
     }
 
     @Override
-    public void unregister(Object handler) {
-        publisher().unregister(handler);
+    public void subscribe(Object handler) {
+        publisher().subscribe(handler);
+    }
+
+    @Override
+    public boolean unsubscribe(Object handler) {
+        return publisher().unsubscribe(handler);
     }
 
     @Override
@@ -32,7 +38,7 @@ public abstract class SessionTableAdapter implements SessionTable {
     public Session remove(long id) {
         Session session = sessions().remove(id);
         if (session != null) {
-            post(SessionStateEvent
+            publish(SessionStateEvent
                     .create(session, Session.State.SESSION_CLOSED));
         }
         return session;
@@ -67,16 +73,12 @@ public abstract class SessionTableAdapter implements SessionTable {
     protected Session put(Session session) {
         Session prev = sessions().put(session.id(), session);
         if (prev == null) {
-            post(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
+            publish(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
         }
         return prev;
     }
 
-    protected void post(Object event) {
-        publisher().post(event);
-    }
-
     protected abstract Map<Long, Session> sessions();
     
-    protected abstract Publisher publisher();
+    protected abstract PubSubSupport<Object> publisher();
 }

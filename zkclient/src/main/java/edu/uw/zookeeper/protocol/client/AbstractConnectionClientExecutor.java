@@ -6,12 +6,13 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
+import net.engio.mbassy.listener.Handler;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Objects;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -62,7 +63,7 @@ public abstract class AbstractConnectionClientExecutor<
         this.timeOut = new TimeOutServer(TimeOutParameters.create(timeOut), executor, this);
         this.failure = new AtomicReference<Throwable>(null);
                 
-        this.connection.register(this);
+        this.connection.subscribe(this);
         this.timeOut.run();
         Futures.addCallback(this.session, this.timeOut, SAME_THREAD_EXECUTOR);
     }
@@ -74,28 +75,28 @@ public abstract class AbstractConnectionClientExecutor<
     public C connection() {
         return connection;
     }
+
+    @Override
+    public void subscribe(Object listener) {
+        connection.subscribe(listener);
+    }
+
+    @Override
+    public boolean unsubscribe(Object listener) {
+        return connection.unsubscribe(listener);
+    }
+
+    @Override
+    public void publish(Object message) {
+        connection.publish(message);
+    }
     
     @Override
     public ListenableFuture<V> submit(I request) {
         return submit(request, SettableFuturePromise.<V>create());
     }
 
-    @Override
-    public void register(Object object) {
-        connection.register(object);
-    }
-
-    @Override
-    public void unregister(Object object) {
-        connection.unregister(object);
-    }
-
-    @Override
-    public void post(Object object) {
-        connection.post(object);
-    }
-
-    @Subscribe
+    @Handler
     public void handleTransition(Automaton.Transition<?> event) {
         if (Connection.State.CONNECTION_CLOSED == event.to()) {
             if (connection.codec().state() != ProtocolState.DISCONNECTED) {
@@ -106,7 +107,7 @@ public abstract class AbstractConnectionClientExecutor<
         }
     }
 
-    @Subscribe
+    @Handler
     public void handleResponse(Operation.ProtocolResponse<?> message) {
         logger.debug("Received: {}", message);
         timeOut.send(message);
@@ -154,7 +155,7 @@ public abstract class AbstractConnectionClientExecutor<
         timeOut.stop();
         
         try {
-            connection.unregister(this);
+            connection.unsubscribe(this);
         } catch (Exception e) {}
         
         if (! session.isDone()) {

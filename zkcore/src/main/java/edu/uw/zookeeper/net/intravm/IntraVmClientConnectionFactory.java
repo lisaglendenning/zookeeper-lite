@@ -4,13 +4,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.net.SocketAddress;
 
+import net.engio.mbassy.PubSubSupport;
+
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 
@@ -18,7 +19,7 @@ public class IntraVmClientConnectionFactory<C extends Connection<?>, V> extends 
 
     public static <C extends Connection<?>, V> IntraVmClientConnectionFactory<C,V> newInstance(
             Function<SocketAddress, IntraVmServerConnectionFactory<?,?>> connector,
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             Factory<? extends IntraVmEndpoint<?>> endpointFactory,
             ParameterizedFactory<IntraVmConnection<V>, C> connectionFactory) {
         return new IntraVmClientConnectionFactory<C,V>(connector, publisher, endpointFactory, connectionFactory);
@@ -28,7 +29,7 @@ public class IntraVmClientConnectionFactory<C extends Connection<?>, V> extends 
     
     public IntraVmClientConnectionFactory(
             Function<SocketAddress, IntraVmServerConnectionFactory<?,?>> connector,
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             Factory<? extends IntraVmEndpoint<?>> endpointFactory,
             ParameterizedFactory<IntraVmConnection<V>, C> connectionFactory) {
         super(publisher, endpointFactory, connectionFactory);

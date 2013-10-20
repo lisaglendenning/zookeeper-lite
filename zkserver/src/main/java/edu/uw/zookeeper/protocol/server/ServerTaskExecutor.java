@@ -1,11 +1,12 @@
 package edu.uw.zookeeper.protocol.server;
 
+import net.engio.mbassy.PubSubSupport;
+
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Processor;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
@@ -17,7 +18,7 @@ public class ServerTaskExecutor {
     
     public static ServerTaskExecutor newInstance(
             TaskExecutor<FourLetterRequest, FourLetterResponse> anonymousExecutor,
-            TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> connectExecutor,
+            TaskExecutor<Pair<ConnectMessage.Request, PubSubSupport<Object>>, ConnectMessage.Response> connectExecutor,
             TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> sessionExecutor) {
         return new ServerTaskExecutor(anonymousExecutor, connectExecutor, sessionExecutor);
     }
@@ -46,12 +47,12 @@ public class ServerTaskExecutor {
     }
     
     protected final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor;
-    protected final TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor;
+    protected final TaskExecutor<? super Pair<ConnectMessage.Request, PubSubSupport<Object>>, ? extends ConnectMessage.Response> connectExecutor;
     protected final TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor;
 
     public ServerTaskExecutor(            
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor,
-            TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> connectExecutor,
+            TaskExecutor<? super Pair<ConnectMessage.Request, PubSubSupport<Object>>, ? extends ConnectMessage.Response> connectExecutor,
             TaskExecutor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> sessionExecutor) {
         this.anonymousExecutor = anonymousExecutor;
         this.connectExecutor = connectExecutor;
@@ -62,7 +63,7 @@ public class ServerTaskExecutor {
         return anonymousExecutor;
     }
     
-    public TaskExecutor<? super Pair<ConnectMessage.Request, Publisher>, ? extends ConnectMessage.Response> getConnectExecutor() {
+    public TaskExecutor<? super Pair<ConnectMessage.Request, PubSubSupport<Object>>, ? extends ConnectMessage.Response> getConnectExecutor() {
         return connectExecutor;
     }
     

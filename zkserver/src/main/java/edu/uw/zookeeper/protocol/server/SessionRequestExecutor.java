@@ -5,6 +5,8 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
@@ -13,7 +15,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.common.ExecutedActor;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.PromiseTask;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.SessionOperation;
@@ -23,7 +24,7 @@ public class SessionRequestExecutor extends ExecutedActor<PromiseTask<SessionOpe
 
     public static SessionRequestExecutor newInstance(
             Executor executor,
-            Map<Long, Publisher> listeners,
+            Map<Long, PubSubSupport<Object>> listeners,
             Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor) {
         return new SessionRequestExecutor(executor, listeners, processor);
     }
@@ -32,11 +33,11 @@ public class SessionRequestExecutor extends ExecutedActor<PromiseTask<SessionOpe
     protected final Executor executor;
     protected final ConcurrentLinkedQueue<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> mailbox;
     protected final Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor;
-    protected final Map<Long, Publisher> listeners;
+    protected final Map<Long, PubSubSupport<Object>> listeners;
     
     public SessionRequestExecutor(
             Executor executor,
-            Map<Long, Publisher> listeners,
+            Map<Long, PubSubSupport<Object>> listeners,
             Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor) {
         super();
         this.logger = LogManager.getLogger(getClass());
@@ -72,12 +73,12 @@ public class SessionRequestExecutor extends ExecutedActor<PromiseTask<SessionOpe
                         logger.debug("Executing {}", input.task());
                     }
                     Message.ServerResponse<?> response = processor.apply(input.task());
-                    Publisher listener = listeners.get(input.task().getSessionId());
+                    PubSubSupport<Object> listener = listeners.get(input.task().getSessionId());
                     if (OpCode.CLOSE_SESSION == response.record().opcode()) {
                         listeners.remove(input.task().getSessionId());
                     }
                     if (listener != null) {
-                        listener.post(response);
+                        listener.publish(response);
                     }
                     input.set(response);
                 } catch (Exception e) {

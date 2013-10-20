@@ -11,6 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.logging.log4j.Logger;
@@ -25,7 +27,6 @@ import edu.uw.zookeeper.common.AbstractPair;
 import edu.uw.zookeeper.common.Event;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.StampedReference;
 import edu.uw.zookeeper.data.StampedReference.Updater;
@@ -59,12 +60,12 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
     }
     
     public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<E,I,V> newInstance(
-            Publisher publisher, ClientExecutor<I,V> client, E root) {
+            PubSubSupport<Object> publisher, ClientExecutor<I,V> client, E root) {
         return newInstance(publisher, client, ZNodeLabelTrie.of(root));
     }
     
     public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<E,I,V> newInstance(
-            Publisher publisher, ClientExecutor<I,V> client, ZNodeLabelTrie<E> trie) {
+            PubSubSupport<Object> publisher, ClientExecutor<I,V> client, ZNodeLabelTrie<E> trie) {
         return new ZNodeViewCache<E,I,V>(publisher, client, trie);
     }
 
@@ -349,10 +350,10 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
     protected final ZxidTracker lastZxid;
     protected final ZNodeLabelTrie<E> trie;
     protected final ClientExecutor<? super I, V> client;
-    protected final Publisher publisher;
+    protected final PubSubSupport<Object> publisher;
     
     protected ZNodeViewCache(
-            Publisher publisher, 
+            PubSubSupport<Object> publisher, 
             ClientExecutor<? super I, V> client, 
             ZNodeLabelTrie<E> trie) {
         this.logger = LogManager.getLogger(getClass());
@@ -375,22 +376,23 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
     }
 
     @Override
-    public void register(Object object) {
-        client().register(object);
-        publisher.register(object);
+    public void subscribe(Object listener) {
+        client().subscribe(listener);
+        publisher.subscribe(listener);
     }
 
     @Override
-    public void unregister(Object object) {
-        client().unregister(object);
+    public boolean unsubscribe(Object listener) {
+        boolean unsubscribed = client().unsubscribe(listener);
         try {
-            publisher.unregister(object);
+            unsubscribed = publisher.unsubscribe(listener) || unsubscribed;
         } catch (IllegalArgumentException e) {}
+        return unsubscribed;
     }
 
     @Override
-    public void post(Object object) {
-        publisher.post(object);
+    public void publish(Object event) {
+        publisher.publish(event);
     }
 
     @Override
@@ -496,7 +498,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
                 for (String component: children) {
                     E child = node.add(component);
                     if (child.touch(zxid).longValue() == 0L) {
-                        post(NodeUpdate.of(
+                        publish(NodeUpdate.of(
                                 NodeUpdate.UpdateType.NODE_ADDED, 
                                 StampedReference.of(zxid, child.path())));
                     }
@@ -576,7 +578,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
                 ViewUpdate event = ViewUpdate.ifUpdated(node.path(), view, prev, value);
                 if (event != null) {
                     changed = true;
-                    post(event);
+                    publish(event);
                 }
             }
         }
@@ -592,7 +594,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
             if (next == null) {
                 next = parent.add(e);
                 if (next.touch(zxid).equals(Long.valueOf(0L))) {
-                    post(NodeUpdate.of(
+                    publish(NodeUpdate.of(
                             NodeUpdate.UpdateType.NODE_ADDED, 
                             StampedReference.of(zxid, next.path())));
                 }
@@ -609,7 +611,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         if (node != null && node.stamp().compareTo(zxid) <= 0) {
             node = trie().remove(path);
             if (node != null) {
-                post(NodeUpdate.of(
+                publish(NodeUpdate.of(
                         NodeUpdate.UpdateType.NODE_REMOVED, 
                         StampedReference.of(zxid, path)));
             }

@@ -3,10 +3,11 @@ package edu.uw.zookeeper.protocol.client;
 import java.lang.ref.WeakReference;
 import java.util.concurrent.ScheduledExecutorService;
 
+import net.engio.mbassy.listener.Handler;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -71,7 +72,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
     }
 
     @Override
-    @Subscribe
+    @Handler
     public void handleTransitionEvent(Automaton.Transition<?> event) {
         if ((Connection.State.CONNECTION_CLOSING == event.to()) || 
                 (Connection.State.CONNECTION_CLOSED == event.to()) ||
@@ -84,7 +85,7 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         super.handleTransitionEvent(event);
     }
 
-    @Subscribe
+    @Handler
     public void handleResponse(Message.Server message) {
         pingTask.send(message);
     }

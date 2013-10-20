@@ -13,9 +13,9 @@ import io.netty.channel.group.DefaultChannelGroup;
 
 import java.net.SocketAddress;
 
+import net.engio.mbassy.PubSubSupport;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.LoggingMarker;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
@@ -26,7 +26,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
         implements ServerConnectionFactory<C> {
     
     public static <C extends Connection<?>> DefaultServerFactoryBuilder<C> defaultsFactory(
-            Factory<? extends Publisher> publisherFactory,
+            Factory<? extends PubSubSupport<Object>> publisherFactory,
             ParameterizedFactory<Channel, C> connectionFactory,
             Factory<ServerBootstrap> serverBootstrapFactory) {
         return DefaultServerFactoryBuilder.newInstance(
@@ -34,7 +34,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
     }
     
     public static <C extends Connection<?>> ParameterizedServerFactoryBuilder<C> parameterizedFactory(
-            Factory<? extends Publisher> publisherFactory,
+            Factory<? extends PubSubSupport<Object>> publisherFactory,
             ParameterizedFactory<Channel, C> connectionFactory,
             ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory) {
         return ParameterizedServerFactoryBuilder.newInstance(
@@ -44,7 +44,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
     public static class DefaultServerFactoryBuilder<C extends Connection<?>> extends FactoryBuilder<C> implements Factory<ChannelServerConnectionFactory<C>> {
 
         public static <C extends Connection<?>> DefaultServerFactoryBuilder<C> newInstance(
-                Factory<? extends Publisher> publisherFactory,
+                Factory<? extends PubSubSupport<Object>> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 Factory<ServerBootstrap> serverBootstrapFactory) {
             return new DefaultServerFactoryBuilder<C>(
@@ -54,7 +54,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
         private final Factory<ServerBootstrap> serverBootstrapFactory;
         
         private DefaultServerFactoryBuilder(
-                Factory<? extends Publisher> publisherFactory,
+                Factory<? extends PubSubSupport<Object>> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 Factory<ServerBootstrap> serverBootstrapFactory) {
             super(publisherFactory, connectionFactory);
@@ -73,7 +73,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
     public static class ParameterizedServerFactoryBuilder<C extends Connection<?>> extends FactoryBuilder<C> implements ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<C>> {
 
         public static <C extends Connection<?>> ParameterizedServerFactoryBuilder<C> newInstance(
-                Factory<? extends Publisher> publisherFactory,
+                Factory<? extends PubSubSupport<Object>> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory) {
             return new ParameterizedServerFactoryBuilder<C>(
@@ -83,7 +83,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
         private final ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory;
         
         private ParameterizedServerFactoryBuilder(
-                Factory<? extends Publisher> publisherFactory,
+                Factory<? extends PubSubSupport<Object>> publisherFactory,
                 ParameterizedFactory<Channel, C> connectionFactory,
                 ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory) {
             super(publisherFactory, connectionFactory);
@@ -100,7 +100,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
     }
 
     public static <C extends Connection<?>> ChannelServerConnectionFactory<C> newInstance(
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             ServerBootstrap bootstrap) {
         ChannelGroup channels = new DefaultChannelGroup(ChannelServerConnectionFactory.class.getSimpleName(), bootstrap.childGroup().next());
@@ -112,7 +112,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
     }
     
     public static <C extends Connection<?>> ChannelServerConnectionFactory<C> newInstance(
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             ChannelGroup channels,
             ServerBootstrap bootstrap) {
@@ -127,7 +127,7 @@ public class ChannelServerConnectionFactory<C extends Connection<?>>
     protected volatile ServerChannel serverChannel;
 
     protected ChannelServerConnectionFactory(
-            Publisher publisher,
+            PubSubSupport<Object> publisher,
             ParameterizedFactory<Channel, C> connectionFactory,
             ChannelGroup group,
             ServerBootstrap bootstrap) {

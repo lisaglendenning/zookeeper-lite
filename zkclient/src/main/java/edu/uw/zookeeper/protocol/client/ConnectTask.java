@@ -1,7 +1,9 @@
 package edu.uw.zookeeper.protocol.client;
 
+import net.engio.mbassy.listener.Handler;
+
 import org.apache.zookeeper.KeeperException;
-import com.google.common.eventbus.Subscribe;
+
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -72,14 +74,14 @@ public class ConnectTask
         return setException;
     }
     
-    @Subscribe
+    @Handler
     public void handleTransition(Automaton.Transition<?> event) {
         if (Connection.State.CONNECTION_CLOSED == event.to()) {
             setException(new KeeperException.ConnectionLossException());
         }
     }
-    
-    @Subscribe
+
+    @Handler
     public void handleConnectMessageResponse(ConnectMessage.Response result) {
         set(result);
     }
@@ -94,7 +96,7 @@ public class ConnectTask
     }
     
     protected synchronized void start() {
-        connection.register(this);
+        connection.subscribe(this);
         try {
             future = connection.write(task());
         } catch (Throwable e) {
@@ -106,7 +108,7 @@ public class ConnectTask
     
     protected synchronized void stop() {
         try {
-            connection.unregister(this);
+            connection.unsubscribe(this);
         } catch (IllegalArgumentException e) {}
         if (future != null) {
             future.cancel(true);

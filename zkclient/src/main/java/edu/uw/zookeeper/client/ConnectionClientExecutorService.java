@@ -15,6 +15,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.zookeeper.KeeperException;
@@ -23,7 +25,6 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -38,7 +39,6 @@ import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.ForwardingPromise;
 import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.Operations;
@@ -57,7 +57,7 @@ import edu.uw.zookeeper.protocol.client.OperationClientExecutor;
 
 public class ConnectionClientExecutorService<I extends Operation.Request, V extends Message.ServerResponse<?>> extends AbstractIdleService 
         implements Supplier<ListenableFuture<ConnectionClientExecutor<I,V,?>>>, 
-        Publisher, 
+        PubSubSupport<Object>, 
         ClientExecutor<I, V>,
         FutureCallback<ConnectionClientExecutor<I,V,?>> {
 
@@ -268,7 +268,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
     }
 
     @Override
-    public synchronized void post(Object event) {
+    public synchronized void publish(Object event) {
         if (!client.isDone() || !events.isEmpty()) {
             events.add(event);
         } else {
@@ -279,30 +279,31 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                 events.add(event);
                 return;
             }
-            client.post(event);
+            client.publish(event);
         }
     }
 
     @Override
-    public synchronized void register(Object handler) {
-        handlers.add(handler);
+    public synchronized void subscribe(Object listener) {
+        handlers.add(listener);
         if (client.isDone()) {
             try {
-                client.get(0, TimeUnit.MILLISECONDS).register(handler);
+                client.get(0, TimeUnit.MILLISECONDS).subscribe(listener);
             } catch (Exception e) {
             }
         }
     }
 
     @Override
-    public synchronized void unregister(Object handler) {
-        handlers.remove(handler);
+    public synchronized boolean unsubscribe(Object listener) {
+        boolean removed = handlers.remove(listener);
         if (client.isDone()) {
             try {
-                client.get(0, TimeUnit.MILLISECONDS).unregister(handler);
+                client.get(0, TimeUnit.MILLISECONDS).unsubscribe(listener);
             } catch (Exception e) {
             }
         }
+        return removed;
     }
 
     @Override
@@ -310,13 +311,13 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
         try {
             synchronized (handlers) {
                 for (Object handler: handlers) {
-                    result.register(handler);
+                    result.subscribe(handler);
                 }
             }
     
             Object event;
             while ((event = events.poll()) != null) {
-                result.post(event);
+                result.publish(event);
             }
         } catch (Exception e) {
             // TODO
@@ -500,10 +501,10 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
             
             public Handler(ConnectionClientExecutor<I,V,?> instance) {
                 this.instance = instance;
-                instance.register(this);
+                instance.subscribe(this);
             }
             
-            @Subscribe
+            @net.engio.mbassy.listener.Handler
             public void handleStateEvent(Automaton.Transition<?> event) {
                 if (Connection.State.CONNECTION_CLOSED == event.to()) {
                     synchronized (Client.this) {
@@ -523,7 +524,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                         }
                     }
                     try {
-                        instance.unregister(this);
+                        instance.unsubscribe(this);
                     } catch (IllegalArgumentException e) {}
                 }
             }

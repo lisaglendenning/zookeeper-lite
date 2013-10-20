@@ -5,17 +5,17 @@ import java.util.concurrent.ConcurrentMap;
 
 import javax.annotation.Nullable;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.collect.MapMaker;
 
-import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.LoggingPublisher;
 import edu.uw.zookeeper.common.ParameterizedFactory;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.net.Connection;
 
 public class IntraVmFactory {
@@ -23,23 +23,23 @@ public class IntraVmFactory {
     public static IntraVmFactory defaults() {
         return newInstance(
                 IntraVmEndpointFactory.loopbackAddresses(1),
-                EventBusPublisher.factory());
+                IntraVmEndpointFactory.syncMessageBus());
     }
     
     public static IntraVmFactory newInstance(
             Supplier<? extends SocketAddress> addresses,
-            Supplier<? extends Publisher> publishers) {
+            Supplier<? extends PubSubSupport<Object>> publishers) {
         return new IntraVmFactory(addresses, publishers);
     }
     
     protected final ConcurrentMap<SocketAddress, IntraVmServerConnectionFactory<?,?>> servers;
     protected final Function<SocketAddress, IntraVmServerConnectionFactory<?,?>> connector;
-    protected final Supplier<? extends Publisher> publishers;
+    protected final Supplier<? extends PubSubSupport<Object>> publishers;
     protected final Supplier<? extends SocketAddress> addresses;
     
     public IntraVmFactory(
             Supplier<? extends SocketAddress> addresses,
-            Supplier<? extends Publisher> publishers) {
+            Supplier<? extends PubSubSupport<Object>> publishers) {
         this.addresses = addresses;
         this.publishers = publishers;
         this.servers = new MapMaker().makeMap();
@@ -55,7 +55,7 @@ public class IntraVmFactory {
         return addresses;
     }
     
-    public Supplier<? extends Publisher> publishers() {
+    public Supplier<? extends PubSubSupport<Object>> publishers() {
         return publishers;
     }
 
@@ -63,7 +63,7 @@ public class IntraVmFactory {
             SocketAddress listenAddress,
             Factory<? extends IntraVmEndpoint<?>> endpointFactory,
             ParameterizedFactory<? super IntraVmConnection<V>, C> connectionFactory) {
-        Publisher publisher = LoggingPublisher.create(
+        PubSubSupport<Object> publisher = LoggingPublisher.create(
                 LogManager.getLogger(IntraVmServerConnectionFactory.class),
                 publishers.get(),
                 listenAddress);
@@ -79,7 +79,7 @@ public class IntraVmFactory {
     public <C extends Connection<?>, V> IntraVmClientConnectionFactory<C,V> newClient(
             Factory<? extends IntraVmEndpoint<?>> endpointFactory,
             ParameterizedFactory<IntraVmConnection<V>, C> connectionFactory) {
-        Publisher publisher = LoggingPublisher.create(
+        PubSubSupport<Object> publisher = LoggingPublisher.create(
                 LogManager.getLogger(IntraVmClientConnectionFactory.class),
                 publishers.get());
         IntraVmClientConnectionFactory<C,V> client = IntraVmClientConnectionFactory.newInstance(

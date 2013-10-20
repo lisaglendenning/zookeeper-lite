@@ -4,11 +4,12 @@ import io.netty.buffer.ByteBuf;
 
 import java.io.IOException;
 
+import net.engio.mbassy.PubSubSupport;
+
 import com.google.common.base.Optional;
 
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
@@ -16,11 +17,11 @@ import edu.uw.zookeeper.protocol.ProtocolState;
 
 public class AssignXidCodec implements ProtocolCodec<Operation.Request, Message.ServerSession> {
     
-    public static ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> factory() {
-        return new ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>>() {
+    public static ParameterizedFactory<PubSubSupport<Object>, Pair<Class<Operation.Request>, AssignXidCodec>> factory() {
+        return new ParameterizedFactory<PubSubSupport<Object>, Pair<Class<Operation.Request>, AssignXidCodec>>() {
             @Override
             public Pair<Class<Operation.Request>, AssignXidCodec> get(
-                    Publisher value) {
+                    PubSubSupport<Object> value) {
                 return Pair.create(Operation.Request.class, AssignXidCodec.newInstance(
                         AssignXidProcessor.newInstance(),
                         ClientProtocolCodec.newInstance(value)));
@@ -30,7 +31,7 @@ public class AssignXidCodec implements ProtocolCodec<Operation.Request, Message.
     
     public static AssignXidCodec newInstance(
             AssignXidProcessor xids,
-            Publisher publisher) {
+            PubSubSupport<Object> publisher) {
         return newInstance(xids, ClientProtocolCodec.newInstance(publisher));
     }
     
@@ -73,12 +74,17 @@ public class AssignXidCodec implements ProtocolCodec<Operation.Request, Message.
     }
 
     @Override
-    public void register(Object handler) {
-        delegate.register(handler);
+    public void subscribe(Object listener) {
+        delegate.subscribe(listener);
     }
 
     @Override
-    public void unregister(Object handler) {
-        delegate.unregister(handler);
+    public boolean unsubscribe(Object listener) {
+        return delegate.unsubscribe(listener);
+    }
+
+    @Override
+    public void publish(Object message) {
+        delegate.publish(message);
     }
 }

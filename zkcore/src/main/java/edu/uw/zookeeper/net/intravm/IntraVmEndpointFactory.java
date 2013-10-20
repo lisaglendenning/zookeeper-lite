@@ -7,23 +7,25 @@ import java.net.UnknownHostException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.bus.SyncBusConfiguration;
+import net.engio.mbassy.bus.SyncMessageBus;
+
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.ActorExecutor;
-import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Factory;
-import edu.uw.zookeeper.common.Publisher;
 
 public class IntraVmEndpointFactory<V> implements Factory<IntraVmEndpoint<V>> {
 
     public static <V> IntraVmEndpointFactory<V> defaults() {
-        return create(loopbackAddresses(1), EventBusPublisher.factory(), sameThreadExecutors());
+        return create(loopbackAddresses(1), syncMessageBus(), sameThreadExecutors());
     }
     
     public static <V> IntraVmEndpointFactory<V> create(
             Supplier<? extends SocketAddress> addresses,
-            Supplier<? extends Publisher> publishers, 
+            Supplier<? extends PubSubSupport<Object>> publishers, 
             Supplier<? extends Executor> executors) {
         return new IntraVmEndpointFactory<V>(addresses, publishers, executors);
     }
@@ -35,6 +37,16 @@ public class IntraVmEndpointFactory<V> implements Factory<IntraVmEndpoint<V>> {
         } catch (UnknownHostException e) {
             throw new AssertionError(e);
         }
+    }
+    
+    public static Factory<SyncMessageBus<Object>> syncMessageBus() {
+        return new Factory<SyncMessageBus<Object>>() {
+            @SuppressWarnings("rawtypes")
+            @Override
+            public SyncMessageBus<Object> get() {
+                return new SyncMessageBus<Object>(new SyncBusConfiguration());
+            }
+        };
     }
 
     public static Factory<? extends Executor> sameThreadExecutors() {
@@ -67,12 +79,12 @@ public class IntraVmEndpointFactory<V> implements Factory<IntraVmEndpoint<V>> {
     }
     
     protected final Supplier<? extends SocketAddress> addresses;
-    protected final Supplier<? extends Publisher> publishers;
+    protected final Supplier<? extends PubSubSupport<Object>> publishers;
     protected final Supplier<? extends Executor> executors;
     
     public IntraVmEndpointFactory(
             Supplier<? extends SocketAddress> addresses,
-            Supplier<? extends Publisher> publishers, 
+            Supplier<? extends PubSubSupport<Object>> publishers, 
             Supplier<? extends Executor> executors) {
         this.addresses = addresses;
         this.publishers = publishers;
@@ -83,7 +95,7 @@ public class IntraVmEndpointFactory<V> implements Factory<IntraVmEndpoint<V>> {
         return addresses;
     }
     
-    public Supplier<? extends Publisher> publishers() {
+    public Supplier<? extends PubSubSupport<Object>> publishers() {
         return publishers;
     }
     

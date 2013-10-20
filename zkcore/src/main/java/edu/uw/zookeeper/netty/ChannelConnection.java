@@ -10,6 +10,8 @@ import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
@@ -22,34 +24,33 @@ import edu.uw.zookeeper.common.ExecutedActor;
 import edu.uw.zookeeper.common.LoggingPublisher;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.ActorPublisher;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
 
 public class ChannelConnection<I> 
-        implements Connection<I>, Publisher, Executor {
+        implements Connection<I>, Executor {
 
     public static <I> ChannelConnection<I> newInstance(
             Channel channel,
-            Publisher publisher) {
+            PubSubSupport<Object> publisher) {
         ChannelConnection<I> instance = new ChannelConnection<I>(channel, publisher);
         instance.attach();
         return instance;
     }
     
     protected final Logger logger;
-    protected final ActorPublisher publisher;
+    protected final ActorPublisher<Object> publisher;
     protected final Automaton<Connection.State, Connection.State> state;
     protected final Channel channel;
     protected final OutboundActor outbound;
 
     protected ChannelConnection(
             Channel channel,
-            Publisher publisher) {
+            PubSubSupport<Object> publisher) {
         this.logger = LogManager.getLogger(getClass());
         this.channel = checkNotNull(channel);
-        this.publisher = ActorPublisher.newInstance(
+        this.publisher = ActorPublisher.newPublisher(
                 LoggingPublisher.create(logger, publisher, this), 
                 this,
                 logger);
@@ -120,18 +121,18 @@ public class ChannelConnection<I>
     }
 
     @Override
-    public void post(Object event) {
-        publisher.post(event);
+    public void publish(Object event) {
+        publisher.publish(event);
     }
 
     @Override
-    public void register(Object object) {
-        publisher.register(object);
+    public void subscribe(Object listener) {
+        publisher.subscribe(listener);
     }
 
     @Override
-    public void unregister(Object object) {
-        publisher.unregister(object);
+    public boolean unsubscribe(Object listener) {
+        return publisher.unsubscribe(listener);
     }
     
     @Override

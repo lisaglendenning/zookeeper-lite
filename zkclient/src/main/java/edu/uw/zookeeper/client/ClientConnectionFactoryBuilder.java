@@ -5,10 +5,10 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.util.concurrent.ScheduledExecutorService;
 
+import net.engio.mbassy.PubSubSupport;
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
@@ -30,7 +30,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     protected final RuntimeModule runtime;
     protected final NetClientModule clientModule;
     protected final TimeValue timeOut;
-    protected final ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory;
+    protected final ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory;
     protected final ParameterizedFactory<Pair<? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>, Connection<Message.ClientSession>>, ? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> connectionFactory;
     
     public ClientConnectionFactoryBuilder() {
@@ -41,7 +41,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
             RuntimeModule runtime,
             NetClientModule clientModule,
             TimeValue timeOut,
-            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory,
+            ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory,
             ParameterizedFactory<Pair<? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>, Connection<Message.ClientSession>>, ? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> connectionFactory) {
         super();
         this.runtime = runtime;
@@ -89,12 +89,12 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         }
     }
 
-    public ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> getCodecFactory() {
+    public ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> getCodecFactory() {
         return codecFactory;
     }
 
     public ClientConnectionFactoryBuilder setCodecFactory(
-            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory) {
+            ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory) {
         if (this.codecFactory == codecFactory) {
             return this;
         } else {
@@ -139,7 +139,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
             RuntimeModule runtime,
             NetClientModule clientModule,
             TimeValue timeOut,
-            ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory,
+            ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> codecFactory,
             ParameterizedFactory<Pair<? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>, Connection<Message.ClientSession>>, ? extends ProtocolCodecConnection<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> connectionFactory) {
         return new ClientConnectionFactoryBuilder(runtime, clientModule, timeOut, codecFactory, connectionFactory);
     }
@@ -152,7 +152,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
         return NettyClientModule.newInstance(runtime);
     }
     
-    protected ParameterizedFactory<Publisher, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> getDefaultCodecFactory() {
+    protected ParameterizedFactory<PubSubSupport<Object>, ? extends Pair<Class<Message.ClientSession>, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>>> getDefaultCodecFactory() {
         return ClientProtocolCodec.factory();
     }
     

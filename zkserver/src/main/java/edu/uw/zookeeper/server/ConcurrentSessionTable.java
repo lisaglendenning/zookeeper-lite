@@ -4,32 +4,33 @@ import static com.google.common.base.Preconditions.*;
 
 import java.util.concurrent.ConcurrentMap;
 
+import net.engio.mbassy.PubSubSupport;
+
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import com.google.common.collect.Maps;
 
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.Session;
 
 public class ConcurrentSessionTable extends SessionTableAdapter implements SessionTable {
 
-    public static ConcurrentSessionTable newInstance(Publisher publisher,
+    public static ConcurrentSessionTable newInstance(PubSubSupport<Object> publisher,
             SessionParametersPolicy policy) {
         return new ConcurrentSessionTable(publisher, policy);
     }
 
     protected final Logger logger;
-    protected final Publisher publisher;
+    protected final PubSubSupport<Object> publisher;
     protected final SessionParametersPolicy policy;
     protected final ConcurrentMap<Long, Session> sessions;
 
-    protected ConcurrentSessionTable(Publisher publisher, SessionParametersPolicy policy) {
+    protected ConcurrentSessionTable(PubSubSupport<Object> publisher, SessionParametersPolicy policy) {
         this(publisher, policy, Maps.<Long, Session>newConcurrentMap());
     }
 
-    protected ConcurrentSessionTable(Publisher publisher, SessionParametersPolicy policy,
+    protected ConcurrentSessionTable(PubSubSupport<Object> publisher, SessionParametersPolicy policy,
             ConcurrentMap<Long, Session> sessions) {
         this.logger = LogManager.getLogger(getClass());
         this.publisher = publisher;
@@ -106,7 +107,7 @@ public class ConcurrentSessionTable extends SessionTableAdapter implements Sessi
     }
 
     @Override
-    protected Publisher publisher() {
+    protected PubSubSupport<Object> publisher() {
         return publisher;
     }
 }
