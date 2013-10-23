@@ -55,12 +55,12 @@ public class ServerConnectionsHandler<C extends ProtocolCodecConnection<Message.
         
         protected final ServerConnectionFactoryBuilder connectionBuilder;
         protected final TimeValue timeOut;
-        protected final ServerExecutor serverExecutor;
+        protected final ServerExecutor<?> serverExecutor;
         
         public Builder(
                 ServerConnectionFactoryBuilder connectionBuilder,
                 TimeValue timeOut,
-                ServerExecutor serverExecutor) {
+                ServerExecutor<?> serverExecutor) {
             this.timeOut = timeOut;
             this.connectionBuilder = checkNotNull(connectionBuilder);
             this.serverExecutor = serverExecutor;
@@ -100,11 +100,11 @@ public class ServerConnectionsHandler<C extends ProtocolCodecConnection<Message.
             }
         }
 
-        public ServerExecutor getServerExecutor() {
+        public ServerExecutor<?> getServerExecutor() {
             return serverExecutor;
         }
 
-        public Builder setServerExecutor(ServerExecutor serverExecutor) {
+        public Builder setServerExecutor(ServerExecutor<?> serverExecutor) {
             if (this.serverExecutor == serverExecutor) {
                 return this;
             } else {
@@ -134,7 +134,7 @@ public class ServerConnectionsHandler<C extends ProtocolCodecConnection<Message.
         protected Builder newInstance(
                 ServerConnectionFactoryBuilder connectionBuilder,
                 TimeValue timeOut,
-                ServerExecutor serverExecutor) {
+                ServerExecutor<?> serverExecutor) {
             return new Builder(connectionBuilder, timeOut, serverExecutor);
         }
 
@@ -161,26 +161,27 @@ public class ServerConnectionsHandler<C extends ProtocolCodecConnection<Message.
     }
     
     public static <C extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, ?>> ServerConnectionsHandler<C> newInstance(
-            ServerExecutor server, 
+            ServerExecutor<?> server, 
             ScheduledExecutorService scheduler, 
             TimeValue timeOut) {
-        return new ServerConnectionsHandler<C>(server, scheduler, timeOut, new MapMaker());
+        ConcurrentMap<C, ServerConnectionsHandler<C>.ConnectionHandler<?,?>> handlers = new MapMaker().weakKeys().weakValues().makeMap();
+        return new ServerConnectionsHandler<C>(server, scheduler, timeOut, handlers);
     }
     
     protected final TimeValue timeOut;
     protected final ScheduledExecutorService scheduler;
-    protected final ServerExecutor server;
+    protected final ServerExecutor<?> server;
     protected final ConcurrentMap<C, ConnectionHandler<?,?>> handlers;
     
     protected ServerConnectionsHandler(
-            ServerExecutor server, 
+            ServerExecutor<?> server, 
             ScheduledExecutorService scheduler, 
             TimeValue timeOut,
-            MapMaker maker) {
+            ConcurrentMap<C, ConnectionHandler<?,?>> handlers) {
         this.server = server;
         this.scheduler = scheduler;
         this.timeOut = timeOut;
-        this.handlers = maker.weakKeys().weakValues().makeMap();
+        this.handlers = handlers;
     }
     
     @Handler

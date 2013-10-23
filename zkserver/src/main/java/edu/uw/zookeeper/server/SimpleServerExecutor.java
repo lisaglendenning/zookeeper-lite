@@ -2,6 +2,7 @@ package edu.uw.zookeeper.server;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
@@ -43,13 +44,13 @@ import edu.uw.zookeeper.protocol.server.ServerExecutor;
 import edu.uw.zookeeper.protocol.server.TimeOutCallback;
 import edu.uw.zookeeper.protocol.server.ZxidGenerator;
 
-public class SimpleServerExecutor implements ServerExecutor {
+public class SimpleServerExecutor<T extends SessionExecutor> implements ServerExecutor<T> {
 
     public static Builder builder() {
         return Builder.defaults();
     }
 
-    public static class Builder implements ZooKeeperApplication.RuntimeBuilder<SimpleServerExecutor, Builder> {
+    public static class Builder implements ZooKeeperApplication.RuntimeBuilder<SimpleServerExecutor<?>, Builder> {
 
         public static Builder defaults() {
             return new Builder(ServerBuilder.defaults());
@@ -89,7 +90,7 @@ public class SimpleServerExecutor implements ServerExecutor {
         }
         
         @Override
-        public SimpleServerExecutor build() {
+        public SimpleServerExecutor<?> build() {
             return setDefaults().doBuild();
         }
 
@@ -97,11 +98,11 @@ public class SimpleServerExecutor implements ServerExecutor {
             return new Builder(server);
         }
 
-        protected SimpleServerExecutor doBuild() {
+        protected SimpleServerExecutor<?> doBuild() {
             getServer().build();
-            return new SimpleServerExecutor(
+            return new SimpleServerExecutor<SessionExecutor>(
                     getServer().getSessionExecutors(),
-                    (SimpleConnectExecutor) getServer().getSessions(),
+                    (SimpleConnectExecutor<?>) getServer().getSessions(),
                     getDefaultAnonymousExecutor());
         }
         
@@ -213,7 +214,7 @@ public class SimpleServerExecutor implements ServerExecutor {
         }
 
         @Override
-        protected SimpleConnectExecutor getDefaultSessions() {
+        protected SimpleConnectExecutor<?> getDefaultSessions() {
             return SimpleConnectExecutor.defaults(
                     getSessionExecutors(), 
                     getDefaultSessionFactory(), 
@@ -230,10 +231,10 @@ public class SimpleServerExecutor implements ServerExecutor {
     
     protected final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor;
     protected final TaskExecutor<Pair<Request, ? extends PubSubSupport<Object>>, ? extends Response> connectExecutor;
-    protected final ConcurrentMap<Long, ? extends SessionExecutor> sessionExecutors;
+    protected final ConcurrentMap<Long, T> sessionExecutors;
     
     public SimpleServerExecutor(
-            ConcurrentMap<Long, ? extends SessionExecutor> sessionExecutors,
+            ConcurrentMap<Long, T> sessionExecutors,
             TaskExecutor<Pair<Request, ? extends PubSubSupport<Object>>, ? extends Response> connectExecutor,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor) {
         this.anonymousExecutor = anonymousExecutor;
@@ -252,8 +253,13 @@ public class SimpleServerExecutor implements ServerExecutor {
     }
 
     @Override
-    public SessionExecutor sessionExecutor(long sessionId) {
+    public T sessionExecutor(long sessionId) {
         return sessionExecutors.get(sessionId);
+    }
+
+    @Override
+    public Iterator<T> iterator() {
+        return sessionExecutors.values().iterator();
     }
 
     public static class ProcessorTaskExecutor<I,O> implements TaskExecutor<I,O> {
@@ -279,25 +285,25 @@ public class SimpleServerExecutor implements ServerExecutor {
         }
     }
     
-    public static class SimpleConnectExecutor extends AbstractConnectExecutor {
+    public static class SimpleConnectExecutor<T extends SessionExecutor> extends AbstractConnectExecutor {
         
-        public static SimpleConnectExecutor defaults(
-                ConcurrentMap<Long, SessionExecutor> sessions,
-                ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, ? extends SessionExecutor> sessionFactory,
+        public static <T extends SessionExecutor> SimpleConnectExecutor<T> defaults(
+                ConcurrentMap<Long, T> sessions,
+                ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, ? extends T> sessionFactory,
                 Configuration configuration,
                 ZxidReference lastZxid) {
             DefaultSessionParametersPolicy policy = DefaultSessionParametersPolicy.fromConfiguration(configuration);
             @SuppressWarnings("rawtypes")
             PubSubSupport<Object> publisher = new SyncMessageBus<Object>(new SyncBusConfiguration());
-            return new SimpleConnectExecutor(sessions, sessionFactory, publisher, policy, lastZxid);
+            return new SimpleConnectExecutor<T>(sessions, sessionFactory, publisher, policy, lastZxid);
         }
         
-        protected final ConcurrentMap<Long, SessionExecutor> sessions;
-        protected final ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, ? extends SessionExecutor> sessionFactory;
+        protected final ConcurrentMap<Long, T> sessions;
+        protected final ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, ? extends T> sessionFactory;
         
         public SimpleConnectExecutor(
-                ConcurrentMap<Long, SessionExecutor> sessions,
-                ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, ? extends SessionExecutor> sessionFactory,
+                ConcurrentMap<Long, T> sessions,
+                ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, ? extends T> sessionFactory,
                 PubSubSupport<? super SessionEvent> publisher,
                 SessionParametersPolicy policy,
                 ZxidReference lastZxid) {
@@ -313,13 +319,16 @@ public class SimpleServerExecutor implements ServerExecutor {
                 ConnectMessage.Response response = processor.apply(request.first());
                 if (response instanceof ConnectMessage.Response.Valid) {
                     Session session = response.toSession();
-                    SessionExecutor executor = sessionFactory.get(Pair.create(session, (PubSubSupport<Object>) request.second()));
-                    SessionExecutor prev = sessions.put(response.getSessionId(), executor);
+                    T executor = sessionFactory.get(Pair.create(session, (PubSubSupport<Object>) request.second()));
+                    T prev = sessions.put(response.getSessionId(), executor);
                     if (prev == null) {
                         logger().debug("Created session: {}", session);
                         publish(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
                     } else {
                         logger().debug("Updating session: {} to {}", session, prev.session());
+                        // FIXME
+                        // what to do?
+                        throw new UnsupportedOperationException(String.valueOf(request));
                     }
                 }
                 return Futures.immediateFuture(response);

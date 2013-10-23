@@ -37,7 +37,7 @@ public class SimpleServerConnectionsBuilder extends ServerConnectionsHandler.Bui
     public SimpleServerConnectionsBuilder(
             ServerConnectionFactoryBuilder connectionBuilder,
             TimeValue timeOut, 
-            ServerExecutor serverExecutor) {
+            ServerExecutor<?> serverExecutor) {
         super(connectionBuilder, timeOut, serverExecutor);
     }
 
@@ -57,7 +57,7 @@ public class SimpleServerConnectionsBuilder extends ServerConnectionsHandler.Bui
     }
 
     @Override
-    public SimpleServerConnectionsBuilder setServerExecutor(ServerExecutor serverExecutor) {
+    public SimpleServerConnectionsBuilder setServerExecutor(ServerExecutor<?> serverExecutor) {
         return (SimpleServerConnectionsBuilder) super.setServerExecutor(serverExecutor);
     }
 
@@ -70,7 +70,7 @@ public class SimpleServerConnectionsBuilder extends ServerConnectionsHandler.Bui
     protected SimpleServerConnectionsBuilder newInstance(
             ServerConnectionFactoryBuilder connectionBuilder,
             TimeValue timeOut,
-            ServerExecutor serverExecutor) {
+            ServerExecutor<?> serverExecutor) {
         return new SimpleServerConnectionsBuilder(connectionBuilder, timeOut, serverExecutor);
     }
     

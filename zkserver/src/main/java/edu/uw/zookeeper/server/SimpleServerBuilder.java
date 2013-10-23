@@ -12,7 +12,7 @@ import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.protocol.server.ServerConnectionsHandler;
 import edu.uw.zookeeper.protocol.server.ServerExecutor;
 
-public class SimpleServerBuilder<T extends ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor, ?>> extends ZooKeeperApplication.ForwardingBuilder<List<Service>, T, SimpleServerBuilder<T>> {
+public class SimpleServerBuilder<T extends ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor<?>, ?>> extends ZooKeeperApplication.ForwardingBuilder<List<Service>, T, SimpleServerBuilder<T>> {
 
     public static SimpleServerBuilder<?> defaults() {
         return new SimpleServerBuilder<SimpleServerExecutor.Builder>(
@@ -105,7 +105,7 @@ public class SimpleServerBuilder<T extends ZooKeeperApplication.RuntimeBuilder<?
         return (T) getServerBuilder().setDefaults();
     }
     
-    protected ServerExecutor getDefaultServerExecutor() {
+    protected ServerExecutor<?> getDefaultServerExecutor() {
         return getServerBuilder().build();
     }
     
