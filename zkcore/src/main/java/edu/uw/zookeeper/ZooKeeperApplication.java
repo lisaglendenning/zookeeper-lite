@@ -1,6 +1,8 @@
 package edu.uw.zookeeper;
 
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Function;
 
 import edu.uw.zookeeper.common.Application;
@@ -53,7 +55,7 @@ public abstract class ZooKeeperApplication implements Application {
         protected final T delegate;
         
         public ForwardingBuilder(T delegate) {
-            this.delegate = delegate;
+            this.delegate = checkNotNull(delegate);
         }
         
         @Override

@@ -2,17 +2,12 @@ package edu.uw.zookeeper.server;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import com.google.common.base.Function;
 import com.google.common.base.Supplier;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.MapMaker;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -237,7 +232,7 @@ public class SimpleServerExecutor implements ServerExecutor {
     protected final TaskExecutor<Pair<Request, ? extends PubSubSupport<Object>>, ? extends Response> connectExecutor;
     protected final ConcurrentMap<Long, ? extends SessionExecutor> sessionExecutors;
     
-    protected SimpleServerExecutor(
+    public SimpleServerExecutor(
             ConcurrentMap<Long, ? extends SessionExecutor> sessionExecutors,
             TaskExecutor<Pair<Request, ? extends PubSubSupport<Object>>, ? extends Response> connectExecutor,
             TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor) {
@@ -284,7 +279,7 @@ public class SimpleServerExecutor implements ServerExecutor {
         }
     }
     
-    public static class SimpleConnectExecutor extends PolicySessionManager implements TaskExecutor<Pair<ConnectMessage.Request, ? extends PubSubSupport<Object>>, ConnectMessage.Response>, SessionManager {
+    public static class SimpleConnectExecutor extends AbstractConnectExecutor {
         
         public static SimpleConnectExecutor defaults(
                 ConcurrentMap<Long, SessionExecutor> sessions,
@@ -297,10 +292,6 @@ public class SimpleServerExecutor implements ServerExecutor {
             return new SimpleConnectExecutor(sessions, sessionFactory, publisher, policy, lastZxid);
         }
         
-        protected final Logger logger;
-        protected final PubSubSupport<? super SessionEvent> publisher;
-        protected final ConnectMessageProcessor processor;
-        protected final SessionParametersPolicy policy;
         protected final ConcurrentMap<Long, SessionExecutor> sessions;
         protected final ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, ? extends SessionExecutor> sessionFactory;
         
@@ -310,12 +301,9 @@ public class SimpleServerExecutor implements ServerExecutor {
                 PubSubSupport<? super SessionEvent> publisher,
                 SessionParametersPolicy policy,
                 ZxidReference lastZxid) {
-            this.logger = LogManager.getLogger(getClass());
-            this.publisher = publisher;
-            this.policy = policy;
+            super(publisher, policy, lastZxid);
             this.sessions = sessions;
             this.sessionFactory = sessionFactory;
-            this.processor = ConnectMessageProcessor.create(this, lastZxid);
         }
 
         @Override
@@ -341,52 +329,14 @@ public class SimpleServerExecutor implements ServerExecutor {
         }
 
         @Override
-        public SessionParametersPolicy policy() {
-            return policy;
-        }
-
-        @Override
-        public Session get(long id) {
-            SessionExecutor session = sessions.get(id);
-            if (session != null) {
-                return session.session();
-            }
-            return null;
-        }
-
-        @Override
-        public Iterator<Session> iterator() {
-            return Iterators.transform(sessions.values().iterator(), new Function<SessionExecutor, Session>() {
-                @Override
-                public Session apply(SessionExecutor input) {
-                    return input.session();
-                }
-            });
-        }
-
-        @Override
-        protected Session doRemove(long id) {
-            SessionExecutor session = sessions.remove(id);
-            if (session != null) {
-                return session.session();
-            }
-            return null;
-        }
-
-        @Override
         protected Session put(Session session) {
             // we do the actual session creation in submit()
             return get(session.id());
         }
 
         @Override
-        protected PubSubSupport<? super SessionEvent> publisher() {
-            return publisher;
-        }
-
-        @Override
-        protected Logger logger() {
-            return logger;
+        protected ConcurrentMap<Long, ? extends SessionExecutor> sessions() {
+            return sessions;
         }
     }
     
@@ -406,10 +356,10 @@ public class SimpleServerExecutor implements ServerExecutor {
                 }
             };
         }
-        
-        protected final TimeOutCallback timer;
+
         protected final PubSubSupport<Object> publisher;
         protected final Session session;
+        protected final TimeOutCallback timer;
         protected final TaskExecutor<? super SessionOperation.Request<?>, Message.ServerResponse<?>> server;
         
         public SimpleSessionExecutor(
@@ -425,16 +375,10 @@ public class SimpleServerExecutor implements ServerExecutor {
                     scheduler, 
                     this);
         }
-        
+
         @Override
         public Session session() {
             return session;
-        }
-
-        @Override
-        public ListenableFuture<Message.ServerResponse<?>> submit(Message.ClientRequest<?> request) {
-            timer.send(request);
-            return server.submit(SessionRequest.of(session.id(), request));
         }
 
         @Override
@@ -450,6 +394,12 @@ public class SimpleServerExecutor implements ServerExecutor {
         @Override
         public void publish(Object message) {
             publisher.publish(message);
+        }
+        
+        @Override
+        public ListenableFuture<Message.ServerResponse<?>> submit(Message.ClientRequest<?> request) {
+            timer.send(request);
+            return server.submit(SessionRequest.of(session.id(), request));
         }
 
         @Override

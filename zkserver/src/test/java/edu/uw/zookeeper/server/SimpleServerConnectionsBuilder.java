@@ -11,18 +11,18 @@ import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.server.ServerConnectionsHandler;
 import edu.uw.zookeeper.protocol.server.ServerExecutor;
 
-public class SimpleServerBuilder extends ServerConnectionsHandler.Builder {
+public class SimpleServerConnectionsBuilder extends ServerConnectionsHandler.Builder {
 
-    public static SimpleServerBuilder defaults(
+    public static SimpleServerConnectionsBuilder defaults(
             IntraVmNetModule net) {
         ServerInetAddressView address = ServerInetAddressView.of((InetSocketAddress) net.factory().addresses().get());
         return defaults(address, net);
     }
     
-    public static SimpleServerBuilder defaults(
+    public static SimpleServerConnectionsBuilder defaults(
             ServerInetAddressView address,
             NetServerModule serverModule) {
-        return new SimpleServerBuilder(connectionBuilder(address, serverModule), 
+        return new SimpleServerConnectionsBuilder(connectionBuilder(address, serverModule), 
                 null, null);
     }
     
@@ -34,7 +34,7 @@ public class SimpleServerBuilder extends ServerConnectionsHandler.Builder {
                 .setAddress(address);
     }
     
-    public SimpleServerBuilder(
+    public SimpleServerConnectionsBuilder(
             ServerConnectionFactoryBuilder connectionBuilder,
             TimeValue timeOut, 
             ServerExecutor serverExecutor) {
@@ -42,36 +42,36 @@ public class SimpleServerBuilder extends ServerConnectionsHandler.Builder {
     }
 
     @Override
-    public SimpleServerBuilder setRuntimeModule(RuntimeModule runtime) {
-        return (SimpleServerBuilder) super.setRuntimeModule(runtime);
+    public SimpleServerConnectionsBuilder setRuntimeModule(RuntimeModule runtime) {
+        return (SimpleServerConnectionsBuilder) super.setRuntimeModule(runtime);
     }
     
     @Override
-    public SimpleServerBuilder setTimeOut(TimeValue timeOut) {
-        return (SimpleServerBuilder) super.setTimeOut(timeOut);
+    public SimpleServerConnectionsBuilder setTimeOut(TimeValue timeOut) {
+        return (SimpleServerConnectionsBuilder) super.setTimeOut(timeOut);
     }
 
     @Override
-    public SimpleServerBuilder setConnectionBuilder(ServerConnectionFactoryBuilder connectionBuilder) {
-        return (SimpleServerBuilder) super.setConnectionBuilder(connectionBuilder);
+    public SimpleServerConnectionsBuilder setConnectionBuilder(ServerConnectionFactoryBuilder connectionBuilder) {
+        return (SimpleServerConnectionsBuilder) super.setConnectionBuilder(connectionBuilder);
     }
 
     @Override
-    public SimpleServerBuilder setServerExecutor(ServerExecutor serverExecutor) {
-        return (SimpleServerBuilder) super.setServerExecutor(serverExecutor);
+    public SimpleServerConnectionsBuilder setServerExecutor(ServerExecutor serverExecutor) {
+        return (SimpleServerConnectionsBuilder) super.setServerExecutor(serverExecutor);
     }
 
     @Override
-    public SimpleServerBuilder setDefaults() {
-        return (SimpleServerBuilder) super.setDefaults();
+    public SimpleServerConnectionsBuilder setDefaults() {
+        return (SimpleServerConnectionsBuilder) super.setDefaults();
     }
     
     @Override
-    protected SimpleServerBuilder newInstance(
+    protected SimpleServerConnectionsBuilder newInstance(
             ServerConnectionFactoryBuilder connectionBuilder,
             TimeValue timeOut,
             ServerExecutor serverExecutor) {
-        return new SimpleServerBuilder(connectionBuilder, timeOut, serverExecutor);
+        return new SimpleServerConnectionsBuilder(connectionBuilder, timeOut, serverExecutor);
     }
     
     @Override
