@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.server;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import java.util.List;
 
@@ -11,57 +12,68 @@ import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.protocol.server.ServerConnectionsHandler;
 import edu.uw.zookeeper.protocol.server.ServerExecutor;
 
-public class SimpleServerBuilder implements ZooKeeperApplication.RuntimeBuilder<List<Service>, SimpleServerBuilder> {
+public class SimpleServerBuilder<T extends ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor, ?>> extends ZooKeeperApplication.ForwardingBuilder<List<Service>, T, SimpleServerBuilder<T>> {
 
-    public static SimpleServerBuilder defaults() {
-        return new SimpleServerBuilder(
+    public static SimpleServerBuilder<?> defaults() {
+        return new SimpleServerBuilder<SimpleServerExecutor.Builder>(
                 SimpleServerExecutor.builder(), ServerConnectionsHandler.builder());
     }
     
-    protected final ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor, ?> server;
     protected final ServerConnectionsHandler.Builder connections;
     
     public SimpleServerBuilder(
-            ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor, ?> server,
+            T delegate,
             ServerConnectionsHandler.Builder connections) {
-        this.server = checkNotNull(server);
+        super(delegate);
         this.connections = checkNotNull(connections);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public RuntimeModule getRuntimeModule() {
-        return server.getRuntimeModule();
+    public SimpleServerBuilder<T> setRuntimeModule(RuntimeModule runtime) {
+        if (getRuntimeModule() == runtime) {
+            return this;
+        } else {
+            return newInstance(
+                    (T) delegate.setRuntimeModule(runtime), 
+                    connections.setRuntimeModule(runtime));
+        }
     }
 
-    @Override
-    public SimpleServerBuilder setRuntimeModule(RuntimeModule runtime) {
-        return newInstance(server.setRuntimeModule(runtime), connections.setRuntimeModule(runtime));
-    }
-
-    public ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor, ?> getServerBuilder() {
-        return server;
+    public T getServerBuilder() {
+        return delegate;
     }
     
-    public SimpleServerBuilder setServerBuilder(ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor, ?> server) {
-        return newInstance(server, connections);
+    public SimpleServerBuilder<T> setServerBuilder(T server) {
+        if (getServerBuilder() == server) {
+            return this;
+        } else {
+            return newInstance(server, connections);
+        }
     }
  
     public ServerConnectionsHandler.Builder getConnectionsBuilder() {
         return connections;
     }
 
-    public SimpleServerBuilder setConnectionsBuilder(ServerConnectionsHandler.Builder connections) {
-        return newInstance(server, connections);
+    public SimpleServerBuilder<T> setConnectionsBuilder(ServerConnectionsHandler.Builder connections) {
+        if (getConnectionsBuilder() == connections) {
+            return this;
+        } else {
+            return newInstance(delegate, connections);
+        }
     }
  
     @Override
-    public SimpleServerBuilder setDefaults() {
-        ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor, ?> server = getDefaultServerBuilder();
-        if (server != this.server) {
+    public SimpleServerBuilder<T> setDefaults() {
+        checkState(getRuntimeModule() != null);
+        
+        T server = getDefaultServerBuilder();
+        if (server != getServerBuilder()) {
             return setServerBuilder(server).setDefaults();
         }
-        ServerConnectionsHandler.Builder connections = getDefaultConenctionsBuilder();
-        if (connections != this.connections) {
+        ServerConnectionsHandler.Builder connections = getDefaultConnectionsBuilder();
+        if (connections != getConnectionsBuilder()) {
             return setConnectionsBuilder(connections).setDefaults();
         }
         return this;
@@ -72,25 +84,32 @@ public class SimpleServerBuilder implements ZooKeeperApplication.RuntimeBuilder<
         return setDefaults().doBuild();
     }
 
-    protected SimpleServerBuilder newInstance(
-            ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor, ?> server,
+    @Override
+    protected SimpleServerBuilder<T> newInstance(
+            T server) {
+        return newInstance(server, connections);
+    }
+    
+    protected SimpleServerBuilder<T> newInstance(
+            T server,
             ServerConnectionsHandler.Builder connections) {
-        return new SimpleServerBuilder(server, connections);
+        return new SimpleServerBuilder<T>(server, connections);
     }
 
     protected List<Service> doBuild() {
         return getConnectionsBuilder().build();
     }
     
-    protected ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor, ?> getDefaultServerBuilder() {
-        return getServerBuilder().setDefaults();
+    @SuppressWarnings("unchecked")
+    protected T getDefaultServerBuilder() {
+        return (T) getServerBuilder().setDefaults();
     }
     
     protected ServerExecutor getDefaultServerExecutor() {
         return getServerBuilder().build();
     }
     
-    protected ServerConnectionsHandler.Builder getDefaultConenctionsBuilder() {
+    protected ServerConnectionsHandler.Builder getDefaultConnectionsBuilder() {
         ServerConnectionsHandler.Builder connections = getConnectionsBuilder();
         if (connections.getServerExecutor() == null) {
             connections = connections.setServerExecutor(getDefaultServerExecutor());

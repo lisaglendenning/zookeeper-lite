@@ -26,7 +26,7 @@ public class Main extends ZooKeeperApplication {
         application.run();
     }
 
-    protected static class MainBuilder extends ZooKeeperApplication.ForwardingBuilder<Main, SimpleServerBuilder, MainBuilder> {
+    protected static class MainBuilder extends ZooKeeperApplication.ForwardingBuilder<Main, SimpleServerBuilder<?>, MainBuilder> {
         
     	protected static final String DESCRIPTION = "ZooKeeper Standalone In-Memory Server";
     	
@@ -34,12 +34,12 @@ public class Main extends ZooKeeperApplication {
             this(SimpleServerBuilder.defaults());
         }
 
-        public MainBuilder(SimpleServerBuilder delegate) {
+        public MainBuilder(SimpleServerBuilder<?> delegate) {
             super(delegate);
         }
 
         @Override
-        protected MainBuilder newInstance(SimpleServerBuilder delegate) {
+        protected MainBuilder newInstance(SimpleServerBuilder<?> delegate) {
             return new MainBuilder(delegate);
         }
 

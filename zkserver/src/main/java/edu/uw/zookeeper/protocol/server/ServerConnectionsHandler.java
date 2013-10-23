@@ -282,34 +282,36 @@ public class ServerConnectionsHandler<C extends ProtocolCodecConnection<Message.
         
         @Override
         public synchronized void onSuccess(Message.Server result) {
-            logger.debug("Sending {} ({})", result, this);
-            if (result instanceof FourLetterResponse) {
-                // it's possible that this response happens after
-                // the session connects
-                // in which case, we need to just drop it
-                if (handlers.get(connection) == this) {
-                    connection.write((FourLetterResponse) result);
-                }
-            } else if (result instanceof ConnectMessage.Response) {
-                ConnectMessage.Response response = (ConnectMessage.Response) result;
-                if (response instanceof ConnectMessage.Response.Valid) {
-                    SessionExecutor session = server.sessionExecutor(response.getSessionId());
-                    // must subscribe new handler 
-                    // before sending the response
-                    new SessionConnectionHandler(session, connection);
+            if (result != null) {
+                logger.debug("Sending {} ({})", result, this);
+                if (result instanceof FourLetterResponse) {
+                    // it's possible that this response happens after
+                    // the session connects
+                    // in which case, we need to just drop it
+                    if (handlers.get(connection) == this) {
+                        connection.write((FourLetterResponse) result);
+                    }
+                } else if (result instanceof ConnectMessage.Response) {
+                    ConnectMessage.Response response = (ConnectMessage.Response) result;
+                    if (response instanceof ConnectMessage.Response.Valid) {
+                        SessionExecutor session = server.sessionExecutor(response.getSessionId());
+                        // must subscribe new handler 
+                        // before sending the response
+                        new SessionConnectionHandler(session, connection);
+                    } else {
+                        // if the response is Invalid, we want the response
+                        // to be flushed to the client before closing the connection
+                        // which ProtocolCodecConnection will do for us
+                    }
+                    
+                    // must unsubscribe before sending response
+                    stop();
+                    
+                    // this write will trigger reading messages again
+                    connection.write(response);
                 } else {
-                    // if the response is Invalid, we want the response
-                    // to be flushed to the client before closing the connection
-                    // which ProtocolCodecConnection will do for us
+                    throw new AssertionError(String.valueOf(result));
                 }
-                
-                // must unsubscribe before sending response
-                stop();
-                
-                // this write will trigger reading messages again
-                connection.write(response);
-            } else {
-                throw new AssertionError(String.valueOf(result));
             }
         }
 
@@ -375,8 +377,10 @@ public class ServerConnectionsHandler<C extends ProtocolCodecConnection<Message.
         @Handler
         @Override
         public void onSuccess(Message.ServerResponse<?> result) {
-            logger.debug("Sending {} ({})", result, this);
-            connection.write(result);
+            if (result != null) {
+                logger.debug("Sending {} ({})", result, this);
+                connection.write(result);
+            }
         }
         
         @Override
