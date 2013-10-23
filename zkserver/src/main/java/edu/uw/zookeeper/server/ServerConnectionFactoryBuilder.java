@@ -15,6 +15,7 @@ import edu.uw.zookeeper.netty.server.NettyServerModule;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
+import edu.uw.zookeeper.protocol.server.ServerProtocolConnection;
 
 public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.RuntimeBuilder<ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>, ServerConnectionFactoryBuilder> {
 
@@ -147,7 +148,7 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
     
     protected ParameterizedFactory<Pair<? extends Pair<Class<Message.Server>, ? extends ServerProtocolCodec>, Connection<Message.Server>>, ? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getDefaultConnectionFactory() {
-        return ProtocolCodecConnection.factory();
+        return ServerProtocolConnection.factory();
     }
     
     protected ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getDefaultServerConnectionFactory() {

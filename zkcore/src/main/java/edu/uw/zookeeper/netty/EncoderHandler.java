@@ -7,6 +7,7 @@ import org.apache.logging.log4j.Logger;
 import edu.uw.zookeeper.net.LoggingMarker;
 import edu.uw.zookeeper.protocol.Encoder;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
@@ -18,7 +19,7 @@ public class EncoderHandler<I> extends MessageToByteEncoder<I> {
             Channel channel, Class<I> type, Encoder<? super I> encoder, Logger logger) {
         EncoderHandler<I> handler = create(type, encoder, logger);
         ChannelPipeline pipeline = channel.pipeline();
-        pipeline.addLast(EncoderHandler.class.getName(), handler);
+        pipeline.addFirst(EncoderHandler.class.getName(), handler);
         return handler;
     }
 
@@ -37,6 +38,26 @@ public class EncoderHandler<I> extends MessageToByteEncoder<I> {
         this.encoder = encoder;
     }
 
+    @Override
+    public void read(ChannelHandlerContext ctx) throws Exception {
+        // trigger a re-read of any accumulated buffers
+        final ChannelPipeline pipeline = ctx.pipeline();
+        DecoderHandler decoder = DecoderHandler.get(pipeline);
+        assert (decoder != null);
+        if (decoder.actualReadableBytes() > 0) {
+            // this is hopefully probably safe ??
+            ctx.channel().eventLoop().execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        pipeline.fireChannelRead(Unpooled.EMPTY_BUFFER);
+                        pipeline.fireChannelReadComplete();
+                    }
+                });
+        }
+        
+        super.read(ctx);
+    }
+    
     @Override
     protected void encode(ChannelHandlerContext ctx, I message, ByteBuf output) throws IOException {
         if (logger.isTraceEnabled()) {

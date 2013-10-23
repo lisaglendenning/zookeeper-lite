@@ -24,7 +24,7 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.proto.*;
-import edu.uw.zookeeper.protocol.server.ByOpcodeTxnRequestProcessor;
+import edu.uw.zookeeper.server.ByOpcodeTxnRequestProcessor;
 
 public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> {
 

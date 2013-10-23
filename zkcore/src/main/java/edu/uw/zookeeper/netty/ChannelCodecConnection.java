@@ -62,8 +62,8 @@ public class ChannelCodecConnection<I> extends ChannelConnection<I> {
     protected void attach(
             Class<I> inputType,
             Codec<? super I, ? extends Optional<?>> codec) {
-        DecoderHandler.attach(channel, codec, logger);
-        EncoderHandler.attach(channel, inputType, codec, logger);
         super.attach();
+        EncoderHandler.attach(channel, inputType, codec, logger);
+        DecoderHandler.attach(channel, codec, logger);
     }
 }

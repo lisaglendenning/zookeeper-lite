@@ -12,6 +12,7 @@ import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.Session;
+import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 
 public class SimpleClientBuilder extends ConnectionClientExecutorService.Builder {
     
@@ -31,7 +32,7 @@ public class SimpleClientBuilder extends ConnectionClientExecutorService.Builder
         return ClientConnectionFactoryBuilder.defaults()
                 .setClientModule(clientModule)
                 .setTimeOut(TimeValue.create(Session.Parameters.NEVER_TIMEOUT, Session.Parameters.TIMEOUT_UNIT))
-                .setConnectionFactory(ProtocolCodecConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory());
+                .setConnectionFactory(ClientProtocolConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory());
     }
     
     protected final ServerInetAddressView serverAddress;

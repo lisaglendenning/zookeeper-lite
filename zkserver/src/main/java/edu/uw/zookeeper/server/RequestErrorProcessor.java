@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.protocol.server;
+package edu.uw.zookeeper.server;
 
 import org.apache.zookeeper.KeeperException;
 

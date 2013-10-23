@@ -14,6 +14,7 @@ import edu.uw.zookeeper.protocol.Decoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.ByteToMessageDecoder;
 
 public class DecoderHandler extends ByteToMessageDecoder {
@@ -23,6 +24,11 @@ public class DecoderHandler extends ByteToMessageDecoder {
         DecoderHandler handler = create(decoder, logger);
         channel.pipeline().addFirst(DecoderHandler.class.getName(), handler);
         return handler;
+    }
+    
+    public static DecoderHandler get(ChannelPipeline pipeline) {
+        // it seems that get by name may be faster than by class
+        return (DecoderHandler) pipeline.get(DecoderHandler.class.getName());
     }
     
     public static DecoderHandler create(
@@ -41,21 +47,25 @@ public class DecoderHandler extends ByteToMessageDecoder {
         this.logger = logger;
         this.decoder = checkNotNull(decoder);
     }
+    
+    @Override
+    public int actualReadableBytes() {
+        // TODO: check that this is safe to expose...
+        return super.actualReadableBytes();
+    }
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf input,
             List<Object> output) throws IOException {
-        while (input.isReadable()) {
+        if (input.isReadable()) {
             Optional<?> decoded = decoder.decode(input);
             if (decoded.isPresent()) {
+                Object message = decoded.get();
                 if (logger.isTraceEnabled()) {
-                    logger.trace(LoggingMarker.NET_MARKER.get(), "DECODED {} ({})", decoded.get(), ctx.channel());
+                    logger.trace(LoggingMarker.NET_MARKER.get(), "DECODED {} ({})", message, ctx.channel());
                 }
-                output.add(decoded.get());
-            } else {
-                break;
+                output.add(message);
             }
         }
-        input.discardSomeReadBytes();
     }
 }

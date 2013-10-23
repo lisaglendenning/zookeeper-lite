@@ -1,10 +1,11 @@
-package edu.uw.zookeeper.protocol.server;
+package edu.uw.zookeeper.server;
 
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.TxnRequest;
 import edu.uw.zookeeper.protocol.SessionOperation;
+import edu.uw.zookeeper.protocol.server.AssignZxidProcessor;
 
 public class ToTxnRequestProcessor implements Processors.UncheckedProcessor<SessionOperation.Request<?>, TxnOperation.Request<?>>, Reference<AssignZxidProcessor> {
 

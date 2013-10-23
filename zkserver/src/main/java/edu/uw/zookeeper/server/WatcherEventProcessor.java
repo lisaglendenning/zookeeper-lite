@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.protocol.server;
+package edu.uw.zookeeper.server;
 
 import java.util.Iterator;
 import java.util.Set;
@@ -20,6 +20,7 @@ import edu.uw.zookeeper.common.Processors.ForwardingProcessor;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.WatchEvent;
 import edu.uw.zookeeper.data.ZNodeLabel;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
@@ -32,8 +33,8 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
 
     public static WatcherEventProcessor create(
             Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate,
-            Function<Long, ? extends PubSubSupport<Object>> publishers) {
-        return new WatcherEventProcessor(delegate, publishers);
+            Function<Long, ? extends PubSubSupport<? super Message.ServerResponse<?>>> publishers) {
+        return new WatcherEventProcessor(delegate, new Watches(publishers), new Watches(publishers));
     }
 
     public static IWatcherEvent created(String path) {
@@ -62,10 +63,11 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
 
     public WatcherEventProcessor(
             Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate,
-            Function<Long, ? extends PubSubSupport<Object>> publishers) {
+            Watches dataWatches,
+            Watches childWatches) {
         this.delegate = delegate;
-        this.dataWatches = new Watches(publishers);
-        this.childWatches = new Watches(publishers);
+        this.dataWatches = dataWatches;
+        this.childWatches = childWatches;
     }
     
     @Override
@@ -151,11 +153,11 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
 
         protected final SetMultimap<String, Long> byPath;
         protected final SetMultimap<Long, String> bySession;
-        protected final Function<Long, ? extends PubSubSupport<Object>> publishers;
+        protected final Function<Long, ? extends PubSubSupport<? super Message.ServerResponse<?>>> publishers;
         protected final Logger logger;
         
         public Watches(
-                Function<Long, ? extends PubSubSupport<Object>> publishers) {
+                Function<Long, ? extends PubSubSupport<? super Message.ServerResponse<?>>> publishers) {
             this.logger = LogManager.getLogger(getClass());
             this.byPath = Multimaps.synchronizedSetMultimap(HashMultimap.<String, Long>create());
             this.bySession = Multimaps.synchronizedSetMultimap(HashMultimap.<Long, String>create());
@@ -173,7 +175,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
             String path = event.getPath();
             for (Long session: byPath.removeAll(path)) {
                 bySession.remove(session, path);
-                PubSubSupport<Object> publisher = publishers.apply(session);
+                PubSubSupport<? super Message.ServerResponse<?>> publisher = publishers.apply(session);
                 if (publisher != null) {
                     publisher.publish(message);
                 }

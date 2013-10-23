@@ -27,7 +27,7 @@ public abstract class ZooKeeperApplication implements Application {
         
         C setRuntimeModule(RuntimeModule runtime);
         
-        public C setDefaults();
+        C setDefaults();
     }
 
     public static class ApplicationFactory<T extends RuntimeBuilder<? extends Application, ?>> implements ParameterizedFactory<RuntimeModule, Application> {

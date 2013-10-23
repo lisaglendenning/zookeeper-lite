@@ -17,7 +17,7 @@ import edu.uw.zookeeper.protocol.Session;
 
 public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
 
-    public static DefaultSessionParametersPolicy create(Configuration configuration) {
+    public static DefaultSessionParametersPolicy fromConfiguration(Configuration configuration) {
         TimeValue minTimeout = ConfigurableMinTimeout.get(configuration);
         TimeValue maxTimeout = ConfigurableMaxTimeout.get(configuration);
         if (maxTimeout.value() != Session.Parameters.NEVER_TIMEOUT) {
@@ -45,21 +45,23 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
     public static final ByteOrder BYTE_ORDER = ByteOrder.BIG_ENDIAN;
     public static final TimeUnit TIMEOUT_UNIT = TimeUnit.MILLISECONDS;
 
-    protected static final Random RANDOM = new Random();
-    protected static final long SECRET = RANDOM.nextLong();
-    protected static final AtomicInteger COUNTER = new AtomicInteger(0);
-
+    protected final Random random;
+    protected final long secret;
+    protected final AtomicInteger counter;
     protected final TimeValue minTimeout;
     protected final TimeValue maxTimeout;
     
-    protected DefaultSessionParametersPolicy(TimeValue minTimeout, TimeValue maxTimeout) {
+    public DefaultSessionParametersPolicy(TimeValue minTimeout, TimeValue maxTimeout) {
+        this.random = new Random();
+        this.secret = random.nextLong();
+        this.counter = new AtomicInteger(0);
         this.minTimeout = minTimeout;
         this.maxTimeout = maxTimeout;
     }
 
     @Override
     public byte[] newPassword(long seed) {
-        Random r = new Random(seed ^ SECRET);
+        Random r = new Random(seed ^ secret);
         byte p[] = new byte[Session.Parameters.PASSWORD_LENGTH];
         r.nextBytes(p);
         return p;
@@ -67,7 +69,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
 
     @Override
     public boolean validatePassword(long sessionId, byte[] passwd) {
-        return sessionId != Session.UNINITIALIZED_ID
+        return (sessionId != Session.uninitialized().id())
                 && Arrays.equals(passwd, newPassword(sessionId));
     }
 
@@ -79,8 +81,8 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
         // ideally, seed would look like:
         // sever-id | nonce
         // so that we can map a session to a server easily
-        int count = COUNTER.incrementAndGet();
-        int nonce = RANDOM.nextInt();
+        int count = counter.incrementAndGet();
+        int nonce = random.nextInt();
         ByteBuffer bb = ByteBuffer.allocate(8);
         bb.order(BYTE_ORDER);
         bb.putInt(count);

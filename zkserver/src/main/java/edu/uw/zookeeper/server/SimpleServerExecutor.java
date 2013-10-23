@@ -1,0 +1,471 @@
+package edu.uw.zookeeper.server;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import java.util.Iterator;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeoutException;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import com.google.common.base.Function;
+import com.google.common.base.Supplier;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.MapMaker;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+
+import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.bus.SyncBusConfiguration;
+import net.engio.mbassy.bus.SyncMessageBus;
+import edu.uw.zookeeper.ZooKeeperApplication;
+import edu.uw.zookeeper.common.Configuration;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Processor;
+import edu.uw.zookeeper.common.RuntimeModule;
+import edu.uw.zookeeper.common.TaskExecutor;
+import edu.uw.zookeeper.data.ZNodeDataTrie;
+import edu.uw.zookeeper.protocol.ConnectMessage;
+import edu.uw.zookeeper.protocol.ConnectMessage.Request;
+import edu.uw.zookeeper.protocol.ConnectMessage.Response;
+import edu.uw.zookeeper.protocol.FourLetterRequest;
+import edu.uw.zookeeper.protocol.FourLetterResponse;
+import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Message.ServerResponse;
+import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
+import edu.uw.zookeeper.protocol.Session;
+import edu.uw.zookeeper.protocol.SessionOperation;
+import edu.uw.zookeeper.protocol.SessionRequest;
+import edu.uw.zookeeper.protocol.TimeOutParameters;
+import edu.uw.zookeeper.protocol.ZxidReference;
+import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.Records;
+import edu.uw.zookeeper.protocol.server.ServerExecutor;
+import edu.uw.zookeeper.protocol.server.TimeOutCallback;
+import edu.uw.zookeeper.protocol.server.ZxidGenerator;
+
+public class SimpleServerExecutor implements ServerExecutor {
+
+    public static Builder builder() {
+        return Builder.defaults();
+    }
+
+    public static class Builder implements ZooKeeperApplication.RuntimeBuilder<SimpleServerExecutor, Builder> {
+
+        public static Builder defaults() {
+            return new Builder(ServerBuilder.defaults());
+        }
+        
+        protected final ServerBuilder server;
+        
+        protected Builder(ServerBuilder server) {
+            this.server = checkNotNull(server);
+        }
+
+        public ServerBuilder getServer() {
+            return server;
+        }
+
+        public Builder setServer(ServerBuilder server) {
+            return newInstance(server);
+        }
+
+        @Override
+        public RuntimeModule getRuntimeModule() {
+            return server.getRuntimeModule();
+        }
+
+        @Override
+        public Builder setRuntimeModule(RuntimeModule runtime) {
+            return newInstance(server.setRuntimeModule(runtime));
+        }
+
+        @Override
+        public Builder setDefaults() {
+            ServerBuilder server = this.server.setDefaults();
+            if (server != this.server) {
+                return setServer(server).setDefaults();
+            }
+            return this;
+        }
+        
+        @Override
+        public SimpleServerExecutor build() {
+            return setDefaults().doBuild();
+        }
+
+        protected Builder newInstance(ServerBuilder server) {
+            return new Builder(server);
+        }
+
+        protected SimpleServerExecutor doBuild() {
+            getServer().build();
+            return new SimpleServerExecutor(
+                    getServer().getSessionExecutors(),
+                    (SimpleConnectExecutor) getServer().getSessions(),
+                    getDefaultAnonymousExecutor());
+        }
+        
+        protected TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> getDefaultAnonymousExecutor() {
+            return ProcessorTaskExecutor.of(FourLetterRequestProcessor.newInstance());
+        }
+    }
+    
+    public static class ServerBuilder extends SimpleServer.Builder<ServerBuilder> {
+
+        public static ServerBuilder defaults() {
+            return new ServerBuilder(new SimpleServerSupplier(null), null, null, null, null, null, null);
+        }
+        
+        protected static class SimpleServerSupplier implements Supplier<SimpleServer> {
+
+            private volatile SimpleServer instance;
+            
+            public SimpleServerSupplier(SimpleServer instance) {
+                this.instance = instance;
+            }
+            
+            public SimpleServerSupplier set(SimpleServer instance) {
+                this.instance = instance;
+                return this;
+            }
+            
+            @Override
+            public SimpleServer get() {
+                return instance;
+            }
+        }
+        
+        protected final ConcurrentMap<Long, SessionExecutor> sessionExecutors;
+        protected final SimpleServerSupplier server;
+        
+        protected ServerBuilder(
+                SimpleServerSupplier server,
+                ConcurrentMap<Long, SessionExecutor> sessionExecutors,
+                ZxidGenerator zxids,
+                ZNodeDataTrie data,
+                SessionManager sessions,
+                Function<Long, ? extends PubSubSupport<? super ServerResponse<?>>> publishers,
+                RuntimeModule runtime) {
+            super(zxids, data, sessions, publishers, runtime);
+            this.server = checkNotNull(server);
+            this.sessionExecutors = sessionExecutors;
+        }
+
+        public ConcurrentMap<Long, SessionExecutor> getSessionExecutors() {
+            return sessionExecutors;
+        }
+
+        public ServerBuilder setSessionExecutors(ConcurrentMap<Long, SessionExecutor> sessionExecutors) {
+            return newInstance(server, sessionExecutors, zxids, data, sessions, publishers, runtime);
+        }
+
+        public ConcurrentMap<Long, SessionExecutor> getDefaultSessionExecutors() {
+            return new MapMaker().makeMap();
+        }
+
+        @Override
+        public ServerBuilder setDefaults() {
+            if (getSessionExecutors() == null) {
+                return setSessionExecutors(getDefaultSessionExecutors()).setDefaults();
+            }
+            return super.setDefaults();
+        }
+
+        @Override
+        protected ServerBuilder newInstance(
+                ZxidGenerator zxids,
+                ZNodeDataTrie data,
+                SessionManager sessions,
+                Function<Long, ? extends PubSubSupport<? super ServerResponse<?>>> publishers,
+                RuntimeModule runtime) {
+            return newInstance(server, sessionExecutors, zxids, data, sessions, publishers, runtime);
+        }
+
+        protected ServerBuilder newInstance(
+                SimpleServerSupplier server,
+                ConcurrentMap<Long, SessionExecutor> sessionExecutors,
+                ZxidGenerator zxids,
+                ZNodeDataTrie data,
+                SessionManager sessions,
+                Function<Long, ? extends PubSubSupport<? super ServerResponse<?>>> publishers,
+                RuntimeModule runtime) {
+            return new ServerBuilder(server, sessionExecutors, zxids, data, sessions, publishers, runtime);
+        }
+
+        @Override
+        protected SimpleServer doBuild() {
+            synchronized (server) {
+                if (server.get() == null) {
+                    server.set(super.doBuild());
+                }
+            }
+            return server.get();
+        }
+        
+        @Override
+        protected Function<Long, ? extends PubSubSupport<? super ServerResponse<?>>> getDefaultPublishers() {
+            return new Function<Long, PubSubSupport<? super ServerResponse<?>>>() {
+                @Override
+                public PubSubSupport<? super ServerResponse<?>> apply(Long input) {
+                    return getSessionExecutors().get(input);
+                }
+            };
+        }
+
+        @Override
+        protected SimpleConnectExecutor getDefaultSessions() {
+            return SimpleConnectExecutor.defaults(
+                    getSessionExecutors(), 
+                    getDefaultSessionFactory(), 
+                    getRuntimeModule().getConfiguration(), 
+                    getZxids());
+        }
+        
+        protected ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, SimpleSessionExecutor> getDefaultSessionFactory() {
+            return SimpleSessionExecutor.factory(
+                    getRuntimeModule().getExecutors().get(ScheduledExecutorService.class), 
+                    server);
+        }
+    }
+    
+    protected final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor;
+    protected final TaskExecutor<Pair<Request, ? extends PubSubSupport<Object>>, ? extends Response> connectExecutor;
+    protected final ConcurrentMap<Long, ? extends SessionExecutor> sessionExecutors;
+    
+    protected SimpleServerExecutor(
+            ConcurrentMap<Long, ? extends SessionExecutor> sessionExecutors,
+            TaskExecutor<Pair<Request, ? extends PubSubSupport<Object>>, ? extends Response> connectExecutor,
+            TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor) {
+        this.anonymousExecutor = anonymousExecutor;
+        this.connectExecutor = connectExecutor;
+        this.sessionExecutors = sessionExecutors;
+    }
+    
+    @Override
+    public TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor() {
+        return anonymousExecutor;
+    }
+
+    @Override
+    public TaskExecutor<Pair<Request, ? extends PubSubSupport<Object>>, ? extends Response> connectExecutor() {
+        return connectExecutor;
+    }
+
+    @Override
+    public SessionExecutor sessionExecutor(long sessionId) {
+        return sessionExecutors.get(sessionId);
+    }
+
+    public static class ProcessorTaskExecutor<I,O> implements TaskExecutor<I,O> {
+
+        public static <I,O> ProcessorTaskExecutor<I,O> of(
+                Processor<? super I, ? extends O> processor) {
+            return new ProcessorTaskExecutor<I,O>(processor);
+        }
+        
+        protected final Processor<? super I, ? extends O> processor;
+        
+        public ProcessorTaskExecutor(Processor<? super I, ? extends O> processor) {
+            this.processor = processor;
+        }
+        
+        @Override
+        public ListenableFuture<O> submit(I request) {
+            try {
+                return Futures.immediateFuture((O) processor.apply(request));
+            } catch (Exception e) {
+                return Futures.immediateFailedFuture(e);
+            }
+        }
+    }
+    
+    public static class SimpleConnectExecutor extends PolicySessionManager implements TaskExecutor<Pair<ConnectMessage.Request, ? extends PubSubSupport<Object>>, ConnectMessage.Response>, SessionManager {
+        
+        public static SimpleConnectExecutor defaults(
+                ConcurrentMap<Long, SessionExecutor> sessions,
+                ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, ? extends SessionExecutor> sessionFactory,
+                Configuration configuration,
+                ZxidReference lastZxid) {
+            DefaultSessionParametersPolicy policy = DefaultSessionParametersPolicy.fromConfiguration(configuration);
+            @SuppressWarnings("rawtypes")
+            PubSubSupport<Object> publisher = new SyncMessageBus<Object>(new SyncBusConfiguration());
+            return new SimpleConnectExecutor(sessions, sessionFactory, publisher, policy, lastZxid);
+        }
+        
+        protected final Logger logger;
+        protected final PubSubSupport<? super SessionEvent> publisher;
+        protected final ConnectMessageProcessor processor;
+        protected final SessionParametersPolicy policy;
+        protected final ConcurrentMap<Long, SessionExecutor> sessions;
+        protected final ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, ? extends SessionExecutor> sessionFactory;
+        
+        public SimpleConnectExecutor(
+                ConcurrentMap<Long, SessionExecutor> sessions,
+                ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, ? extends SessionExecutor> sessionFactory,
+                PubSubSupport<? super SessionEvent> publisher,
+                SessionParametersPolicy policy,
+                ZxidReference lastZxid) {
+            this.logger = LogManager.getLogger(getClass());
+            this.publisher = publisher;
+            this.policy = policy;
+            this.sessions = sessions;
+            this.sessionFactory = sessionFactory;
+            this.processor = ConnectMessageProcessor.create(this, lastZxid);
+        }
+
+        @Override
+        public ListenableFuture<ConnectMessage.Response> submit(
+                Pair<ConnectMessage.Request, ? extends PubSubSupport<Object>> request) {
+            try {
+                ConnectMessage.Response response = processor.apply(request.first());
+                if (response instanceof ConnectMessage.Response.Valid) {
+                    Session session = response.toSession();
+                    SessionExecutor executor = sessionFactory.get(Pair.create(session, (PubSubSupport<Object>) request.second()));
+                    SessionExecutor prev = sessions.put(response.getSessionId(), executor);
+                    if (prev == null) {
+                        logger().debug("Created session: {}", session);
+                        publish(SessionStateEvent.create(session, Session.State.SESSION_OPENED));
+                    } else {
+                        logger().debug("Updating session: {} to {}", session, prev.session());
+                    }
+                }
+                return Futures.immediateFuture(response);
+            } catch (Exception e) {
+                return Futures.immediateFailedFuture(e);
+            }
+        }
+
+        @Override
+        public SessionParametersPolicy policy() {
+            return policy;
+        }
+
+        @Override
+        public Session get(long id) {
+            SessionExecutor session = sessions.get(id);
+            if (session != null) {
+                return session.session();
+            }
+            return null;
+        }
+
+        @Override
+        public Iterator<Session> iterator() {
+            return Iterators.transform(sessions.values().iterator(), new Function<SessionExecutor, Session>() {
+                @Override
+                public Session apply(SessionExecutor input) {
+                    return input.session();
+                }
+            });
+        }
+
+        @Override
+        protected Session doRemove(long id) {
+            SessionExecutor session = sessions.remove(id);
+            if (session != null) {
+                return session.session();
+            }
+            return null;
+        }
+
+        @Override
+        protected Session put(Session session) {
+            // we do the actual session creation in submit()
+            return get(session.id());
+        }
+
+        @Override
+        protected PubSubSupport<? super SessionEvent> publisher() {
+            return publisher;
+        }
+
+        @Override
+        protected Logger logger() {
+            return logger;
+        }
+    }
+    
+    public static class SimpleSessionExecutor implements SessionExecutor, FutureCallback<Object> {
+
+        public static ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, SimpleSessionExecutor> factory(
+                final ScheduledExecutorService scheduler,
+                final Supplier<? extends TaskExecutor<? super SessionOperation.Request<?>, Message.ServerResponse<?>>> server) {
+            checkNotNull(scheduler);
+            checkNotNull(server);
+            return new ParameterizedFactory<Pair<Session, PubSubSupport<Object>>, SimpleSessionExecutor>() {
+                @Override
+                public SimpleSessionExecutor get(
+                        Pair<Session, PubSubSupport<Object>> value) {
+                    return new SimpleSessionExecutor(
+                            value.first(), value.second(), scheduler, server.get());
+                }
+            };
+        }
+        
+        protected final TimeOutCallback timer;
+        protected final PubSubSupport<Object> publisher;
+        protected final Session session;
+        protected final TaskExecutor<? super SessionOperation.Request<?>, Message.ServerResponse<?>> server;
+        
+        public SimpleSessionExecutor(
+                Session session,
+                PubSubSupport<Object> publisher,
+                ScheduledExecutorService scheduler,
+                TaskExecutor<? super SessionOperation.Request<?>, Message.ServerResponse<?>> server) {
+            this.session = checkNotNull(session);
+            this.publisher = checkNotNull(publisher);
+            this.server = checkNotNull(server);
+            this.timer = TimeOutCallback.create(
+                    TimeOutParameters.create(session.parameters().timeOut()), 
+                    scheduler, 
+                    this);
+        }
+        
+        @Override
+        public Session session() {
+            return session;
+        }
+
+        @Override
+        public ListenableFuture<Message.ServerResponse<?>> submit(Message.ClientRequest<?> request) {
+            timer.send(request);
+            return server.submit(SessionRequest.of(session.id(), request));
+        }
+
+        @Override
+        public void subscribe(Object listener) {
+            publisher.subscribe(listener);
+        }
+
+        @Override
+        public boolean unsubscribe(Object listener) {
+            return publisher.unsubscribe(listener);
+        }
+
+        @Override
+        public void publish(Object message) {
+            publisher.publish(message);
+        }
+
+        @Override
+        public void onSuccess(Object result) {
+            // TODO Auto-generated method stub
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+            if (t instanceof TimeoutException) {
+                publish(SessionStateEvent.create(session(), Session.State.SESSION_EXPIRED));
+                Message.ClientRequest<Records.Request> request = ProtocolRequestMessage.of(0, Records.Requests.getInstance().get(OpCode.CLOSE_SESSION));
+                submit(request);
+            } else {
+                throw new AssertionError(t);
+            }
+        }
+    }
+}

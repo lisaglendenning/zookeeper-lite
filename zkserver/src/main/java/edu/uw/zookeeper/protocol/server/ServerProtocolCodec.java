@@ -205,6 +205,8 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
                 }
                 break;
             case CONNECTING:
+                // don't decode messages until we are connected
+                break;
             case CONNECTED:
                 out = sessionDecoder.decode(input).orNull();
                 break;

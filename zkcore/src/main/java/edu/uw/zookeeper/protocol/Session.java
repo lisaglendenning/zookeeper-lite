@@ -1,8 +1,9 @@
 package edu.uw.zookeeper.protocol;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
-
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -13,7 +14,7 @@ import edu.uw.zookeeper.common.TimeValue;
 public class Session {
 
     public static final long UNINITIALIZED_ID = 0;
-    public static final Session UNINITIALIZED = new Session(UNINITIALIZED_ID, Parameters.uninitialized());
+    private static final Session UNINITIALIZED = new Session(UNINITIALIZED_ID, Parameters.uninitialized());
 
     public static Session uninitialized() {
         return UNINITIALIZED;
@@ -30,17 +31,13 @@ public class Session {
     private final long id;
     private final Parameters parameters;
 
-    private Session(long id, Parameters parameters) {
+    public Session(long id, Parameters parameters) {
         this.id = id;
-        this.parameters = parameters;
+        this.parameters = checkNotNull(parameters);
     }
 
     public long id() {
         return id;
-    }
-
-    public boolean initialized() {
-        return id() != UNINITIALIZED_ID;
     }
 
     public Parameters parameters() {
@@ -49,8 +46,8 @@ public class Session {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("id", toString(id()))
-                .add("parameters", parameters()).toString();
+        return Objects.toStringHelper(this).add("id", toString(id))
+                .add("parameters", parameters).toString();
     }
 
     @Override
@@ -65,13 +62,13 @@ public class Session {
             return false;
         }
         Session other = (Session) obj;
-        return Objects.equal(id(), other.id())
-                && Objects.equal(parameters(), other.parameters());
+        return Objects.equal(id, other.id)
+                && Objects.equal(parameters, other.parameters);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(id(), parameters());
+        return Objects.hashCode(id);
     }
 
     public static enum State implements Function<State, Optional<State>> {
@@ -134,7 +131,7 @@ public class Session {
         public static final byte[] NO_PASSWORD = new byte[0];
         public static final int PASSWORD_LENGTH = 16;
         public static final TimeUnit TIMEOUT_UNIT = TimeUnit.MILLISECONDS;
-        public static final Parameters UNINITIALIZED_PARAMETERS = new Parameters(NEVER_TIMEOUT, NO_PASSWORD);
+        private static final Parameters UNINITIALIZED_PARAMETERS = new Parameters(NEVER_TIMEOUT, NO_PASSWORD);
         
         public static Parameters uninitialized() {
             return UNINITIALIZED_PARAMETERS;
@@ -155,23 +152,22 @@ public class Session {
         private final TimeValue timeOut;
         private final byte[] password;
     
-        private Parameters(long timeOut) {
-            this(timeOut, NO_PASSWORD);
-        }
-    
-        private Parameters(long timeOut, byte[] password) {
+        public Parameters(long timeOut, byte[] password) {
             this(TimeValue.create(timeOut, TIMEOUT_UNIT), password);
         }
     
         private Parameters(TimeValue timeOut, byte[] password) {
-            this.timeOut = timeOut;
-            this.password = password;
+            this.timeOut = checkNotNull(timeOut);
+            this.password = checkNotNull(password);
         }
     
         public TimeValue timeOut() {
             return timeOut;
         }
     
+        /**
+         * Returns a copy
+         */
         public byte[] password() {
             return password.clone();
         }
@@ -207,13 +203,13 @@ public class Session {
                 return false;
             }
             Parameters other = (Parameters) obj;
-            return Arrays.equals(password(), other.password())
-                    && Objects.equal(timeOut(), other.timeOut());
+            return Arrays.equals(password, other.password)
+                    && Objects.equal(timeOut, other.timeOut);
         }
     
         @Override
         public int hashCode() {
-            return Objects.hashCode(password, timeOut);
+            return Objects.hashCode(password);
         }
     }
 }

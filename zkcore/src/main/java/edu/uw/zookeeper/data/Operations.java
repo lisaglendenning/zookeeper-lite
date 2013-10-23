@@ -262,10 +262,10 @@ public abstract class Operations {
 
             @Override
             public ConnectMessage.Request build() {
-                if (session.initialized()) {
-                    return ConnectMessage.Request.RenewRequest.newInstance(session, lastZxid);
-                } else {
+                if (Session.uninitialized().id() == session.id()) {
                     return ConnectMessage.Request.NewRequest.newInstance(timeOut, lastZxid);
+                } else {
+                    return ConnectMessage.Request.RenewRequest.newInstance(session, lastZxid);
                 }
             }
         }
@@ -913,10 +913,10 @@ public abstract class Operations {
 
             @Override
             public ConnectMessage.Response build() {
-                if (session.initialized()) {
-                    return ConnectMessage.Response.Valid.newInstance(session);
-                } else {
+                if (Session.uninitialized().id() == session.id()) {
                     return ConnectMessage.Response.Invalid.newInstance();
+                } else {
+                    return ConnectMessage.Response.Valid.newInstance(session);
                 }
             }
         }

@@ -5,18 +5,13 @@ import java.net.InetSocketAddress;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.TimeValue;
-import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.NetServerModule;
-import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.net.intravm.IntraVmNetModule;
-import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.Session;
-import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
-import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
-import edu.uw.zookeeper.server.SimpleServerExecutor;
+import edu.uw.zookeeper.protocol.server.ServerConnectionsHandler;
+import edu.uw.zookeeper.protocol.server.ServerExecutor;
 
-public class SimpleServerBuilder extends ConnectionServerExecutorsService.Builder {
+public class SimpleServerBuilder extends ServerConnectionsHandler.Builder {
 
     public static SimpleServerBuilder defaults(
             IntraVmNetModule net) {
@@ -27,9 +22,8 @@ public class SimpleServerBuilder extends ConnectionServerExecutorsService.Builde
     public static SimpleServerBuilder defaults(
             ServerInetAddressView address,
             NetServerModule serverModule) {
-        return new SimpleServerBuilder(null, null, null, null, null, null)
-                .setTimeOut(TimeValue.create(Session.Parameters.NEVER_TIMEOUT, Session.Parameters.TIMEOUT_UNIT))
-                .setConnectionBuilder(connectionBuilder(address, serverModule));
+        return new SimpleServerBuilder(connectionBuilder(address, serverModule), 
+                null, null);
     }
     
     public static ServerConnectionFactoryBuilder connectionBuilder(
@@ -40,19 +34,11 @@ public class SimpleServerBuilder extends ConnectionServerExecutorsService.Builde
                 .setAddress(address);
     }
     
-    protected SimpleServerBuilder(
+    public SimpleServerBuilder(
             ServerConnectionFactoryBuilder connectionBuilder,
-            ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
-            SimpleServerExecutor serverTaskExecutor,
-            ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
-            TimeValue timeOut,
-            RuntimeModule runtime) {
-        super(connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
-    }
-
-    @Override
-    public SimpleServerExecutor getServerTaskExecutor() {
-        return (SimpleServerExecutor) serverTaskExecutor;
+            TimeValue timeOut, 
+            ServerExecutor serverExecutor) {
+        super(connectionBuilder, timeOut, serverExecutor);
     }
 
     @Override
@@ -71,21 +57,10 @@ public class SimpleServerBuilder extends ConnectionServerExecutorsService.Builde
     }
 
     @Override
-    public SimpleServerBuilder setServerConnectionFactory(
-            ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory) {
-        return (SimpleServerBuilder) super.setServerConnectionFactory(serverConnectionFactory);
+    public SimpleServerBuilder setServerExecutor(ServerExecutor serverExecutor) {
+        return (SimpleServerBuilder) super.setServerExecutor(serverExecutor);
     }
 
-    @Override
-    public SimpleServerBuilder setServerTaskExecutor(ServerTaskExecutor serverTaskExecutor) {
-        return (SimpleServerBuilder) super.setServerTaskExecutor((SimpleServerExecutor) serverTaskExecutor);
-    }
-
-    @Override
-    public SimpleServerBuilder setConnectionExecutors(ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors) {
-        return (SimpleServerBuilder) super.setConnectionExecutors(connectionExecutors);
-    }
-    
     @Override
     public SimpleServerBuilder setDefaults() {
         return (SimpleServerBuilder) super.setDefaults();
@@ -94,16 +69,13 @@ public class SimpleServerBuilder extends ConnectionServerExecutorsService.Builde
     @Override
     protected SimpleServerBuilder newInstance(
             ServerConnectionFactoryBuilder connectionBuilder,
-            ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
-            ServerTaskExecutor serverTaskExecutor,
-            ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
             TimeValue timeOut,
-            RuntimeModule runtime) {
-        return new SimpleServerBuilder(connectionBuilder, serverConnectionFactory, (SimpleServerExecutor) serverTaskExecutor, connectionExecutors, timeOut, runtime);
+            ServerExecutor serverExecutor) {
+        return new SimpleServerBuilder(connectionBuilder, timeOut, serverExecutor);
     }
     
     @Override
-    protected SimpleServerExecutor getDefaultServerTaskExecutor() {
-        return SimpleServerExecutor.newInstance();
+    protected TimeValue getDefaultTimeOut() {
+        return TimeValue.create(Session.Parameters.NEVER_TIMEOUT, Session.Parameters.TIMEOUT_UNIT);
     }
 }

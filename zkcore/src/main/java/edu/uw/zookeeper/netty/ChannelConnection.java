@@ -76,7 +76,7 @@ public class ChannelConnection<I>
         runnable.run();
     }
 
-    protected Channel channel() {
+    public Channel channel() {
         return channel;
     }
 

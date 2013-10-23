@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.protocol.server;
+package edu.uw.zookeeper.server;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -7,25 +7,24 @@ import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.ZxidReference;
-import edu.uw.zookeeper.server.SessionTable;
 
-public class ConnectTableProcessor 
+public class ConnectMessageProcessor 
         implements Processor<ConnectMessage.Request, ConnectMessage.Response> {
 
-    public static ConnectTableProcessor create(
-            SessionTable sessions,
+    public static ConnectMessageProcessor create(
+            SessionManager sessions,
             ZxidReference lastZxid) {
-        return new ConnectTableProcessor(sessions, lastZxid, false);
+        return new ConnectMessageProcessor(sessions, lastZxid, false);
     }
     
     protected final Logger logger = LogManager
-            .getLogger(ConnectTableProcessor.class);
-    protected final SessionTable sessions;
+            .getLogger(ConnectMessageProcessor.class);
+    protected final SessionManager sessions;
     protected final ZxidReference lastZxid;
     protected final boolean readOnly;
 
-    protected ConnectTableProcessor(
-            SessionTable sessions,
+    protected ConnectMessageProcessor(
+            SessionManager sessions,
             ZxidReference lastZxid,
             boolean readOnly) {
         this.sessions = sessions;
@@ -41,7 +40,7 @@ public class ConnectTableProcessor
         return lastZxid;
     }
     
-    public SessionTable sessions() {
+    public SessionManager sessions() {
         return sessions;
     }
 

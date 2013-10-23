@@ -26,14 +26,13 @@ import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.proto.IPingRequest;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> extends ProtocolCodecConnection<I, T, C> {
+public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> extends ClientProtocolConnection<I, T, C> {
 
     public static <I extends Operation.Request, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, C>, PingingClient<I,T,C>> factory(
                 final TimeValue defaultTimeOut,
@@ -41,13 +40,21 @@ public class PingingClient<I extends Operation.Request, T extends ProtocolCodec<
         return new ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, C>, PingingClient<I,T,C>>() {
                     @Override
                     public PingingClient<I,T,C> get(Pair<? extends Pair<Class<I>, ? extends T>, C> value) {
-                        return new PingingClient<I,T,C>(
+                        return PingingClient.<I,T,C>newInstance(
                                 TimeOutParameters.create(defaultTimeOut),
                                 executor,
                                 value.first().second(),
                                 value.second());
                     }
                 };
+    }
+
+    public static <I extends Operation.Request, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> PingingClient<I,T,C> newInstance(
+            TimeOutParameters pingParameters,
+            ScheduledExecutorService executor,
+            T codec,
+            C connection) {
+        return new PingingClient<I,T,C>(pingParameters, executor, codec, connection);
     }
     
     private final PingingTask<I> pingTask;
