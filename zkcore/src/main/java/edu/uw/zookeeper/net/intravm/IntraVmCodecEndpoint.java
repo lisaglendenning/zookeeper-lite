@@ -155,11 +155,11 @@ public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Option
                     @SuppressWarnings("unchecked")
                     I input = (I) task().get();
                     output = allocator.buffer();
-                    logger.trace(LoggingMarker.NET_MARKER.get(), "Encoding: {}", input);
+                    logger.trace(LoggingMarker.NET_MARKER.get(), "Encoding: {} ({})", input, IntraVmCodecEndpoint.this);
                     try {
                         codec.encode(input, output);
                     } catch (IOException e) {
-                        logger.warn(LoggingMarker.NET_MARKER.get(), "{}", e);
+                        logger.warn(LoggingMarker.NET_MARKER.get(), "{}", IntraVmCodecEndpoint.this, e);
                         setException(e);
                         return;
                     }
