@@ -32,8 +32,6 @@ public abstract class ProtocolConnection<I,O,V extends ProtocolCodec<?,?,?,?>, T
         case DISCONNECTED:
         case ERROR:
         {
-            codec().unsubscribe(this);
-            delegate().unsubscribe(this);
             execute(new CloseTask());
             break;
         }
@@ -75,6 +73,7 @@ public abstract class ProtocolConnection<I,O,V extends ProtocolCodec<?,?,?,?>, T
     public class CloseTask implements Runnable {
         @Override
         public void run() {
+            logger.debug("Closing {}", ProtocolConnection.this);
             delegate().flush();
             delegate().close();
         }

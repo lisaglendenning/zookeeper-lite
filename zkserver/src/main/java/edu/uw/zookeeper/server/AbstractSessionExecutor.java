@@ -7,6 +7,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
+import com.google.common.base.Objects;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.MoreExecutors;
 
@@ -95,6 +96,11 @@ public abstract class AbstractSessionExecutor<V> implements SessionExecutor, Fut
                 submit(request);
             }
         }
+    }
+    
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).add("session", Session.toString(session().id())).toString();
     }
     
     protected class TimeOutListener implements Runnable {
