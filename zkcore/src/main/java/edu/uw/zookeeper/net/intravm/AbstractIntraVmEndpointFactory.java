@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.MoreExecutors;
 
-import edu.uw.zookeeper.common.ActorExecutor;
+import edu.uw.zookeeper.common.Actors.ActorExecutor;
 import edu.uw.zookeeper.common.Factory;
 
 public abstract class AbstractIntraVmEndpointFactory<T extends AbstractIntraVmEndpoint<?,?,?,?>> implements Factory<T> {

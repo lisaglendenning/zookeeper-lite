@@ -101,6 +101,11 @@ public abstract class PendingQueueClientExecutor<
         if (task.xid() != OpCodeXid.PING.xid()) {
             // task needs to be in the queue before calling write
             pending.add(task);
+            if (state() == State.TERMINATED) {
+                pending.remove(task);
+                task.cancel(true);
+                return task;
+            }
         }
         try {
             ListenableFuture<? extends Message.ClientRequest<?>> writeFuture = connection.write(message);

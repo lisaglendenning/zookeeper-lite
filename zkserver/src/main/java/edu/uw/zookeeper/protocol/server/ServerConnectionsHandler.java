@@ -228,8 +228,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
             handlers.put(connection, this);
             connection.subscribe(this);
             
-            // because we are assuming strong references we need to be careful
-            if (connection.state().compareTo(Connection.State.CONNECTION_CLOSING) >= 0) {
+            if (connection.state() == Connection.State.CONNECTION_CLOSED) {
                 stop();
             }
         }

@@ -12,11 +12,12 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
 import org.apache.logging.log4j.Logger;
+
 import com.google.common.base.Objects;
 import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.common.ExecutedActor;
+import edu.uw.zookeeper.common.Actors.ExecutedQueuedActor;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
@@ -134,7 +135,7 @@ public abstract class AbstractChannelConnection<I,O,C extends AbstractChannelCon
         return (C) this;
     }
 
-    protected final class OutboundActor extends ExecutedActor<PromiseTask<? extends I, ? extends I>> implements ChannelFutureListener {
+    protected final class OutboundActor extends ExecutedQueuedActor<PromiseTask<? extends I, ? extends I>> implements ChannelFutureListener {
 
         private final ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>> mailbox;
         
@@ -153,6 +154,47 @@ public abstract class AbstractChannelConnection<I,O,C extends AbstractChannelCon
             return AbstractChannelConnection.this.toString();
         }
         
+        @SuppressWarnings("unchecked")
+        @Override
+        protected boolean apply(PromiseTask<? extends I, ? extends I> input) {
+            if (! input.isDone()) {
+                Connection.State state = AbstractChannelConnection.this.state();
+                switch (state) {
+                    case CONNECTION_CLOSING:
+                    case CONNECTION_CLOSED:
+                    {
+                        input.setException(new ClosedChannelException());
+                        break;
+                    }
+                    default:
+                    {
+                        I task = input.task();
+                        ChannelFutureWrapper.of(
+                                channel.write(task), task, (Promise<I>) input);
+                        break;
+                    }
+                }
+            }
+            return true;
+        }
+        
+        @Override
+        protected void runExit() {
+            channel.flush();
+            super.runExit();
+        }
+
+        @Override
+        protected void doStop() {
+            Exception e = new ClosedChannelException();
+            PromiseTask<? extends I, ? extends I> next;
+            while ((next = mailbox.poll()) != null) {
+                if (! next.isDone()) {
+                    next.setException(e);
+                }
+            }
+        }
+
         @Override
         protected ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>> mailbox() {
             return mailbox;
@@ -166,51 +208,6 @@ public abstract class AbstractChannelConnection<I,O,C extends AbstractChannelCon
         @Override
         protected Logger logger() {
             return logger;
-        }
-        
-        @Override
-        protected void runExit() {
-            channel.flush();
-            super.runExit();
-        }
-        
-        @SuppressWarnings("unchecked")
-        @Override
-        protected boolean apply(PromiseTask<? extends I, ? extends I> input) {
-            if (! input.isDone()) {
-                if (state() != State.TERMINATED) {
-                    Connection.State state = AbstractChannelConnection.this.state();
-                    switch (state) {
-                        case CONNECTION_CLOSING:
-                        case CONNECTION_CLOSED:
-                        {
-                            input.setException(new ClosedChannelException());
-                            break;
-                        }
-                        default:
-                        {
-                            I task = input.task();
-                            ChannelFutureWrapper.of(
-                                    channel.write(task), task, (Promise<I>) input);
-                            break;
-                        }
-                    }
-                } else {
-                    input.setException(new ClosedChannelException());
-                }
-            }
-            return (state() != State.TERMINATED);
-        }
-        
-        @Override
-        protected void doStop() {
-            Exception e = new ClosedChannelException();
-            PromiseTask<? extends I, ? extends I> next;
-            while ((next = mailbox.poll()) != null) {
-                if (! next.isDone()) {
-                    next.setException(e);
-                }
-            }
         }
     }
 }

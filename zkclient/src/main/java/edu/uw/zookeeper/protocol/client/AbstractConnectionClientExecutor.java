@@ -23,7 +23,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons.AutomatonListener;
-import edu.uw.zookeeper.common.ExecutedActor;
+import edu.uw.zookeeper.common.Actors.ExecutedQueuedActor;
 import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
@@ -49,7 +49,7 @@ public abstract class AbstractConnectionClientExecutor<
     T extends Future<?>,
     C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>, 
     O>
-    extends ExecutedActor<T>
+    extends ExecutedQueuedActor<T>
     implements ConnectionClientExecutor<I,V,SessionListener,C>, Connection.Listener<Operation.Response>,
         FutureCallback<O>, AutomatonListener<ProtocolState> {
     

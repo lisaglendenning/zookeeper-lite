@@ -67,13 +67,8 @@ public class MessageClientExecutor<C extends ProtocolConnection<? super Message.
     @Override
     protected boolean apply(RequestTask<Message.ClientRequest<?>, Message.ServerResponse<?>> input) {
         if (! input.isDone()) {
-            if (state() != State.TERMINATED) {
-                write(input.task(), input.promise());
-            } else {
-                input.cancel(true);
-            }
+            write(input.task(), input.promise());
         }
-        
-        return (state() != State.TERMINATED);
+        return true;
     }
 }

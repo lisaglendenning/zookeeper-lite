@@ -19,7 +19,7 @@ import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.ZooKeeperApplication;
-import edu.uw.zookeeper.common.ExecutedActor;
+import edu.uw.zookeeper.common.Actors.ExecutedQueuedActor;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.PromiseTask;
@@ -40,7 +40,7 @@ import edu.uw.zookeeper.protocol.server.AssignZxidProcessor;
 import edu.uw.zookeeper.protocol.server.ZxidEpochIncrementer;
 import edu.uw.zookeeper.protocol.server.ZxidGenerator;
 
-public class SimpleServer extends ExecutedActor<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> implements TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> {
+public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> implements TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> {
     
     public static abstract class Builder<C extends Builder<C>> implements ZooKeeperApplication.RuntimeBuilder<SimpleServer, C> {
 
@@ -227,18 +227,14 @@ public class SimpleServer extends ExecutedActor<PromiseTask<SessionOperation.Req
     @Override
     protected boolean apply(PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>> input) {
         if (! input.isDone()) {
-            if (state() != State.TERMINATED) {
-                try {
-                    Message.ServerResponse<?> response = processor.apply(input.task());
-                    input.set(response);
-                } catch (Exception e) {
-                    input.setException(e);
-                }
-            } else {
-                input.cancel(true);
+            try {
+                Message.ServerResponse<?> response = processor.apply(input.task());
+                input.set(response);
+            } catch (Exception e) {
+                input.setException(e);
             }
         }
-        return (state() != State.TERMINATED);
+        return true;
     }
     
     @Override

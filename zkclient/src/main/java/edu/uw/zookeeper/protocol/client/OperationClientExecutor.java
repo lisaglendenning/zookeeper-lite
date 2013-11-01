@@ -86,15 +86,10 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
     @Override
     protected boolean apply(RequestTask<Operation.Request, Message.ServerResponse<?>> input) {
         if (! input.isDone()) {
-            if (state() != State.TERMINATED) {
-                // Assign xids here so we can properly track message request -> response
-                Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
-                write(message, input.promise());
-            } else {
-                input.cancel(true);
-            }
+            // Assign xids here so we can properly track message request -> response
+            Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
+            write(message, input.promise());
         }
-        
-        return (state() != State.TERMINATED);
+        return true;
     }
 }
