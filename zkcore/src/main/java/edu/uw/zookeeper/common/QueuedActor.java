@@ -26,6 +26,15 @@ public abstract class QueuedActor<T> extends AbstractActor<T> {
     }
 
     @Override
+    protected boolean schedule() {
+        if (! mailbox().isEmpty()) {
+            return super.schedule();
+        } else {
+            return false;
+        }
+    }
+
+    @Override
     protected void doRun() throws Exception {
         T next;
         while ((next = mailbox().poll()) != null) {
@@ -39,9 +48,7 @@ public abstract class QueuedActor<T> extends AbstractActor<T> {
     @Override
     protected void runExit() {
         if (state.compareAndSet(State.RUNNING, State.WAITING)) {
-            if (! mailbox().isEmpty()) {
-                schedule();
-            }
+            schedule();
         }
     }
 
