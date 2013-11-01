@@ -2,10 +2,13 @@ package edu.uw.zookeeper.server;
 
 import static com.google.common.base.Preconditions.*;
 
+import com.google.common.base.Objects;
+import com.google.common.collect.Iterators;
+
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.Session;
 
-public abstract class PolicySessionManager extends AbstractSessionManager {
+public abstract class PolicySessionManager implements SessionManager {
 
     protected PolicySessionManager() {}
     
@@ -39,6 +42,11 @@ public abstract class PolicySessionManager extends AbstractSessionManager {
         byte[] passwd = policy().newPassword(id);
         parameters = Session.Parameters.create(timeOut, passwd);
         return newSession(id, parameters);
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).addValue(Iterators.toString(iterator())).toString();
     }
 
     protected Session newSession(long id, Session.Parameters parameters) {

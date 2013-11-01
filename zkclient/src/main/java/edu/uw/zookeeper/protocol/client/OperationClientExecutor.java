@@ -2,6 +2,9 @@ package edu.uw.zookeeper.protocol.client;
 
 import java.util.concurrent.ScheduledExecutorService;
 
+import net.engio.mbassy.common.IConcurrentSet;
+import net.engio.mbassy.common.StrongConcurrentSet;
+
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.LoggingPromise;
@@ -10,14 +13,14 @@ import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.ProtocolConnection;
+import edu.uw.zookeeper.protocol.SessionListener;
 
 
-public class OperationClientExecutor<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>>
+public class OperationClientExecutor<C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>>
     extends PendingQueueClientExecutor<Operation.Request, Message.ServerResponse<?>, PendingQueueClientExecutor.RequestTask<Operation.Request, Message.ServerResponse<?>>, C> {
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> OperationClientExecutor<C> newInstance(
+    public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> OperationClientExecutor<C> newInstance(
             ConnectMessage.Request request,
             C connection,
             ScheduledExecutorService executor) {
@@ -28,20 +31,20 @@ public class OperationClientExecutor<C extends ProtocolCodecConnection<? super M
                 executor);
     }
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> OperationClientExecutor<C> newInstance(
+    public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> OperationClientExecutor<C> newInstance(
             ConnectMessage.Request request,
             AssignXidProcessor xids,
             C connection,
             ScheduledExecutorService executor) {
         return newInstance(
-                ConnectTask.create(connection, request),
+                ConnectTask.connect(connection, request),
                 xids,
                 connection,
                 TimeValue.milliseconds(request.getTimeOut()),
                 executor);
     }
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> OperationClientExecutor<C> newInstance(
+    public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> OperationClientExecutor<C> newInstance(
             ListenableFuture<ConnectMessage.Response> session,
             AssignXidProcessor xids,
             C connection,
@@ -52,7 +55,8 @@ public class OperationClientExecutor<C extends ProtocolCodecConnection<? super M
                 session,
                 connection,
                 timeOut,
-                executor);
+                executor,
+                new StrongConcurrentSet<SessionListener>());
     }
     
     protected final AssignXidProcessor xids;
@@ -62,8 +66,9 @@ public class OperationClientExecutor<C extends ProtocolCodecConnection<? super M
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             TimeValue timeOut,
-            ScheduledExecutorService executor) {
-        super(session, connection, timeOut, executor);
+            ScheduledExecutorService executor,
+            IConcurrentSet<SessionListener> listeners) {
+        super(session, connection, timeOut, executor, listeners);
         this.xids = xids;
     }
 

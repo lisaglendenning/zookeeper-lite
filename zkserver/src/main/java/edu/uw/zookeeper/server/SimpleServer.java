@@ -8,8 +8,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import net.engio.mbassy.PubSubSupport;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.zookeeper.KeeperException;
@@ -30,10 +28,12 @@ import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.ZNodeDataTrie;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.Message.ServerResponse;
+import edu.uw.zookeeper.protocol.NotificationListener;
+import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.proto.IDisconnectResponse;
 import edu.uw.zookeeper.protocol.proto.IPingResponse;
+import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.AssignZxidProcessor;
@@ -48,19 +48,19 @@ public class SimpleServer extends ExecutedActor<PromiseTask<SessionOperation.Req
         protected final ZxidGenerator zxids;
         protected final ZNodeDataTrie data;
         protected final SessionManager sessions;
-        protected final Function<Long, ? extends PubSubSupport<? super Message.ServerResponse<?>>> publishers;
+        protected final Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners;
         
         protected Builder(
                 ZxidGenerator zxids,
                 ZNodeDataTrie data,
                 SessionManager sessions,
-                Function<Long, ? extends PubSubSupport<? super Message.ServerResponse<?>>> publishers,
+                Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime) {
             this.zxids = zxids;
             this.data = data;
             this.sessions = sessions;
             this.runtime = runtime;
-            this.publishers = publishers;
+            this.listeners = listeners;
         }
         
         @Override
@@ -70,7 +70,7 @@ public class SimpleServer extends ExecutedActor<PromiseTask<SessionOperation.Req
 
         @Override
         public C setRuntimeModule(RuntimeModule runtime) {
-            return newInstance(zxids, data, sessions, publishers, runtime);
+            return newInstance(zxids, data, sessions, listeners, runtime);
         }
         
         public ZxidGenerator getZxids() {
@@ -78,7 +78,7 @@ public class SimpleServer extends ExecutedActor<PromiseTask<SessionOperation.Req
         }
         
         public C setZxids(ZxidGenerator zxids) {
-            return newInstance(zxids, data, sessions, publishers, runtime);
+            return newInstance(zxids, data, sessions, listeners, runtime);
         }
         
         public ZxidGenerator getDefaultZxids() {
@@ -90,7 +90,7 @@ public class SimpleServer extends ExecutedActor<PromiseTask<SessionOperation.Req
         }
 
         public C setData(ZNodeDataTrie data) {
-            return newInstance(zxids, data, sessions, publishers, runtime);
+            return newInstance(zxids, data, sessions, listeners, runtime);
         }
         
         public ZNodeDataTrie getDefaultData() {
@@ -102,15 +102,15 @@ public class SimpleServer extends ExecutedActor<PromiseTask<SessionOperation.Req
         }
 
         public C setSessions(SessionManager sessions) {
-            return newInstance(zxids, data, sessions, publishers, runtime);
+            return newInstance(zxids, data, sessions, listeners, runtime);
         }
 
-        public Function<Long, ? extends PubSubSupport<? super Message.ServerResponse<?>>> getPublishers() {
-            return publishers;
+        public Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> getListeners() {
+            return listeners;
         }
 
-        public C setPublishers(Function<Long, ? extends PubSubSupport<? super Message.ServerResponse<?>>> publishers) {
-            return newInstance(zxids, data, sessions, publishers, runtime);
+        public C setListeners(Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners) {
+            return newInstance(zxids, data, sessions, listeners, runtime);
         }
         
         @SuppressWarnings("unchecked")
@@ -126,8 +126,8 @@ public class SimpleServer extends ExecutedActor<PromiseTask<SessionOperation.Req
             if (getSessions() == null) {
                 return setSessions(getDefaultSessions()).setDefaults();
             }
-            if (getPublishers() == null) {
-                return setPublishers(getDefaultPublishers()).setDefaults();
+            if (getListeners() == null) {
+                return setListeners(getDefaultListeners()).setDefaults();
             }
             return (C) this;
         }
@@ -141,7 +141,7 @@ public class SimpleServer extends ExecutedActor<PromiseTask<SessionOperation.Req
                 ZxidGenerator zxids,
                 ZNodeDataTrie data,
                 SessionManager sessions,
-                Function<Long, ? extends PubSubSupport<? super Message.ServerResponse<?>>> publishers,
+                Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime);
 
         protected SimpleServer doBuild() {
@@ -150,7 +150,7 @@ public class SimpleServer extends ExecutedActor<PromiseTask<SessionOperation.Req
                     getRuntimeModule().getExecutors().get(ExecutorService.class));
         }
 
-        protected abstract Function<Long, ? extends PubSubSupport<? super ServerResponse<?>>> getDefaultPublishers();
+        protected abstract Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> getDefaultListeners();
 
         protected abstract SessionManager getDefaultSessions();
 
@@ -197,10 +197,10 @@ public class SimpleServer extends ExecutedActor<PromiseTask<SessionOperation.Req
                             RequestErrorProcessor.<TxnOperation.Request<?>>create(
                                     ByOpcodeTxnRequestProcessor.create(
                                             ImmutableMap.copyOf(processors))), 
-                            getPublishers()));
+                            getListeners()));
         }
     }
-    
+
     protected final Logger logger;
     protected final Executor executor;
     protected final Queue<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> mailbox;

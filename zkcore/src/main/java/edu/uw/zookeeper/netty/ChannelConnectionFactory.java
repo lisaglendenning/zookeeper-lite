@@ -6,45 +6,30 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 
-import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.common.IConcurrentSet;
 
 import com.google.common.collect.Sets;
 
 import io.netty.channel.Channel;
 import io.netty.channel.group.ChannelGroup;
-import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.net.AbstractConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 
-public abstract class ChannelConnectionFactory<C extends Connection<?>> extends AbstractConnectionFactory<C> {
-    
-    protected static abstract class FactoryBuilder<C extends Connection<?>> {
-
-        protected final Factory<? extends PubSubSupport<Object>> publisherFactory;
-        protected final ParameterizedFactory<Channel, C> connectionFactory;
-        
-        protected FactoryBuilder(
-                Factory<? extends PubSubSupport<Object>> publisherFactory,
-                ParameterizedFactory<Channel, C> connectionFactory) {
-            super();
-            this.publisherFactory = publisherFactory;
-            this.connectionFactory = connectionFactory;
-        }
-    }
+public abstract class ChannelConnectionFactory<C extends Connection<?,?,?>> extends AbstractConnectionFactory<C> {
     
     protected final ParameterizedFactory<Channel, C> connectionFactory;
     protected final ChannelGroup channels;
-    protected final Set<C> connections;
+    protected final Set<ConnectionListener> connections;
 
     protected ChannelConnectionFactory(
-            PubSubSupport<Object> publisher,
+            IConcurrentSet<ConnectionsListener<? super C>> listeners,
             ParameterizedFactory<Channel, C> connectionFactory,
             ChannelGroup channels) {
-        super(publisher);
+        super(listeners);
         this.connectionFactory = checkNotNull(connectionFactory);
         this.channels = checkNotNull(channels);
-        this.connections = Collections.synchronizedSet(Sets.<C>newHashSet());
+        this.connections = Collections.synchronizedSet(Sets.<ConnectionListener>newHashSet());
     }
 
     protected ChannelGroup channels() {
@@ -52,7 +37,7 @@ public abstract class ChannelConnectionFactory<C extends Connection<?>> extends 
     }
     
     @Override
-    protected Collection<C> connections() {
+    protected Collection<ConnectionListener> connections() {
         return connections;
     }
 

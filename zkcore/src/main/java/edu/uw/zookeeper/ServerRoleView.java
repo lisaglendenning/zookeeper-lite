@@ -66,7 +66,7 @@ public class ServerRoleView<T extends SocketAddress, C extends ServerView.Addres
     }
 
     @Override
-    public Optional<EnsembleRole> apply(EnsembleRole input) {
+    public Optional<Automaton.Transition<EnsembleRole>> apply(EnsembleRole input) {
         return second().apply(input);
     }
 

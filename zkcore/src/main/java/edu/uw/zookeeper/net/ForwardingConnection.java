@@ -1,32 +1,37 @@
 package edu.uw.zookeeper.net;
 
 import java.net.SocketAddress;
-
-import javax.annotation.Nullable;
+import java.util.concurrent.Executor;
 
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
-public abstract class ForwardingConnection<I> implements Connection<I> {
+public abstract class ForwardingConnection<I, O, T extends Connection<? super I, ? extends O, ?>, C extends ForwardingConnection<I,O,T,C>> implements Connection<I,O,C> {
 
+    protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
+    
+    protected final Function<Object, C> RETURN_SELF;
+    
+    @SuppressWarnings("unchecked")
+    protected ForwardingConnection() {
+        this.RETURN_SELF = Functions.constant((C) this);
+    }
+    
     @Override
     public void execute(Runnable runnable) {
         delegate().execute(runnable);
     }
     
     @Override
-    public void publish(Object object) {
-        delegate().publish(object);
-    }
-
-    @Override
-    public void subscribe(Object listener) {
+    public void subscribe(Listener<? super O> listener) {
         delegate().subscribe(listener);
     }
 
     @Override
-    public boolean unsubscribe(Object listener) {
+    public boolean unsubscribe(Listener<? super O> listener) {
         return delegate().unsubscribe(listener);
     }
 
@@ -45,31 +50,29 @@ public abstract class ForwardingConnection<I> implements Connection<I> {
         return delegate().remoteAddress();
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public void read() {
+    public C read() {
         delegate().read();
+        return (C) this;
     }
 
     @Override
-    public <T extends I> ListenableFuture<T> write(final T message) {
+    public <I1 extends I> ListenableFuture<I1> write(I1 message) {
         return delegate().write(message);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public void flush() {
+    public C flush() {
         delegate().flush();
+        return (C) this;
     }
 
     @Override
-    public ListenableFuture<Connection<I>> close() {
+    public ListenableFuture<? extends C> close() {
         return Futures.transform(
-                delegate().close(), 
-                new Function<Connection<? super I>, Connection<I>>() {
-                    @Override
-                    public Connection<I> apply(@Nullable Connection<? super I> input) {
-                        return ForwardingConnection.this;
-                    }
-                });
+                delegate().close(), RETURN_SELF, SAME_THREAD_EXECUTOR);
     }
 
     @Override
@@ -77,5 +80,5 @@ public abstract class ForwardingConnection<I> implements Connection<I> {
         return delegate().toString();
     }
 
-    protected abstract Connection<? super I> delegate();
+    protected abstract T delegate();
 }

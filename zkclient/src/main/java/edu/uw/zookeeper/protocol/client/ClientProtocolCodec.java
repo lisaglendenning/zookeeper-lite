@@ -6,24 +6,24 @@ import java.io.IOException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import net.engio.mbassy.PubSubSupport;
-
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
+import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons;
 import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.Stateful;
+import edu.uw.zookeeper.common.Automatons.AutomatonListener;
+import edu.uw.zookeeper.net.Decoder;
+import edu.uw.zookeeper.net.Encoder;
 import edu.uw.zookeeper.protocol.ConnectMessage;
-import edu.uw.zookeeper.protocol.Decoder;
-import edu.uw.zookeeper.protocol.Encoder;
 import edu.uw.zookeeper.protocol.Frame;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
+import edu.uw.zookeeper.protocol.ProtocolMessageAutomaton;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.OpCode;
@@ -35,34 +35,22 @@ import edu.uw.zookeeper.protocol.proto.OpCodeXid;
  * threads to call decode.
  */
 public class ClientProtocolCodec
-    implements ProtocolCodec<Message.ClientSession, Message.ServerSession> {
+    implements ProtocolCodec<Message.ClientSession, Message.ServerSession, Message.ClientSession, Message.ServerSession> {
 
-    public static ParameterizedFactory<PubSubSupport<Object>, Pair<Class<Message.ClientSession>, ClientProtocolCodec>> factory() {
-        return new ParameterizedFactory<PubSubSupport<Object>, Pair<Class<Message.ClientSession>, ClientProtocolCodec>>() {
-            @Override
-            public Pair<Class<Message.ClientSession>, ClientProtocolCodec> get(
-                    PubSubSupport<Object> value) {
-                return Pair.create(Message.ClientSession.class,
-                        ClientProtocolCodec.newInstance(value));
-            }
-        };
+    public static ClientProtocolCodec defaults() {
+        return newInstance(ProtocolState.ANONYMOUS);
     }
     
-    public static ClientProtocolCodec newInstance(
-            PubSubSupport<Object> publisher) {
-        return newInstance(publisher, ProtocolState.ANONYMOUS);
-    }
-    
-    public static ClientProtocolCodec newInstance(
-            PubSubSupport<Object> publisher, ProtocolState state) {
-        Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton =
-                Automatons.createSynchronizedEventful(publisher, 
-                        Automatons.createSimple(state));
+    public static ClientProtocolCodec newInstance(ProtocolState state) {
+        Automatons.SynchronizedEventfulAutomaton<ProtocolState, Object,?> automaton =
+                Automatons.createSynchronizedEventful(
+                        Automatons.createEventful(
+                        ProtocolMessageAutomaton.asAutomaton(state)));
         Pending pending = Pending.newInstance();
-        Encoder<? super Message.ClientSession> encoder = 
+        Encoder<? super Message.ClientSession, ?> encoder = 
                 Frame.FramedEncoder.create(
                         ClientProtocolEncoder.newInstance(automaton));
-        Decoder<Optional<Message.ServerSession>> decoder =
+        Decoder<Optional<Message.ServerSession>, ?> decoder =
                 Frame.FramedDecoder.create(
                         Frame.FrameDecoder.getDefault(),
                         ClientProtocolDecoder.newInstance(automaton, pending));
@@ -100,15 +88,15 @@ public class ClientProtocolCodec
         }
     }
 
-    protected final Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton;
-    protected final Encoder<? super Message.ClientSession> encoder;
-    protected final Decoder<Optional<Message.ServerSession>> decoder;
+    protected final Automatons.EventfulAutomaton<ProtocolState, Object> automaton;
+    protected final Encoder<? super Message.ClientSession, ?> encoder;
+    protected final Decoder<Optional<Message.ServerSession>, ?> decoder;
     protected final Queue<Pair<Integer, OpCode>> pending;
     
     protected ClientProtocolCodec(
-            Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton,
-            Encoder<? super Message.ClientSession> encoder,
-            Decoder<Optional<Message.ServerSession>> decoder,
+            Automatons.EventfulAutomaton<ProtocolState, Object> automaton,
+            Encoder<? super Message.ClientSession, ?> encoder,
+            Decoder<Optional<Message.ServerSession>, ?> decoder,
             Queue<Pair<Integer, OpCode>> pending) {
         this.automaton = automaton;
         this.encoder = encoder;
@@ -116,6 +104,26 @@ public class ClientProtocolCodec
         this.pending = pending;
     }
 
+    @Override
+    public void subscribe(AutomatonListener<ProtocolState> listener) {
+        automaton.subscribe(listener);
+    }
+
+    @Override
+    public boolean unsubscribe(AutomatonListener<ProtocolState> listener) {
+        return automaton.unsubscribe(listener);
+    }
+    
+    @Override
+    public Class<Message.ClientSession> encodeType() {
+        return Message.ClientSession.class;
+    }
+
+    @Override
+    public Class<? extends Message.ServerSession> decodeType() {
+        return Message.ServerSession.class;
+    }
+    
     /**
      * Don't call concurrently!
      */
@@ -162,20 +170,11 @@ public class ClientProtocolCodec
     }
 
     @Override
-    public void subscribe(Object listener) {
-        automaton.subscribe(listener);
+    public Optional<Automaton.Transition<ProtocolState>> apply(
+            ProtocolState input) {
+        return automaton.apply(input);
     }
 
-    @Override
-    public boolean unsubscribe(Object listener) {
-        return automaton.unsubscribe(listener);
-    }
-
-    @Override
-    public void publish(Object message) {
-        automaton.publish(message);
-    }
-    
     @Override
     public String toString() {
         return Objects.toStringHelper(this).add("state", state()).toString();
@@ -183,7 +182,7 @@ public class ClientProtocolCodec
 
     public static class ClientProtocolEncoder implements 
             Stateful<ProtocolState>,
-            Encoder<Message.ClientSession> {
+            Encoder<Message.ClientSession, Message.ClientSession> {
 
         public static ClientProtocolEncoder newInstance(
                 Stateful<ProtocolState> stateful) {
@@ -200,6 +199,11 @@ public class ClientProtocolCodec
         @Override
         public ProtocolState state() {
             return stateful.state();
+        }
+
+        @Override
+        public Class<Message.ClientSession> encodeType() {
+            return Message.ClientSession.class;
         }
         
         @Override
@@ -220,7 +224,7 @@ public class ClientProtocolCodec
     
     public static class ClientProtocolDecoder implements 
             Stateful<ProtocolState>,
-            Decoder<Message.ServerSession> {
+            Decoder<Message.ServerSession, Message.ServerSession> {
 
         public static ClientProtocolDecoder newInstance(
                 Stateful<ProtocolState> stateful,
@@ -241,6 +245,11 @@ public class ClientProtocolCodec
         @Override
         public ProtocolState state() {
             return stateful.state();
+        }
+
+        @Override
+        public Class<? extends Message.ServerSession> decodeType() {
+            return Message.ServerSession.class;
         }
         
         @Override

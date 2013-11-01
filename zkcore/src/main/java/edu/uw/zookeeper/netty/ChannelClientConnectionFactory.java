@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.netty.client;
+package edu.uw.zookeeper.netty;
 
 import static com.google.common.base.Preconditions.*;
 import io.netty.bootstrap.Bootstrap;
@@ -17,7 +17,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
-import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.common.IConcurrentSet;
+import net.engio.mbassy.common.StrongConcurrentSet;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.MapMaker;
@@ -32,68 +33,30 @@ import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.LoggingMarker;
-import edu.uw.zookeeper.netty.ChannelConnectionFactory;
 
-public class ChannelClientConnectionFactory<C extends Connection<?>> extends ChannelConnectionFactory<C>
+public class ChannelClientConnectionFactory<C extends Connection<?,?,?>> extends ChannelConnectionFactory<C>
         implements ClientConnectionFactory<C> {
     
-    public static <C extends Connection<?>> ClientFactoryBuilder<C> factory(
-            Factory<? extends PubSubSupport<Object>> publisherFactory,
-            ParameterizedFactory<Channel, C> connectionFactory,
-            Factory<Bootstrap> bootstrapFactory) {
-        return ClientFactoryBuilder.newInstance(
-                publisherFactory,
-                connectionFactory,
-                bootstrapFactory);
-    }
-    
-    public static class ClientFactoryBuilder<C extends Connection<?>> extends FactoryBuilder<C> implements Factory<ChannelClientConnectionFactory<C>> {
-
-        public static <C extends Connection<?>> ClientFactoryBuilder<C> newInstance(
-                Factory<? extends PubSubSupport<Object>> publisherFactory,
-                ParameterizedFactory<Channel, C> connectionFactory,
-                Factory<Bootstrap> bootstrapFactory) {
-            return new ClientFactoryBuilder<C>(publisherFactory, connectionFactory, bootstrapFactory);
-        }
-        
-        private final Factory<Bootstrap> bootstrapFactory;
-        
-        private ClientFactoryBuilder(
-                Factory<? extends PubSubSupport<Object>> publisherFactory,
-                ParameterizedFactory<Channel, C> connectionFactory,
-                Factory<Bootstrap> bootstrapFactory) {
-            super(publisherFactory, connectionFactory);
-            this.bootstrapFactory = bootstrapFactory;
-        }
-
-        @Override
-        public ChannelClientConnectionFactory<C> get() {
-            return ChannelClientConnectionFactory.newInstance(
-                    publisherFactory.get(), 
-                    connectionFactory, 
-                    bootstrapFactory.get());
-        }
+    public static <C extends Connection<?,?,?>> Factory<? extends ChannelClientConnectionFactory<C>> factory(
+            final ParameterizedFactory<Channel, C> connectionFactory,
+            final Factory<? extends Bootstrap> bootstrapFactory) {
+        return new Factory<ChannelClientConnectionFactory<C>>() {
+            @Override
+            public ChannelClientConnectionFactory<C> get() {
+                return ChannelClientConnectionFactory.newInstance(
+                        connectionFactory, 
+                        bootstrapFactory.get());
+            }
+        };
     }
 
-    public static <C extends Connection<?>> ChannelClientConnectionFactory<C> newInstance(
-            PubSubSupport<Object> publisher,
+    public static <C extends Connection<?,?,?>> ChannelClientConnectionFactory<C> newInstance(
             ParameterizedFactory<Channel, C> connectionFactory,
             Bootstrap bootstrap) {
+        IConcurrentSet<ConnectionsListener<? super C>> listeners = new StrongConcurrentSet<ConnectionsListener<? super C>>();
         ChannelGroup channels = new DefaultChannelGroup(ChannelClientConnectionFactory.class.getSimpleName(), bootstrap.group().next());
-        return newInstance(
-                publisher, 
-                connectionFactory,
-                channels,
-                bootstrap);
-    }
-    
-    public static <C extends Connection<?>> ChannelClientConnectionFactory<C> newInstance(
-            PubSubSupport<Object> publisher,
-            ParameterizedFactory<Channel, C> connectionFactory,
-            ChannelGroup channels,
-            Bootstrap bootstrap) {
         return new ChannelClientConnectionFactory<C>(
-                publisher, 
+                listeners, 
                 connectionFactory,
                 channels,
                 bootstrap);
@@ -103,11 +66,11 @@ public class ChannelClientConnectionFactory<C extends Connection<?>> extends Cha
     protected final Bootstrap bootstrap;
 
     protected ChannelClientConnectionFactory(
-            PubSubSupport<Object> publisher,
+            IConcurrentSet<ConnectionsListener<? super C>> listeners,
             ParameterizedFactory<Channel, C> connectionFactory,
             ChannelGroup channels,
             Bootstrap bootstrap) {
-        super(publisher, connectionFactory, channels);
+        super(listeners, connectionFactory, channels);
         this.initializer = new ChildInitializer();
         this.bootstrap = checkNotNull(bootstrap).handler(initializer);
     }

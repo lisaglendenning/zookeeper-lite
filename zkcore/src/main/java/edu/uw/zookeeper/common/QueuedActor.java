@@ -29,7 +29,7 @@ public abstract class QueuedActor<T> extends AbstractActor<T> {
     protected void doRun() throws Exception {
         T next;
         while ((next = mailbox().poll()) != null) {
-            logger().debug("Applying {}", next);
+            logger().debug("Applying {} ({})", next, this);
             if (! apply(next)) {
                 break;
             }

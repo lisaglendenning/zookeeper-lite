@@ -1,12 +1,13 @@
 package edu.uw.zookeeper.protocol.client;
 
-import net.engio.mbassy.listener.Handler;
+import java.util.concurrent.Executor;
 
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Promise;
@@ -14,76 +15,55 @@ import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
+import edu.uw.zookeeper.protocol.Operation;
 
 public class ConnectTask
     extends PromiseTask<ConnectMessage.Request, ConnectMessage.Response> 
-    implements FutureCallback<ConnectMessage.Request> {
+    implements FutureCallback<ConnectMessage.Request>, Connection.Listener<Operation.Response>, Runnable {
+    
+    protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
 
-    public static ConnectTask create(
-            Connection<? super ConnectMessage.Request> connection,
+    public static ConnectTask connect(
+            Connection<? super ConnectMessage.Request, ? extends Operation.Response,?> connection,
             ConnectMessage.Request message) {
-        return create(connection, message, SettableFuturePromise.<ConnectMessage.Response>create());
-    }
-
-    public static ConnectTask create(
-            Connection<? super ConnectMessage.Request> connection,
-            ConnectMessage.Request message, 
-            Promise<ConnectMessage.Response> promise) {
-        ConnectTask task = new ConnectTask(message, connection, promise);
+        ConnectTask task = create(connection, message, SettableFuturePromise.<ConnectMessage.Response>create());
+        task.run();
         return task;
     }
+
+    public static ConnectTask create(
+            Connection<? super ConnectMessage.Request, ? extends Operation.Response,?> connection,
+            ConnectMessage.Request message, 
+            Promise<ConnectMessage.Response> promise) {
+        return new ConnectTask(message, connection, promise);
+    }
     
-    protected final Connection<? super ConnectMessage.Request> connection;
+    protected final Connection<? super ConnectMessage.Request, ? extends Operation.Response,?> connection;
     protected ListenableFuture<ConnectMessage.Request> future;
     
     protected ConnectTask(
             ConnectMessage.Request request,
-            Connection<? super ConnectMessage.Request> connection,
+            Connection<? super ConnectMessage.Request, ? extends Operation.Response,?> connection,
             Promise<ConnectMessage.Response> promise) {
         super(request, promise);
         this.connection = connection;
         this.future = null;
-
-        start();
-    }
-    
-    @Override
-    public boolean cancel(boolean mayInterruptIfRunning) {
-        boolean cancel = super.cancel(mayInterruptIfRunning);
-        if (cancel) {
-            stop();
-        }
-        return cancel;
+        
+        addListener(this, SAME_THREAD_EXECUTOR);
     }
 
     @Override
-    public boolean set(ConnectMessage.Response result) {
-        boolean set = super.set(result);
-        if (set) {
-            stop();
-        }
-        return set;
-    }
-
-    @Override
-    public boolean setException(Throwable t) {
-        boolean setException = super.setException(t);
-        if (setException) {
-            stop();
-        }
-        return setException;
-    }
-    
-    @Handler
-    public void handleTransition(Automaton.Transition<?> event) {
+    public void handleConnectionState(Automaton.Transition<Connection.State> event) {
         if (Connection.State.CONNECTION_CLOSED == event.to()) {
-            setException(new KeeperException.ConnectionLossException());
+            onFailure(new KeeperException.ConnectionLossException());
         }
     }
 
-    @Handler
-    public void handleConnectMessageResponse(ConnectMessage.Response result) {
-        set(result);
+    @Override
+    public void handleConnectionRead(Operation.Response message) {
+        if (message instanceof ConnectMessage.Response) {
+            set((ConnectMessage.Response) message);
+        }
     }
     
     @Override
@@ -95,23 +75,24 @@ public class ConnectTask
         setException(t);
     }
     
-    protected synchronized void start() {
-        connection.subscribe(this);
-        try {
-            future = connection.write(task());
-        } catch (Throwable e) {
-            setException(e);
-            return;
-        }
-        Futures.addCallback(future, this);
-    }
-    
-    protected synchronized void stop() {
-        try {
+    @Override
+    public synchronized void run() {
+        if (! isDone()) {
+            if (future == null) {
+                connection.subscribe(this);
+                try {
+                    future = connection.write(task());
+                } catch (Throwable e) {
+                    setException(e);
+                    return;
+                }
+                Futures.addCallback(future, this, SAME_THREAD_EXECUTOR);
+            }
+        } else {
             connection.unsubscribe(this);
-        } catch (IllegalArgumentException e) {}
-        if (future != null) {
-            future.cancel(true);
+            if (future != null) {
+                future.cancel(true);
+            }
         }
     } 
 }

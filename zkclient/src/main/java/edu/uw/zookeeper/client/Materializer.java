@@ -5,7 +5,8 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Map;
 
-import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.common.IConcurrentSet;
+import net.engio.mbassy.common.StrongConcurrentSet;
 
 import org.apache.jute.Record;
 
@@ -23,6 +24,7 @@ import edu.uw.zookeeper.data.StampedReference;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.data.ZNodeLabelTrie;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.SessionListener;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
 
@@ -31,12 +33,12 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
     public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<?>> Materializer<V> newInstance(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
-            ClientExecutor<? super Records.Request, V> client) {
-        return new Materializer<V>(schema, codec, client, client);
+            ClientExecutor<? super Records.Request, V, SessionListener> client) {
+        return new Materializer<V>(schema, codec, client, new StrongConcurrentSet<CacheSessionListener>());
     }
     
     public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> 
-    ListenableFuture<V> submit(ClientExecutor<I, V> client, I request) {
+    ListenableFuture<V> submit(ClientExecutor<I, V, ?> client, I request) {
         return client.submit(request);
     }
     
@@ -44,12 +46,12 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
     protected final Serializers.ByteCodec<Object> codec;
     protected final Operator operator;
     
-    public Materializer(
+    protected Materializer(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
-            PubSubSupport<Object> publisher,
-            ClientExecutor<? super Records.Request, V> client) {
-        super(publisher, client, ZNodeLabelTrie.of(MaterializedNode.root(schema, codec)));
+            ClientExecutor<? super Records.Request, V, SessionListener> client,
+            IConcurrentSet<CacheSessionListener> listeners) {
+        super(client, ZNodeLabelTrie.of(MaterializedNode.root(schema, codec)), listeners);
         this.schema = schema;
         this.codec = codec;
         this.operator = new Operator();
@@ -175,9 +177,9 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
         
         public class Submitter<C extends Operations.Builder<? extends Records.Request>> implements Reference<C> {
             protected final C builder;
-            protected final ClientExecutor<? super Records.Request, V> client;
+            protected final ClientExecutor<? super Records.Request, V, ?> client;
             
-            public Submitter(C builder, ClientExecutor<? super Records.Request, V> client) {
+            public Submitter(C builder, ClientExecutor<? super Records.Request, V, ?> client) {
                 this.builder = builder;
                 this.client = client;
             }

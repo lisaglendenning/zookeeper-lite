@@ -169,7 +169,7 @@ public class DispatchingInvoker extends AbstractExecutionThreadService implement
                 break;
             case PATH:
             {
-                ClientExecutor<Operation.Request, ? extends Message.ServerResponse<?>> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getConnectionClientExecutor();
+                ClientExecutor<Operation.Request, ? extends Message.ServerResponse<?>, ?> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getConnectionClientExecutor();
                 ZNodeLabel.Path path = ZNodeLabel.Path.canonicalized(ZNodeLabel.Path.join(shell.getEnvironment().get(ShellInvoker.CWD_KEY).toString(), token));
                 try {
                     Operations.Requests.GetChildren request = Operations.Requests.getChildren();

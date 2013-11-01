@@ -17,14 +17,14 @@ import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolConnection;
 import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.client.OperationClientExecutor;
 
 public class EnsembleViewFactory<T> implements DefaultsFactory<ServerInetAddressView, T> {
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> EnsembleViewFactory<ServerViewFactory<Session, OperationClientExecutor<C>>> fromSession(
+    public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> EnsembleViewFactory<ServerViewFactory<Session, OperationClientExecutor<C>>> fromSession(
             ClientConnectionFactory<C> connections,
             EnsembleView<ServerInetAddressView> view, 
             TimeValue timeOut,
@@ -100,9 +100,9 @@ public class EnsembleViewFactory<T> implements DefaultsFactory<ServerInetAddress
         }
     }
     
-    public static class ServerViewFactories<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements ParameterizedFactory<ServerInetAddressView, ServerViewFactory<Session, OperationClientExecutor<C>>> {
+    public static class ServerViewFactories<C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> implements ParameterizedFactory<ServerInetAddressView, ServerViewFactory<Session, OperationClientExecutor<C>>> {
 
-        public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactories<C> newInstance(
+        public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> ServerViewFactories<C> newInstance(
                 ClientConnectionFactory<C> connections,
                 TimeValue timeOut,
                 ScheduledExecutorService executor) {

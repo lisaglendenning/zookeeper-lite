@@ -6,14 +6,15 @@ import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.ProtocolConnection;
+import edu.uw.zookeeper.protocol.SessionListener;
 
 public interface ConnectionClientExecutor<
         I extends Operation.Request,
         V extends Operation.ProtocolResponse<?>,
-        C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> 
-            extends ClientExecutor<I,V> {
+        T extends SessionListener,
+        C extends ProtocolConnection<? super Message.ClientSession,?,?,?,?>> 
+            extends ClientExecutor<I,V,T> {
 
     ListenableFuture<ConnectMessage.Response> session();
     

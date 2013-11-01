@@ -15,6 +15,8 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.Range;
 
 import edu.uw.zookeeper.common.AbstractPair;
+import edu.uw.zookeeper.net.Decoder;
+import edu.uw.zookeeper.net.Encoder;
 
 
 public final class Frame extends AbstractPair<IntHeader, ByteBuf> implements Encodable, ReferenceCounted {
@@ -28,26 +30,31 @@ public final class Frame extends AbstractPair<IntHeader, ByteBuf> implements Enc
         return new Frame(header, buffer);
     }
     
-    public static final class FramedEncoder<T> implements Encoder<T> {
+    public static final class FramedEncoder<I,T> implements Encoder<I,T> {
 
-        public static <T> FramedEncoder<T> create(Encoder<T> messageEncoder) {
-            return new FramedEncoder<T>(messageEncoder);
+        public static <I,T> FramedEncoder<I,T> create(Encoder<I,T> messageEncoder) {
+            return new FramedEncoder<I,T>(messageEncoder);
         }
 
-        private final Logger logger = LogManager
-                .getLogger(getClass());
-        private final Encoder<T> messageEncoder;
+        private final Logger logger;
+        private final Encoder<I,T> messageEncoder;
         
-        public FramedEncoder(Encoder<T> messageEncoder) {
+        public FramedEncoder(Encoder<I,T> messageEncoder) {
+            this.logger = LogManager.getLogger(getClass());
             this.messageEncoder = checkNotNull(messageEncoder);
         }
         
-        public Encoder<T> messageEncoder() {
+        public Encoder<I,T> messageEncoder() {
             return messageEncoder();
         }
 
         @Override
-        public void encode(T input, ByteBuf output) throws IOException {
+        public Class<? extends T> encodeType() {
+            return messageEncoder.encodeType();
+        }
+
+        @Override
+        public void encode(I input, ByteBuf output) throws IOException {
             int beginIndex = output.writerIndex();
             try {
                 int headerLength = IntHeader.length();
@@ -75,7 +82,7 @@ public final class Frame extends AbstractPair<IntHeader, ByteBuf> implements Enc
     /**
      * Shareable
      */
-    public static final class FrameDecoder implements Decoder<Optional<Frame>> {
+    public static final class FrameDecoder implements Decoder<Optional<Frame>, Frame> {
 
         public static FrameDecoder getDefault() {
             return create(Range.atLeast(Integer.valueOf(0)));
@@ -95,6 +102,11 @@ public final class Frame extends AbstractPair<IntHeader, ByteBuf> implements Enc
             return bounds;
         }
     
+        @Override
+        public Class<? extends Frame> decodeType() {
+            return Frame.class;
+        }
+
         /**
          * DO NOT discard read bytes until you are done with the returned Frame.
          * Make sure to release() the returned Frame when you are done with it.
@@ -129,22 +141,22 @@ public final class Frame extends AbstractPair<IntHeader, ByteBuf> implements Enc
         }
     }
     
-    public static final class FramedDecoder<T> implements Decoder<Optional<T>> {
+    public static final class FramedDecoder<O,T> implements Decoder<Optional<O>, T> {
         
-        public static <T> FramedDecoder<T> create(
+        public static <O,T> FramedDecoder<O,T> create(
                 FrameDecoder frameDecoder,
-                Decoder<T> messageDecoder) {
-            return new FramedDecoder<T>(frameDecoder, messageDecoder);
+                Decoder<O,T> messageDecoder) {
+            return new FramedDecoder<O,T>(frameDecoder, messageDecoder);
         }
         
-        private final Logger logger = LogManager
-                .getLogger(getClass());
+        private final Logger logger;
         private final FrameDecoder frameDecoder;
-        private final Decoder<T> messageDecoder;
+        private final Decoder<O,T> messageDecoder;
         
         public FramedDecoder(
                 FrameDecoder frameDecoder,
-                Decoder<T> messageDecoder) {
+                Decoder<O,T> messageDecoder) {
+            this.logger = LogManager.getLogger(getClass());
             this.frameDecoder = checkNotNull(frameDecoder);
             this.messageDecoder = checkNotNull(messageDecoder);
         }
@@ -153,13 +165,18 @@ public final class Frame extends AbstractPair<IntHeader, ByteBuf> implements Enc
             return frameDecoder;
         }
         
-        public Decoder<T> messageDecoder() {
+        public Decoder<O,T> messageDecoder() {
             return messageDecoder;
         }
     
         @Override
-        public Optional<T> decode(ByteBuf input) throws IOException {
-            Optional<T> output = Optional.absent(); 
+        public Class<? extends T> decodeType() {
+            return messageDecoder.decodeType();
+        }
+
+        @Override
+        public Optional<O> decode(ByteBuf input) throws IOException {
+            Optional<O> output = Optional.absent(); 
             Optional<Frame> frameOutput = frameDecoder.decode(input);
             if (frameOutput.isPresent()) {
                 Frame frame = frameOutput.get();

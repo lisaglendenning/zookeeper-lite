@@ -3,87 +3,58 @@ package edu.uw.zookeeper.net.intravm;
 import java.net.SocketAddress;
 import java.util.concurrent.ConcurrentMap;
 
-import javax.annotation.Nullable;
-
-import net.engio.mbassy.PubSubSupport;
-
-import org.apache.logging.log4j.LogManager;
-
-import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.MapMaker;
 
 import edu.uw.zookeeper.common.Factory;
-import edu.uw.zookeeper.common.LoggingPublisher;
+import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.net.Connection;
 
-public class IntraVmFactory {
+public class IntraVmFactory<U,V> {
 
-    public static IntraVmFactory defaults() {
+    public static <U,V> IntraVmFactory<U,V> defaults() {
         return newInstance(
-                IntraVmEndpointFactory.loopbackAddresses(1),
-                IntraVmEndpointFactory.syncMessageBus());
+                IntraVmEndpointFactory.loopbackAddresses(1));
     }
     
-    public static IntraVmFactory newInstance(
-            Supplier<? extends SocketAddress> addresses,
-            Supplier<? extends PubSubSupport<Object>> publishers) {
-        return new IntraVmFactory(addresses, publishers);
+    public static <U,V> IntraVmFactory<U,V> newInstance(
+            Supplier<? extends SocketAddress> addresses) {
+        return new IntraVmFactory<U,V>(addresses);
     }
     
-    protected final ConcurrentMap<SocketAddress, IntraVmServerConnectionFactory<?,?>> servers;
-    protected final Function<SocketAddress, IntraVmServerConnectionFactory<?,?>> connector;
-    protected final Supplier<? extends PubSubSupport<Object>> publishers;
+    protected final ConcurrentMap<SocketAddress, IntraVmServerConnectionFactory<?,?,V,U,?,?>> servers;
     protected final Supplier<? extends SocketAddress> addresses;
     
     public IntraVmFactory(
-            Supplier<? extends SocketAddress> addresses,
-            Supplier<? extends PubSubSupport<Object>> publishers) {
+            Supplier<? extends SocketAddress> addresses) {
         this.addresses = addresses;
-        this.publishers = publishers;
         this.servers = new MapMaker().makeMap();
-        this.connector = new Function<SocketAddress, IntraVmServerConnectionFactory<?,?>>() {
-            @Override
-            public @Nullable IntraVmServerConnectionFactory<?,?> apply(SocketAddress input) {
-                return servers.get(input);
-            }
-        };
     }
 
     public Supplier<? extends SocketAddress> addresses() {
         return addresses;
     }
     
-    public Supplier<? extends PubSubSupport<Object>> publishers() {
-        return publishers;
-    }
-
-    public <C extends Connection<?>, V> IntraVmServerConnectionFactory<C,V> newServer(
+    public <I,O, T extends AbstractIntraVmEndpoint<I,O,V,U>, C extends Connection<?,?,?>> IntraVmServerConnectionFactory<I,O,V,U,T,C> newServer(
             SocketAddress listenAddress,
-            Factory<? extends IntraVmEndpoint<?>> endpointFactory,
-            ParameterizedFactory<? super IntraVmConnection<V>, C> connectionFactory) {
-        PubSubSupport<Object> publisher = LoggingPublisher.create(
-                LogManager.getLogger(IntraVmServerConnectionFactory.class),
-                publishers.get(),
-                listenAddress);
-        IntraVmServerConnectionFactory<C,V> server = IntraVmServerConnectionFactory.newInstance(
-                listenAddress, publisher, endpointFactory, connectionFactory);
-        IntraVmServerConnectionFactory<?,?> prev = servers.putIfAbsent(listenAddress, server);
+            Factory<? extends T> endpointFactory,
+            ParameterizedFactory<Pair<? extends T, ? extends AbstractIntraVmEndpoint<?,?,?,? super V>>, ? extends C> connectionFactory) {
+        IntraVmServerConnectionFactory<I,O,V,U,T,C> server = IntraVmServerConnectionFactory.weakListeners(
+                listenAddress, endpointFactory, connectionFactory);
+        IntraVmServerConnectionFactory<?,?,V,U,?,?> prev = servers.putIfAbsent(listenAddress, server);
         if (prev != null) {
             throw new IllegalArgumentException(String.valueOf(listenAddress));
         }
         return server;
     }
     
-    public <C extends Connection<?>, V> IntraVmClientConnectionFactory<C,V> newClient(
-            Factory<? extends IntraVmEndpoint<?>> endpointFactory,
-            ParameterizedFactory<IntraVmConnection<V>, C> connectionFactory) {
-        PubSubSupport<Object> publisher = LoggingPublisher.create(
-                LogManager.getLogger(IntraVmClientConnectionFactory.class),
-                publishers.get());
-        IntraVmClientConnectionFactory<C,V> client = IntraVmClientConnectionFactory.newInstance(
-                connector, publisher, endpointFactory, connectionFactory);
+    public <I,O, T extends AbstractIntraVmEndpoint<I,O,U,V>, C extends Connection<?,?,?>> IntraVmClientConnectionFactory<I,O,U,V,T,C> newClient(
+            Factory<? extends T> endpointFactory,
+            ParameterizedFactory<Pair<? extends T, ? extends AbstractIntraVmEndpoint<?,?,?,? super U>>, ? extends C> connectionFactory) {
+        IntraVmClientConnectionFactory<I,O,U,V,T,C> client = IntraVmClientConnectionFactory.<I,O,U,V,T,C>weakListeners(
+                Functions.forMap(servers), endpointFactory, connectionFactory);
         return client;
     }
 }

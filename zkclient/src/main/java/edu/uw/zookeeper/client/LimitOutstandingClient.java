@@ -13,24 +13,25 @@ import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.SessionListener;
 
-public class LimitOutstandingClient<I extends Operation.Request, O extends Operation.ProtocolResponse<?>> implements ClientExecutor<I,O> {
+public class LimitOutstandingClient<I extends Operation.Request, O extends Operation.ProtocolResponse<?>, T extends SessionListener> implements ClientExecutor<I,O,T> {
 
-    public static <I extends Operation.Request, O extends Operation.ProtocolResponse<?>> ClientExecutor<? super I,O> create(
+    public static <I extends Operation.Request, O extends Operation.ProtocolResponse<?>, T extends SessionListener> ClientExecutor<? super I, O, T> create(
             Configuration configuration,
-            ClientExecutor<? super I, O> client) {
+            ClientExecutor<? super I, O, T> client) {
         return create(ConfigurableLimit.get(configuration), client);
     }
 
-    public static <I extends Operation.Request, O extends Operation.ProtocolResponse<?>> ClientExecutor<? super I,O> create(
+    public static <I extends Operation.Request, O extends Operation.ProtocolResponse<?>, T extends SessionListener> ClientExecutor<? super I, O, T> create(
             int limit,
-            ClientExecutor<? super I, O> client) {
+            ClientExecutor<? super I, O, T> client) {
         if (limit == NO_LIMIT) {
             return client;
         } else if (limit < 0) {
             throw new IllegalStateException(String.valueOf(limit));
         } else {
-            return new LimitOutstandingClient<I,O>(limit, client);
+            return new LimitOutstandingClient<I,O,T>(limit, client);
         }
     }
 
@@ -60,13 +61,13 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
       };
     private volatile int outstanding = 0;
     private final int limit;
-    private final ClientExecutor<? super I, O> delegate;
+    private final ClientExecutor<? super I, O, T> delegate;
     private final Listener listener;
     private final Executor executor;
     
     protected LimitOutstandingClient(
             int limit,
-            ClientExecutor<? super I, O> delegate) {
+            ClientExecutor<? super I, O, T> delegate) {
         this.limit = limit;
         this.delegate = delegate;
         this.executor = MoreExecutors.sameThreadExecutor();
@@ -106,20 +107,15 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
     }
 
     @Override
-    public void subscribe(Object handler) {
+    public void subscribe(T handler) {
         delegate.subscribe(handler);
     }
 
     @Override
-    public boolean unsubscribe(Object handler) {
+    public boolean unsubscribe(T handler) {
         return delegate.unsubscribe(handler);
     }
     
-    @Override
-    public void publish(Object event) {
-        delegate.publish(event);
-    }
-
     private class Listener implements Runnable {
         @Override
         public void run() {

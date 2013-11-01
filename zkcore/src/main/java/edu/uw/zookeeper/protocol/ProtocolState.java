@@ -3,77 +3,94 @@ package edu.uw.zookeeper.protocol;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 
-import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.common.Automaton;
 
 
-public enum ProtocolState implements Function<Message, Optional<ProtocolState>> {
+public enum ProtocolState implements Function<ProtocolState, Optional<Automaton.Transition<ProtocolState>>> {
 
     ANONYMOUS {
         @Override
-        public Optional<ProtocolState> apply(Message input) {
-            if (input instanceof ConnectMessage.Request) {
-                return Optional.of(CONNECTING);
-            } else if (input instanceof Message.Anonymous) {
-                // no-op
-            } else {
-                throw new IllegalArgumentException(input.toString());
+        public Optional<Automaton.Transition<ProtocolState>> apply(ProtocolState input) {
+            switch (input) {
+            case ANONYMOUS:
+                return Optional.absent();
+            case CONNECTING:
+            case ERROR:
+                return Optional.of(Automaton.Transition.<ProtocolState>create(this, input));
+            default:
+                throw new IllegalArgumentException(String.valueOf(input));
             }
-            return Optional.absent();
         }
     },
     CONNECTING {
         @Override
-        public Optional<ProtocolState> apply(Message input) {
-            if (input instanceof ConnectMessage.Response) {
-                if (input instanceof ConnectMessage.Response.Valid) {
-                    return Optional.of(CONNECTED);
-                } else {
-                    return Optional.of(ERROR);
-                }
-            } else if (input instanceof Message.ClientRequest || input instanceof FourLetterResponse) {
-                // no-op                   
-            } else {
-                throw new IllegalArgumentException(input.toString());
-            }
-            return Optional.absent();
+        public Optional<Automaton.Transition<ProtocolState>> apply(ProtocolState input) {
+            switch (input) {
+            case CONNECTING:
+                return Optional.absent();
+            case CONNECTED:
+            case ERROR:
+                return Optional.of(Automaton.Transition.<ProtocolState>create(this, input));
+            default:
+                throw new IllegalArgumentException(String.valueOf(input));
+            }   
         }
     },
     CONNECTED {
         @Override
-        public Optional<ProtocolState> apply(Message input) {
-            if (input instanceof Message.ClientRequest) {
-                if (OpCode.CLOSE_SESSION == ((Message.ClientRequest<?>) input).record().opcode()) {
-                    return Optional.of(DISCONNECTING);
-                }
-            } else if (input instanceof Message.ServerResponse) {
-                // noop
-            } else {
-                throw new IllegalArgumentException(input.toString());                    
-            }
-            return Optional.absent();
+        public Optional<Automaton.Transition<ProtocolState>> apply(ProtocolState input) {
+            switch (input) {
+            case CONNECTING:
+            case CONNECTED:
+                return Optional.absent();
+            case DISCONNECTING:
+            case ERROR:
+            case DISCONNECTED:
+                return Optional.of(Automaton.Transition.<ProtocolState>create(this, input));
+            default:
+                throw new IllegalArgumentException(String.valueOf(input));
+            }   
         }
     },
     DISCONNECTING {
         @Override
-        public Optional<ProtocolState> apply(Message input) {
-            if (input instanceof Message.ServerResponse) {
-                if (OpCode.CLOSE_SESSION == ((Message.ServerResponse<?>) input).record().opcode()) {
-                    return Optional.of(DISCONNECTED);
-                }
-            } else {
-                throw new IllegalArgumentException(input.toString());                    
-            }
-            return Optional.absent();
+        public Optional<Automaton.Transition<ProtocolState>> apply(ProtocolState input) {
+            switch (input) {
+            case CONNECTING:
+            case CONNECTED:
+            case DISCONNECTING:
+                return Optional.absent();
+            case ERROR:
+            case DISCONNECTED:
+                return Optional.of(Automaton.Transition.<ProtocolState>create(this, input));
+            default:
+                throw new IllegalArgumentException(String.valueOf(input));
+            }   
         }
     },
     DISCONNECTED {
-        public Optional<ProtocolState> apply(Message input) {
-            throw new IllegalArgumentException(input.toString());                    
+        public Optional<Automaton.Transition<ProtocolState>> apply(ProtocolState input) {
+            switch (input) {
+            case CONNECTING:
+            case CONNECTED:
+            case DISCONNECTING:
+            case DISCONNECTED:
+            case ERROR:
+                return Optional.absent();
+            default:
+                throw new IllegalArgumentException(String.valueOf(input));
+            }              
         }
     },
     ERROR {
-        public Optional<ProtocolState> apply(Message input) {
-            throw new IllegalArgumentException(input.toString());                    
+        public Optional<Automaton.Transition<ProtocolState>> apply(ProtocolState input) {
+            switch (input) {
+            case DISCONNECTING:
+            case DISCONNECTED:
+                return Optional.of(Automaton.Transition.<ProtocolState>create(this, input));
+            default:
+                return Optional.absent();
+            }                              
         }
     };
 }

@@ -6,14 +6,12 @@ import org.apache.zookeeper.Watcher.Event.KeeperState;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.common.Event;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-@Event
 public class WatchEvent {
 
     public static WatchEvent fromRecord(IWatcherEvent record) {

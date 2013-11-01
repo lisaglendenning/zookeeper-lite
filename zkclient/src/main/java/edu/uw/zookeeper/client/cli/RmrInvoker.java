@@ -57,7 +57,7 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
     public void invoke(final Invocation<Command> input)
             throws Exception {
         ZNodeLabel.Path root = (ZNodeLabel.Path) input.getArguments()[1];
-        ClientExecutor<? super Records.Request, ?> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getConnectionClientExecutor();
+        ClientExecutor<? super Records.Request, ?, ?> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getConnectionClientExecutor();
         final ListenableFuture<DeleteRoot> future = Futures.transform(
                 TreeFetcher.<Set<ZNodeLabel.Path>>builder().setClient(client).setResult(new ComputeLeaves()).setRoot(root).build(), new DeleteRoot(client, root));
         Futures.addCallback(future, new FutureCallback<DeleteRoot>(){
@@ -129,10 +129,10 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
     
     protected static class DeleteRoot implements AsyncFunction<Optional<Set<ZNodeLabel.Path>>, DeleteRoot> {
 
-        protected final ClientExecutor<? super Records.Request, ?> client;
+        protected final ClientExecutor<? super Records.Request, ?, ?> client;
         protected final ZNodeLabel.Path root;
         
-        public DeleteRoot(ClientExecutor<? super Records.Request, ?> client, ZNodeLabel.Path root) {
+        public DeleteRoot(ClientExecutor<? super Records.Request, ?, ?> client, ZNodeLabel.Path root) {
             this.client = client;
             this.root = root;
         }

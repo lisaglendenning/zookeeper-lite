@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.client;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledExecutorService;
 
-import net.engio.mbassy.listener.Handler;
+import net.engio.mbassy.common.IConcurrentSet;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.Queues;
@@ -17,8 +17,8 @@ import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.ProtocolConnection;
+import edu.uw.zookeeper.protocol.SessionListener;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 
@@ -26,7 +26,7 @@ public abstract class PendingQueueClientExecutor<
     I extends Operation.Request, 
     V extends Operation.ProtocolResponse<?>,
     T extends PendingQueueClientExecutor.RequestTask<I, V>,
-    C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>>
+    C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>>
     extends AbstractConnectionClientExecutor<I,V,T,C,PendingQueueClientExecutor.PendingTask<V>> {
 
     protected final ConcurrentLinkedQueue<T> mailbox;
@@ -36,8 +36,9 @@ public abstract class PendingQueueClientExecutor<
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             TimeValue timeOut,
-            ScheduledExecutorService executor) {
-        super(session, connection, timeOut, executor);
+            ScheduledExecutorService executor,
+            IConcurrentSet<SessionListener> listeners) {
+        super(session, connection, timeOut, executor, listeners);
         
         this.pending = Queues.newConcurrentLinkedQueue();
         this.mailbox = Queues.newConcurrentLinkedQueue();
@@ -45,22 +46,23 @@ public abstract class PendingQueueClientExecutor<
 
     @Override
     @SuppressWarnings("unchecked")
-    @Handler
-    public void handleResponse(Operation.ProtocolResponse<?> message) {
-        super.handleResponse(message);
+    public void handleConnectionRead(Operation.Response message) {
+        super.handleConnectionRead(message);
         
         if (state() != State.TERMINATED) {
-            int xid = message.xid();
-            if (! ((xid == OpCodeXid.PING.xid()) || (xid == OpCodeXid.NOTIFICATION.xid()))) {
-                PendingTask<V> next = pending.peek();
-                if ((next != null) && (next.xid() == xid)) {
-                    pending.remove(next);
-                    next.set((V) message);
-                } else {
-                    // This could happen if someone submitted a message without
-                    // going through us
-                    // or, it could be a bug
-                    logger.warn("{}.xid != {}.xid ({})", next, message, this);
+            if (message instanceof Operation.ProtocolResponse<?>) {
+                int xid = ((Operation.ProtocolResponse<?>) message).xid();
+                if (! ((xid == OpCodeXid.PING.xid()) || (xid == OpCodeXid.NOTIFICATION.xid()))) {
+                    PendingTask<V> next = pending.peek();
+                    if ((next != null) && (next.xid() == xid)) {
+                        pending.remove(next);
+                        next.set((V) message);
+                    } else {
+                        // This could happen if someone submitted a message without
+                        // going through us
+                        // or, it could be a bug
+                        logger.warn("{}.xid != {}.xid ({})", next, message, this);
+                    }
                 }
             }
         }

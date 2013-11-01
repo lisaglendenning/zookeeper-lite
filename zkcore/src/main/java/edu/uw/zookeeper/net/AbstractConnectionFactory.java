@@ -6,71 +6,69 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-import net.engio.mbassy.PubSubSupport;
-import net.engio.mbassy.listener.Handler;
-import net.engio.mbassy.listener.References;
+import net.engio.mbassy.common.IConcurrentSet;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.base.Function;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Factories;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ConnectionFactory;
 
-public abstract class AbstractConnectionFactory<C extends Connection<?>> extends AbstractIdleService
+public abstract class AbstractConnectionFactory<C extends Connection<?,?,?>> extends AbstractIdleService
         implements ConnectionFactory<C> {
-
+    
     protected final Logger logger;
-    protected final PubSubSupport<Object> publisher;
+    protected final IConcurrentSet<ConnectionsListener<? super C>> listeners;
 
-    protected AbstractConnectionFactory(PubSubSupport<Object> publisher) {
-        super();
+    protected AbstractConnectionFactory(
+            IConcurrentSet<ConnectionsListener<? super C>> listeners) {
         this.logger = LogManager.getLogger(getClass());
-        this.publisher = checkNotNull(publisher);
+        this.listeners = checkNotNull(listeners);
     }
 
     @Override
-    public void publish(Object event) {
-        publisher.publish(event);
+    public void subscribe(ConnectionsListener<? super C> listener) {
+        listeners.add(listener);
     }
 
     @Override
-    public void subscribe(Object listener) {
-        publisher.subscribe(listener);
-    }
-
-    @Override
-    public boolean unsubscribe(Object listener) {
-        return publisher.unsubscribe(listener);
+    public boolean unsubscribe(ConnectionsListener<? super C> listener) {
+        return listeners.remove(listener);
     }
     
     @Override
-    public UnmodifiableIterator<C> iterator() {
-        return ImmutableSet.copyOf(connections()).iterator();
+    public Iterator<C> iterator() {
+        return Iterators.transform(
+                connections().iterator(), 
+                new Function<ConnectionListener, C>() {
+                    @Override
+                    public C apply(ConnectionListener input) {
+                        return input.get();
+                    }
+        });
     }
 
     protected boolean add(C connection) {
         if (isRunning()) {
-            if (connections().add(connection)) {
+            ConnectionListener listener = new ConnectionListener(connection);
+            if (connections().add(listener)) {
                 if (isRunning()) {
-                    RemoveConnectionOnClose listener = new RemoveConnectionOnClose(connection);
-                    if (Connection.State.CONNECTION_CLOSED == connection.state()) {
-                        listener.handleStateEvent(Automaton.Transition.create(Connection.State.CONNECTION_OPENING, Connection.State.CONNECTION_CLOSED));
-                    } else {
-                        logger.trace(LoggingMarker.NET_MARKER.get(), "ADDED {}", connection);
-                        publish(connection);
-                        return true;
+                    logger.trace(LoggingMarker.NET_MARKER.get(), "ADDED {}", connection);
+                    for (ConnectionsListener<? super C> l: listeners) {
+                        l.handleConnectionOpen(connection);
                     }
+                    return true;
                 } else {
-                    remove(connection);
+                    remove(listener);
                 }
             }
         }
@@ -78,10 +76,10 @@ public abstract class AbstractConnectionFactory<C extends Connection<?>> extends
         return false;
     }
     
-    protected boolean remove(C connection) {
-        boolean removed = connections().remove(connection);
+    protected boolean remove(ConnectionListener listener) {
+        boolean removed = connections().remove(listener);
         if (removed) {
-            logger.trace(LoggingMarker.NET_MARKER.get(), "REMOVED {}", connection);
+            logger.trace(LoggingMarker.NET_MARKER.get(), "REMOVED {}", listener);
         }
         return removed;
     }
@@ -94,37 +92,45 @@ public abstract class AbstractConnectionFactory<C extends Connection<?>> extends
     protected void shutDown() throws Exception {
         List<ListenableFuture<?>> futures = Lists.newLinkedList();
         synchronized (connections()) {
-            Iterator<C> itr = Iterators.consumingIterator(connections().iterator());
+            Iterator<ConnectionListener> itr = Iterators.consumingIterator(connections().iterator());
             while (itr.hasNext()) {
-                C next = itr.next();
+                C next = itr.next().get();
                 if (next.state() != Connection.State.CONNECTION_CLOSED) {
                     futures.add(next.close());
                 }
             }
         }
         Futures.successfulAsList(futures).get();
+
+        Iterator<?> itr = Iterators.consumingIterator(listeners.iterator());
+        while (itr.hasNext()) {
+            itr.next();
+        }
     }
 
-    protected abstract Collection<C> connections();
+    protected abstract Collection<ConnectionListener> connections();
     
-    @net.engio.mbassy.listener.Listener(references = References.Strong)
-    protected class RemoveConnectionOnClose {
+    protected class ConnectionListener extends Factories.Holder<C> implements Connection.Listener<Object> {
     
-        protected final C connection;
-        
-        public RemoveConnectionOnClose(C connection) {
-            this.connection = connection;
+        public ConnectionListener(C connection) {
+            super(checkNotNull(connection));
             connection.subscribe(this);
+            if (Connection.State.CONNECTION_CLOSED == connection.state()) {
+                handleConnectionState(Automaton.Transition.create(Connection.State.CONNECTION_OPENING, Connection.State.CONNECTION_CLOSED));
+            }
         }
         
-        @Handler
-        public void handleStateEvent(Automaton.Transition<?> event) {
-            if (Connection.State.CONNECTION_CLOSED == event.to()) {
-                try {
-                    connection.unsubscribe(this);
-                } catch (Exception e) {}
-                remove(connection);
+        @Override
+        public void handleConnectionState(
+                Automaton.Transition<Connection.State> transition) {
+            if (Connection.State.CONNECTION_CLOSED == transition.to()) {
+                get().unsubscribe(this);
+                remove(this);
             }
+        }
+
+        @Override
+        public void handleConnectionRead(Object message) {
         }
     }
 }

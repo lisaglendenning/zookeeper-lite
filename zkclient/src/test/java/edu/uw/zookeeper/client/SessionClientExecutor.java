@@ -5,23 +5,24 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.SessionListener;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class SessionClientExecutor<V extends Operation.ProtocolResponse<?>> implements ClientExecutor<Records.Request, V> {
+public class SessionClientExecutor<V extends Operation.ProtocolResponse<?>, T extends SessionListener> implements ClientExecutor<Records.Request, V, T> {
 
-    public static <T extends Operation.ProtocolRequest<?>, V extends Operation.ProtocolResponse<?>> SessionClientExecutor<V> create(
+    public static <V extends Operation.ProtocolResponse<?>, T extends SessionListener> SessionClientExecutor<V,T> create(
             long sessionId,
-            ClientExecutor<SessionOperation.Request<?>, V> delegate) {
-        return new SessionClientExecutor<V>(sessionId, delegate);
+            ClientExecutor<SessionOperation.Request<?>, V, T> delegate) {
+        return new SessionClientExecutor<V,T>(sessionId, delegate);
     }
     
     protected final SessionClientProcessor sessionProcessor;
-    protected final ClientExecutor<SessionOperation.Request<?>, V> delegate;
+    protected final ClientExecutor<SessionOperation.Request<?>, V, T> delegate;
     
     public SessionClientExecutor(
             long sessionId,
-            ClientExecutor<SessionOperation.Request<?>, V> delegate) {
+            ClientExecutor<SessionOperation.Request<?>, V, T> delegate) {
         this.sessionProcessor = SessionClientProcessor.create(sessionId);
         this.delegate = delegate;
     }
@@ -38,17 +39,12 @@ public class SessionClientExecutor<V extends Operation.ProtocolResponse<?>> impl
     }
     
     @Override
-    public void subscribe(Object handler) {
+    public void subscribe(T handler) {
         delegate.subscribe(handler);
     }
 
     @Override
-    public boolean unsubscribe(Object handler) {
+    public boolean unsubscribe(T handler) {
         return delegate.unsubscribe(handler);
-    }
-
-    @Override
-    public void publish(Object event) {
-        delegate.publish(event);
     }
 }

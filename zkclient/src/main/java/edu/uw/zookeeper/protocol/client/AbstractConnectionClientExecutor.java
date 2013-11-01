@@ -1,71 +1,86 @@
 package edu.uw.zookeeper.protocol.client;
 
-import java.lang.ref.WeakReference;
+import java.util.Iterator;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
-import net.engio.mbassy.listener.Handler;
+import net.engio.mbassy.common.IConcurrentSet;
+import net.engio.mbassy.common.WeakConcurrentSet;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Automatons.AutomatonListener;
 import edu.uw.zookeeper.common.ExecutedActor;
+import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.ProtocolConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.Session;
+import edu.uw.zookeeper.protocol.SessionListener;
 import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
+import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
+import edu.uw.zookeeper.protocol.proto.OpCode;
 
 
 public abstract class AbstractConnectionClientExecutor<
     I extends Operation.Request, 
     V extends Operation.ProtocolResponse<?>,
     T extends Future<?>,
-    C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>, O>
+    C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>, 
+    O>
     extends ExecutedActor<T>
-    implements ConnectionClientExecutor<I,V,C>,
-        FutureCallback<O> {
+    implements ConnectionClientExecutor<I,V,SessionListener,C>, Connection.Listener<Operation.Response>,
+        FutureCallback<O>, AutomatonListener<ProtocolState> {
     
     protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
 
     protected final Logger logger;
     protected final C connection;
     protected final ListenableFuture<ConnectMessage.Response> session;
+    protected final TimeOutServer<O> timer;
+    protected final IConcurrentSet<SessionListener> listeners;
     protected final AtomicReference<Throwable> failure;
-    protected final TimeOutServer timeOut;
     
     protected AbstractConnectionClientExecutor(
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             TimeValue timeOut,
-            ScheduledExecutorService executor) {
+            ScheduledExecutorService executor,
+            IConcurrentSet<SessionListener> listeners) {
         super();
         this.logger = LogManager.getLogger(getClass());
         this.connection = connection;
         this.session = session;
-        this.timeOut = new TimeOutServer(TimeOutParameters.create(timeOut), executor, this);
-        this.failure = new AtomicReference<Throwable>(null);
-                
+        this.listeners = listeners;
+        this.timer = TimeOutServer.newTimeOutServer(TimeOutParameters.create(timeOut), executor);
+        this.failure = new AtomicReference<Throwable>();
+
+        new TimeOutListener();
+        Futures.addCallback(this.session, this.timer, SAME_THREAD_EXECUTOR);
         this.connection.subscribe(this);
-        this.timeOut.run();
-        Futures.addCallback(this.session, this.timeOut, SAME_THREAD_EXECUTOR);
+        this.connection.codec().subscribe(this);
+        this.timer.run();
     }
 
     public ListenableFuture<ConnectMessage.Response> session() {
@@ -77,40 +92,57 @@ public abstract class AbstractConnectionClientExecutor<
     }
 
     @Override
-    public void subscribe(Object listener) {
-        connection.subscribe(listener);
+    public void subscribe(SessionListener listener) {
+        listeners.add(listener);
     }
 
     @Override
-    public boolean unsubscribe(Object listener) {
-        return connection.unsubscribe(listener);
+    public boolean unsubscribe(SessionListener listener) {
+        return listeners.remove(listener);
     }
 
-    @Override
-    public void publish(Object message) {
-        connection.publish(message);
-    }
-    
     @Override
     public ListenableFuture<V> submit(I request) {
         return submit(request, SettableFuturePromise.<V>create());
     }
 
-    @Handler
-    public void handleTransition(Automaton.Transition<?> event) {
+    @Override
+    public void handleConnectionState(Automaton.Transition<Connection.State> event) {
         if (Connection.State.CONNECTION_CLOSED == event.to()) {
-            if (connection.codec().state() != ProtocolState.DISCONNECTED) {
+            switch (connection.codec().state()) {
+            case CONNECTING:
+            case CONNECTED:
+            case DISCONNECTING:
                 onFailure(new KeeperException.ConnectionLossException());
-            } else {
+                break;
+            case ERROR:
+                onFailure(new KeeperException.SessionExpiredException());
+            default:
                 stop();
+                break;
             }
         }
     }
 
-    @Handler
-    public void handleResponse(Operation.ProtocolResponse<?> message) {
+    @SuppressWarnings("unchecked")
+    @Override
+    public void handleConnectionRead(Operation.Response message) {
         logger.debug("Received: {}", message);
-        timeOut.send(message);
+        timer.send(message);
+        if (message instanceof Operation.ProtocolResponse<?>) {
+            if (((Operation.ProtocolResponse<?>) message).record().opcode() == OpCode.NOTIFICATION) {
+                for (SessionListener listener: listeners) {
+                    listener.handleNotification((Operation.ProtocolResponse<IWatcherEvent>) message);
+                }
+            }
+        }
+    }
+    
+    @Override
+    public void handleAutomatonTransition(Automaton.Transition<ProtocolState> transition) {
+        for (SessionListener listener: listeners) {
+            listener.handleAutomatonTransition(transition);
+        }
     }
 
     @Override
@@ -119,8 +151,10 @@ public abstract class AbstractConnectionClientExecutor<
 
     @Override
     public void onFailure(Throwable t) {
-        failure.compareAndSet(null, t);
-        stop();
+        if ((state().compareTo(State.TERMINATED) < 0) && failure.compareAndSet(null, t)) {
+            logger.debug("{}", this, t);
+            stop();
+        }
     }
     
     @Override
@@ -152,11 +186,10 @@ public abstract class AbstractConnectionClientExecutor<
 
     @Override
     protected void doStop() {  
-        timeOut.stop();
+        timer.cancel(true);
         
-        try {
-            connection.unsubscribe(this);
-        } catch (Exception e) {}
+        connection.unsubscribe(this);
+        connection.codec().unsubscribe(this);
         
         if (! session.isDone()) {
             session.cancel(true);
@@ -172,20 +205,56 @@ public abstract class AbstractConnectionClientExecutor<
         } catch (Exception e) {
             logger.debug("Ignoring {}", e);
         }
+
+        Iterator<?> itr = Iterators.consumingIterator(listeners.iterator());
+        while (itr.hasNext()) {
+            itr.next();
+        }
     }
     
-    protected static class TimeOutServer extends TimeOutActor<Operation.Response> implements FutureCallback<ConnectMessage.Response> {
+    protected class TimeOutListener implements Runnable {
 
-        protected final Logger logger;
-        protected final WeakReference<FutureCallback<?>> callback;
+        public TimeOutListener() {
+            timer.addListener(this, SAME_THREAD_EXECUTOR);
+        }
+        
+        @Override
+        public void run() {
+            if (timer.isDone()) {
+                if (! timer.isCancelled()) {
+                    try {
+                        timer.get();
+                    } catch (InterruptedException e) {
+                        throw new AssertionError(e);
+                    } catch (ExecutionException e) {
+                        onFailure(e.getCause());
+                    }
+                }
+            }
+        }
+    }
+    
+    public static class TimeOutServer<V> extends TimeOutActor<Operation.Response, V> implements FutureCallback<ConnectMessage.Response> {
+
+        public static <V>TimeOutServer<V> newTimeOutServer(
+                TimeOutParameters parameters,
+                ScheduledExecutorService executor) {
+            Logger logger = LogManager.getLogger(TimeOutServer.class);
+            return new TimeOutServer<V>(
+                    parameters, 
+                    executor,
+                    new WeakConcurrentSet<Pair<Runnable,Executor>>(),
+                    LoggingPromise.create(logger, SettableFuturePromise.<V>create()),
+                    logger);
+        }
         
         public TimeOutServer(
                 TimeOutParameters parameters,
                 ScheduledExecutorService executor,
-                FutureCallback<?> connection) {
-            super(parameters, executor);
-            this.callback = new WeakReference<FutureCallback<?>>(connection);
-            this.logger = LogManager.getLogger(getClass());
+                IConcurrentSet<Pair<Runnable,Executor>> listeners,
+                Promise<V> promise,
+                Logger logger) {
+            super(parameters, executor, listeners, promise, logger);
         }
 
         @Override
@@ -193,36 +262,13 @@ public abstract class AbstractConnectionClientExecutor<
             if (result instanceof ConnectMessage.Response.Valid) {
                 parameters.setTimeOut(((ConnectMessage.Response) result).toParameters().timeOut().value());
             }
+            
             send(result);
         }
 
         @Override
         public void onFailure(Throwable t) {
-            FutureCallback<?> callback = this.callback.get();
-            if (callback != null) {
-                callback.onFailure(t);
-            }
-        }
-
-        @Override
-        protected void doRun() {
-            if (parameters.remaining() <= 0) {
-                onFailure(new KeeperException.OperationTimeoutException());
-            }
-        }
-
-        @Override
-        protected synchronized void doSchedule() {
-            if (callback.get() == null) {
-                stop();
-            } else {
-                super.doSchedule();
-            }
-        }
-        
-        @Override
-        protected Logger logger() {
-            return logger;
+            promise.setException(t);
         }
     }
 }

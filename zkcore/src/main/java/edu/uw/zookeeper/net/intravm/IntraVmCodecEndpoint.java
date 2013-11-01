@@ -1,177 +1,137 @@
 package edu.uw.zookeeper.net.intravm;
 
-import static com.google.common.base.Preconditions.checkState;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.util.Queue;
+import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.Executor;
-
-import net.engio.mbassy.PubSubSupport;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.google.common.base.Optional;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.LoggingPromise;
-import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
+import edu.uw.zookeeper.net.Codec;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.LoggingMarker;
-import edu.uw.zookeeper.protocol.Codec;
 
-public class IntraVmCodecEndpoint<I, T extends Codec<? super I, ? extends Optional<?>>> extends IntraVmEndpoint<ByteBuf> {
+public class IntraVmCodecEndpoint<I,O,T extends Codec<I,? extends O,? extends I,?>> extends AbstractIntraVmEndpoint<I,O,ByteBuf,ByteBuf> {
 
-    public static <I, T extends Codec<? super I, ? extends Optional<?>>> IntraVmCodecEndpoint<I,T> create(
+    public static <I,O,T extends Codec<I,? extends O,? extends I,?>> IntraVmCodecEndpoint<I,O,T> newInstance(
             ByteBufAllocator allocator,
-            Pair<Class<I>, T> codec,
+            T codec,
             SocketAddress address,
-            PubSubSupport<Object> publisher,
             Executor executor) {
-        return IntraVmCodecEndpoint.<I,T>builder(
-                allocator,
+        return new IntraVmCodecEndpoint<I,O,T>(
+                allocator, 
+                codec, 
                 address, 
-                publisher,
-                executor).setCodec(codec).build();
-    }
-
-    public static <I, T extends Codec<? super I, ? extends Optional<?>>> Builder<I,T> builder(
-            ByteBufAllocator allocator,
-            SocketAddress address,
-            PubSubSupport<Object> publisher,
-            Executor executor) {
-        return new Builder<I,T>(allocator, address, publisher, executor);
-    }
-    
-    public static class Builder<I, T extends Codec<? super I, ? extends Optional<?>>> extends IntraVmEndpoint.Builder<ByteBuf> {
-
-        protected final ByteBufAllocator allocator;
-        protected Pair<Class<I>, ? extends T> codec;
-        
-        public Builder(
-                ByteBufAllocator allocator,
-                SocketAddress address,
-                PubSubSupport<Object> publisher,
-                Executor executor) {
-            this(allocator, address, publisher, executor, LogManager.getLogger(IntraVmCodecEndpoint.class));
-        }
-        
-        public Builder(
-                ByteBufAllocator allocator,
-                SocketAddress address,
-                PubSubSupport<Object> publisher,
-                Executor executor,
-                Logger logger) {
-            super(address, publisher, executor, logger);
-            this.allocator = allocator;
-            this.codec = null;
-        }
-        
-        public Builder<I,T> setCodec(Pair<Class<I>, ? extends T> codec) {
-            this.codec = codec;
-            return this;
-        }
-        
-        @Override
-        public IntraVmCodecEndpoint<I,T> build() {
-            checkState(codec != null);
-            
-            return new IntraVmCodecEndpoint<I,T>(
-                    allocator, codec, address, logger, executor, publisher, mailbox, stopped);
-        }
+                LogManager.getLogger(IntraVmCodecEndpoint.class), 
+                executor, 
+                IntraVmPublisher.<O>weakSubscribers());
     }
     
     protected final ByteBufAllocator allocator;
-    protected final Class<I> type;
     protected final T codec;
     
     protected IntraVmCodecEndpoint(
             ByteBufAllocator allocator,
-            Pair<Class<I>, ? extends T> codec,
+            T codec,
             SocketAddress address,
             Logger logger,
             Executor executor,
-            IntraVmPublisher publisher,
-            Queue<Optional<? extends ByteBuf>> mailbox,
-            Promise<IntraVmEndpoint<ByteBuf>> stopped) {
-        super(address, logger, executor, publisher, mailbox, stopped);
+            IntraVmPublisher<O> publisher) {
+        super(address, logger, executor, publisher);
         this.allocator = allocator;
-        this.type = codec.first();
-        this.codec = codec.second();
+        this.codec = codec;
     }
     
-    public Pair<Class<I>, T> getCodec() {
-        return Pair.create(type, codec);
+    public T getCodec() {
+        return codec;
     }
     
     @Override
-    public <U> ListenableFuture<U> write(Optional<U> message, IntraVmEndpoint<?> remote) {
-        @SuppressWarnings("unchecked")
-        EncodingSendTask<U> task = new EncodingSendTask<U>((IntraVmEndpoint<? super ByteBuf>) remote, message, LoggingPromise.create(logger, SettableFuturePromise.<U>create()));
-        execute(task);
-        return task;
+    public <U extends I> ListenableFuture<U> write(U message, AbstractIntraVmEndpoint<?,?,?,? super ByteBuf> remote) {
+        if (state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
+            EncodingEndpointWrite<U> task = new EncodingEndpointWrite<U>(remote, message, LoggingPromise.create(logger, SettableFuturePromise.<U>create()));
+            execute(task);
+            return task;
+        } else {
+            return Futures.immediateFailedFuture(new ClosedChannelException());
+        }
     }
 
     @Override
-    protected void doPublish(ByteBuf input) {
-        Optional<?> output;
-        try { 
-            output = codec.decode(input);
-        } catch (IOException e) {
-            logger.warn(LoggingMarker.NET_MARKER.get(), "{}", input, e);
-            stop();
-            return;
+    public boolean read(ByteBuf message) {
+        if (state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
+            execute(new DecodingEndpointRead(message));
+            return true;
         }
-        if (output.isPresent()) {
-            Object value = output.get();
-            logger.trace(LoggingMarker.NET_MARKER.get(), "Decoded: {}", value);
-            publisher.publish(value);
-        }
+        return false;
     }
+    
+    public class DecodingEndpointRead extends AbstractEndpointRead {
 
-    protected class EncodingSendTask<U> extends PromiseTask<Optional<U>, U> implements Runnable {
-
-        protected final IntraVmEndpoint<? super ByteBuf> remote;
-        
-        public EncodingSendTask(
-                IntraVmEndpoint<? super ByteBuf> remote,
-                Optional<U> task, 
-                Promise<U> promise) {
-            super(task, promise);
-            this.remote = remote;
+        public DecodingEndpointRead(ByteBuf message) {
+            super(message);
         }
         
         @Override
-        public synchronized void run() {
-            if(!isDone()) {
-                ByteBuf output;
-                if (task().isPresent()) {
-                    @SuppressWarnings("unchecked")
-                    I input = (I) task().get();
-                    output = allocator.buffer();
-                    logger.trace(LoggingMarker.NET_MARKER.get(), "Encoding: {} ({})", input, IntraVmCodecEndpoint.this);
-                    try {
-                        codec.encode(input, output);
-                    } catch (IOException e) {
-                        logger.warn(LoggingMarker.NET_MARKER.get(), "{}", IntraVmCodecEndpoint.this, e);
-                        setException(e);
-                        return;
-                    }
-                } else {
-                    output = null;
-                }
-                if (remote.send(Optional.fromNullable(output))) {
-                    set(task().orNull());
-                } else {
-                    setException(new IllegalStateException(Connection.State.CONNECTION_CLOSING.toString()));
-                }
+        protected void doRead() {
+            Optional<? extends O> output;
+            try { 
+                output = codec.decode(get());
+            } catch (IOException e) {
+                logger.warn(LoggingMarker.NET_MARKER.get(), "{}", get(), e);
+                close();
+                return;
             }
+            if (output.isPresent()) {
+                O message = output.get();
+                logger.trace(LoggingMarker.NET_MARKER.get(), "DECODED {} ({})", message, this);
+                publisher.handleConnectionRead(message);
+            }
+        }
+    }
+    
+    public class EncodingEndpointWrite<U extends I> extends AbstractEndpointWrite<U> {
+
+        public EncodingEndpointWrite(
+                AbstractIntraVmEndpoint<?,?,?,? super ByteBuf> remote,
+                U task, 
+                Promise<U> promise) {
+            super(remote,task, promise);
+        }
+        
+        @Override
+        public Optional<U> call() {
+            if (state() != Connection.State.CONNECTION_CLOSED) {
+                ByteBuf output = allocator.buffer();
+                logger.trace(LoggingMarker.NET_MARKER.get(), "ENCODING {}", this);
+                try {
+                    codec.encode(task, output);
+                } catch (IOException e) {
+                    logger.warn(LoggingMarker.NET_MARKER.get(), "{}", this, e);
+                    setException(e);
+                    return Optional.absent();
+                }
+                if (remote.read(output)) {
+                    return Optional.of(task);
+                } else {
+                    close();
+                    setException(new ClosedChannelException());
+                }
+            } else {
+                setException(new ClosedChannelException());
+            }
+            return Optional.absent();
         }
     }
 }

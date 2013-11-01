@@ -3,47 +3,46 @@ package edu.uw.zookeeper.net;
 import java.net.SocketAddress;
 import java.util.concurrent.Executor;
 
-import net.engio.mbassy.PubSubSupport;
-
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Eventful;
+
 
 /**
- * Asynchronous communication channel.
- * 
- * Posts at least the following events:
- * <ul>
- * <li> Connection.State when the Connection.State changes
- * <li> O when an O is received
- * </ul>
- * 
- * Currently there is only one implementation that is based on Netty 4.0.
+ * Asynchronous network channel.
  * 
  * @see edu.uw.zookeeper.netty
+ * @see edu.uw.zookeeper.net.intravm
  */
-public interface Connection<I> extends PubSubSupport<Object>, Executor {
+public interface Connection<I,O, C extends Connection<I,O,C>> extends Eventful<Connection.Listener<? super O>>, Executor {
 
-    public static enum State implements Function<State, Optional<State>> {
+    public static interface Listener<O> {
+        void handleConnectionState(Automaton.Transition<Connection.State> state);
+        void handleConnectionRead(O message);
+    }
+    
+    public static enum State implements Function<State, Optional<Automaton.Transition<State>>> {
         CONNECTION_OPENING {
             @Override
-            public Optional<State> apply(State nextState) {
+            public Optional<Automaton.Transition<State>> apply(State nextState) {
                 switch (nextState) {
                 case CONNECTION_OPENING:
                     return Optional.absent();
                 default:
-                    return Optional.of(nextState);
+                    return Optional.of(Automaton.Transition.<State>create(this, nextState));
                 }
             }
         },
         CONNECTION_OPENED {
             @Override
-            public Optional<State> apply(State nextState) {
+            public Optional<Automaton.Transition<State>> apply(State nextState) {
                 switch (nextState) {
                 case CONNECTION_CLOSING:
                 case CONNECTION_CLOSED:
-                    return Optional.of(nextState);
+                    return Optional.of(Automaton.Transition.<State>create(this, nextState));
                 default:
                     return Optional.absent();
                 }
@@ -51,10 +50,10 @@ public interface Connection<I> extends PubSubSupport<Object>, Executor {
         },
         CONNECTION_CLOSING {
             @Override
-            public Optional<State> apply(State nextState) {
+            public Optional<Automaton.Transition<State>> apply(State nextState) {
                 switch (nextState) {
                 case CONNECTION_CLOSED:
-                    return Optional.of(nextState);
+                    return Optional.of(Automaton.Transition.<State>create(this, nextState));
                 default:
                     return Optional.absent();
                 }
@@ -62,7 +61,7 @@ public interface Connection<I> extends PubSubSupport<Object>, Executor {
         },
         CONNECTION_CLOSED {
             @Override
-            public Optional<State> apply(State nextState) {
+            public Optional<Automaton.Transition<State>> apply(State nextState) {
                 return Optional.absent();
             }
         };
@@ -91,8 +90,10 @@ public interface Connection<I> extends PubSubSupport<Object>, Executor {
 
     /**
      * Trigger a read.
+     * 
+     * @return this
      */
-    void read();
+    C read();
 
     /**
      * Asynchronously send a message.
@@ -104,8 +105,10 @@ public interface Connection<I> extends PubSubSupport<Object>, Executor {
     
     /**
      * Trigger a flush of written messages.
+     * 
+     * @return this
      */
-    void flush();
+    C flush();
 
     /**
      * Transition Connection to CONNECTION_CLOSING.
@@ -114,5 +117,5 @@ public interface Connection<I> extends PubSubSupport<Object>, Executor {
      * 
      * @return ListenableFuture that returns this
      */
-    ListenableFuture<? extends Connection<I>> close();
+    ListenableFuture<? extends C> close();
 }

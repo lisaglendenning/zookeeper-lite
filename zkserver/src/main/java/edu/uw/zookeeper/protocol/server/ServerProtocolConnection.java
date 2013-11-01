@@ -1,44 +1,33 @@
 package edu.uw.zookeeper.protocol.server;
 
-import net.engio.mbassy.listener.Handler;
 import edu.uw.zookeeper.common.Automaton;
-import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.ParameterizedFactory;
-import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.CodecConnection;
+import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.ProtocolConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
 
-public class ServerProtocolConnection<I, T extends ProtocolCodec<?,?>, C extends Connection<? super I>> extends ProtocolCodecConnection<I,T,C> {
+public class ServerProtocolConnection<V extends ProtocolCodec<?,?,?,?>,T extends CodecConnection<? super Message.Server, ? extends Message.Client, V, ?>> extends ProtocolConnection<Message.Server,Message.Client,V,T,ServerProtocolConnection<V,T>> {
 
-    public static <I, T extends ProtocolCodec<?, ?>, C extends Connection<? super I>> ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, C>, ServerProtocolConnection<I,T,C>> factory() { 
-        return new ParameterizedFactory<Pair<? extends Pair<Class<I>, ? extends T>, C>, ServerProtocolConnection<I,T,C>>() {
-            @Override
-            public ServerProtocolConnection<I,T,C> get(Pair<? extends Pair<Class<I>, ? extends T>, C> value) {
-                return ServerProtocolConnection.<I,T,C>newInstance(
-                        value.first().second(),
-                        value.second());
-            }
-        };    
+    public static <V extends ProtocolCodec<?,?,?,?>,T extends CodecConnection<? super Message.Server, ? extends Message.Client, V, ?>> ServerProtocolConnection<V,T> newInstance(
+            T connection) {
+        return new ServerProtocolConnection<V,T>(connection);
     }
     
-    public static <I, T extends ProtocolCodec<?,?>, C extends Connection<? super I>> ServerProtocolConnection<I,T,C> newInstance(
-            T codec, 
-            C connection) {
-        return new ServerProtocolConnection<I,T,C>(codec, connection);
-    }
-    
-    public ServerProtocolConnection(T codec, C connection) {
-        super(codec, connection);
+    public ServerProtocolConnection(T connection) {
+        super(connection);
     }
 
-    @Handler
-    public void handleTransitionEvent(Automaton.Transition<?> event) {
-        if (event.to() == ProtocolState.CONNECTED) {
+    @Override
+    public void handleAutomatonTransition(Automaton.Transition<ProtocolState> transition) {
+        switch (transition.to()) {
+        case CONNECTED:
             // we now need to trigger a flush of any accumulated read buffer
             connection.read();
+        default:
+            break;
         }
         
-        super.handleTransitionEvent(event);
+        super.handleAutomatonTransition(transition);
     }
 }

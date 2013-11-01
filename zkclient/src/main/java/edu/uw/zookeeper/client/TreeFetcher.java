@@ -136,7 +136,7 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
         protected final Parameters parameters;
         protected final Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result;
         protected final Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator;
-        protected final ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> client;
+        protected final ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>, ?> client;
         protected final Executor executor;
         
         public Builder() {
@@ -148,7 +148,7 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
                 Parameters parameters,
                 Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator,
                 Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result,
-                ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> client, 
+                ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>, ?> client, 
                 Executor executor) {
             this.root = root;
             this.parameters = parameters;
@@ -190,11 +190,11 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
             return newInstance(root, parameters, iterator, result, client, executor);
         }
 
-        public ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> getClient() {
+        public ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>, ?> getClient() {
             return client;
         }
 
-        public Builder<V> setClient(ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> client) {
+        public Builder<V> setClient(ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>, ?> client) {
             return newInstance(root, parameters, iterator, result, client, executor);
         }
 
@@ -244,7 +244,7 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
                 Parameters parameters,
                 Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator,
                 Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result,
-                ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>> client, 
+                ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>, ?> client, 
                 Executor executor) {
             return new Builder<V>(root, parameters, iterator, result, client, executor);
         }

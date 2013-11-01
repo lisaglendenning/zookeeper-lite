@@ -5,8 +5,9 @@ import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 
 import edu.uw.zookeeper.common.Singleton;
+import edu.uw.zookeeper.net.Encoder;
 
-public class EncodableEncoder implements Encoder<Encodable> {
+public class EncodableEncoder implements Encoder<Encodable, Encodable> {
     
     public static EncodableEncoder getInstance() {
         return Holder.INSTANCE.get();
@@ -29,6 +30,11 @@ public class EncodableEncoder implements Encoder<Encodable> {
     
     public EncodableEncoder() {}
     
+    @Override
+    public Class<? extends Encodable> encodeType() {
+        return Encodable.class;
+    }
+
     @Override
     public void encode(Encodable input, ByteBuf output) throws IOException {
         input.encode(output);

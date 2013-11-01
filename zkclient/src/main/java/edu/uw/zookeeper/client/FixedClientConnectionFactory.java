@@ -10,9 +10,9 @@ import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 
-public class FixedClientConnectionFactory<C extends Connection<?>> extends Pair<SocketAddress, ClientConnectionFactory<C>> implements Factory<ListenableFuture<C>> {
+public class FixedClientConnectionFactory<C extends Connection<?,?,?>> extends Pair<SocketAddress, ClientConnectionFactory<C>> implements Factory<ListenableFuture<? extends C>> {
     
-    public static <C extends Connection<?>> FixedClientConnectionFactory<C> create(
+    public static <C extends Connection<?,?,?>> FixedClientConnectionFactory<C> create(
             SocketAddress address,
             ClientConnectionFactory<C> connectionFactory) {
         return new FixedClientConnectionFactory<C>(address, connectionFactory);
@@ -24,7 +24,7 @@ public class FixedClientConnectionFactory<C extends Connection<?>> extends Pair<
     }
     
     @Override
-    public ListenableFuture<C> get() {
+    public ListenableFuture<? extends C> get() {
         try {
             return second().connect(first());
         } catch (Throwable t) {

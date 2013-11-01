@@ -1,6 +1,10 @@
 package edu.uw.zookeeper.protocol.client;
 
 import java.util.concurrent.ScheduledExecutorService;
+
+import net.engio.mbassy.common.IConcurrentSet;
+import net.engio.mbassy.common.StrongConcurrentSet;
+
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.LoggingPromise;
@@ -8,25 +12,26 @@ import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ConnectMessage;
-import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolConnection;
+import edu.uw.zookeeper.protocol.SessionListener;
 
 
-public class MessageClientExecutor<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>>
+public class MessageClientExecutor<C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>>
     extends PendingQueueClientExecutor<Message.ClientRequest<?>, Message.ServerResponse<?>, PendingQueueClientExecutor.RequestTask<Message.ClientRequest<?>, Message.ServerResponse<?>>, C> {
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> MessageClientExecutor<C> newInstance(
+    public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> MessageClientExecutor<C> newInstance(
             ConnectMessage.Request request,
             C connection,
             ScheduledExecutorService executor) {
         return newInstance(
-                ConnectTask.create(connection, request),
+                ConnectTask.connect(connection, request),
                 connection,
                 TimeValue.milliseconds(request.getTimeOut()),
                 executor);
     }
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> MessageClientExecutor<C> newInstance(
+    public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> MessageClientExecutor<C> newInstance(
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             TimeValue timeOut,
@@ -35,15 +40,17 @@ public class MessageClientExecutor<C extends ProtocolCodecConnection<? super Mes
                 session,
                 connection,
                 timeOut,
-                executor);
+                executor,
+                new StrongConcurrentSet<SessionListener>());
     }
     
     protected MessageClientExecutor(
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             TimeValue timeOut,
-            ScheduledExecutorService executor) {
-        super(session, connection, timeOut, executor);
+            ScheduledExecutorService executor,
+            IConcurrentSet<SessionListener> listeners) {
+        super(session, connection, timeOut, executor, listeners);
     }
 
     @Override

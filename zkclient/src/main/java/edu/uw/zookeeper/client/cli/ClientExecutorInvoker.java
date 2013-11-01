@@ -8,8 +8,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 
-import net.engio.mbassy.listener.Handler;
-
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -23,15 +21,17 @@ import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.client.ConnectionClientExecutorService;
 import edu.uw.zookeeper.client.ClientExecutor;
+import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.WatchEvent;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
+import edu.uw.zookeeper.protocol.ProtocolState;
+import edu.uw.zookeeper.protocol.SessionListener;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
-import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 public class ClientExecutorInvoker extends AbstractIdleService implements Invoker<ClientExecutorInvoker.Command>, FutureCallback<String> {
@@ -150,7 +150,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         }
 
         Records.Request request = operator.apply(input);
-        ClientExecutor<Operation.Request, ?> client = shell.getEnvironment().get(CLIENT_KEY).getConnectionClientExecutor();
+        ClientExecutor<Operation.Request, ?, ?> client = shell.getEnvironment().get(CLIENT_KEY).getConnectionClientExecutor();
         Futures.addCallback(new RequestSubmitter(client, request).call(), this);
     }
 
@@ -192,49 +192,50 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
     protected void shutDown() throws Exception {
     }
     
-    protected class NotificationCallback extends Service.Listener {
+    protected class NotificationCallback extends Service.Listener implements SessionListener {
         
-        protected final ClientExecutor<?, ?> client;
+        protected final ClientExecutor<?, ?, SessionListener> client;
         
-        public NotificationCallback(ClientExecutor<?, ?> client) {
+        public NotificationCallback(ClientExecutor<?, ?, SessionListener> client) {
             this.client = client;
         }
         
         @Override
         public void stopping(State from) {
-            try {
-                client.unsubscribe(this);
-            } catch (IllegalArgumentException e) {}
+            client.unsubscribe(this);
         }
         
         @Override
         public void failed(State from, Throwable failure) {
-            try {
-                client.unsubscribe(this);
-            } catch (IllegalArgumentException e) {}
+            client.unsubscribe(this);
         }
         
-        @Handler
-        public void handleResponse(Operation.ProtocolResponse<?> response) {
-            if (response.xid() == OpCodeXid.NOTIFICATION.xid()) {
-                WatchEvent event = WatchEvent.fromRecord((IWatcherEvent) response.record());
-                try {
-                    shell.println(String.valueOf(event));
-                    shell.flush();
-                } catch (IOException e) {
-                    throw Throwables.propagate(e);
-                }
+        @Override
+        public void handleAutomatonTransition(
+                Automaton.Transition<ProtocolState> transition) {
+            // TODO Auto-generated method stub
+        }
+
+        @Override
+        public void handleNotification(
+                Operation.ProtocolResponse<IWatcherEvent> notification) {
+            WatchEvent event = WatchEvent.fromRecord(notification.record());
+            try {
+                shell.println(String.valueOf(event));
+                shell.flush();
+            } catch (IOException e) {
+                throw Throwables.propagate(e);
             }
         }
     }
     
     protected static class RequestSubmitter implements Callable<ListenableFuture<String>>, Function<Operation.ProtocolResponse<?>, String> {
 
-        protected final ClientExecutor<? super Records.Request, ?> client;
+        protected final ClientExecutor<? super Records.Request, ?, ?> client;
         protected final Records.Request request;
         
         public RequestSubmitter(
-                ClientExecutor<? super Records.Request, ?> client,
+                ClientExecutor<? super Records.Request, ?, ?> client,
                 Records.Request request) {
             this.client = client;
             this.request = request;

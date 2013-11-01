@@ -16,16 +16,16 @@ import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolConnection;
 import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.client.ConnectionClientExecutor;
 import edu.uw.zookeeper.protocol.client.OperationClientExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 
-public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?>> extends Pair<ServerInetAddressView, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<C>>, Function<C, C> {
+public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?,?>> extends Pair<ServerInetAddressView, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<C>>, Function<C, C> {
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactory<Session, OperationClientExecutor<C>> newInstance(
+    public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> ServerViewFactory<Session, OperationClientExecutor<C>> newInstance(
             ClientConnectionFactory<C> connections,
             ServerInetAddressView view,
             TimeValue timeOut,
@@ -52,26 +52,26 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?>> ext
                 zxids);
     }
     
-    public static <V, C extends ConnectionClientExecutor<?,?,?>> ServerViewFactory<V,C> newInstance(
+    public static <V, C extends ConnectionClientExecutor<?,?,?,?>> ServerViewFactory<V,C> newInstance(
             ServerInetAddressView view,
             DefaultsFactory<V, ? extends ListenableFuture<? extends C>> delegate,
             ZxidTracker zxids) {
         return new ServerViewFactory<V,C>(view, delegate, zxids);
     }
     
-    public static class FromRequestFactory<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements DefaultsFactory<ConnectMessage.Request, ListenableFuture<OperationClientExecutor<C>>> {
+    public static class FromRequestFactory<C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> implements DefaultsFactory<ConnectMessage.Request, ListenableFuture<OperationClientExecutor<C>>> {
     
-        public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> FromRequestFactory<C> create(
-                Factory<ListenableFuture<C>> connections,
+        public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> FromRequestFactory<C> create(
+                Factory<ListenableFuture<? extends C>> connections,
                 ScheduledExecutorService executor) {
             return new FromRequestFactory<C>(connections, executor);
         }
         
-        protected final Factory<ListenableFuture<C>> connections;
+        protected final Factory<ListenableFuture<? extends C>> connections;
         protected final ScheduledExecutorService executor;
         
         public FromRequestFactory(
-                Factory<ListenableFuture<C>> connections,
+                Factory<ListenableFuture<? extends C>> connections,
                 ScheduledExecutorService executor) {
             this.connections = connections;
             this.executor = executor;
@@ -84,7 +84,7 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?>> ext
         
         @Override
         public ListenableFuture<OperationClientExecutor<C>> get(ConnectMessage.Request request) {
-            return Futures.transform(connections.get(), new Constructor(request), sameThreadExecutor);
+            return Futures.transform(connections.get(), new Constructor(request), SAME_THREAD_EXECUTOR);
         }
         
         protected class Constructor implements Function<C, OperationClientExecutor<C>> {
@@ -103,7 +103,7 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?>> ext
         }
     }
     
-    protected final static Executor sameThreadExecutor = MoreExecutors.sameThreadExecutor();
+    protected final static Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
 
     protected final DefaultsFactory<V, ? extends ListenableFuture<? extends C>> delegate;
     
@@ -117,12 +117,12 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?>> ext
     
     @Override
     public ListenableFuture<C> get() {
-        return Futures.transform(delegate.get(), this, sameThreadExecutor);
+        return Futures.transform(delegate.get(), this, SAME_THREAD_EXECUTOR);
     }
 
     @Override
     public ListenableFuture<C> get(V value) {
-        return Futures.transform(delegate.get(value), this, sameThreadExecutor);
+        return Futures.transform(delegate.get(value), this, SAME_THREAD_EXECUTOR);
     }
 
     @Override

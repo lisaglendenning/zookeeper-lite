@@ -4,23 +4,22 @@ import io.netty.buffer.ByteBuf;
 
 import java.io.IOException;
 
-import net.engio.mbassy.PubSubSupport;
-
 import org.apache.jute.BinaryInputArchive;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 
+import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons;
-import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.ParameterizedFactory;
+import edu.uw.zookeeper.common.Automatons.AutomatonListener;
 import edu.uw.zookeeper.common.Stateful;
+import edu.uw.zookeeper.net.Decoder;
+import edu.uw.zookeeper.net.Encoder;
+import edu.uw.zookeeper.protocol.ProtocolMessageAutomaton;
 import edu.uw.zookeeper.protocol.ConnectMessage;
-import edu.uw.zookeeper.protocol.Decoder;
 import edu.uw.zookeeper.protocol.Encodable;
 import edu.uw.zookeeper.protocol.EncodableEncoder;
-import edu.uw.zookeeper.protocol.Encoder;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.Frame;
 import edu.uw.zookeeper.protocol.Message;
@@ -29,41 +28,28 @@ import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.TelnetCloseRequest;
 
-public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Message.Client> {
+public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Message.Client, Message.Server, Message.Client> {
     
-    public static ServerProtocolCodec newInstance(
-            PubSubSupport<Object> publisher) {
-        return newInstance(publisher, ProtocolState.ANONYMOUS);
+    public static ServerProtocolCodec defaults() {
+        return newInstance(ProtocolState.ANONYMOUS);
     }
     
-    public static ServerProtocolCodec newInstance(
-            PubSubSupport<Object> publisher, ProtocolState state) {
-        Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton =
-                Automatons.createSynchronizedEventful(publisher, 
-                        Automatons.createSimple(state));
+    public static ServerProtocolCodec newInstance(ProtocolState state) {
+        Automatons.SynchronizedEventfulAutomaton<ProtocolState,Object,?> automaton =
+                Automatons.createSynchronizedEventful(
+                        Automatons.createEventful(
+                        ProtocolMessageAutomaton.asAutomaton(state)));
         return new ServerProtocolCodec(automaton, ServerProtocolEncoder.create(automaton), ServerProtocolDecoder.create(automaton));
     }
 
-    public static ParameterizedFactory<PubSubSupport<Object>, Pair<Class<Message.Server>, ServerProtocolCodec>> factory() {
-        return new ParameterizedFactory<PubSubSupport<Object>, Pair<Class<Message.Server>, ServerProtocolCodec>>() {
-            @Override
-            public Pair<Class<Message.Server>, ServerProtocolCodec> get(
-                    PubSubSupport<Object> value) {
-                return Pair.create(
-                        Message.Server.class, 
-                        ServerProtocolCodec.newInstance(value));
-            }
-        };
-    }
-
-    protected final Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton;
-    protected final Encoder<? super Message.Server> encoder;
-    protected final Decoder<Optional<Message.Client>> decoder;
+    protected final Automatons.EventfulAutomaton<ProtocolState, Object> automaton;
+    protected final Encoder<? super Message.Server, ?> encoder;
+    protected final Decoder<Optional<Message.Client>, ?> decoder;
     
     protected ServerProtocolCodec(
-            Automatons.SynchronizedEventfulAutomaton<ProtocolState, Message> automaton,
-            Encoder<? super Message.Server> encoder,
-            Decoder<Optional<Message.Client>> decoder) {
+            Automatons.EventfulAutomaton<ProtocolState, Object> automaton,
+            Encoder<? super Message.Server, ?> encoder,
+            Decoder<Optional<Message.Client>, ?> decoder) {
         this.automaton = automaton;
         this.encoder = encoder;
         this.decoder = decoder;
@@ -97,18 +83,29 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
     }
 
     @Override
-    public void publish(Object event) {
-        automaton.publish(event);
+    public Class<? extends Message.Server> encodeType() {
+        return Message.Server.class;
     }
 
     @Override
-    public void subscribe(Object listener) {
+    public Class<? extends Message.Client> decodeType() {
+        return Message.Client.class;
+    }
+
+    @Override
+    public void subscribe(AutomatonListener<ProtocolState> listener) {
         automaton.subscribe(listener);
     }
 
     @Override
-    public boolean unsubscribe(Object listener) {
+    public boolean unsubscribe(AutomatonListener<ProtocolState> listener) {
         return automaton.unsubscribe(listener);
+    }
+
+    @Override
+    public Optional<Automaton.Transition<ProtocolState>> apply(
+            ProtocolState input) {
+        return automaton.apply(input);
     }
 
     @Override
@@ -118,7 +115,7 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
 
     public static class ServerProtocolEncoder implements 
             Stateful<ProtocolState>,
-            Encoder<Message.Server> {
+            Encoder<Message.Server, Message.Server> {
 
         public static ServerProtocolEncoder create(
                 Stateful<ProtocolState> stateful) {
@@ -126,7 +123,7 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
         }
         
         private final Stateful<ProtocolState> stateful;
-        private final Encoder<Encodable> frameEncoder;
+        private final Encoder<Encodable, ?> frameEncoder;
         
         private ServerProtocolEncoder(
                 Stateful<ProtocolState> stateful) {
@@ -138,7 +135,12 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
         public ProtocolState state() {
             return stateful.state();
         }
-        
+
+        @Override
+        public Class<? extends Message.Server> encodeType() {
+            return Message.Server.class;
+        }
+
         @Override
         public void encode(Message.Server input, ByteBuf output) throws IOException {
             ProtocolState state = state();
@@ -167,7 +169,7 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
 
     public static class ServerProtocolDecoder implements 
             Stateful<ProtocolState>,
-            Decoder<Optional<Message.Client>> {
+            Decoder<Optional<Message.Client>, Message.Client> {
     
         public static ServerProtocolDecoder create(
                 Stateful<ProtocolState> stateful) {
@@ -175,7 +177,7 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
         }
         
         private final Stateful<ProtocolState> stateful;
-        private final Decoder<Optional<Message.ClientSession>> sessionDecoder;
+        private final Decoder<Optional<Message.ClientSession>, ?> sessionDecoder;
         
         private ServerProtocolDecoder(
                 Stateful<ProtocolState> stateful) {
@@ -189,7 +191,12 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
         public ProtocolState state() {
             return stateful.state();
         }
-        
+
+        @Override
+        public Class<? extends Message.Client> decodeType() {
+            return Message.Client.class;
+        }
+
         @Override
         public Optional<Message.Client> decode(ByteBuf input) throws IOException {
             Message.Client out = null;
@@ -218,7 +225,7 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
     }
 
     public static class SessionRequestDecoder implements
-            Stateful<ProtocolState>, Decoder<Message.ClientSession> {
+            Stateful<ProtocolState>, Decoder<Message.ClientSession, Message.ClientSession> {
 
         public static SessionRequestDecoder create(
                 Stateful<ProtocolState> stateful) {
@@ -234,6 +241,11 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
         @Override
         public ProtocolState state() {
             return stateful.state();
+        }
+
+        @Override
+        public Class<? extends Message.ClientSession> decodeType() {
+            return Message.ClientSession.class;
         }
 
         @Override

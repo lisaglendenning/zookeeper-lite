@@ -8,6 +8,7 @@ import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.NetServerModule;
 import edu.uw.zookeeper.net.intravm.IntraVmNetModule;
 import edu.uw.zookeeper.protocol.Session;
+import edu.uw.zookeeper.protocol.server.ServerConnectionFactoryBuilder;
 import edu.uw.zookeeper.protocol.server.ServerConnectionsHandler;
 import edu.uw.zookeeper.protocol.server.ServerExecutor;
 

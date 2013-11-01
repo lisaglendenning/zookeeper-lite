@@ -1,66 +1,97 @@
 package edu.uw.zookeeper.net.intravm;
 
-import java.util.Queue;
-import java.util.concurrent.Executor;
+import net.engio.mbassy.common.IConcurrentSet;
+import net.engio.mbassy.common.WeakConcurrentSet;
 
-import net.engio.mbassy.PubSubSupport;
+import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.Monitor;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Eventful;
+import edu.uw.zookeeper.net.Connection;
 
-import com.google.common.collect.Queues;
+public class IntraVmPublisher<O> implements Eventful<Connection.Listener<? super O>>, Connection.Listener<O> {
 
-import edu.uw.zookeeper.common.ActorPublisher;
-
-public class IntraVmPublisher extends ActorPublisher<Object> {
-
-    public static IntraVmPublisher newInstance(
-            PubSubSupport<Object> publisher,
-            Executor executor) {
-        return newInstance(
-                publisher,
-                executor,
-                LogManager.getLogger(IntraVmPublisher.class));
+    public static <O> IntraVmPublisher<O> weakSubscribers() {
+        return new IntraVmPublisher<O>(
+                new WeakConcurrentSet<Connection.Listener<? super O>>());
     }
 
-    public static IntraVmPublisher newInstance(
-            PubSubSupport<Object> publisher,
-            Executor executor,
-            Logger logger) {
-        return new IntraVmPublisher(
-                publisher,
-                executor,
-                Queues.<Object>newConcurrentLinkedQueue(),
-                logger);
-    }
-
-    // don't post events until someone is listening
-    protected volatile boolean subscribed;
+    // don't post events until someone subscribes
+    private final Monitor monitor;
+    private final Monitor.Guard isSubscribed;
+    private boolean subscribed;
+    private final IConcurrentSet<Connection.Listener<? super O>> listeners;
     
     protected IntraVmPublisher(
-            PubSubSupport<Object> publisher,
-            Executor executor, 
-            Queue<Object> mailbox,
-            Logger logger) {
-        super(publisher, executor, mailbox, logger);
-        this.subscribed = false;
+            IConcurrentSet<Connection.Listener<? super O>> listeners) {
+        this.listeners = listeners;
+        this.subscribed = listeners.size() > 0;
+        this.monitor = new Monitor();
+        this.isSubscribed = new Monitor.Guard(monitor) {
+            public boolean isSatisfied() {
+                return subscribed;
+            }
+        };
+    }
+    
+    public boolean isSubscribed() {
+        monitor.enter();
+        try {
+            return subscribed;
+        } finally {
+            monitor.leave();
+        }
     }
 
     @Override
-    public void subscribe(Object object) {
-        super.subscribe(object);
-        if (! subscribed) {
-            subscribed = true;
-            run();
+    public void subscribe(Connection.Listener<? super O> listener) {
+        monitor.enter();
+        try {
+            listeners.add(listener);
+            if (! subscribed) {
+                subscribed = true;
+            }
+        } finally {
+            monitor.leave();
         }
     }
-    
+
     @Override
-    protected boolean schedule() {
-        if (! subscribed) {
-            return false;
-        } else {
-            return super.schedule();
+    public boolean unsubscribe(Connection.Listener<? super O> listener) {
+        // we don't set subscribe to false once it's true
+        return listeners.remove(listener);
+    }
+
+    @Override
+    public void handleConnectionState(Automaton.Transition<Connection.State> state) {
+        try {
+            monitor.enterWhen(isSubscribed);
+        } catch (InterruptedException e) {
+            throw Throwables.propagate(e);
+        }
+        try {
+            for (Connection.Listener<? super O> listener : listeners) {
+                listener.handleConnectionState(state);
+            }
+        } finally {
+            monitor.leave();
+        }
+    }
+
+    @Override
+    public void handleConnectionRead(O message) {
+        try {
+            monitor.enterWhen(isSubscribed);
+        } catch (InterruptedException e) {
+            throw Throwables.propagate(e);
+        }
+        try {
+            for (Connection.Listener<? super O> listener : listeners) {
+                listener.handleConnectionRead(message);
+            }
+        } finally {
+            monitor.leave();
         }
     }
 }

@@ -81,12 +81,12 @@ public abstract class Factories {
 
         @Override
         public String toString() {
-            return instance.toString();
+            return String.valueOf(instance);
         }
 
         @Override
         public int hashCode() {
-            return instance.hashCode();
+            return (instance == null) ? 0 : instance.hashCode();
         }
         
         @Override

@@ -11,7 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.common.IConcurrentSet;
+import net.engio.mbassy.common.StrongConcurrentSet;
 
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
@@ -24,7 +25,6 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.AbstractPair;
-import edu.uw.zookeeper.common.Event;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
@@ -36,6 +36,7 @@ import edu.uw.zookeeper.data.ZNodeLabelTrie.Pointer;
 import edu.uw.zookeeper.data.ZNodeLabelTrie.SimplePointer;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
+import edu.uw.zookeeper.protocol.SessionListener;
 import edu.uw.zookeeper.protocol.ZxidReference;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 import edu.uw.zookeeper.protocol.proto.IGetACLResponse;
@@ -52,21 +53,21 @@ import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
  * Only caches the results of operations submitted through this wrapper.
  */
 public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> 
-        implements ClientExecutor<I, V> {
+        implements ClientExecutor<I, V, ZNodeViewCache.CacheSessionListener> {
 
     public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<SimpleZNodeCache,I,V> newInstance(
-            ClientExecutor<I,V> client) {
-        return newInstance(client, client, SimpleZNodeCache.root());
+            ClientExecutor<I,V,SessionListener> client) {
+        return newInstance(client, SimpleZNodeCache.root());
     }
     
     public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<E,I,V> newInstance(
-            PubSubSupport<Object> publisher, ClientExecutor<I,V> client, E root) {
-        return newInstance(publisher, client, ZNodeLabelTrie.of(root));
+            ClientExecutor<I,V,SessionListener> client, E root) {
+        return newInstance(client, ZNodeLabelTrie.of(root));
     }
     
     public static <E extends ZNodeViewCache.AbstractNodeCache<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeViewCache<E,I,V> newInstance(
-            PubSubSupport<Object> publisher, ClientExecutor<I,V> client, ZNodeLabelTrie<E> trie) {
-        return new ZNodeViewCache<E,I,V>(publisher, client, trie);
+            ClientExecutor<I,V,SessionListener> client, ZNodeLabelTrie<E> trie) {
+        return new ZNodeViewCache<E,I,V>(client, trie, new StrongConcurrentSet<CacheSessionListener>());
     }
 
     public static enum View {
@@ -94,7 +95,6 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         }
     }
     
-    @Event
     public static class ViewUpdate {
         
         public static ViewUpdate ifUpdated(
@@ -191,7 +191,6 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         }
     }
     
-    @Event
     public static class NodeUpdate extends AbstractPair<NodeUpdate.UpdateType, StampedReference<ZNodeLabel.Path>> {
 
         public static NodeUpdate of(UpdateType type, StampedReference<ZNodeLabel.Path> path) {
@@ -213,6 +212,14 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         public StampedReference<ZNodeLabel.Path> path() {
             return second;
         }
+    }
+    
+    public static interface CacheListener {
+        void handleViewUpdate(ViewUpdate event);
+        void handleNodeUpdate(NodeUpdate event);
+    }
+
+    public static interface CacheSessionListener extends CacheListener, SessionListener {
     }
     
     public static interface NodeCache<E extends NodeCache<E>> extends ZNodeLabelTrie.Node<E> {
@@ -349,25 +356,25 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
     protected final Logger logger;
     protected final ZxidTracker lastZxid;
     protected final ZNodeLabelTrie<E> trie;
-    protected final ClientExecutor<? super I, V> client;
-    protected final PubSubSupport<Object> publisher;
+    protected final ClientExecutor<? super I, V, SessionListener> client;
+    protected final IConcurrentSet<CacheSessionListener> listeners;
     
-    protected ZNodeViewCache(
-            PubSubSupport<Object> publisher, 
-            ClientExecutor<? super I, V> client, 
-            ZNodeLabelTrie<E> trie) {
+    protected ZNodeViewCache( 
+            ClientExecutor<? super I, V, SessionListener> client, 
+            ZNodeLabelTrie<E> trie,
+            IConcurrentSet<CacheSessionListener> listeners) {
         this.logger = LogManager.getLogger(getClass());
         this.trie = checkNotNull(trie);
         this.client = checkNotNull(client);
+        this.listeners = checkNotNull(listeners);
         this.lastZxid = ZxidTracker.create();
-        this.publisher = checkNotNull(publisher);
     }
     
     public ZxidReference lastZxid() {
         return lastZxid;
     }
     
-    public ClientExecutor<? super I, V> client() {
+    public ClientExecutor<? super I, V, SessionListener> client() {
         return client;
     }
     
@@ -376,23 +383,16 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
     }
 
     @Override
-    public void subscribe(Object listener) {
-        client().subscribe(listener);
-        publisher.subscribe(listener);
+    public void subscribe(CacheSessionListener listener) {
+        client.subscribe(listener);
+        listeners.add(listener);
     }
 
     @Override
-    public boolean unsubscribe(Object listener) {
-        boolean unsubscribed = client().unsubscribe(listener);
-        try {
-            unsubscribed = publisher.unsubscribe(listener) || unsubscribed;
-        } catch (IllegalArgumentException e) {}
+    public boolean unsubscribe(CacheSessionListener listener) {
+        boolean unsubscribed = client.unsubscribe(listener);
+        unsubscribed = listeners.remove(listener) || unsubscribed;
         return unsubscribed;
-    }
-
-    @Override
-    public void publish(Object event) {
-        publisher.publish(event);
     }
 
     @Override
@@ -405,6 +405,18 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         return client.submit(request, new PromiseWrapper(request, promise));
     }
 
+    public void handleViewUpdate(ViewUpdate event) {
+        for (CacheSessionListener listener: listeners) {
+            listener.handleViewUpdate(event);
+        }
+    }
+    
+    public void handleNodeUpdate(NodeUpdate event) {
+        for (CacheSessionListener listener: listeners) {
+            listener.handleNodeUpdate(event);
+        }
+    }
+    
     public boolean contains(ZNodeLabel.Path path) {
         return get(path) != null;
     }
@@ -498,7 +510,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
                 for (String component: children) {
                     E child = node.add(component);
                     if (child.touch(zxid).longValue() == 0L) {
-                        publish(NodeUpdate.of(
+                        handleNodeUpdate(NodeUpdate.of(
                                 NodeUpdate.UpdateType.NODE_ADDED, 
                                 StampedReference.of(zxid, child.path())));
                     }
@@ -578,7 +590,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
                 ViewUpdate event = ViewUpdate.ifUpdated(node.path(), view, prev, value);
                 if (event != null) {
                     changed = true;
-                    publish(event);
+                    handleViewUpdate(event);
                 }
             }
         }
@@ -594,7 +606,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
             if (next == null) {
                 next = parent.add(e);
                 if (next.touch(zxid).equals(Long.valueOf(0L))) {
-                    publish(NodeUpdate.of(
+                    handleNodeUpdate(NodeUpdate.of(
                             NodeUpdate.UpdateType.NODE_ADDED, 
                             StampedReference.of(zxid, next.path())));
                 }
@@ -611,7 +623,7 @@ public class ZNodeViewCache<E extends ZNodeViewCache.AbstractNodeCache<E>, I ext
         if (node != null && node.stamp().compareTo(zxid) <= 0) {
             node = trie().remove(path);
             if (node != null) {
-                publish(NodeUpdate.of(
+                handleNodeUpdate(NodeUpdate.of(
                         NodeUpdate.UpdateType.NODE_REMOVED, 
                         StampedReference.of(zxid, path)));
             }

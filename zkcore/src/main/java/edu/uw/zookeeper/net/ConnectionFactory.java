@@ -1,16 +1,14 @@
 package edu.uw.zookeeper.net;
 
-import net.engio.mbassy.PubSubSupport;
-
 import com.google.common.util.concurrent.Service;
+
+import edu.uw.zookeeper.common.Eventful;
 
 /**
  * Collection of Connections.
- * 
- * Posts at least the following events:
- * <ul>
- * <li> C when a new C is added
- * </ul>
  */
-public interface ConnectionFactory<C extends Connection<?>> extends Iterable<C>, PubSubSupport<Object>, Service {
+public interface ConnectionFactory<C extends Connection<?,?,?>> extends Iterable<C>, Eventful<ConnectionFactory.ConnectionsListener<? super C>>, Service {
+    public static interface ConnectionsListener<C extends Connection<?,?,?>> {
+        void handleConnectionOpen(C connection);
+    }
 }

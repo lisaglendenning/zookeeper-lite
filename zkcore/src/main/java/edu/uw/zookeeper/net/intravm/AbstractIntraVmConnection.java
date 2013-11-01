@@ -1,0 +1,151 @@
+package edu.uw.zookeeper.net.intravm;
+
+
+import java.net.SocketAddress;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import com.google.common.util.concurrent.ListenableFuture;
+
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.RunnablePromiseTask;
+import edu.uw.zookeeper.common.SettableFuturePromise;
+import edu.uw.zookeeper.net.Connection;
+
+public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntraVmEndpoint<I,O,U,V>, C extends AbstractIntraVmConnection<I,O,U,V,T,C>> implements Connection<I,O,C> {
+
+    protected final Logger logger;
+    protected final T local;
+    protected final AbstractIntraVmEndpoint<?,?,?,? super U> remote;
+    protected final Close close;
+    
+    protected AbstractIntraVmConnection(
+            T local,
+            AbstractIntraVmEndpoint<?,?,?,? super U> remote) {
+        this.logger = LogManager.getLogger(getClass());
+        this.local = local;
+        this.remote = remote;
+        this.close = new Close();
+    }
+    
+    protected T local() {
+        return local;
+    }
+    
+    protected AbstractIntraVmEndpoint<?,?,?,? super U> remote() {
+        return remote;
+    }
+    
+    @Override
+    public Connection.State state() {
+        return local.state();
+    }
+
+    @Override
+    public SocketAddress localAddress() {
+        return local.address();
+    }
+
+    @Override
+    public SocketAddress remoteAddress() {
+        return remote.address();
+    }
+
+    @Override
+    public void subscribe(Connection.Listener<? super O> listener) {
+        local.subscribe(listener);
+    }
+
+    @Override
+    public boolean unsubscribe(Connection.Listener<? super O> listener) {
+        return local.unsubscribe(listener);
+    }
+
+    @Override
+    public C read() {
+        return self();
+    }
+
+    @Override
+    public <I1 extends I> ListenableFuture<I1> write(I1 message) {
+        return local.write(message, remote);
+    }
+
+    @Override
+    public C flush() {
+        return self();
+    }
+
+    @Override
+    public ListenableFuture<? extends C> close() {
+        execute(close);
+        return close;
+    }
+
+    @Override
+    public void execute(Runnable command) {
+        local.execute(command);
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .addValue(String.format("%s => %s", localAddress(), remoteAddress()))
+                .toString();
+    }
+    
+    @SuppressWarnings("unchecked")
+    protected C self() {
+        return (C) this;
+    }
+    
+    protected class Close extends RunnablePromiseTask<C, C> implements Connection.Listener<Object> {
+
+        protected Close() {
+            super(self(), 
+                    LoggingPromise.create(
+                            logger, 
+                            SettableFuturePromise.<C>create()));
+        }
+        
+        @Override
+        public Optional<C> call() throws Exception {
+            logger.entry(this);
+            
+            if (local.close()) {
+                local.subscribe(this);
+            }
+            
+            if (local.state() == Connection.State.CONNECTION_CLOSED) {
+                return Optional.of(task);
+            }
+            
+            if (remote.state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
+                remote.close();
+            }
+
+            return logger.exit(Optional.<C>absent());
+        }
+
+        @Override
+        public void handleConnectionState(
+                Automaton.Transition<Connection.State> state) {
+            if (state.to() == Connection.State.CONNECTION_CLOSED) {
+                set(task);
+            }
+        }
+
+        @Override
+        public void handleConnectionRead(Object message) {
+        }
+
+        @Override
+        protected Objects.ToStringHelper toString(Objects.ToStringHelper toString) {
+            return super.toString(toString).add("state", state());
+        }
+    }
+}

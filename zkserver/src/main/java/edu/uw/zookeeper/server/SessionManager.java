@@ -1,9 +1,8 @@
 package edu.uw.zookeeper.server;
 
-import net.engio.mbassy.PubSubSupport;
 import edu.uw.zookeeper.protocol.Session;
 
-public interface SessionManager extends PubSubSupport<SessionEvent>, Iterable<Session> {
+public interface SessionManager extends Iterable<Session> {
 
     Session remove(long id);
 
