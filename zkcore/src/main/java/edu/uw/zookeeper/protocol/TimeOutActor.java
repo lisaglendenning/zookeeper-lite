@@ -43,7 +43,6 @@ public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFut
     protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
     protected static final long NEVER_TIMEOUT = 0L;
 
-    protected final Logger logger;
     protected final ScheduledExecutorService scheduler;
     protected final TimeOutParameters parameters;
     protected final Promise<V> promise;
@@ -56,8 +55,7 @@ public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFut
             IConcurrentSet<Pair<Runnable,Executor>> listeners,
             Promise<V> promise,
             Logger logger) {
-        super();
-        this.logger = checkNotNull(logger);
+        super(logger);
         this.parameters = checkNotNull(parameters);
         this.scheduler = checkNotNull(executor);
         this.promise = checkNotNull(promise);
@@ -149,10 +147,5 @@ public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFut
             Pair<Runnable,Executor> listener = itr.next();
             listener.second().execute(listener.first());
         }
-    }
-
-    @Override
-    protected Logger logger() {
-        return logger;
     }
 }

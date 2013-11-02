@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.protocol.client;
 
 import java.util.Iterator;
+import java.util.Queue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
@@ -55,7 +56,6 @@ public abstract class AbstractConnectionClientExecutor<
     
     protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
 
-    protected final Logger logger;
     protected final C connection;
     protected final ListenableFuture<ConnectMessage.Response> session;
     protected final TimeOutServer<O> timer;
@@ -66,14 +66,16 @@ public abstract class AbstractConnectionClientExecutor<
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             TimeValue timeOut,
-            ScheduledExecutorService executor,
-            IConcurrentSet<SessionListener> listeners) {
-        super();
-        this.logger = LogManager.getLogger(getClass());
+            ScheduledExecutorService scheduler,
+            IConcurrentSet<SessionListener> listeners,
+            Executor executor,
+            Queue<T> mailbox,
+            Logger logger) {
+        super(executor, mailbox, logger);
         this.connection = connection;
         this.session = session;
         this.listeners = listeners;
-        this.timer = TimeOutServer.newTimeOutServer(TimeOutParameters.create(timeOut), executor);
+        this.timer = TimeOutServer.newTimeOutServer(TimeOutParameters.create(timeOut), scheduler);
         this.failure = new AtomicReference<Throwable>();
 
         new TimeOutListener();
@@ -175,16 +177,6 @@ public abstract class AbstractConnectionClientExecutor<
     }
 
     @Override
-    protected Executor executor() {
-        return connection;
-    }
-
-    @Override
-    protected Logger logger() {
-        return logger;
-    }
-
-    @Override
     protected void doStop() {  
         timer.cancel(true);
         
@@ -196,7 +188,7 @@ public abstract class AbstractConnectionClientExecutor<
         }
 
         T request;
-        while ((request = mailbox().poll()) != null) {
+        while ((request = mailbox.poll()) != null) {
             request.cancel(true);
         }
 

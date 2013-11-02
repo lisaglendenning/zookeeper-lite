@@ -1,6 +1,10 @@
 package edu.uw.zookeeper.protocol.client;
 
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import net.engio.mbassy.common.IConcurrentSet;
 import net.engio.mbassy.common.StrongConcurrentSet;
@@ -41,16 +45,20 @@ public class MessageClientExecutor<C extends ProtocolConnection<? super Message.
                 connection,
                 timeOut,
                 executor,
-                new StrongConcurrentSet<SessionListener>());
+                new StrongConcurrentSet<SessionListener>(),
+                connection,
+                LogManager.getLogger(MessageClientExecutor.class));
     }
     
     protected MessageClientExecutor(
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             TimeValue timeOut,
-            ScheduledExecutorService executor,
-            IConcurrentSet<SessionListener> listeners) {
-        super(session, connection, timeOut, executor, listeners);
+            ScheduledExecutorService scheduler,
+            IConcurrentSet<SessionListener> listeners,
+            Executor executor,
+            Logger logger) {
+        super(session, connection, timeOut, scheduler, listeners, executor, logger);
     }
 
     @Override

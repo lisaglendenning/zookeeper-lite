@@ -218,11 +218,10 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
 
     protected abstract class ConnectionHandler<I extends Message.Client> extends AbstractActor<I> implements Connection.Listener<Message.Client>, FutureCallback<Object> {
 
-        protected final Logger logger;
         protected final C connection;
         
-        protected ConnectionHandler(C connection) {
-            this.logger = LogManager.getLogger(getClass());
+        protected ConnectionHandler(C connection, Logger logger) {
+            super(logger);
             this.connection = connection;
             
             handlers.put(connection, this);
@@ -262,11 +261,6 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
             connection.unsubscribe(this);
             handlers.remove(connection, this);
         }
-
-        @Override
-        protected Logger logger() {
-            return logger;
-        }
     }
     
     protected class AnonymousConnectionHandler extends ConnectionHandler<Message.Client> {
@@ -274,7 +268,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         protected final TimeOutActor<Message.Client, Void> timer;
         
         public AnonymousConnectionHandler(C connection) {
-            super(connection);
+            super(connection, LogManager.getLogger(AnonymousConnectionHandler.class));
             this.timer = TimeOutActor.create(
                     TimeOutParameters.create(timeOut), scheduler);
             new TimeOutListener();
@@ -372,7 +366,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         
         public SessionConnectionHandler(
                 SessionExecutor session, C connection) {
-            super(connection);
+            super(connection, LogManager.getLogger(SessionConnectionHandler.class));
             this.session = session;
             
             if (state() != State.TERMINATED) {

@@ -145,7 +145,7 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
                 RuntimeModule runtime);
 
         protected SimpleServer doBuild() {
-            return new SimpleServer(
+            return SimpleServer.newInstance(
                     getDefaultProcessor(), 
                     getRuntimeModule().getExecutors().get(ExecutorService.class));
         }
@@ -200,18 +200,25 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
                             getListeners()));
         }
     }
+    
+    public static SimpleServer newInstance(
+            Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor,
+            Executor executor) {
+        return new SimpleServer(
+                processor,
+                executor,
+                Queues.<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>>newConcurrentLinkedQueue(),
+                LogManager.getLogger(SimpleServer.class));
+    }
 
-    protected final Logger logger;
-    protected final Executor executor;
-    protected final Queue<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> mailbox;
     protected final Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor;
     
     protected SimpleServer(
             Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor,
-            Executor executor) {
-        this.logger = LogManager.getLogger(getClass());
-        this.executor = executor;
-        this.mailbox = Queues.newConcurrentLinkedQueue();
+            Executor executor,
+            Queue<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> mailbox,
+            Logger logger) {
+        super(executor, mailbox, logger);
         this.processor = processor;
     }
     
@@ -243,20 +250,5 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
         while ((task = mailbox.poll()) != null) {
             task.cancel(true);
         }
-    }
-
-    @Override
-    protected Queue<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> mailbox() {
-        return mailbox;
-    }
-
-    @Override
-    protected Executor executor() {
-        return executor;
-    }
-
-    @Override
-    protected Logger logger() {
-        return logger;
     }
 }

@@ -9,12 +9,9 @@ import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executor;
-
 import org.apache.logging.log4j.Logger;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Actors.ExecutedQueuedActor;
@@ -137,10 +134,8 @@ public abstract class AbstractChannelConnection<I,O,C extends AbstractChannelCon
 
     protected final class OutboundActor extends ExecutedQueuedActor<PromiseTask<? extends I, ? extends I>> implements ChannelFutureListener {
 
-        private final ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>> mailbox;
-        
         public OutboundActor() {
-            this.mailbox = Queues.newConcurrentLinkedQueue();
+            super(AbstractChannelConnection.this, new ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>>(), AbstractChannelConnection.this.logger);
             channel.closeFuture().addListener(this);
         }
 
@@ -193,21 +188,6 @@ public abstract class AbstractChannelConnection<I,O,C extends AbstractChannelCon
                     next.setException(e);
                 }
             }
-        }
-
-        @Override
-        protected ConcurrentLinkedQueue<PromiseTask<? extends I, ? extends I>> mailbox() {
-            return mailbox;
-        }
-
-        @Override
-        protected Executor executor() {
-            return AbstractChannelConnection.this;
-        }
-
-        @Override
-        protected Logger logger() {
-            return logger;
         }
     }
 }

@@ -15,21 +15,20 @@ public abstract class Actors {
     
     public static abstract class QueuedActor<T> extends AbstractActor<T> {
         
-        protected QueuedActor() {
-            super();
+        protected final Queue<T> mailbox;
+        
+        protected QueuedActor(Queue<T> mailbox, Logger logger) {
+            super(logger);
+            this.mailbox = mailbox;
         }
 
-        protected QueuedActor(State state) {
-            super(state);
-        }
-        
         @Override
         protected boolean doSend(T message) {
-            if (! mailbox().offer(message)) {
+            if (! mailbox.offer(message)) {
                 return false;
             }
             if (! schedule() && (state() == State.TERMINATED)) {
-                mailbox().remove(message);
+                mailbox.remove(message);
                 return false;
             }
             return true;
@@ -37,8 +36,9 @@ public abstract class Actors {
 
         @Override
         protected boolean schedule() {
-            if (! mailbox().isEmpty()) {
-                return super.schedule();
+            if (!mailbox.isEmpty() && state.compareAndSet(State.WAITING, State.SCHEDULED)) {
+                doSchedule();
+                return true;
             } else {
                 return false;
             }
@@ -47,8 +47,8 @@ public abstract class Actors {
         @Override
         protected void doRun() throws Exception {
             T next;
-            while ((next = mailbox().poll()) != null) {
-                logger().debug("Applying {} ({})", next, this);
+            while ((next = mailbox.poll()) != null) {
+                logger.debug("Applying {} ({})", next, this);
                 if (! apply(next) || (state() == State.TERMINATED)) {
                     break;
                 }
@@ -64,41 +64,40 @@ public abstract class Actors {
 
         @Override
         protected void doStop() {
-            mailbox().clear();
+            mailbox.clear();
         }
 
         protected abstract boolean apply(T input) throws Exception;
-
-        protected abstract Queue<T> mailbox();
-
     }
     
-    public static abstract class ExecutedQueuedActor<I> extends QueuedActor<I> {
+    public static abstract class ExecutedQueuedActor<T> extends QueuedActor<T> {
 
-        protected abstract Executor executor();
+        protected final Executor executor;
+        
+        protected ExecutedQueuedActor(Executor executor, Queue<T> mailbox, Logger logger) {
+            super(mailbox, logger);
+            this.executor = executor;
+        }
 
         @Override
         protected void doSchedule() {
-            executor().execute(this);
+            executor.execute(this);
         }
     }
     
     public static abstract class PeekingQueuedActor<T> extends QueuedActor<T> {
-        
-        protected PeekingQueuedActor() {
-            super();
+
+        protected PeekingQueuedActor(Queue<T> mailbox, Logger logger) {
+            super(mailbox, logger);
         }
 
-        protected PeekingQueuedActor(State state) {
-            super(state);
-        }
-        
         public abstract boolean isReady();
         
         @Override
         protected boolean schedule() {
-            if (isReady()) {
-                return super.schedule();
+            if (isReady() && state.compareAndSet(State.WAITING, State.SCHEDULED)) {
+                doSchedule();
+                return true;
             } else {
                 return false;
             }
@@ -107,8 +106,8 @@ public abstract class Actors {
         @Override
         protected void doRun() throws Exception {
             T next;
-            while ((next = mailbox().peek()) != null) {
-                logger().debug("Applying {} ({})", next, this);
+            while ((next = mailbox.peek()) != null) {
+                logger.debug("Applying {} ({})", next, this);
                 if (! apply(next) || (state() == State.TERMINATED)) {
                     break;
                 }
@@ -116,19 +115,26 @@ public abstract class Actors {
         }
     }
 
-    public static abstract class ExecutedPeekingQueuedActor<I> extends PeekingQueuedActor<I> {
+    public static abstract class ExecutedPeekingQueuedActor<T> extends PeekingQueuedActor<T> {
 
-        protected abstract Executor executor();
+        protected final Executor executor;
+        
+        protected ExecutedPeekingQueuedActor(Executor executor, Queue<T> mailbox, Logger logger) {
+            super(mailbox, logger);
+            this.executor = executor;
+        }
 
         @Override
         protected void doSchedule() {
-            executor().execute(this);
+            executor.execute(this);
         }
     }
     
     public static abstract class CallbackActor<T> extends ExecutedQueuedActor<T> {
 
-        protected CallbackActor() {}
+        protected CallbackActor(Executor executor, Queue<T> mailbox, Logger logger) {
+            super(executor, mailbox, logger);
+        }
         
         protected synchronized void flush(T input) {
             doRun();
@@ -138,7 +144,7 @@ public abstract class Actors {
         @Override
         protected synchronized void doRun() {
             T next;
-            while ((next = mailbox().poll()) != null) {
+            while ((next = mailbox.poll()) != null) {
                 apply(next);
             }
         }
@@ -156,22 +162,16 @@ public abstract class Actors {
 
         public static ActorExecutor newInstance(Executor executor) {
             return new ActorExecutor(
-                    new ConcurrentLinkedQueue<Runnable>(), 
                     executor,
+                    new ConcurrentLinkedQueue<Runnable>(), 
                     LogManager.getLogger(ActorExecutor.class));
         }
         
-        protected final Queue<Runnable> mailbox;
-        protected final Executor executor;
-        protected final Logger logger;
-        
         protected ActorExecutor(
-                Queue<Runnable> mailbox,
                 Executor executor,
+                Queue<Runnable> mailbox,
                 Logger logger) {
-            this.mailbox = mailbox;
-            this.executor = executor;
-            this.logger = logger;
+            super(executor, mailbox, logger);
         }
         
         @Override
@@ -185,21 +185,6 @@ public abstract class Actors {
         protected boolean apply(Runnable input) {
             input.run();
             return true;
-        }
-
-        @Override
-        protected Executor executor() {
-            return executor;
-        }
-
-        @Override
-        protected Queue<Runnable> mailbox() {
-            return mailbox;
-        }
-
-        @Override
-        protected Logger logger() {
-            return logger;
         }
     }
     
@@ -225,21 +210,15 @@ public abstract class Actors {
                     logger);
         }
 
-        protected final Executor executor;
-        protected final Queue<T> mailbox;
         protected final PubSubSupport<? super T> publisher;
-        protected final Logger logger;
         
         protected ActorPublisher(
                 PubSubSupport<? super T> publisher,
                 Executor executor, 
                 Queue<T> mailbox,
                 Logger logger) {
-            super();
+            super(executor, mailbox, logger);
             this.publisher = publisher;
-            this.mailbox = mailbox;
-            this.executor = executor;
-            this.logger = logger;
         }
 
         @Override
@@ -263,21 +242,6 @@ public abstract class Actors {
         protected boolean apply(T input) {
             publisher.publish(input);
             return true;
-        }
-
-        @Override
-        protected Queue<T> mailbox() {
-            return mailbox;
-        }
-
-        @Override
-        protected Executor executor() {
-            return executor;
-        }
-
-        @Override
-        protected Logger logger() {
-            return logger;
         }
     }
 }

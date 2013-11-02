@@ -157,13 +157,13 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
         
         @Override
         public void handleConnectionRead(O message) {
-            if (logger().isTraceEnabled()) {
+            if (logger.isTraceEnabled()) {
                 if (message instanceof Operation.ProtocolResponse<?>) {
                     if (((Operation.ProtocolResponse<?>) message).record().opcode() == OpCode.PING) {
                         TimeValue pong = TimeValue.milliseconds(System.currentTimeMillis());
                         // of course, this pong could be for an earlier ping,
                         // so this time difference is not very accurate...
-                        logger().trace(LoggingMarker.PING_MARKER.get(), String.format("PONG %s: %s",
+                        logger.trace(LoggingMarker.PING_MARKER.get(), String.format("PONG %s: %s",
                                 (lastPing == null) ? 0 : pong.difference(lastPing), pong));
                     }
                 }

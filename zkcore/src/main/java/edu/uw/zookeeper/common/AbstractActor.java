@@ -9,19 +9,21 @@ import com.google.common.base.Throwables;
 
 public abstract class AbstractActor<T> implements Actor<T> {
     
+    protected final Logger logger;
     protected final AtomicReference<State> state;
     
-    protected AbstractActor() {
-        this(State.WAITING);
+    protected AbstractActor(Logger logger) {
+        this(logger, State.WAITING);
     }
 
-    protected AbstractActor(State state) {
+    protected AbstractActor(Logger logger, State state) {
+        this.logger = logger;
         this.state = new AtomicReference<State>(state);
     }
 
     @Override
     public boolean send(T message) {
-        logger().debug("Received {} ({})", message, this);
+        logger.debug("Received {} ({})", message, this);
         if (state() == State.TERMINATED) {
             return false;
         } else {
@@ -42,7 +44,7 @@ public abstract class AbstractActor<T> implements Actor<T> {
             try {
                 doRun();
             } catch (Throwable e) {
-                logger().warn("Unhandled error ({})", this, e);
+                logger.warn("Unhandled error ({})", this, e);
                 stop();
                 throw Throwables.propagate(e);
             }
@@ -69,7 +71,7 @@ public abstract class AbstractActor<T> implements Actor<T> {
         boolean stop = (state() != State.TERMINATED)
                 && (state.getAndSet(State.TERMINATED) != State.TERMINATED);
         if (stop) {
-            logger().debug("Stopping ({})", this);
+            logger.debug("Stopping ({})", this);
             doStop();
         }
         return stop;
@@ -78,16 +80,14 @@ public abstract class AbstractActor<T> implements Actor<T> {
     protected abstract void doStop();
 
     protected boolean schedule() {
-        boolean schedule = state.compareAndSet(State.WAITING, State.SCHEDULED);
-        if (schedule) {
+        if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
             doSchedule();
+            return true;
         }
-        return schedule;
+        return false;
     }
     
     protected void doSchedule() {
         run();
     }
-
-    protected abstract Logger logger();
 }

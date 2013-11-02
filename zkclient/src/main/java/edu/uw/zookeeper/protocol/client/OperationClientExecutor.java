@@ -1,6 +1,10 @@
 package edu.uw.zookeeper.protocol.client;
 
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import net.engio.mbassy.common.IConcurrentSet;
 import net.engio.mbassy.common.StrongConcurrentSet;
@@ -56,7 +60,9 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
                 connection,
                 timeOut,
                 executor,
-                new StrongConcurrentSet<SessionListener>());
+                new StrongConcurrentSet<SessionListener>(),
+                connection,
+                LogManager.getLogger(OperationClientExecutor.class));
     }
     
     protected final AssignXidProcessor xids;
@@ -66,9 +72,11 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             TimeValue timeOut,
-            ScheduledExecutorService executor,
-            IConcurrentSet<SessionListener> listeners) {
-        super(session, connection, timeOut, executor, listeners);
+            ScheduledExecutorService scheduler,
+            IConcurrentSet<SessionListener> listeners,
+            Executor executor,
+            Logger logger) {
+        super(session, connection, timeOut, scheduler, listeners, executor, logger);
         this.xids = xids;
     }
 
@@ -76,7 +84,7 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
     public ListenableFuture<Message.ServerResponse<?>> submit(
             Operation.Request request, Promise<Message.ServerResponse<?>> promise) {
         RequestTask<Operation.Request, Message.ServerResponse<?>> task = 
-                RequestTask.of(request, LoggingPromise.create(logger(), promise));
+                RequestTask.of(request, LoggingPromise.create(logger, promise));
         if (! send(task)) {
             task.cancel(true);
         }

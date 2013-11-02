@@ -1,7 +1,11 @@
 package edu.uw.zookeeper.protocol.client;
 
+import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+
+import org.apache.logging.log4j.Logger;
 
 import net.engio.mbassy.common.IConcurrentSet;
 
@@ -29,19 +33,19 @@ public abstract class PendingQueueClientExecutor<
     C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>>
     extends AbstractConnectionClientExecutor<I,V,T,C,PendingQueueClientExecutor.PendingTask<V>> {
 
-    protected final ConcurrentLinkedQueue<T> mailbox;
-    protected final ConcurrentLinkedQueue<PendingTask<V>> pending;
+    protected final Queue<PendingTask<V>> pending;
     
     protected PendingQueueClientExecutor(
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             TimeValue timeOut,
-            ScheduledExecutorService executor,
-            IConcurrentSet<SessionListener> listeners) {
-        super(session, connection, timeOut, executor, listeners);
+            ScheduledExecutorService scheduler,
+            IConcurrentSet<SessionListener> listeners,
+            Executor executor,
+            Logger logger) {
+        super(session, connection, timeOut, scheduler, listeners, executor, new ConcurrentLinkedQueue<T>(), logger);
         
         this.pending = Queues.newConcurrentLinkedQueue();
-        this.mailbox = Queues.newConcurrentLinkedQueue();
     }
 
     @Override
@@ -77,11 +81,6 @@ public abstract class PendingQueueClientExecutor<
     }
 
     @Override
-    protected ConcurrentLinkedQueue<T> mailbox() {
-        return mailbox;
-    }
-
-    @Override
     protected void doStop() {
         Throwable failure = this.failure.get();
         PendingTask<V> task;
@@ -109,7 +108,7 @@ public abstract class PendingQueueClientExecutor<
         }
         try {
             ListenableFuture<? extends Message.ClientRequest<?>> writeFuture = connection.write(message);
-            Futures.addCallback(writeFuture, task, executor());
+            Futures.addCallback(writeFuture, task, executor);
         } catch (Throwable t) {
             task.onFailure(t);
         }
