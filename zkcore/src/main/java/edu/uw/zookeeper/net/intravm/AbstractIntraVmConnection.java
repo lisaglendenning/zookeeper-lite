@@ -82,7 +82,9 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
 
     @Override
     public ListenableFuture<? extends C> close() {
-        execute(close);
+        if (! close.isDone()) {
+            execute(close);
+        }
         return close;
     }
 
@@ -115,26 +117,48 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
         @Override
         public Optional<C> call() throws Exception {
             logger.entry(this);
+            Optional<C> result = Optional.absent();
             
-            if (local.close()) {
+            switch (local.state()) {
+            case CONNECTION_CLOSED:
+                break;
+            case CONNECTION_CLOSING:
                 local.subscribe(this);
+                break;
+            case CONNECTION_OPENED:
+            case CONNECTION_OPENING:
+                local.subscribe(this);
+                local.close();
+                break;
+            default:
+                break;
             }
             
             if (local.state() == Connection.State.CONNECTION_CLOSED) {
-                return Optional.of(task);
+                local.unsubscribe(this);
+                result = Optional.of(task);
             }
             
-            if (remote.state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
+            switch (remote.state()) {
+            case CONNECTION_CLOSED:
+                break;
+            case CONNECTION_CLOSING:
+            case CONNECTION_OPENED:
+            case CONNECTION_OPENING:
                 remote.close();
+                break;
+            default:
+                break;
             }
 
-            return logger.exit(Optional.<C>absent());
+            return logger.exit(result);
         }
 
         @Override
         public void handleConnectionState(
                 Automaton.Transition<Connection.State> state) {
             if (state.to() == Connection.State.CONNECTION_CLOSED) {
+                local.unsubscribe(this);
                 set(task);
             }
         }

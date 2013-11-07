@@ -29,13 +29,14 @@ public class IntraVmCodecEndpoint<I,O,T extends Codec<I,? extends O,? extends I,
             T codec,
             SocketAddress address,
             Executor executor) {
+        Logger logger = LogManager.getLogger(IntraVmCodecEndpoint.class);
         return new IntraVmCodecEndpoint<I,O,T>(
                 allocator, 
                 codec, 
                 address, 
-                LogManager.getLogger(IntraVmCodecEndpoint.class), 
-                executor, 
-                IntraVmPublisher.<O>weakSubscribers());
+                executor,
+                logger,  
+                IntraVmPublisher.<O>defaults(executor, logger));
     }
     
     protected final ByteBufAllocator allocator;
@@ -45,10 +46,10 @@ public class IntraVmCodecEndpoint<I,O,T extends Codec<I,? extends O,? extends I,
             ByteBufAllocator allocator,
             T codec,
             SocketAddress address,
-            Logger logger,
             Executor executor,
+            Logger logger,
             IntraVmPublisher<O> publisher) {
-        super(address, logger, executor, publisher);
+        super(address, executor, logger, publisher);
         this.allocator = allocator;
         this.codec = codec;
     }
@@ -96,7 +97,7 @@ public class IntraVmCodecEndpoint<I,O,T extends Codec<I,? extends O,? extends I,
             if (output.isPresent()) {
                 O message = output.get();
                 logger.trace(LoggingMarker.NET_MARKER.get(), "DECODED {} ({})", message, this);
-                publisher.handleConnectionRead(message);
+                publisher.send(message);
             }
         }
     }

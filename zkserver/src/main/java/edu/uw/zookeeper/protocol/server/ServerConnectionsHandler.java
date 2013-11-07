@@ -175,6 +175,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
 
     protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
     
+    protected final Logger logger;
     protected final TimeValue timeOut;
     protected final ScheduledExecutorService scheduler;
     protected final ServerExecutor<?> server;
@@ -185,6 +186,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
             ScheduledExecutorService scheduler, 
             TimeValue timeOut,
             ConcurrentMap<C, ConnectionHandler<?>> handlers) {
+        this.logger = LogManager.getLogger(getClass());
         this.server = server;
         this.scheduler = scheduler;
         this.timeOut = timeOut;
@@ -193,6 +195,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
     
     @Override
     public void handleConnectionOpen(C connection) {
+        logger.debug("New connection {}", connection);
         AnonymousConnectionHandler handler = new AnonymousConnectionHandler(connection);
         switch (state()) {
         case FAILED:

@@ -24,19 +24,20 @@ public class IntraVmEndpoint<I,O> extends AbstractIntraVmEndpoint<I,O,I,O> imple
     public static <I,O> IntraVmEndpoint<I,O> newInstance(
             SocketAddress address,
             Executor executor) {
+        Logger logger = LogManager.getLogger(IntraVmEndpoint.class);
         return new IntraVmEndpoint<I,O>(
                 address,
-                LogManager.getLogger(IntraVmEndpoint.class),
                 executor, 
-                IntraVmPublisher.<O>weakSubscribers());
+                logger,
+                IntraVmPublisher.<O>defaults(executor, logger));
     }
     
     protected IntraVmEndpoint(
             SocketAddress address,
-            Logger logger,
             Executor executor,
+            Logger logger,
             IntraVmPublisher<O> publisher) {
-        super(address, logger, executor, publisher);
+        super(address, executor, logger, publisher);
     }
     
     @Override
@@ -97,7 +98,7 @@ public class IntraVmEndpoint<I,O> extends AbstractIntraVmEndpoint<I,O,I,O> imple
         
         @Override
         protected void doRead() {
-            publisher.handleConnectionRead(get());
+            publisher.send(get());
         }
     }
 }

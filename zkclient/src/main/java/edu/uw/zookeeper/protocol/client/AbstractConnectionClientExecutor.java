@@ -191,12 +191,8 @@ public abstract class AbstractConnectionClientExecutor<
         while ((request = mailbox.poll()) != null) {
             request.cancel(true);
         }
-
-        try {
-            connection.close().get();
-        } catch (Exception e) {
-            logger.debug("Ignoring {}", e);
-        }
+        
+        connection.close();
 
         Iterator<?> itr = Iterators.consumingIterator(listeners.iterator());
         while (itr.hasNext()) {

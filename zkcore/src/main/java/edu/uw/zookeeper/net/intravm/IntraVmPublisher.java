@@ -1,97 +1,86 @@
 package edu.uw.zookeeper.net.intravm;
 
-import net.engio.mbassy.common.IConcurrentSet;
-import net.engio.mbassy.common.WeakConcurrentSet;
+import java.util.Iterator;
+import java.util.Queue;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.Executor;
 
-import com.google.common.base.Throwables;
-import com.google.common.util.concurrent.Monitor;
+import org.apache.logging.log4j.Logger;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Queues;
+import com.google.common.collect.Sets;
+
+import edu.uw.zookeeper.common.Actors;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Eventful;
 import edu.uw.zookeeper.net.Connection;
 
-public class IntraVmPublisher<O> implements Eventful<Connection.Listener<? super O>>, Connection.Listener<O> {
+/**
+ * Queues events when there are no listeners
+ */
+public class IntraVmPublisher<O> extends Actors.ExecutedPeekingQueuedActor<Object> implements Eventful<Connection.Listener<? super O>> {
 
-    public static <O> IntraVmPublisher<O> weakSubscribers() {
+    public static <O> IntraVmPublisher<O> defaults(Executor executor, Logger logger) {
         return new IntraVmPublisher<O>(
-                new WeakConcurrentSet<Connection.Listener<? super O>>());
+                ImmutableList.<Connection.Listener<? super O>>of(), 
+                executor,
+                Queues.<Object>newConcurrentLinkedQueue(),
+                logger);
     }
 
-    // don't post events until someone subscribes
-    private final Monitor monitor;
-    private final Monitor.Guard isSubscribed;
-    private boolean subscribed;
-    private final IConcurrentSet<Connection.Listener<? super O>> listeners;
+    protected final CopyOnWriteArraySet<Connection.Listener<? super O>> listeners;
     
     protected IntraVmPublisher(
-            IConcurrentSet<Connection.Listener<? super O>> listeners) {
-        this.listeners = listeners;
-        this.subscribed = listeners.size() > 0;
-        this.monitor = new Monitor();
-        this.isSubscribed = new Monitor.Guard(monitor) {
-            public boolean isSatisfied() {
-                return subscribed;
-            }
-        };
+            Iterable<Connection.Listener<? super O>> listeners,
+            Executor executor,
+            Queue<Object> mailbox,
+            Logger logger) {
+        super(executor, mailbox, logger);
+        this.listeners = Sets.newCopyOnWriteArraySet(listeners);
     }
     
-    public boolean isSubscribed() {
-        monitor.enter();
-        try {
-            return subscribed;
-        } finally {
-            monitor.leave();
-        }
+    @Override
+    public boolean isReady() {
+        return (!listeners.isEmpty() && !mailbox.isEmpty());
     }
 
     @Override
     public void subscribe(Connection.Listener<? super O> listener) {
-        monitor.enter();
-        try {
-            listeners.add(listener);
-            if (! subscribed) {
-                subscribed = true;
-            }
-        } finally {
-            monitor.leave();
-        }
+        listeners.add(listener);
+        run();
     }
 
     @Override
     public boolean unsubscribe(Connection.Listener<? super O> listener) {
-        // we don't set subscribe to false once it's true
         return listeners.remove(listener);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public void handleConnectionState(Automaton.Transition<Connection.State> state) {
-        try {
-            monitor.enterWhen(isSubscribed);
-        } catch (InterruptedException e) {
-            throw Throwables.propagate(e);
-        }
-        try {
-            for (Connection.Listener<? super O> listener : listeners) {
-                listener.handleConnectionState(state);
+    protected boolean apply(Object input) throws Exception {
+        Iterator<Connection.Listener<? super O>> itr = listeners.iterator();
+        boolean success = itr.hasNext() && mailbox.remove(input);
+        if (input instanceof Automaton.Transition) {
+            Automaton.Transition<Connection.State> state = (Automaton.Transition<Connection.State>) input;
+            while (success && itr.hasNext()) {
+                itr.next().handleConnectionState(state);
             }
-        } finally {
-            monitor.leave();
+            if (state.to() == Connection.State.CONNECTION_CLOSED) {
+                stop();
+            }
+        } else {
+            O message = (O) input;
+            while (success && itr.hasNext()) {
+                itr.next().handleConnectionRead(message);
+            }
         }
+        return success;
     }
-
+    
     @Override
-    public void handleConnectionRead(O message) {
-        try {
-            monitor.enterWhen(isSubscribed);
-        } catch (InterruptedException e) {
-            throw Throwables.propagate(e);
-        }
-        try {
-            for (Connection.Listener<? super O> listener : listeners) {
-                listener.handleConnectionRead(message);
-            }
-        } finally {
-            monitor.leave();
-        }
+    protected void doStop() {
+        mailbox.clear();
+        listeners.clear();
     }
 }

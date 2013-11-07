@@ -119,7 +119,8 @@ public abstract class Actors {
 
         protected final Executor executor;
         
-        protected ExecutedPeekingQueuedActor(Executor executor, Queue<T> mailbox, Logger logger) {
+        protected ExecutedPeekingQueuedActor(
+                Executor executor, Queue<T> mailbox, Logger logger) {
             super(mailbox, logger);
             this.executor = executor;
         }
@@ -138,6 +139,7 @@ public abstract class Actors {
         
         protected synchronized void flush(T input) {
             doRun();
+            logger.debug("Flushing {} ({})", input, this);
             apply(input);
         }
 
@@ -145,6 +147,7 @@ public abstract class Actors {
         protected synchronized void doRun() {
             T next;
             while ((next = mailbox.poll()) != null) {
+                logger.debug("Applying {} ({})", next, this);
                 apply(next);
             }
         }

@@ -48,7 +48,7 @@ public abstract class Records {
 
     public static interface Response extends Coded, Operation.Response {}
 
-    public static interface MultiOpRequest extends Request {}
+    public static interface MultiOpRequest extends Request, PathGetter {}
     public static interface MultiOpResponse extends Response {}
 
     public static interface ConnectGetter {

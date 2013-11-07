@@ -31,8 +31,8 @@ public abstract class AbstractIntraVmEndpoint<I,O,U,V> implements Stateful<Conne
      */
     protected AbstractIntraVmEndpoint(
             SocketAddress address,
-            Logger logger,
             Executor executor,
+            Logger logger,
             IntraVmPublisher<O> publisher) {
         super();
         this.logger = logger;
@@ -102,7 +102,7 @@ public abstract class AbstractIntraVmEndpoint<I,O,U,V> implements Stateful<Conne
             {
                 Connection.State nextState = Connection.State.CONNECTION_OPENED;
                 if (state.apply(nextState).isPresent()) {
-                    publisher.handleConnectionState(
+                    publisher.send(
                             Automaton.Transition.create(connectionState, nextState));
                 }
             }
@@ -114,9 +114,7 @@ public abstract class AbstractIntraVmEndpoint<I,O,U,V> implements Stateful<Conne
             }
             default:
             {
-                if (logger.isTraceEnabled()) {
-                    logger.trace(LoggingMarker.NET_MARKER.get(), "DROPPING {}", this);
-                }
+                logger.trace(LoggingMarker.NET_MARKER.get(), "DROPPING {}", this);
                 break;
             }
             }
@@ -157,13 +155,13 @@ public abstract class AbstractIntraVmEndpoint<I,O,U,V> implements Stateful<Conne
             Connection.State prevState = Connection.State.CONNECTION_OPENED;
             Connection.State nextState = Connection.State.CONNECTION_CLOSING;
             if (state.state() == nextState) {
-                publisher.handleConnectionState(
+                publisher.send(
                         Automaton.Transition.create(prevState, nextState));
                 
                 prevState = nextState;
                 nextState = Connection.State.CONNECTION_CLOSED;
                 if (state.apply(nextState).isPresent()) {
-                    publisher.handleConnectionState(
+                    publisher.send(
                             Automaton.Transition.create(prevState, nextState));
                 }
             }
