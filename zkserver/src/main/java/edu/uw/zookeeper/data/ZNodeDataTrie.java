@@ -5,12 +5,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentSkipListMap;
-
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,7 +23,7 @@ import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.proto.*;
 import edu.uw.zookeeper.server.ByOpcodeTxnRequestProcessor;
 
-public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> {
+public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> {
 
     public static ZNodeDataTrie newInstance() {
         return new ZNodeDataTrie(ZNodeStateNode.root());
@@ -231,8 +228,9 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
                 ZNodeAcl acl = ZNodeAcl.initialVersion(Acls.Acl.fromRecordList(record.getAcl()));
                 Stats.ChildrenStat childrenStat = Stats.ChildrenStat.initialVersion(request.zxid());
                 ZNodeState state = ZNodeState.of(createStat, data, acl, childrenStat);
-                
-                ZNodeStateNode node = parent.add((ZNodeLabel.Component) path.tail(), state);
+                ZNodeLabel.Component label = (ZNodeLabel.Component) path.tail();
+                ZNodeStateNode node = ZNodeStateNode.child(label, parent, state);
+                parent.put(label, node);
                 Operations.Responses.Create builder = 
                         Operations.Responses.create().setPath(path);
                 if (OpCode.CREATE2 == request.record().opcode()) {
@@ -424,7 +422,7 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         @Override
         public Void apply(Records.Response result) {
             ZNodeStateNode node = trie.get(((Records.PathGetter) result).getPath());
-            ZNodeStateNode parent = node.parent().get().get();
+            ZNodeStateNode parent = node.parent().get();
             node.remove();
             parent.state().setChildren(parentStat);
             return null;
@@ -451,7 +449,9 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         public Void apply(Records.Response result) {
             ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request.record()).getPath());
             ZNodeStateNode parent = trie.get(path.head());
-            parent.add((ZNodeLabel.Component) path.tail(), state);
+            ZNodeLabel.Component label = (ZNodeLabel.Component) path.tail();
+            ZNodeStateNode node = ZNodeStateNode.child(label, parent, state);
+            parent.put(label, node);
             return null;
         }
     }
@@ -843,52 +843,47 @@ public class ZNodeDataTrie extends ZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> 
         }
     }
     
-    public static class ZNodeStateNode extends ZNodeLabelTrie.AbstractNode<ZNodeStateNode> {
+    public static class ZNodeStateNode extends SynchronizedZNodeLabelTrie.SynchronizedNode<ZNodeStateNode> {
 
         public static ZNodeStateNode root() {
             return root(ZNodeState.defaults());
         }
         
         public static ZNodeStateNode root(ZNodeState state) {
-            return new ZNodeStateNode(Optional.<Pointer<ZNodeStateNode>>absent(), state);
+            Pointer<ZNodeStateNode> pointer = strongPointer(ZNodeLabel.none(), null);
+            return new ZNodeStateNode(
+                    pointer, 
+                    state);
         }
         
         public static ZNodeStateNode child(ZNodeLabel.Component label, ZNodeStateNode parent, ZNodeState state) {
-            Pointer<ZNodeStateNode> pointer = SimplePointer.of(label, parent);
-            return new ZNodeStateNode(Optional.of(pointer), state);
+            Pointer<ZNodeStateNode> pointer = weakPointer(label, parent);
+            return new ZNodeStateNode(
+                    pointer, 
+                    state);
         }
 
-        protected final ZNodeState state;
+        private final ZNodeState state;
         
-        protected ZNodeStateNode(Optional<Pointer<ZNodeStateNode>> parent, ZNodeState state) {
-            super(parent, new ConcurrentSkipListMap<ZNodeLabel.Component, ZNodeStateNode>());
+        protected ZNodeStateNode(Pointer<ZNodeStateNode> parent, ZNodeState state) {
+            super(pathOf(parent), parent, Maps.<ZNodeLabel.Component, ZNodeStateNode>newHashMap());
             this.state = state;
         }
 
-        @Override
-        protected ConcurrentSkipListMap<ZNodeLabel.Component, ZNodeStateNode> delegate() {
-            return (ConcurrentSkipListMap<ZNodeLabel.Component, ZNodeStateNode>) children;
-        }
-        
         public ZNodeState state() {
             return state;
         }
         
-        public ZNodeStateNode add(ZNodeLabel.Component label, ZNodeState state) {
-            delegate().putIfAbsent(label, child(label, this, state));
-            return get(label);
-        }
-        
-        public Stats.ImmutableStat asStat() {
+        public synchronized Stats.ImmutableStat asStat() {
             int dataLength = state.getData().getDataLength();
-            int numChildren = children.size();
+            int numChildren = size();
             return Stats.ImmutableStat.copyOf(Stats.CompositeStatGetter.of(
                     state.asStatPersisted(), dataLength, numChildren));
         }
 
         @Override
-        public String toString() {
-            return Objects.toStringHelper(this)
+        public synchronized String toString() {
+            return Objects.toStringHelper("")
                     .add("path", path())
                     .add("children", keySet())
                     .add("state", state())

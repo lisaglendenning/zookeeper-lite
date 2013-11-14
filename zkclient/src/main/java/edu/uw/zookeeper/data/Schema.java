@@ -11,22 +11,23 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListMap;
-
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.Reference;
-import edu.uw.zookeeper.data.ZNodeLabel.Component;
 
 
-public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
+public class Schema extends SynchronizedZNodeLabelTrie<Schema.SchemaNode> {
     
+    public static Schema of(ZNodeSchema root) {
+        return new Schema(SchemaNode.root(root));
+    }
+
     public static enum LabelType {
         NONE, LABEL, PATTERN;
     }
@@ -316,14 +317,14 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
                 CreateMode createMode,
                 List<Acls.Acl> acl,
                 Object type) {
-            return new ZNodeSchema(label, labelType, createMode, acl, type);
+            return new ZNodeSchema(label, labelType, createMode, ImmutableList.copyOf(acl), type);
         }
         
-        protected final String label;
-        protected final LabelType labelType;
-        protected final CreateMode createMode;
-        protected final List<Acls.Acl> acl;
-        protected final Object type;
+        private final String label;
+        private final LabelType labelType;
+        private final CreateMode createMode;
+        private final List<Acls.Acl> acl;
+        private final Object type;
         
         protected ZNodeSchema(
                 String label,
@@ -391,43 +392,38 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
         }
     }
     
-    public static class SchemaNode extends ZNodeLabelTrie.AbstractNode<SchemaNode> implements Reference<ZNodeSchema> {
+    public static class SchemaNode extends SynchronizedZNodeLabelTrie.SynchronizedNode<SchemaNode> {
 
         public static SchemaNode root(ZNodeSchema schema) {
-            return new SchemaNode(Optional.<Pointer<SchemaNode>>absent(), schema);
+            Pointer<SchemaNode> pointer = strongPointer(ZNodeLabel.none(), null);
+            return new SchemaNode(pointer, schema);
         }
 
-        public static SchemaNode child(ZNodeLabel.Component label, SchemaNode parent) {
-            return child(label, parent, ZNodeSchema.getDefault());
+        public static SchemaNode child(SchemaNode parent, ZNodeSchema schema) {
+            return child(ZNodeLabel.Component.of(schema.getLabel()), parent, schema);
         }
-        
+
         public static SchemaNode child(ZNodeLabel.Component label, SchemaNode parent, ZNodeSchema schema) {
-            Pointer<SchemaNode> childPointer = SimplePointer.of(label, parent);
-            return new SchemaNode(Optional.of(childPointer), schema);
+            Pointer<SchemaNode> childPointer = weakPointer(label, parent);
+            return new SchemaNode(childPointer, schema);
         }
 
-        protected final ZNodeSchema schema;
+        private final ZNodeSchema schema;
         
-        protected SchemaNode(Optional<ZNodeLabelTrie.Pointer<SchemaNode>> parent, ZNodeSchema schema) {
-            super(parent, new ConcurrentSkipListMap<ZNodeLabel.Component, SchemaNode>());
+        protected SchemaNode(ZNodeLabelTrie.Pointer<SchemaNode> parent, ZNodeSchema schema) {
+            super(pathOf(parent), parent, Maps.<ZNodeLabel.Component, SchemaNode>newHashMap());
             this.schema = schema;
         }
 
-        @Override
-        protected ConcurrentSkipListMap<ZNodeLabel.Component, SchemaNode> delegate() {
-            return (ConcurrentSkipListMap<Component, SchemaNode>) children;
-        }
-        
-        @Override
-        public ZNodeSchema get() {
+        public ZNodeSchema schema() {
             return schema;
         }
         
-        public SchemaNode match(ZNodeLabel.Component label) {
-            SchemaNode child = get(label);
+        public synchronized SchemaNode match(ZNodeLabel.Component label) {
+            SchemaNode child = delegate().get(label);
             if (child == null) {
                 String labelString = label.toString();
-                for (Map.Entry<ZNodeLabel.Component, Schema.SchemaNode> entry: entrySet()) {
+                for (Map.Entry<ZNodeLabel.Component, Schema.SchemaNode> entry: delegate().entrySet()) {
                     if (labelString.matches(entry.getKey().toString())) {
                         child = entry.getValue();
                         break;
@@ -436,39 +432,28 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
             }
             return child;
         }
-        
-        public SchemaNode add(ZNodeSchema schema) {
-            return add(ZNodeLabel.Component.of(schema.getLabel()), schema);
-        }
-        
-        public SchemaNode add(ZNodeLabel.Component label, ZNodeSchema schema) {
-            delegate().putIfAbsent(label, child(label, this, schema));
-            return get(label);
-        }
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return Objects.toStringHelper("")
                     .add("path", path())
-                    .add("children", children.keySet())
-                    .add("schema", get())
+                    .add("children", keySet())
+                    .add("schema", schema())
                     .toString();
         }
     }
     
-    public static Schema of(ZNodeSchema root) {
-        return new Schema(SchemaNode.root(root));
-    }
-    
     public static List<Acls.Acl> inheritedAcl(Schema.SchemaNode node) {
-        Iterator<Schema.SchemaNode> itr = ZNodeLabelTrie.parentIterator(node);
         List<Acls.Acl> none = Acls.Definition.NONE.asList();
-        List<Acls.Acl> acl = none;
-        while (itr.hasNext()) {
-            Schema.SchemaNode next = itr.next();
-            acl = next.get().getAcl();
-            if (! none.equals(acl)) {
-                break;
+        List<Acls.Acl> acl = node.schema.getAcl();
+        if (none.equals(acl)) {
+            Iterator<Pointer<? extends Schema.SchemaNode>> itr = ZNodeLabelTrie.parentIterator(node.parent());
+            while (itr.hasNext()) {
+                Schema.SchemaNode next = itr.next().get();
+                acl = next.schema().getAcl();
+                if (! none.equals(acl)) {
+                    break;
+                }
             }
         }
         return acl;
@@ -478,26 +463,35 @@ public class Schema extends ZNodeLabelTrie<Schema.SchemaNode> {
         super(root);
     }
 
-    public SchemaNode match(ZNodeLabel.Path path) {
-        SchemaNode next = root();
-        for (ZNodeLabel.Component component: path) {
-            next = next.match(component);
-            if (next == null) {
-                break;
-            }
-        }
-        return next;
+    public SchemaNode match(ZNodeLabel label) {
+        return match(label, root());
     }
 
-    public SchemaNode add(ZNodeSchema schema) {
-        return add(ZNodeLabel.Path.of(schema.getLabel()), schema);
-    }
-    
-    public SchemaNode add(ZNodeLabel.Path path, ZNodeSchema schema) {
-        SchemaNode parent = get(path.head());
-        if (parent == null) {
-            throw new IllegalStateException();
+    protected SchemaNode match(ZNodeLabel label, SchemaNode node) {
+        synchronized (node) {
+            ZNodeLabel.Component next;
+            ZNodeLabel rest;
+            if (label instanceof ZNodeLabel.Path) {
+                ZNodeLabel.Path path = (ZNodeLabel.Path) label;
+                if (path.isAbsolute()) {
+                    return match(path.suffix(0), node);
+                } else {
+                    int index = path.toString().indexOf(ZNodeLabel.SLASH);
+                    next = (ZNodeLabel.Component) path.prefix(index);
+                    rest = path.suffix(index);
+                }
+            } else if (label instanceof ZNodeLabel.Component) {
+                next = (ZNodeLabel.Component) label;
+                rest = ZNodeLabel.none();
+            } else {
+                return node;
+            }
+            SchemaNode child = node.match(next);
+            if (child == null) {
+                return null;
+            } else {
+                return match(rest, child);
+            }
         }
-        return parent.add((ZNodeLabel.Component) path.tail(), schema);
     }
 }

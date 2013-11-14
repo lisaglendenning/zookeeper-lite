@@ -406,11 +406,11 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             } else if (index == length) {
                 return this;
             } else {
-                checkArgument(charAt(index) == SLASH, index);
+                checkArgument(charAt(index) == SLASH, String.format("Cannot split %s at index %d", this, index));
                 return ZNodeLabel.of(label.substring(0, index));
             }
         }
-        
+
         public ZNodeLabel suffix(int index) {
             int length = length();
             if ((index < 0) || (index > length)) {
@@ -419,7 +419,7 @@ public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel>
             if (index == length) {
                 return ZNodeLabel.none();
             } else {
-                checkArgument(charAt(index) == SLASH, index);
+                checkArgument(charAt(index) == SLASH, String.format("Cannot split %s at index %d", this, index));
                 return ZNodeLabel.of(label.substring(index + 1));
             }
         }

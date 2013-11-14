@@ -2,18 +2,14 @@ package edu.uw.zookeeper.client;
 
 import java.io.IOException;
 import java.lang.reflect.Modifier;
-import java.util.Arrays;
-import java.util.Map;
 
 import net.engio.mbassy.common.IConcurrentSet;
 import net.engio.mbassy.common.StrongConcurrentSet;
 
-import org.apache.jute.Record;
-
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Reference;
@@ -28,13 +24,13 @@ import edu.uw.zookeeper.protocol.SessionListener;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNodeViewCache<Materializer.MaterializedNode, Records.Request, V> {
+public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNodeCacheTrie<Materializer.MaterializedNode, Records.Request, V> {
 
     public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<?>> Materializer<V> newInstance(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
             ClientExecutor<? super Records.Request, V, SessionListener> client) {
-        return new Materializer<V>(schema, codec, client, new StrongConcurrentSet<CacheSessionListener>());
+        return new Materializer<V>(schema, codec, client, new StrongConcurrentSet<CacheSessionListener<? super MaterializedNode>>(), MaterializedNode.root(schema));
     }
     
     public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> 
@@ -45,16 +41,19 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
     protected final Schema schema;
     protected final Serializers.ByteCodec<Object> codec;
     protected final Operator operator;
+    protected final MaterializeVisitor materializer;
     
     protected Materializer(
             Schema schema, 
             Serializers.ByteCodec<Object> codec, 
             ClientExecutor<? super Records.Request, V, SessionListener> client,
-            IConcurrentSet<CacheSessionListener> listeners) {
-        super(client, ZNodeLabelTrie.of(MaterializedNode.root(schema, codec)), listeners);
+            IConcurrentSet<CacheSessionListener<? super MaterializedNode>> listeners,
+            MaterializedNode root) {
+        super(client, listeners, root);
         this.schema = schema;
         this.codec = codec;
         this.operator = new Operator();
+        this.materializer = new MaterializeVisitor();
     }
     
     public Schema schema() {
@@ -69,107 +68,102 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
         return operator;
     }
 
-    public static class MaterializedNode extends ZNodeViewCache.AbstractNodeCache<MaterializedNode> implements Reference<StampedReference<? extends Object>> {
-    
-        public static MaterializedNode root(Schema schema, Serializers.ByteCodec<Object> codec) {
-            return new MaterializedNode(Optional.<ZNodeLabelTrie.Pointer<MaterializedNode>>absent(), schema.root(), codec);
+    @Override
+    public void handleCacheUpdate(CacheEvent<? extends MaterializedNode> event) {
+        // intercept data update events here to deserialize
+        if ((event instanceof NodeUpdatedCacheEvent<?>) && ((NodeUpdatedCacheEvent<?>) event).getTypes().contains(Records.DataGetter.class)) {
+            materializer.apply(event.getNode());
         }
         
-        protected final StampedReference.Updater<Object> instance;
+        super.handleCacheUpdate(event);
+    }
+
+    public static class MaterializedNode extends ZNodeCacheTrie.AbstractCachedNode<MaterializedNode> {
+    
+        public static MaterializedNode root(Schema schema) {
+            ZNodeLabelTrie.Pointer<MaterializedNode> pointer = ZNodeLabelTrie.strongPointer(ZNodeLabel.none(), null);
+            return new MaterializedNode(pointer, schema.root());
+        }
+        
         protected final Schema.SchemaNode schemaNode;
-        protected final Serializers.ByteCodec<Object> codec;
         
         protected MaterializedNode(
-                Optional<ZNodeLabelTrie.Pointer<MaterializedNode>> parent, 
-                Schema.SchemaNode schemaNode, 
-                Serializers.ByteCodec<Object> codec) {
-            this(parent, schemaNode, codec, StampedReference.of(0L, null));
-        }
-    
-        protected MaterializedNode(
-                Optional<ZNodeLabelTrie.Pointer<MaterializedNode>> parent, 
-                Schema.SchemaNode schemaNode, 
-                Serializers.ByteCodec<Object> codec,
-                StampedReference<Object> instance) {
+                ZNodeLabelTrie.Pointer<? extends MaterializedNode> parent, 
+                Schema.SchemaNode schemaNode) {
             super(parent);
-            this.instance = StampedReference.Updater.newInstance(instance);
             this.schemaNode = schemaNode;
-            this.codec = codec;
         }
         
         public Schema.SchemaNode schemaNode() {
             return schemaNode;
         }
         
-        public Serializers.ByteCodec<Object> codec() {
-            return codec;
+        public <T> StampedReference<T> getCached() {
+            return getCached(schemaNode.schema().getType());
         }
-    
+
         @Override
-        public StampedReference<Object> get() {
-            return instance.get();
+        protected MaterializedNode newChild(ZNodeLabel.Component label) {
+            ZNodeLabelTrie.Pointer<MaterializedNode> pointer = ZNodeLabelTrie.weakPointer(label, this);
+            Schema.SchemaNode node = (schemaNode != null) ? schemaNode.match(label) : null;
+            return new MaterializedNode(pointer, node);
         }
-    
+        
         @Override
-        public <T extends Records.ZNodeView> StampedReference<T> update(View view, StampedReference<T> value) {
-            StampedReference<T> result = super.update(view, value);
-            if ((View.DATA == view) && (instance.get().stamp() < value.stamp())) {
-                Object newInstance = instance.get().get();
-                if (schemaNode != null) {
-                    Object type = schemaNode.get().getType();
-                    if (type instanceof Class<?>) {
-                        Class<?> cls = (Class<?>) type;
-                        int mod = cls.getModifiers();
-                        if (! ((type == Void.class) || Modifier.isInterface(mod) 
-                                || Modifier.isAbstract(mod))) {
-                            if (instance.get().stamp().equals(Long.valueOf(0L)) 
-                                    || (result.stamp().compareTo(value.stamp()) < 0)) {
-                                Records.DataGetter prev = (Records.DataGetter) result.get();
-                                byte[] updated = ((Records.DataGetter) value.get()).getData();
-                                if (instance.get().stamp().equals(Long.valueOf(0L))
-                                        || (prev == null) || ! Arrays.equals(prev.getData(), updated)) {
-                                    if (updated.length > 0) { 
-                                        try {
-                                            newInstance = codec().fromBytes(updated, cls);
-                                        } catch (IOException e) {
-                                            throw Throwables.propagate(e);
-                                        }
-                                    }
+        public synchronized String toString() {
+            return Objects.toStringHelper("")
+                    .add("path", path())
+                    .add("children", keySet())
+                    .add("stamp", stamp)
+                    .add("cache", cache.values())
+                    .add("schema", schemaNode).toString();
+        }
+    }
+    
+    public static enum ObjectsEquivalence implements Equivalence<Object> {
+        OBJECTS_EQUIVALENCE;
+        
+        @Override
+        public boolean equals(Object a, Object b) {
+            return Objects.equal(a, b);
+        }
+    }
+    
+    public class MaterializeVisitor implements Function<MaterializedNode, Optional<? extends StampedReference<?>>> {
+        
+        public MaterializeVisitor() {
+        }
+        
+        @Override
+        public Optional<? extends StampedReference<?>> apply(MaterializedNode node) {
+            if (node != null) {
+                Schema.SchemaNode schemaNode = node.schemaNode();
+                if ((schemaNode != null) && (schemaNode.schema().getType() instanceof Class<?>)) {
+                    Class<?> cls = (Class<?>) schemaNode.schema().getType();
+                    int mod = cls.getModifiers();
+                    if (! ((cls == Void.class) || Modifier.isInterface(mod) 
+                            || Modifier.isAbstract(mod))) {
+                        StampedReference<Records.DataGetter> data = node.getCached(Records.DataGetter.class);
+                        if ((data != null) && (data.get() != null)) { 
+                            Object value;
+                            if ((data.get().getData() != null) && (data.get().getData().length > 0)) {
+                                try {
+                                    value = codec.fromBytes(data.get().getData(), cls);
+                                } catch (IOException e) {
+                                    throw Throwables.propagate(e);
                                 }
+                            } else {
+                                value = null;
+                            }
+                            StampedReference<Object> materialized = StampedReference.<Object>of(data.stamp(), value);
+                            if (new UpdateVisitor<Object>(cls, materialized, ObjectsEquivalence.OBJECTS_EQUIVALENCE).apply(node)) {
+                                return Optional.of(materialized);
                             }
                         }
                     }
                 }
-                StampedReference<Object> ref = StampedReference.of(value.stamp(), newInstance);
-                instance.setIfGreater(ref);
             }
-            return result;
-        }
-        
-        @Override
-        protected MaterializedNode newChild(ZNodeLabel.Component label) {
-            ZNodeLabelTrie.Pointer<MaterializedNode> pointer = ZNodeLabelTrie.SimplePointer.of(label, this);
-            Schema.SchemaNode node = (schemaNode != null) ? schemaNode.match(label) : null;
-            return new MaterializedNode(Optional.of(pointer), node, codec);
-        }
-        
-        @Override
-        public String toString() {
-            Map<View, String> viewStr = Maps.newHashMap();
-            for (Map.Entry<View, StampedReference.Updater<? extends Records.ZNodeView>> entry: views.entrySet()) {
-                viewStr.put(
-                        entry.getKey(), 
-                        String.format("(%s, %s)", 
-                                entry.getValue().get().stamp(), 
-                                Records.toString((Record) entry.getValue().get().get())));
-            }
-            return Objects.toStringHelper(this)
-                    .add("path", path())
-                    .add("children", keySet())
-                    .add("instance", get())
-                    .add("schema", schemaNode())
-                    .add("stamp", stamp())
-                    .add("views", viewStr).toString();
+            return Optional.absent();
         }
     }
 
@@ -209,7 +203,7 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
             Schema.SchemaNode node = get().schema().match(path);
             Operations.Requests.Create create = Operations.Requests.create().setPath(path);
             if (node != null) {
-                create.setMode(node.get().getCreateMode()).setAcl(Schema.inheritedAcl(node));
+                create.setMode(node.schema().getCreateMode()).setAcl(Schema.inheritedAcl(node));
             }
             return new Submitter<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, Object>>(
                     Operations.Requests.serialized(create, get().codec(), data), get());
@@ -264,6 +258,12 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
     
         public Submitter<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, Object>> setData(ZNodeLabel.Path path, Object data) {
             Operations.Requests.SetData setData = Operations.Requests.setData().setPath(path);
+            return new Submitter<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, Object>>(
+                    Operations.Requests.serialized(setData, get().codec(), data), get());
+        }
+
+        public Submitter<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, Object>> setData(ZNodeLabel.Path path, Object data, int version) {
+            Operations.Requests.SetData setData = Operations.Requests.setData().setPath(path).setVersion(version);
             return new Submitter<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, Object>>(
                     Operations.Requests.serialized(setData, get().codec(), data), get());
         }

@@ -127,7 +127,7 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?,?>> e
 
     @Override
     public C apply(C input) {
-        ZxidTracker.ZxidListener.create(second(), input.connection());
+        ZxidTracker.listener(second(), input.connection());
         return input;
     }
 }

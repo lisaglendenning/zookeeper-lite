@@ -124,9 +124,7 @@ public abstract class Records {
         void setNumChildren(int numChildren);
     }
 
-    public static interface ZNodeView {}
-    
-    public static interface PathGetter extends ZNodeView {
+    public static interface PathGetter {
         String getPath();
     }
     
@@ -134,7 +132,7 @@ public abstract class Records {
         void setPath(String path);
     }
     
-    public static interface StatGetter extends ZNodeView {
+    public static interface StatGetter {
         Stat getStat();
     }
     
@@ -142,7 +140,7 @@ public abstract class Records {
         void setStat(Stat stat);
     }
     
-    public static interface DataGetter extends ZNodeView {
+    public static interface DataGetter {
         byte[] getData();    
     }
 
@@ -150,7 +148,7 @@ public abstract class Records {
         void setData(byte[] data);     
     }
     
-    public static interface AclGetter extends ZNodeView {
+    public static interface AclGetter {
         List<ACL> getAcl();     
     }
 
@@ -158,7 +156,7 @@ public abstract class Records {
         void setAcl(List<ACL> acl);       
     }
     
-    public static interface ChildrenGetter extends ZNodeView {
+    public static interface ChildrenGetter {
         List<String> getChildren();
     }
 
@@ -166,7 +164,7 @@ public abstract class Records {
         void setChildren(List<String> children);
     }
     
-    public static interface VersionGetter extends ZNodeView {
+    public static interface VersionGetter {
         int getVersion();
     }
     
