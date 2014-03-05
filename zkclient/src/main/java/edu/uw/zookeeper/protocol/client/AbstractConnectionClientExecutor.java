@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.protocol.client;
 
 import java.util.Iterator;
-import java.util.Queue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
@@ -22,9 +21,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons.AutomatonListener;
-import edu.uw.zookeeper.common.Actors.ExecutedQueuedActor;
 import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
@@ -50,9 +49,8 @@ public abstract class AbstractConnectionClientExecutor<
     T extends Future<?>,
     C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>, 
     O>
-    extends ExecutedQueuedActor<T>
     implements ConnectionClientExecutor<I,V,SessionListener,C>, Connection.Listener<Operation.Response>,
-        FutureCallback<O>, AutomatonListener<ProtocolState> {
+        FutureCallback<O>, AutomatonListener<ProtocolState>, Actor<T> {
     
     protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
 
@@ -67,11 +65,7 @@ public abstract class AbstractConnectionClientExecutor<
             C connection,
             TimeValue timeOut,
             ScheduledExecutorService scheduler,
-            IConcurrentSet<SessionListener> listeners,
-            Executor executor,
-            Queue<T> mailbox,
-            Logger logger) {
-        super(executor, mailbox, logger);
+            IConcurrentSet<SessionListener> listeners) {
         this.connection = connection;
         this.session = session;
         this.listeners = listeners;
@@ -129,7 +123,7 @@ public abstract class AbstractConnectionClientExecutor<
     @SuppressWarnings("unchecked")
     @Override
     public void handleConnectionRead(Operation.Response message) {
-        logger.debug("Received: {}", message);
+        logger().debug("Received: {}", message);
         timer.send(message);
         if (message instanceof Operation.ProtocolResponse<?>) {
             if (((Operation.ProtocolResponse<?>) message).record().opcode() == OpCode.NOTIFICATION) {
@@ -154,7 +148,7 @@ public abstract class AbstractConnectionClientExecutor<
     @Override
     public void onFailure(Throwable t) {
         if ((state().compareTo(State.TERMINATED) < 0) && failure.compareAndSet(null, t)) {
-            logger.debug("{}", this, t);
+            logger().debug("{}", this, t);
             stop();
         }
     }
@@ -175,8 +169,9 @@ public abstract class AbstractConnectionClientExecutor<
         }
         return Objects.toStringHelper(this).add("session", sessionStr).add("connection", connection).toString();
     }
+    
+    protected abstract Logger logger();
 
-    @Override
     protected void doStop() {  
         timer.cancel(true);
         
@@ -185,11 +180,6 @@ public abstract class AbstractConnectionClientExecutor<
         
         if (! session.isDone()) {
             session.cancel(true);
-        }
-
-        T request;
-        while ((request = mailbox.poll()) != null) {
-            request.cancel(true);
         }
         
         connection.close();

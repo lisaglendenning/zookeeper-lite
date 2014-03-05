@@ -22,7 +22,7 @@ import edu.uw.zookeeper.protocol.SessionListener;
 
 
 public class MessageClientExecutor<C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>>
-    extends PendingQueueClientExecutor<Message.ClientRequest<?>, Message.ServerResponse<?>, PendingQueueClientExecutor.RequestTask<Message.ClientRequest<?>, Message.ServerResponse<?>>, C> {
+    extends PendingQueueClientExecutor.Forwarding<Message.ClientRequest<?>, Message.ServerResponse<?>, PendingQueueClientExecutor.RequestTask<Message.ClientRequest<?>, Message.ServerResponse<?>>, C> {
 
     public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> MessageClientExecutor<C> newInstance(
             ConnectMessage.Request request,
@@ -50,6 +50,8 @@ public class MessageClientExecutor<C extends ProtocolConnection<? super Message.
                 LogManager.getLogger(MessageClientExecutor.class));
     }
     
+    protected final MessageActor actor;
+    
     protected MessageClientExecutor(
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
@@ -58,25 +60,40 @@ public class MessageClientExecutor<C extends ProtocolConnection<? super Message.
             IConcurrentSet<SessionListener> listeners,
             Executor executor,
             Logger logger) {
-        super(session, connection, timeOut, scheduler, listeners, executor, logger);
+        super(session, connection, timeOut, scheduler, listeners);
+        this.actor = new MessageActor(executor, logger);
     }
 
     @Override
     public ListenableFuture<Message.ServerResponse<?>> submit(
             Message.ClientRequest<?> request, Promise<Message.ServerResponse<?>> promise) {
         RequestTask<Message.ClientRequest<?>, Message.ServerResponse<?>> task = 
-                RequestTask.<Message.ClientRequest<?>, Message.ServerResponse<?>>of(request, LoggingPromise.create(logger, promise));
+                RequestTask.<Message.ClientRequest<?>, Message.ServerResponse<?>>of(request, LoggingPromise.create(logger(), promise));
         if (! send(task)) {
             task.cancel(true);
         }
         return task;
     }
-
+    
     @Override
-    protected boolean apply(RequestTask<Message.ClientRequest<?>, Message.ServerResponse<?>> input) {
-        if (! input.isDone()) {
-            write(input.task(), input.promise());
+    protected MessageActor actor() {
+        return actor;
+    }
+
+    protected class MessageActor extends ForwardingActor {
+
+        protected MessageActor(
+                Executor executor,
+                Logger logger) {
+            super(executor, logger);
         }
-        return true;
+
+        @Override
+        protected boolean apply(RequestTask<Message.ClientRequest<?>, Message.ServerResponse<?>> input) {
+            if (! input.isDone()) {
+                write(input.task(), input.promise());
+            }
+            return true;
+        }
     }
 }

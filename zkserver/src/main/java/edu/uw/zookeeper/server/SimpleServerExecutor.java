@@ -25,7 +25,8 @@ import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.TaskExecutor;
-import edu.uw.zookeeper.data.ZNodeDataTrie;
+import edu.uw.zookeeper.data.LabelTrie;
+import edu.uw.zookeeper.data.LabelTrieZNode;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
@@ -142,7 +143,7 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
                 SimpleServerSupplier server,
                 ConcurrentMap<Long, SimpleSessionExecutor> sessionExecutors,
                 ZxidGenerator zxids,
-                ZNodeDataTrie data,
+                LabelTrie<LabelTrieZNode> data,
                 SessionManager sessions,
                 Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime) {
@@ -174,7 +175,7 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
         @Override
         protected ServerBuilder newInstance(
                 ZxidGenerator zxids,
-                ZNodeDataTrie data,
+                LabelTrie<LabelTrieZNode> data,
                 SessionManager sessions,
                 Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime) {
@@ -185,7 +186,7 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
                 SimpleServerSupplier server,
                 ConcurrentMap<Long, SimpleSessionExecutor> sessionExecutors,
                 ZxidGenerator zxids,
-                ZNodeDataTrie data,
+                LabelTrie<LabelTrieZNode> data,
                 SessionManager sessions,
                 Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime) {

@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.common;
 
-import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.bus.BusRuntime;
+import net.engio.mbassy.bus.PubSubSupport;
 
 import org.apache.logging.log4j.Logger;
 
@@ -65,6 +66,11 @@ public class LoggingPublisher<T> implements PubSubSupport<T>, Reference<PubSubSu
         }
     }
     
+    @Override
+    public BusRuntime getRuntime() {
+        return delegate.getRuntime();
+    }
+
     @Override
     public String toString() {
         return delegate.toString();

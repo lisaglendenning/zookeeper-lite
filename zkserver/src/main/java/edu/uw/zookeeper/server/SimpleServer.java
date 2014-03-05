@@ -25,8 +25,10 @@ import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.TaskExecutor;
+import edu.uw.zookeeper.data.LabelTrie;
+import edu.uw.zookeeper.data.LabelTrieZNode;
+import edu.uw.zookeeper.data.SimpleLabelTrie;
 import edu.uw.zookeeper.data.TxnOperation;
-import edu.uw.zookeeper.data.ZNodeDataTrie;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.NotificationListener;
 import edu.uw.zookeeper.protocol.Operation;
@@ -46,13 +48,13 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
 
         protected final RuntimeModule runtime;
         protected final ZxidGenerator zxids;
-        protected final ZNodeDataTrie data;
+        protected final LabelTrie<LabelTrieZNode> data;
         protected final SessionManager sessions;
         protected final Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners;
         
         protected Builder(
                 ZxidGenerator zxids,
-                ZNodeDataTrie data,
+                LabelTrie<LabelTrieZNode> data,
                 SessionManager sessions,
                 Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime) {
@@ -85,16 +87,16 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
             return ZxidEpochIncrementer.fromZero();
         }
         
-        public ZNodeDataTrie getData() {
+        public LabelTrie<LabelTrieZNode> getData() {
             return data;
         }
 
-        public C setData(ZNodeDataTrie data) {
+        public C setData(LabelTrie<LabelTrieZNode> data) {
             return newInstance(zxids, data, sessions, listeners, runtime);
         }
         
-        public ZNodeDataTrie getDefaultData() {
-            return ZNodeDataTrie.newInstance();
+        public LabelTrie<LabelTrieZNode> getDefaultData() {
+            return SimpleLabelTrie.forRoot(LabelTrieZNode.root());
         }
 
         public SessionManager getSessions() {
@@ -139,7 +141,7 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
         
         protected abstract C newInstance(
                 ZxidGenerator zxids,
-                ZNodeDataTrie data,
+                LabelTrie<LabelTrieZNode> data,
                 SessionManager sessions,
                 Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime);
@@ -166,9 +168,9 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
         
         protected Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> getDefaultTxnProcessor() {
             Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> processors = Maps.newEnumMap(OpCode.class);
-            processors = ZNodeDataTrie.Operators.of(getData(), processors);
+            processors = LabelTrieZNode.Operators.of(getData(), processors);
             processors.put(OpCode.MULTI, 
-                    ZNodeDataTrie.MultiOperator.of(
+                    LabelTrieZNode.MultiOperator.of(
                             getData(), 
                             ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(processors))));
             processors.put(OpCode.CLOSE_SESSION, 

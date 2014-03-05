@@ -26,10 +26,14 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
-import edu.uw.zookeeper.data.DefaultsZNodeLabelTrie;
+import edu.uw.zookeeper.data.DefaultsLabelTrieNode;
+import edu.uw.zookeeper.data.SimpleLabelTrie;
+import edu.uw.zookeeper.data.ZNodePath;
 import edu.uw.zookeeper.data.StampedReference;
 import edu.uw.zookeeper.data.ZNodeLabel;
-import edu.uw.zookeeper.data.ZNodeLabelTrie;
+import edu.uw.zookeeper.data.LabelTrie;
+import edu.uw.zookeeper.data.ZNodePathComponent;
+import edu.uw.zookeeper.data.ZNodePath.AbsoluteZNodePath;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.SessionListener;
@@ -45,7 +49,7 @@ import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
  * Only caches the results of operations submitted through this wrapper.
  */
 public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> 
-        extends DefaultsZNodeLabelTrie<E> implements ClientExecutor<I, V, ZNodeCacheTrie.CacheSessionListener<? super E>> {
+        extends SimpleLabelTrie<E> implements ClientExecutor<I, V, ZNodeCacheTrie.CacheSessionListener<? super E>> {
 
     public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeCacheTrie<SimpleCachedNode,I,V> newInstance(
             ClientExecutor<I,V,SessionListener> client) {
@@ -130,7 +134,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
     public static interface CacheSessionListener<E extends CachedNode<E>> extends CacheListener<E>, SessionListener {
     }
     
-    public static interface CachedNode<E extends CachedNode<E>> extends DefaultsZNodeLabelTrie.DefaultsNode<E> {
+    public static interface CachedNode<E extends CachedNode<E>> extends DefaultsLabelTrieNode<E> {
 
         long stamp();
         
@@ -141,14 +145,14 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
         <T> StampedReference<T> updateCached(Object type, StampedReference<T> value);
     }
     
-    public static abstract class AbstractCachedNode<E extends AbstractCachedNode<E>> extends DefaultsZNodeLabelTrie.AbstractDefaultsNode<E> implements CachedNode<E> {
+    public static abstract class AbstractCachedNode<E extends AbstractCachedNode<E>> extends DefaultsLabelTrieNode.AbstractDefaultsNode<E> implements CachedNode<E> {
 
-        protected volatile long stamp;
+        protected long stamp;
         protected final Map<Object, StampedReference.Updater<?>> cache;
 
         protected AbstractCachedNode(
-                ZNodeLabelTrie.Pointer<? extends E> parent) {
-            super(pathOf(parent), parent, Maps.<ZNodeLabel.Component, E>newHashMap());
+                LabelTrie.Pointer<? extends E> parent) {
+            super(pathOf(parent), parent, Maps.<ZNodeLabel, E>newHashMap());
             this.stamp = -1L;
             this.cache = Maps.newHashMap();
         }
@@ -159,7 +163,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
         }
         
         @Override
-        public synchronized long touch(long stamp) {
+        public long touch(long stamp) {
             if (this.stamp < stamp) {
                 long prev = stamp;
                 this.stamp = stamp;
@@ -171,7 +175,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
 
         @Override
         @SuppressWarnings("unchecked")
-        public synchronized <T> StampedReference<T> getCached(Object type) {
+        public <T> StampedReference<T> getCached(Object type) {
             StampedReference.Updater<?> updater = cache.get(type);
             if (updater != null) {
                 return (StampedReference<T>) updater.get();
@@ -182,9 +186,8 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
 
         @Override
         @SuppressWarnings("unchecked")
-        public synchronized <T> StampedReference<T> updateCached(Object type, StampedReference<T> value) {
-            long stamp = value.stamp();
-            touch(stamp);
+        public <T> StampedReference<T> updateCached(Object type, StampedReference<T> value) {
+            touch(value.stamp());
             StampedReference.Updater<T> updater = (StampedReference.Updater<T>) cache.get(type);
             if (updater == null) {
                 updater = StampedReference.Updater.newInstance(value);
@@ -196,7 +199,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
         }
         
         @Override
-        public synchronized String toString() {
+        public String toString() {
             return Objects.toStringHelper("")
                     .add("path", path())
                     .add("children", keySet())
@@ -208,17 +211,16 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
     public static class SimpleCachedNode extends AbstractCachedNode<SimpleCachedNode> {
 
         public static SimpleCachedNode root() {
-            ZNodeLabelTrie.Pointer<SimpleCachedNode> pointer = strongPointer(ZNodeLabel.none(), null);
-            return new SimpleCachedNode(pointer);
+            return new SimpleCachedNode(SimpleLabelTrie.<SimpleCachedNode>rootPointer());
         }
 
         protected SimpleCachedNode(
-                ZNodeLabelTrie.Pointer<? extends SimpleCachedNode> parent) {
+                LabelTrie.Pointer<? extends SimpleCachedNode> parent) {
             super(parent);
         }
         
         @Override
-        protected SimpleCachedNode newChild(ZNodeLabel.Component label) {
+        protected SimpleCachedNode newChild(ZNodeLabel label) {
             Pointer<SimpleCachedNode> pointer = weakPointer(label, this);
             return new SimpleCachedNode(pointer);
         }
@@ -315,12 +317,12 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             switch (((Operation.Error) response).error()) {
             case NONODE:
             {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
+                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
                 switch (request.opcode()) {
                 case CREATE:
                 case CREATE2:
                 {
-                    path = (ZNodeLabel.Path) path.head();
+                    path = (AbsoluteZNodePath) path.head();
                 }
                 case CHECK:
                 case DELETE:
@@ -342,7 +344,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             }
             case NODEEXISTS:
             {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
+                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
                 add(path, zxid);    
                 break;
             }
@@ -354,14 +356,14 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             case CREATE:
             case CREATE2:
             {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) response).getPath());
+                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) response).getPath());
                 add(path, zxid);
                 update(path, zxid, ImmutableList.of(request, response));
                 break;
             }
             case DELETE:
             {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
+                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
                 remove(path, zxid);
                 break;
             }
@@ -370,7 +372,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             case GET_ACL:
             case SET_ACL:
             {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
+                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
                 add(path, zxid);
                 update(path, zxid, ImmutableList.of(response));
                 break;
@@ -378,27 +380,23 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             case GET_CHILDREN:
             case GET_CHILDREN2:        
             {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
-                add(path, zxid);
+                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
                 List<String> children = ((Records.ChildrenGetter) response).getChildren();
-                for (String child: children) {
-                    add((ZNodeLabel.Path) ZNodeLabel.joined(path, child), zxid);
-                }
-                E node = get(path);
-                if (node != null) {
-                    for (Map.Entry<ZNodeLabel.Component, E> entry: node.entrySet()) {
-                        if (! children.contains(entry.getKey().toString())) {
-                            remove(entry.getValue().path(), zxid);
-                        }
+                E node = add(path, zxid);
+                for (Map.Entry<ZNodeLabel, E> entry: node.entrySet()) {
+                    if (! children.contains(entry.getKey().toString())) {
+                        remove(entry.getValue().path(), zxid);
                     }
+                }
+                for (String child: children) {
+                    add((AbsoluteZNodePath) ZNodePath.joined(path, child), zxid);
                 }
                 update(path, zxid, ImmutableList.of(response));
                 break;
             }
             case GET_DATA:
             {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
-                add(path, zxid);
+                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
                 update(path, zxid, ImmutableList.of(response));
                 break;
             }
@@ -417,8 +415,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             }
             case SET_DATA:
             {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request).getPath());
-                add(path, zxid);
+                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
                 update(path, zxid, ImmutableList.of(response));
                 break;
             }
@@ -428,7 +425,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
         }
     }
 
-    protected <T> void update(ZNodeLabel.Path path, long stamp, Iterable<? extends Record> records) {
+    protected <T> void update(AbsoluteZNodePath path, long stamp, Iterable<? extends Record> records) {
         ImmutableList.Builder<UpdateVisitor<?>> visitors = ImmutableList.builder();
         for (Record record: records) {
             if (record instanceof Records.StatGetter) {
@@ -438,19 +435,33 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
                 visitors.add(new UpdateVisitor<Records.DataGetter>(Records.DataGetter.class, StampedReference.of(stamp, (Records.DataGetter) record), DataEquivalence.DATA_EQUIVALENCE));
             }
         }
-        update(path, visitors.build());
+        UpdatesVisitor visitor = new UpdatesVisitor(visitors.build());
+        E node = add(path, stamp);
+        visitor.apply(node);
     }
 
-    protected Optional<NodeUpdatedCacheEvent<E>> update(ZNodeLabel.Path path, Iterable<? extends UpdateVisitor<?>> visitors) {
-        return get(path, new UpdatesVisitor(visitors));
+    protected E add(AbsoluteZNodePath path, long stamp) {
+        Iterator<ZNodePathComponent> remaining = path.iterator();
+        E node = root();
+        while (remaining.hasNext()) {
+            if (node.touch(stamp) < 0L) {
+                handleCacheUpdate(NodeAddedCacheEvent.of(node));
+            }
+            node = node.putIfAbsent(remaining.next());
+        }
+        return node;
     }
 
-    protected boolean add(ZNodeLabel.Path path, long stamp) {
-        return longestPrefix(path, new AddVisitor(path, stamp));
-    }
-
-    protected boolean remove(ZNodeLabel.Path path, long stamp) {
-        return get(path.head(), new RemoveVisitor(path.tail(), stamp));
+    protected E remove(AbsoluteZNodePath path, long stamp) {
+        E node = get(path);
+        if ((node != null) && (node.stamp() <= stamp)) {
+            node.parent().get().remove(node.parent().label());
+            node.touch(stamp);
+            handleCacheUpdate(NodeRemovedCacheEvent.of(node));
+            return node;
+        } else {
+            return null;
+        }
     }
     
     public static interface Equivalence<T> {
@@ -538,68 +549,6 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
                 handleCacheUpdate(event);
                 return Optional.of(event);
             }
-        }
-    }
-
-    public class AddVisitor implements Function<E, Boolean> {
-
-        protected final ZNodeLabel.Path path;
-        protected final long stamp;
-        
-        public AddVisitor(ZNodeLabel.Path path, long stamp) {
-            this.path = path;
-            this.stamp = stamp;
-        }
-        
-        @Override
-        public Boolean apply(E node) {
-            Boolean added;
-            if (node.touch(stamp) < 0L) {
-                handleCacheUpdate(NodeAddedCacheEvent.of(node));
-                added = Boolean.TRUE;
-            } else {
-                added = Boolean.FALSE;
-            }
-            ZNodeLabel rest = path.suffix(node.path().isRoot() ? 0 : node.path().length());
-            ZNodeLabel next;
-            if (rest instanceof ZNodeLabel.Path) {
-                next = ((ZNodeLabel.Path) rest).prefix(rest.toString().indexOf(ZNodeLabel.SLASH));
-            } else if (rest instanceof ZNodeLabel.Component) {
-                next = rest;
-            } else {
-                return added;
-            }
-            return putIfAbsent(next, node, this);
-        }
-    }
-    
-    public class RemoveVisitor implements Function<E, Boolean> {
-
-        protected final long stamp;
-        protected final ZNodeLabel label;
-        
-        public RemoveVisitor(ZNodeLabel label, long stamp) {
-            this.stamp = stamp;
-            this.label = label;
-        }
-        
-        @Override
-        public Boolean apply(E parent) {
-            if (parent != null) {
-                E child = parent.get(label);
-                if (child != null) {
-                    synchronized (child) {
-                        if (child.stamp() <= stamp) {
-                            if (child.remove()) {
-                                child.touch(stamp);
-                                handleCacheUpdate(NodeRemovedCacheEvent.of(child));
-                                return Boolean.TRUE;
-                            }
-                        }
-                    }
-                }
-            }
-            return Boolean.FALSE;
         }
     }
 }

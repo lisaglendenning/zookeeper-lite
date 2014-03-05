@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
 
 import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.data.ZNodePath;
 import edu.uw.zookeeper.data.ZNodeLabel;
 
 public class CommandParser implements Function<Iterable<String>, Invocation<?>> {
@@ -130,9 +131,9 @@ public class CommandParser implements Function<Iterable<String>, Invocation<?>> 
                 if (token.isEmpty()) {
                     argument = environment.get(ShellInvoker.CWD_KEY);
                 } else if (token.charAt(0) == ZNodeLabel.SLASH) {
-                    argument = ZNodeLabel.Path.validated(token);
+                    argument = ZNodePath.validated(token);
                 } else {
-                    argument = ZNodeLabel.Path.canonicalized(ZNodeLabel.join(environment.get(ShellInvoker.CWD_KEY).toString(), token));
+                    argument = ZNodePath.canonicalized(ZNodePath.join(environment.get(ShellInvoker.CWD_KEY).toString(), token));
                 }
                 break;
             case INTEGER:

@@ -15,9 +15,12 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.common.Actor;
+import edu.uw.zookeeper.common.Actors;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.TimeValue;
+import edu.uw.zookeeper.protocol.ConnectMessage.Response;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
@@ -40,10 +43,8 @@ public abstract class PendingQueueClientExecutor<
             C connection,
             TimeValue timeOut,
             ScheduledExecutorService scheduler,
-            IConcurrentSet<SessionListener> listeners,
-            Executor executor,
-            Logger logger) {
-        super(session, connection, timeOut, scheduler, listeners, executor, new ConcurrentLinkedQueue<T>(), logger);
+            IConcurrentSet<SessionListener> listeners) {
+        super(session, connection, timeOut, scheduler, listeners);
         
         this.pending = Queues.newConcurrentLinkedQueue();
     }
@@ -65,7 +66,7 @@ public abstract class PendingQueueClientExecutor<
                         // This could happen if someone submitted a message without
                         // going through us
                         // or, it could be a bug
-                        logger.warn("{}.xid != {}.xid ({})", next, message, this);
+                        logger().warn("{}.xid != {}.xid ({})", next, message, this);
                     }
                 }
             }
@@ -79,6 +80,8 @@ public abstract class PendingQueueClientExecutor<
             result.set(null);
         }
     }
+    
+    protected abstract Executor executor();
 
     @Override
     protected void doStop() {
@@ -108,7 +111,7 @@ public abstract class PendingQueueClientExecutor<
         }
         try {
             ListenableFuture<? extends Message.ClientRequest<?>> writeFuture = connection.write(message);
-            Futures.addCallback(writeFuture, task, executor);
+            Futures.addCallback(writeFuture, task, executor());
         } catch (Throwable t) {
             task.onFailure(t);
         }
@@ -180,4 +183,76 @@ public abstract class PendingQueueClientExecutor<
             return super.toString(toString.add("xid", xid));
         }
     } 
+    
+    public static abstract class Forwarding<
+        I extends Operation.Request, 
+        V extends Operation.ProtocolResponse<?>,
+        T extends PendingQueueClientExecutor.RequestTask<I, V>,
+        C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>>
+    extends PendingQueueClientExecutor<I,V,T,C> {
+        
+        protected Forwarding(ListenableFuture<Response> session, C connection,
+                TimeValue timeOut, ScheduledExecutorService scheduler,
+                IConcurrentSet<SessionListener> listeners) {
+            super(session, connection, timeOut, scheduler, listeners);
+        }
+        
+        @Override
+        public boolean send(T input) {
+            return actor().send(input);
+        }
+        
+        @Override
+        public Actor.State state() {
+            return actor().state();
+        }
+        
+        @Override
+        public boolean stop() {
+            return actor().stop();
+        }
+        
+        @Override
+        public void run() {
+            actor().run();
+        }
+        
+        protected abstract ForwardingActor actor();
+        
+        @Override
+        protected Logger logger() {
+            return actor().logger();
+        }
+
+        @Override
+        protected Executor executor() {
+            return actor().executor();
+        }
+        
+        public abstract class ForwardingActor extends Actors.ExecutedQueuedActor<T> {
+
+            protected ForwardingActor(Executor executor,
+                    Logger logger) {
+                super(executor, new ConcurrentLinkedQueue<T>(), logger);
+            }
+            
+            public Logger logger() {
+                return logger;
+            }
+            
+            public Executor executor() {
+                return executor;
+            }
+            
+            @Override
+            protected void doStop() {
+                Forwarding.this.doStop();
+                
+                T request;
+                while ((request = mailbox.poll()) != null) {
+                    request.cancel(true);
+                }
+            }
+        }   
+    }
 }

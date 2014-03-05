@@ -22,7 +22,7 @@ import edu.uw.zookeeper.protocol.SessionListener;
 
 
 public class OperationClientExecutor<C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>>
-    extends PendingQueueClientExecutor<Operation.Request, Message.ServerResponse<?>, PendingQueueClientExecutor.RequestTask<Operation.Request, Message.ServerResponse<?>>, C> {
+    extends PendingQueueClientExecutor.Forwarding<Operation.Request, Message.ServerResponse<?>, PendingQueueClientExecutor.RequestTask<Operation.Request, Message.ServerResponse<?>>, C> {
 
     public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> OperationClientExecutor<C> newInstance(
             ConnectMessage.Request request,
@@ -64,7 +64,8 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
                 connection,
                 LogManager.getLogger(OperationClientExecutor.class));
     }
-    
+
+    protected final OperationActor actor;
     protected final AssignXidProcessor xids;
     
     protected OperationClientExecutor(
@@ -76,28 +77,43 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
             IConcurrentSet<SessionListener> listeners,
             Executor executor,
             Logger logger) {
-        super(session, connection, timeOut, scheduler, listeners, executor, logger);
+        super(session, connection, timeOut, scheduler, listeners);
         this.xids = xids;
+        this.actor = new OperationActor(executor, logger);
     }
 
     @Override
     public ListenableFuture<Message.ServerResponse<?>> submit(
             Operation.Request request, Promise<Message.ServerResponse<?>> promise) {
         RequestTask<Operation.Request, Message.ServerResponse<?>> task = 
-                RequestTask.of(request, LoggingPromise.create(logger, promise));
+                RequestTask.of(request, LoggingPromise.create(logger(), promise));
         if (! send(task)) {
             task.cancel(true);
         }
         return task;
     }
-
+    
     @Override
-    protected boolean apply(RequestTask<Operation.Request, Message.ServerResponse<?>> input) {
-        if (! input.isDone()) {
-            // Assign xids here so we can properly track message request -> response
-            Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
-            write(message, input.promise());
+    protected OperationActor actor() {
+        return actor;
+    }
+
+    protected class OperationActor extends ForwardingActor {
+
+        protected OperationActor(
+                Executor executor,
+                Logger logger) {
+            super(executor, logger);
         }
-        return true;
+
+        @Override
+        protected boolean apply(RequestTask<Operation.Request, Message.ServerResponse<?>> input) {
+            if (! input.isDone()) {
+                // Assign xids here so we can properly track message request -> response
+                Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
+                write(message, input.promise());
+            }
+            return true;
+        }
     }
 }

@@ -28,11 +28,11 @@ import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.Operations;
-import edu.uw.zookeeper.data.ZNodeLabel;
+import edu.uw.zookeeper.data.ZNodePath;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
+public class TreeFetcher<V> implements Actor<ZNodePath> {
     
     public static <V> Builder<V> builder() {
         return Builder.defaults();
@@ -132,10 +132,10 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
             };
         }
         
-        protected final ZNodeLabel.Path root;
+        protected final ZNodePath root;
         protected final Parameters parameters;
         protected final Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result;
-        protected final Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator;
+        protected final Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodePath>> iterator;
         protected final ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>, ?> client;
         protected final Executor executor;
         
@@ -144,9 +144,9 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
         }
         
         protected Builder(
-                ZNodeLabel.Path root,
+                ZNodePath root,
                 Parameters parameters,
-                Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator,
+                Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodePath>> iterator,
                 Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result,
                 ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>, ?> client, 
                 Executor executor) {
@@ -158,11 +158,11 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
             this.executor = executor;
         }
         
-        public ZNodeLabel.Path getRoot() {
+        public ZNodePath getRoot() {
             return root;
         }
         
-        public Builder<V> setRoot(ZNodeLabel.Path root) {
+        public Builder<V> setRoot(ZNodePath root) {
             return newInstance(root, parameters, iterator, result, client, executor);
         }
 
@@ -174,11 +174,11 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
             return newInstance(root, parameters, iterator, result, client, executor);
         }
 
-        public Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> getIterator() {
+        public Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodePath>> getIterator() {
             return iterator;
         }
         
-        public Builder<V> setIterator(Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator) {
+        public Builder<V> setIterator(Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodePath>> iterator) {
             return newInstance(root, parameters, iterator, result, client, executor);
         }
 
@@ -240,24 +240,24 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
         }
 
         protected Builder<V> newInstance(    
-                ZNodeLabel.Path root,
+                ZNodePath root,
                 Parameters parameters,
-                Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> iterator,
+                Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodePath>> iterator,
                 Processor<? super Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<V>> result,
                 ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>, ?> client, 
                 Executor executor) {
             return new Builder<V>(root, parameters, iterator, result, client, executor);
         }
         
-        protected ZNodeLabel.Path getDefaultRoot() {
-            return ZNodeLabel.Path.root();
+        protected ZNodePath getDefaultRoot() {
+            return ZNodePath.root();
         }
 
         protected Parameters getDefaultParameters() {
             return Parameters.defaults();
         }
         
-        protected Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> getDefaultIterator() {
+        protected Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodePath>> getDefaultIterator() {
             return TreeProcessor.create();
         }
         
@@ -270,17 +270,17 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
         }
     }
 
-    public static class TreeProcessor implements Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodeLabel.Path>> {
+    public static class TreeProcessor implements Processor<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>, Iterator<ZNodePath>> {
     
         public static TreeProcessor create() {
             return new TreeProcessor();
         }
         
         @Override
-        public Iterator<ZNodeLabel.Path> apply(Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>> input) throws InterruptedException, ExecutionException {
+        public Iterator<ZNodePath> apply(Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>> input) throws InterruptedException, ExecutionException {
             Records.Response response = input.second().get().record();
             if (response instanceof Records.ChildrenGetter) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) input.first()).getPath());
+                ZNodePath path = ZNodePath.of(((Records.PathGetter) input.first()).getPath());
                 return Iterators.transform(
                         ((Records.ChildrenGetter) response).getChildren().iterator(),
                         new ChildToPath(path));
@@ -290,17 +290,17 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
         }
     }
 
-    public static class ChildToPath implements Function<String, ZNodeLabel.Path> {
+    public static class ChildToPath implements Function<String, ZNodePath> {
         
-        private final ZNodeLabel.Path parent;
+        private final ZNodePath parent;
         
-        public ChildToPath(ZNodeLabel.Path parent) {
+        public ChildToPath(ZNodePath parent) {
             this.parent = parent;
         }
         
         @Override
-        public ZNodeLabel.Path apply(String input) {
-            return (ZNodeLabel.Path) ZNodeLabel.joined(parent, input);
+        public ZNodePath apply(String input) {
+            return (ZNodePath) ZNodePath.joined(parent, input);
         }
     }
 
@@ -333,7 +333,7 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
     }
 
     @Override
-    public synchronized boolean send(ZNodeLabel.Path input) {
+    public synchronized boolean send(ZNodePath input) {
         if (state() == State.TERMINATED) {
             return false;
         } else {
@@ -395,7 +395,7 @@ public class TreeFetcher<V> implements Actor<ZNodeLabel.Path> {
                     if (value.isPresent()) {
                         future.set(value);
                     } else {
-                        Iterator<ZNodeLabel.Path> paths = builder.iterator.apply(task);
+                        Iterator<ZNodePath> paths = builder.iterator.apply(task);
                         while (paths.hasNext()) {
                             send(paths.next());
                         }

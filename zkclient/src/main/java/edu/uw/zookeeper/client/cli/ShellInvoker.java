@@ -10,7 +10,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AbstractIdleService;
 
 import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.data.ZNodeLabel;
+import edu.uw.zookeeper.data.ZNodePath;
 
 public class ShellInvoker extends AbstractIdleService implements Invoker<ShellInvoker.Command> {
     
@@ -36,10 +36,10 @@ public class ShellInvoker extends AbstractIdleService implements Invoker<ShellIn
     }
     
     public static Environment.Key<String> PROMPT_KEY = Environment.Key.create("PROMPT", String.class);
-    public static Environment.Key<ZNodeLabel.Path> CWD_KEY = Environment.Key.create("CWD", ZNodeLabel.Path.class);
+    public static Environment.Key<ZNodePath> CWD_KEY = Environment.Key.create("CWD", ZNodePath.class);
 
     protected static final String DEFAULT_PROMPT = "%s $ ";
-    protected static final ZNodeLabel.Path DEFAULT_CWD = ZNodeLabel.Path.root();
+    protected static final ZNodePath DEFAULT_CWD = ZNodePath.root();
     
     protected final Shell shell;
     
@@ -83,7 +83,7 @@ public class ShellInvoker extends AbstractIdleService implements Invoker<ShellIn
     }
 
     protected void cd(Invocation<Command> invocation) {
-        shell.getEnvironment().put(CWD_KEY, (ZNodeLabel.Path) invocation.getArguments()[1]);
+        shell.getEnvironment().put(CWD_KEY, (ZNodePath) invocation.getArguments()[1]);
     }
     
     protected void printEnv(Invocation<Command> invocation) throws IOException {

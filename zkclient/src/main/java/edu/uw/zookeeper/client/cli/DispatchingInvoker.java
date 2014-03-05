@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.data.Operations;
+import edu.uw.zookeeper.data.ZNodePath;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
@@ -170,13 +171,13 @@ public class DispatchingInvoker extends AbstractExecutionThreadService implement
             case PATH:
             {
                 ClientExecutor<Operation.Request, ? extends Message.ServerResponse<?>, ?> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getConnectionClientExecutor();
-                ZNodeLabel.Path path = ZNodeLabel.Path.canonicalized(ZNodeLabel.Path.join(shell.getEnvironment().get(ShellInvoker.CWD_KEY).toString(), token));
+                ZNodePath path = ZNodePath.canonicalized(ZNodePath.join(shell.getEnvironment().get(ShellInvoker.CWD_KEY).toString(), token));
                 try {
                     Operations.Requests.GetChildren request = Operations.Requests.getChildren();
                     if (token.isEmpty() || token.endsWith(Character.toString(ZNodeLabel.SLASH))) {
                         request.setPath(path);
                     } else {
-                        request.setPath((ZNodeLabel.Path) path.head());
+                        request.setPath((ZNodePath) path.head());
                     }
                     Message.ServerResponse<?> response = client.submit(request.build()).get();
                     logger.trace("{} {} {}", path, token, response);

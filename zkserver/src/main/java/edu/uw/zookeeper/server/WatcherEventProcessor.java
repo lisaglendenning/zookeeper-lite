@@ -15,9 +15,9 @@ import com.google.common.collect.SetMultimap;
 
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Processors.ForwardingProcessor;
+import edu.uw.zookeeper.data.ZNodePath;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.data.WatchEvent;
-import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.NotificationListener;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
@@ -92,7 +92,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         {
             if (! (response instanceof Operation.Error)) {
                 String path = ((Records.PathGetter) response).getPath();
-                String parent = ZNodeLabel.Path.headOf(path);
+                String parent = ZNodePath.headOf(path);
                 dataWatches.post(created(path));
                 if (parent.length() > 0) {
                     childWatches.post(children(parent));
@@ -104,7 +104,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         {
             if (! (response instanceof Operation.Error)) {
                 String path = ((Records.PathGetter) request).getPath();
-                String parent = ZNodeLabel.Path.headOf(path);
+                String parent = ZNodePath.headOf(path);
                 dataWatches.post(deleted(path));
                 if (parent.length() > 0) {
                     childWatches.post(children(parent));

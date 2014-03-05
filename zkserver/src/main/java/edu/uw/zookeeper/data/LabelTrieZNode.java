@@ -2,13 +2,15 @@ package edu.uw.zookeeper.data;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.lang.reflect.Constructor;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -23,57 +25,98 @@ import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.proto.*;
 import edu.uw.zookeeper.server.ByOpcodeTxnRequestProcessor;
 
-public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNodeStateNode> {
+public class LabelTrieZNode extends SimpleLabelTrie.SimpleNode<LabelTrieZNode> {
 
-    public static ZNodeDataTrie newInstance() {
-        return new ZNodeDataTrie(ZNodeStateNode.root());
+    public static LabelTrieZNode root() {
+        return root(ZNodeState.defaults());
     }
     
-    public static interface Operator<V extends Records.Response> extends Reference<ZNodeDataTrie>, Processors.CheckedProcessor<TxnOperation.Request<?>, V, KeeperException> {
+    public static LabelTrieZNode root(ZNodeState state) {
+        LabelTrie.Pointer<LabelTrieZNode> pointer = SimpleLabelTrie.strongPointer(ZNodeLabel.none(), null);
+        return new LabelTrieZNode(
+                pointer, 
+                state);
+    }
+    
+    public static LabelTrieZNode child(ZNodePathComponent label, LabelTrieZNode parent, ZNodeState state) {
+        LabelTrie.Pointer<LabelTrieZNode> pointer = SimpleLabelTrie.weakPointer(label, parent);
+        return new LabelTrieZNode(
+                pointer, 
+                state);
     }
 
-    public static abstract class AbstractProcessor<V> implements Processors.CheckedProcessor<TxnOperation.Request<?>, V, KeeperException>, Reference<ZNodeDataTrie> {
+    private final ZNodeState state;
+    
+    protected LabelTrieZNode(LabelTrie.Pointer<? extends LabelTrieZNode> parent, ZNodeState state) {
+        super(SimpleLabelTrie.pathOf(parent), parent, Maps.<ZNodeLabel, LabelTrieZNode>newHashMap());
+        this.state = state;
+    }
 
-        public static ZNodeLabel.Path getPath(Records.PathGetter record) {
-            return ZNodeLabel.Path.validated(record.getPath());
+    public ZNodeState state() {
+        return state;
+    }
+    
+    public Stats.ImmutableStat asStat() {
+        int dataLength = state.getData().getDataLength();
+        int numChildren = size();
+        return Stats.ImmutableStat.copyOf(Stats.CompositeStatGetter.of(
+                state.asStatPersisted(), dataLength, numChildren));
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper("")
+                .add("path", path())
+                .add("children", keySet())
+                .add("state", state())
+                .toString();
+    }
+    
+    public static interface Operator<V extends Records.Response> extends Reference<LabelTrie<LabelTrieZNode>>, Processors.CheckedProcessor<TxnOperation.Request<?>, V, KeeperException> {
+    }
+
+    public static abstract class AbstractProcessor<V> implements Processors.CheckedProcessor<TxnOperation.Request<?>, V, KeeperException>, Reference<LabelTrie<LabelTrieZNode>> {
+
+        public static ZNodePath getPath(Records.PathGetter record) {
+            return ZNodePath.validated(record.getPath());
         }
         
-        public static ZNodeStateNode getNode(ZNodeDataTrie trie, ZNodeLabel path) throws KeeperException.NoNodeException {
-            ZNodeStateNode node = trie.get(path);
+        public static LabelTrieZNode getNode(LabelTrie<LabelTrieZNode> trie, ZNodeLabel path) throws KeeperException.NoNodeException {
+            LabelTrieZNode node = trie.get(path);
             if (node == null) {
                 throw new KeeperException.NoNodeException(path.toString());
             }
             return node;
         }
         
-        protected final ZNodeDataTrie trie;
+        protected final LabelTrie<LabelTrieZNode> trie;
         
-        protected AbstractProcessor(ZNodeDataTrie trie) {
+        protected AbstractProcessor(LabelTrie<LabelTrieZNode> trie) {
             this.trie = trie;
         }
         
         @Override
-        public ZNodeDataTrie get() {
+        public LabelTrie<LabelTrieZNode> get() {
             return trie;
         }
     }
     
     public static abstract class AbstractCreate<V> extends AbstractProcessor<V> {
 
-        protected AbstractCreate(ZNodeDataTrie trie) {
+        protected AbstractCreate(LabelTrie<LabelTrieZNode> trie) {
             super(trie);
         }
         
         @Override
         public V apply(TxnOperation.Request<?> request) throws KeeperException {
             Records.CreateModeGetter record = (Records.CreateModeGetter) request.record();
-            ZNodeLabel.Path path = getPath(record);
+            ZNodePath path = getPath(record);
             CreateMode mode = CreateMode.valueOf(record.getFlags());
             if (! mode.contains(CreateFlag.SEQUENTIAL) && get().containsKey(path)) {
                 throw new KeeperException.NodeExistsException(path.toString());
             }
             ZNodeLabel parentPath = path.head();
-            ZNodeStateNode parent = getNode(get(), parentPath);
+            LabelTrieZNode parent = getNode(get(), parentPath);
             if (parent.state().getCreate().isEphemeral()) {
                 throw new KeeperException.NoChildrenForEphemeralsException(parentPath.toString());
             }
@@ -85,14 +128,14 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
                 TxnOperation.Request<?> request,
                 Records.CreateModeGetter record,
                 CreateMode mode,
-                ZNodeStateNode parent,
-                ZNodeLabel.Path path);
+                LabelTrieZNode parent,
+                ZNodePath path);
     }
 
     @Operational(OpCode.DELETE)
     public static abstract class AbstractDelete<V> extends AbstractProcessor<V> {
     
-        protected AbstractDelete(ZNodeDataTrie trie) {
+        protected AbstractDelete(LabelTrie<LabelTrieZNode> trie) {
             super(trie);
         }
     
@@ -100,18 +143,18 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         public V apply(TxnOperation.Request<?> request)
                 throws KeeperException {
             IDeleteRequest record = (IDeleteRequest) request.record();
-            ZNodeLabel.Path path = getPath(record);
+            ZNodePath path = getPath(record);
             if (path.isRoot()) {
                 throw new KeeperException.BadArgumentsException(path.toString());
             }
-            ZNodeStateNode node = getNode(get(), path);
+            LabelTrieZNode node = getNode(get(), path);
             if (node.size() > 0) {
                 throw new KeeperException.NotEmptyException(path.toString());
             }
             if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
                 throw new KeeperException.BadVersionException(path.toString());
             }
-            ZNodeStateNode parent = getNode(get(), path.head());
+            LabelTrieZNode parent = getNode(get(), path.head());
             
             return doDelete(request, record, path, node, parent);
         }
@@ -119,15 +162,15 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         protected abstract V doDelete(
                 TxnOperation.Request<?> request,
                 IDeleteRequest record,
-                ZNodeLabel.Path path,
-                ZNodeStateNode node,
-                ZNodeStateNode parent);
+                ZNodePath path,
+                LabelTrieZNode node,
+                LabelTrieZNode parent);
     }
     
     @Operational(OpCode.SET_DATA)
     public static abstract class AbstractSetData<V> extends AbstractProcessor<V> {
 
-        protected AbstractSetData(ZNodeDataTrie trie) {
+        protected AbstractSetData(LabelTrie<LabelTrieZNode> trie) {
             super(trie);
         }
 
@@ -135,8 +178,8 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         public V apply(TxnOperation.Request<?> request)
                 throws KeeperException {
             ISetDataRequest record = (ISetDataRequest) request.record();
-            ZNodeLabel.Path path = getPath(record);
-            ZNodeStateNode node = getNode(get(), path);
+            ZNodePath path = getPath(record);
+            LabelTrieZNode node = getNode(get(), path);
             if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
                 throw new KeeperException.BadVersionException(path.toString());
             }
@@ -147,19 +190,19 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         protected abstract V doSetData(
                 TxnOperation.Request<?> request,
                 ISetDataRequest record,
-                ZNodeLabel.Path path,
-                ZNodeStateNode node);
+                ZNodePath path,
+                LabelTrieZNode node);
     }
 
     public static abstract class Operators {
         
         private Operators() {}
 
-        public static Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> of(ZNodeDataTrie trie) {
+        public static Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> of(LabelTrie<LabelTrieZNode> trie) {
             return of(trie, Maps.<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>>newEnumMap(OpCode.class));
         }
         
-        public static Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> of(ZNodeDataTrie trie, Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> operators) {
+        public static Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> of(LabelTrie<LabelTrieZNode> trie, Map<OpCode, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException>> operators) {
             for (Class<?> cls: Operators.class.getDeclaredClasses()) {
                 Operational annotation = cls.getAnnotation(Operational.class);
                 if (annotation == null) {
@@ -168,12 +211,18 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
                 if (! Operator.class.isAssignableFrom(cls)) {
                     continue;
                 }
-                Operator<?> operator;
-                try {
-                    operator = (Operator<?>) cls.getConstructor(trie.getClass()).newInstance(trie);
-                } catch (Exception e) {
-                    throw Throwables.propagate(e);
+                Operator<?> operator = null;
+                for (Constructor<?> ctor: cls.getConstructors()) {
+                    if (ctor.getParameterTypes().length == 1) {
+                        try {
+                            operator = (Operator<?>) ctor.newInstance(trie);
+                        } catch (Exception e) {
+                            throw new AssertionError(e);
+                        }
+                        break;
+                    }
                 }
+                assert (operator != null);
                 for (OpCode opcode: annotation.value()) {
                     operators.put(opcode, operator);
                 }
@@ -184,7 +233,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         @Operational(OpCode.CHECK)
         public static class CheckOperator extends AbstractProcessor<ICheckVersionResponse> implements Operator<ICheckVersionResponse> {
         
-            public CheckOperator(ZNodeDataTrie trie) {
+            public CheckOperator(LabelTrie<LabelTrieZNode> trie) {
                 super(trie);
             }
         
@@ -192,8 +241,8 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
             public ICheckVersionResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
                 ICheckVersionRequest record = (ICheckVersionRequest) request.record();
-                ZNodeLabel.Path path = getPath(record);
-                ZNodeStateNode node = getNode(get(), path);
+                ZNodePath path = getPath(record);
+                LabelTrieZNode node = getNode(get(), path);
                 if (! node.state().getData().getStat().compareVersion(record.getVersion())) {
                     throw new KeeperException.BadVersionException(path.toString());
                 }
@@ -204,7 +253,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         @Operational({OpCode.CREATE, OpCode.CREATE2})
         public static class CreateOperator extends AbstractCreate<Records.Response> implements Operator<Records.Response> {
     
-            public CreateOperator(ZNodeDataTrie trie) {
+            public CreateOperator(LabelTrie<LabelTrieZNode> trie) {
                 super(trie);
             }
     
@@ -213,11 +262,11 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
                     TxnOperation.Request<?> request,
                     Records.CreateModeGetter record,
                     CreateMode mode,
-                    ZNodeStateNode parent,
-                    ZNodeLabel.Path path) {
+                    LabelTrieZNode parent,
+                    ZNodePath path) {
                 int cversion = parent.state().getChildren().getAndIncrement(request.zxid());
                 if (mode.contains(CreateFlag.SEQUENTIAL)) {
-                    path = ZNodeLabel.Path.of(Sequenced.toString(path, cversion));
+                    path = ZNodePath.of(Sequential.fromInt(path, cversion).toString());
                 }
                 
                 long ephemeralOwner = mode.contains(CreateFlag.EPHEMERAL) ? request.getSessionId() : Stats.CreateStat.ephemeralOwnerNone();
@@ -228,8 +277,8 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
                 ZNodeAcl acl = ZNodeAcl.initialVersion(Acls.Acl.fromRecordList(record.getAcl()));
                 Stats.ChildrenStat childrenStat = Stats.ChildrenStat.initialVersion(request.zxid());
                 ZNodeState state = ZNodeState.of(createStat, data, acl, childrenStat);
-                ZNodeLabel.Component label = (ZNodeLabel.Component) path.tail();
-                ZNodeStateNode node = ZNodeStateNode.child(label, parent, state);
+                ZNodePathComponent label = (ZNodePathComponent) path.tail();
+                LabelTrieZNode node = LabelTrieZNode.child(label, parent, state);
                 parent.put(label, node);
                 Operations.Responses.Create builder = 
                         Operations.Responses.create().setPath(path);
@@ -243,7 +292,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         @Operational(OpCode.DELETE)
         public static class DeleteOperator extends AbstractDelete<IDeleteResponse> implements Operator<IDeleteResponse> {
     
-            public DeleteOperator(ZNodeDataTrie trie) {
+            public DeleteOperator(LabelTrie<LabelTrieZNode> trie) {
                 super(trie);
             }
     
@@ -251,9 +300,9 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
             protected IDeleteResponse doDelete(
                     TxnOperation.Request<?> request,
                     IDeleteRequest record,
-                    ZNodeLabel.Path path,
-                    ZNodeStateNode node,
-                    ZNodeStateNode parent) {
+                    ZNodePath path,
+                    LabelTrieZNode node,
+                    LabelTrieZNode parent) {
                 get().remove(path);
                 parent.state().getChildren().getAndIncrement(request.zxid());
                 return Operations.Responses.delete().build();
@@ -263,7 +312,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         @Operational(OpCode.EXISTS)
         public static class ExistsOperator extends AbstractProcessor<IExistsResponse> implements Operator<IExistsResponse> {
     
-            public ExistsOperator(ZNodeDataTrie trie) {
+            public ExistsOperator(LabelTrie<LabelTrieZNode> trie) {
                 super(trie);
             }
     
@@ -271,8 +320,8 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
             public IExistsResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
                 IExistsRequest record = (IExistsRequest) request.record();
-                ZNodeLabel.Path path = getPath(record);
-                ZNodeStateNode node = getNode(get(), path);
+                ZNodePath path = getPath(record);
+                LabelTrieZNode node = getNode(get(), path);
                 return Operations.Responses.exists().setStat(node.asStat()).build();
             }
         }
@@ -280,7 +329,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         @Operational(OpCode.GET_DATA)
         public static class GetDataOperator extends AbstractProcessor<IGetDataResponse> implements Operator<IGetDataResponse> {
     
-            public GetDataOperator(ZNodeDataTrie trie) {
+            public GetDataOperator(LabelTrie<LabelTrieZNode> trie) {
                 super(trie);
             }
     
@@ -288,8 +337,8 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
             public IGetDataResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
                 IGetDataRequest record = (IGetDataRequest) request.record();
-                ZNodeLabel.Path path = getPath(record);
-                ZNodeStateNode node = getNode(get(), path);
+                ZNodePath path = getPath(record);
+                LabelTrieZNode node = getNode(get(), path);
                 return Operations.Responses.getData().setData(node.state().getData().getData()).setStat(node.asStat()).build();
             }
         }
@@ -297,7 +346,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         @Operational(OpCode.SET_DATA)
         public static class SetDataOperator extends AbstractSetData<ISetDataResponse> implements Operator<ISetDataResponse> {
     
-            public SetDataOperator(ZNodeDataTrie trie) {
+            public SetDataOperator(LabelTrie<LabelTrieZNode> trie) {
                 super(trie);
             }
     
@@ -305,8 +354,8 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
             protected ISetDataResponse doSetData(
                     TxnOperation.Request<?> request,
                     ISetDataRequest record,
-                    ZNodeLabel.Path path,
-                    ZNodeStateNode node) {
+                    ZNodePath path,
+                    LabelTrieZNode node) {
                 node.state().getData().getStat().getAndIncrement(request.zxid(), request.getTime());
                 byte[] bytes = record.getData();
                 bytes = (bytes == null) ? ZNodeData.emptyBytes() : bytes;
@@ -318,7 +367,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         @Operational(OpCode.GET_ACL)
         public static class GetAclOperator extends AbstractProcessor<IGetACLResponse> implements Operator<IGetACLResponse> {
     
-            public GetAclOperator(ZNodeDataTrie trie) {
+            public GetAclOperator(LabelTrie<LabelTrieZNode> trie) {
                 super(trie);
             }
     
@@ -326,8 +375,8 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
             public IGetACLResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
                 IGetACLRequest record = (IGetACLRequest) request.record();
-                ZNodeLabel.Path path = getPath(record);
-                ZNodeStateNode node = getNode(get(), path);
+                ZNodePath path = getPath(record);
+                LabelTrieZNode node = getNode(get(), path);
                 return Operations.Responses.getAcl().setAcl(node.state().getAcl().getAcl()).setStat(node.asStat()).build();
             }
         }
@@ -335,7 +384,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         @Operational(OpCode.SET_ACL)
         public static class SetAclOperator extends AbstractProcessor<ISetACLResponse> implements Operator<ISetACLResponse> {
     
-            public SetAclOperator(ZNodeDataTrie trie) {
+            public SetAclOperator(LabelTrie<LabelTrieZNode> trie) {
                 super(trie);
             }
     
@@ -343,8 +392,8 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
             public ISetACLResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
                 ISetACLRequest record = (ISetACLRequest) request.record();
-                ZNodeLabel.Path path = getPath(record);
-                ZNodeStateNode node = getNode(get(), path);
+                ZNodePath path = getPath(record);
+                LabelTrieZNode node = getNode(get(), path);
                 if (! node.state().getAcl().compareVersion(record.getVersion())) {
                     throw new KeeperException.BadVersionException(path.toString());
                 }
@@ -357,17 +406,18 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         @Operational({OpCode.GET_CHILDREN, OpCode.GET_CHILDREN2})
         public static class GetChildrenOperator extends AbstractProcessor<Records.Response> implements Operator<Records.Response> {
     
-            public GetChildrenOperator(ZNodeDataTrie trie) {
+            public GetChildrenOperator(LabelTrie<LabelTrieZNode> trie) {
                 super(trie);
             }
     
+            @SuppressWarnings({ "unchecked", "rawtypes" })
             @Override
             public Records.Response apply(TxnOperation.Request<?> request)
                     throws KeeperException {
-                ZNodeLabel.Path path = getPath((Records.PathGetter) request.record());
-                ZNodeStateNode node = getNode(get(), path);
+                ZNodePath path = getPath((Records.PathGetter) request.record());
+                LabelTrieZNode node = getNode(get(), path);
                 Operations.Responses.GetChildren builder = Operations.Responses.getChildren();
-                builder.setChildren(ImmutableList.copyOf(node.keySet()));
+                builder.setChildren(ImmutableList.<ZNodePathComponent>copyOf((Set) node.keySet()));
                 if (OpCode.GET_CHILDREN2 == request.record().opcode()) {
                     builder.setStat(node.asStat());
                 }
@@ -378,7 +428,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         @Operational(OpCode.SYNC)
         public static class SyncOperator extends AbstractProcessor<ISyncResponse> implements Operator<ISyncResponse> {
     
-            public SyncOperator(ZNodeDataTrie trie) {
+            public SyncOperator(LabelTrie<LabelTrieZNode> trie) {
                 super(trie);
             }
     
@@ -386,7 +436,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
             public ISyncResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
                 ISyncRequest record = (ISyncRequest) request.record();
-                ZNodeLabel.Path path = getPath(record);
+                ZNodePath path = getPath(record);
                 getNode(get(), path);
                 return Operations.Responses.sync().setPath(path).build();        
             }
@@ -396,11 +446,11 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
     public static abstract class AbstractUndo implements Processors.UncheckedProcessor<Records.Response, Void> {
 
         protected final TxnOperation.Request<?> request;
-        protected final ZNodeDataTrie trie;
+        protected final LabelTrie<LabelTrieZNode> trie;
         
         protected AbstractUndo(
                 TxnOperation.Request<?> request,
-                ZNodeDataTrie trie) {
+                LabelTrie<LabelTrieZNode> trie) {
             this.request = request;
             this.trie = trie;
         }
@@ -414,16 +464,16 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         public CreateUndo(
                 Stats.ChildrenStat parentStat,
                 TxnOperation.Request<?> request,
-                ZNodeDataTrie trie) {
+                LabelTrie<LabelTrieZNode> trie) {
             super(request, trie);
             this.parentStat = parentStat;
         }
         
         @Override
         public Void apply(Records.Response result) {
-            ZNodeStateNode node = trie.get(((Records.PathGetter) result).getPath());
-            ZNodeStateNode parent = node.parent().get();
-            node.remove();
+            LabelTrieZNode node = trie.get(((Records.PathGetter) result).getPath());
+            LabelTrieZNode parent = node.parent().get();
+            parent.remove(node.parent().label());
             parent.state().setChildren(parentStat);
             return null;
         }
@@ -439,7 +489,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
                 Stats.ChildrenStat parentStat,
                 ZNodeState state,
                 TxnOperation.Request<?> request,
-                ZNodeDataTrie trie) {
+                LabelTrie<LabelTrieZNode> trie) {
             super(request, trie);
             this.parentStat = parentStat;
             this.state = state;
@@ -447,10 +497,10 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
 
         @Override
         public Void apply(Records.Response result) {
-            ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) request.record()).getPath());
-            ZNodeStateNode parent = trie.get(path.head());
-            ZNodeLabel.Component label = (ZNodeLabel.Component) path.tail();
-            ZNodeStateNode node = ZNodeStateNode.child(label, parent, state);
+            ZNodePath path = ZNodePath.of(((Records.PathGetter) request.record()).getPath());
+            LabelTrieZNode parent = trie.get(path.head());
+            ZNodePathComponent label = (ZNodePathComponent) path.tail();
+            LabelTrieZNode node = LabelTrieZNode.child(label, parent, state);
             parent.put(label, node);
             return null;
         }
@@ -464,14 +514,14 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         public SetDataUndo(
                 ZNodeData data,
                 TxnOperation.Request<?> request,
-                ZNodeDataTrie trie) {
+                LabelTrie<LabelTrieZNode> trie) {
             super(request, trie);
             this.data = data;
         }
 
         @Override
         public Void apply(Records.Response result) {
-            ZNodeStateNode node = trie.get(((Records.PathGetter) request.record()).getPath());
+            LabelTrieZNode node = trie.get(((Records.PathGetter) request.record()).getPath());
             node.state().getData().set(data);
             return null;
         }
@@ -480,7 +530,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
     @Operational({OpCode.CREATE, OpCode.CREATE2})
     public static class CreateCopyState extends AbstractCreate<CreateUndo> {
 
-        public CreateCopyState(ZNodeDataTrie trie) {
+        public CreateCopyState(LabelTrie<LabelTrieZNode> trie) {
             super(trie);
         }
 
@@ -489,8 +539,8 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
                 TxnOperation.Request<?> request,
                 Records.CreateModeGetter record,
                 CreateMode mode,
-                ZNodeStateNode parent,
-                ZNodeLabel.Path path) {
+                LabelTrieZNode parent,
+                ZNodePath path) {
             return new CreateUndo(
                     Stats.ChildrenStat.copyOf(parent.state().getChildren()),
                     request,
@@ -501,7 +551,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
     @Operational(OpCode.DELETE)
     public static class DeleteCopyState extends AbstractDelete<DeleteUndo> {
 
-        public DeleteCopyState(ZNodeDataTrie trie) {
+        public DeleteCopyState(LabelTrie<LabelTrieZNode> trie) {
             super(trie);
         }
 
@@ -509,9 +559,9 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         protected DeleteUndo doDelete(
                 TxnOperation.Request<?> request,
                 IDeleteRequest record,
-                ZNodeLabel.Path path,
-                ZNodeStateNode node,
-                ZNodeStateNode parent) {
+                ZNodePath path,
+                LabelTrieZNode node,
+                LabelTrieZNode parent) {
             return new DeleteUndo(
                     Stats.ChildrenStat.copyOf(parent.state().getChildren()),
                     ZNodeState.copyOf(node.state()),
@@ -523,7 +573,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
     @Operational(OpCode.SET_DATA)
     public static class SetDataCopyState extends AbstractSetData<SetDataUndo> {
 
-        public SetDataCopyState(ZNodeDataTrie trie) {
+        public SetDataCopyState(LabelTrie<LabelTrieZNode> trie) {
             super(trie);
         }
 
@@ -531,8 +581,8 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         protected SetDataUndo doSetData(
                 TxnOperation.Request<?> request,
                 ISetDataRequest record,
-                ZNodeLabel.Path path,
-                ZNodeStateNode node) {
+                ZNodePath path,
+                LabelTrieZNode node) {
             return new SetDataUndo(
                     ZNodeData.copyOf(node.state().getData()),
                     request,
@@ -543,11 +593,11 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
     @Operational(OpCode.MULTI)        
     public static class MultiOperator extends AbstractProcessor<IMultiResponse> implements Operator<IMultiResponse> {
 
-        public static MultiOperator of(ZNodeDataTrie trie) {
+        public static MultiOperator of(LabelTrie<LabelTrieZNode> trie) {
             return of(trie, ByOpcodeTxnRequestProcessor.create(ImmutableMap.copyOf(Operators.of(trie))));
         }
         
-        public static MultiOperator of(ZNodeDataTrie trie, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate) {
+        public static MultiOperator of(LabelTrie<LabelTrieZNode> trie, Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate) {
             return new MultiOperator(trie, delegate);
         }
         
@@ -555,7 +605,7 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
         protected final Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate;
         
         protected MultiOperator(
-                ZNodeDataTrie trie,
+                LabelTrie<LabelTrieZNode> trie,
                 Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate) {
             super(trie);
             this.delegate = delegate;
@@ -841,57 +891,5 @@ public class ZNodeDataTrie extends SynchronizedZNodeLabelTrie<ZNodeDataTrie.ZNod
                     .add("acl", getData())
                     .toString();
         }
-    }
-    
-    public static class ZNodeStateNode extends SynchronizedZNodeLabelTrie.SynchronizedNode<ZNodeStateNode> {
-
-        public static ZNodeStateNode root() {
-            return root(ZNodeState.defaults());
-        }
-        
-        public static ZNodeStateNode root(ZNodeState state) {
-            Pointer<ZNodeStateNode> pointer = strongPointer(ZNodeLabel.none(), null);
-            return new ZNodeStateNode(
-                    pointer, 
-                    state);
-        }
-        
-        public static ZNodeStateNode child(ZNodeLabel.Component label, ZNodeStateNode parent, ZNodeState state) {
-            Pointer<ZNodeStateNode> pointer = weakPointer(label, parent);
-            return new ZNodeStateNode(
-                    pointer, 
-                    state);
-        }
-
-        private final ZNodeState state;
-        
-        protected ZNodeStateNode(Pointer<ZNodeStateNode> parent, ZNodeState state) {
-            super(pathOf(parent), parent, Maps.<ZNodeLabel.Component, ZNodeStateNode>newHashMap());
-            this.state = state;
-        }
-
-        public ZNodeState state() {
-            return state;
-        }
-        
-        public synchronized Stats.ImmutableStat asStat() {
-            int dataLength = state.getData().getDataLength();
-            int numChildren = size();
-            return Stats.ImmutableStat.copyOf(Stats.CompositeStatGetter.of(
-                    state.asStatPersisted(), dataLength, numChildren));
-        }
-
-        @Override
-        public synchronized String toString() {
-            return Objects.toStringHelper("")
-                    .add("path", path())
-                    .add("children", keySet())
-                    .add("state", state())
-                    .toString();
-        }
-    }
-    
-    protected ZNodeDataTrie(ZNodeStateNode root) {
-        super(root);
     }
 }

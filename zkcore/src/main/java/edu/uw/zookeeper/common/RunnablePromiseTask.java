@@ -18,7 +18,7 @@ public abstract class RunnablePromiseTask<T,V> extends PromiseTask<T,V> implemen
     public void run() {
         try {
             if (!isDone()) {
-                Optional<V> result = call();
+                Optional<? extends V> result = call();
                 if (result.isPresent()) {
                     set(result.get());
                 }

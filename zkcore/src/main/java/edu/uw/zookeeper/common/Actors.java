@@ -4,7 +4,8 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
-import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.bus.BusRuntime;
+import net.engio.mbassy.bus.PubSubSupport;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -213,6 +214,7 @@ public abstract class Actors {
                     logger);
         }
 
+        protected final BusRuntime runtime;
         protected final PubSubSupport<? super T> publisher;
         
         protected ActorPublisher(
@@ -222,6 +224,7 @@ public abstract class Actors {
                 Logger logger) {
             super(executor, mailbox, logger);
             this.publisher = publisher;
+            this.runtime = new BusRuntime(this);
         }
 
         @Override
@@ -241,6 +244,11 @@ public abstract class Actors {
             return publisher.unsubscribe(listener);
         }
         
+        @Override
+        public BusRuntime getRuntime() {
+            return runtime;
+        }
+
         @Override
         protected boolean apply(T input) {
             publisher.publish(input);

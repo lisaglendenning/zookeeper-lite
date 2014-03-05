@@ -35,8 +35,8 @@ public abstract class Operations {
     }
     
     public static interface PathBuilder<T extends Records.Coded, C extends PathBuilder<T,C>> extends Builder<T> {
-        ZNodeLabel.Path getPath();
-        C setPath(ZNodeLabel.Path path);
+        ZNodePath getPath();
+        C setPath(ZNodePath path);
     }
 
     public static interface DataBuilder<T extends Records.Coded, C extends DataBuilder<T,C>> extends Builder<T> {
@@ -65,26 +65,26 @@ public abstract class Operations {
 
     public static abstract class AbstractPath<T extends Records.Coded, C extends AbstractPath<T,C>> extends AbstractBuilder<T> implements PathBuilder<T,C> {
     
-        protected ZNodeLabel.Path path;
+        protected ZNodePath path;
         
         protected AbstractPath(OpCode opcode) {
             super(opcode);
-            this.path = ZNodeLabel.Path.root();
+            this.path = ZNodePath.root();
         }
     
-        protected AbstractPath(OpCode opcode, ZNodeLabel.Path path) {
+        protected AbstractPath(OpCode opcode, ZNodePath path) {
             super(opcode);
             this.path = path;
         }
     
         @Override
-        public ZNodeLabel.Path getPath() {
+        public ZNodePath getPath() {
             return path;
         }
         
         @Override
         @SuppressWarnings("unchecked")
-        public C setPath(ZNodeLabel.Path path) {
+        public C setPath(ZNodePath path) {
             this.path = checkNotNull(path);
             return (C) this;
         }
@@ -111,7 +111,7 @@ public abstract class Operations {
                 this.watch = false;
             }
 
-            protected AbstractWatch(OpCode opcode, ZNodeLabel.Path path, boolean watch) {
+            protected AbstractWatch(OpCode opcode, ZNodePath path, boolean watch) {
                 super(opcode, path);
                 this.watch = watch;
             }
@@ -138,7 +138,7 @@ public abstract class Operations {
                 this.version = Stats.VERSION_ANY;
             }
 
-            protected AbstractVersion(OpCode opcode, ZNodeLabel.Path path, int version) {
+            protected AbstractVersion(OpCode opcode, ZNodePath path, int version) {
                 super(opcode, path);
                 this.version = version;
             }
@@ -164,7 +164,7 @@ public abstract class Operations {
                 this.data = new byte[0];
             }
 
-            protected AbstractData(OpCode opcode, ZNodeLabel.Path path, byte[] data) {
+            protected AbstractData(OpCode opcode, ZNodePath path, byte[] data) {
                 super(opcode, path);
                 this.data = data;
             }
@@ -185,7 +185,7 @@ public abstract class Operations {
         public static class Check extends AbstractVersion<ICheckVersionRequest, Check> {
 
             public static Check fromRecord(ICheckVersionRequest request) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                ZNodePath path = ZNodePath.of(request.getPath());
                 int version = request.getVersion();
                 return new Check(path, version);
             }
@@ -194,7 +194,7 @@ public abstract class Operations {
                 super(OpCode.CHECK);
             }
 
-            public Check(ZNodeLabel.Path path, int version) {
+            public Check(ZNodePath path, int version) {
                 super(OpCode.DELETE, path, version);
             }
 
@@ -275,7 +275,7 @@ public abstract class Operations {
             public static Create fromRecord(Records.Request request) {
                 Records.CreateModeGetter record = (Records.CreateModeGetter) request;
                 OpCode opcode = request.opcode();
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(record.getPath());
+                ZNodePath path = ZNodePath.of(record.getPath());
                 byte[] data = record.getData();
                 CreateMode mode = CreateMode.valueOf(record.getFlags());
                 List<Acls.Acl> acl = Acls.Acl.fromRecordList(record.getAcl());
@@ -291,7 +291,7 @@ public abstract class Operations {
                 this.acl = Acls.Definition.ANYONE_ALL.asList();
             }
 
-            public Create(OpCode opcode, ZNodeLabel.Path path, byte[] data, CreateMode mode, List<Acls.Acl> acl) {
+            public Create(OpCode opcode, ZNodePath path, byte[] data, CreateMode mode, List<Acls.Acl> acl) {
                 super(opcode, path, data);
                 this.mode = mode;
                 this.acl = acl;
@@ -343,7 +343,7 @@ public abstract class Operations {
         public static class Delete extends AbstractVersion<IDeleteRequest, Delete> {
 
             public static Delete fromRecord(IDeleteRequest request) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                ZNodePath path = ZNodePath.of(request.getPath());
                 int version = request.getVersion();
                 return new Delete(path, version);
             }
@@ -352,7 +352,7 @@ public abstract class Operations {
                 super(OpCode.DELETE);
             }
 
-            public Delete(ZNodeLabel.Path path, int version) {
+            public Delete(ZNodePath path, int version) {
                 super(OpCode.DELETE, path, version);
             }
             
@@ -389,7 +389,7 @@ public abstract class Operations {
         public static class Exists extends AbstractWatch<IExistsRequest, Exists> {
 
             public static Exists fromRecord(IExistsRequest request) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                ZNodePath path = ZNodePath.of(request.getPath());
                 boolean watch = request.getWatch();
                 return new Exists(path, watch);
             }
@@ -398,7 +398,7 @@ public abstract class Operations {
                 super(OpCode.EXISTS);
             }
             
-            public Exists(ZNodeLabel.Path path, boolean watch) {
+            public Exists(ZNodePath path, boolean watch) {
                 super(OpCode.EXISTS, path, watch);
             }
 
@@ -413,7 +413,7 @@ public abstract class Operations {
         public static class GetAcl extends AbstractPath<IGetACLRequest, GetAcl> {
 
             public static GetAcl fromRecord(IGetACLRequest request) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                ZNodePath path = ZNodePath.of(request.getPath());
                 return new GetAcl(path);
             }
             
@@ -421,7 +421,7 @@ public abstract class Operations {
                 super(OpCode.GET_ACL);
             }
 
-            public GetAcl(ZNodeLabel.Path path) {
+            public GetAcl(ZNodePath path) {
                 super(OpCode.GET_ACL, path);
             }
 
@@ -435,7 +435,7 @@ public abstract class Operations {
 
             public static GetChildren fromRecord(Records.Request request) {
                 OpCode opcode = request.opcode();
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter)request).getPath());
+                ZNodePath path = ZNodePath.of(((Records.PathGetter)request).getPath());
                 boolean watch = ((Records.WatchGetter)request).getWatch();
                 return new GetChildren(opcode, path, watch);
             }
@@ -444,7 +444,7 @@ public abstract class Operations {
                 super(OpCode.GET_CHILDREN);
             }
 
-            public GetChildren(OpCode opcode, ZNodeLabel.Path path, boolean watch) {
+            public GetChildren(OpCode opcode, ZNodePath path, boolean watch) {
                 super(opcode, path, watch);
             }
             
@@ -469,7 +469,7 @@ public abstract class Operations {
         public static class GetData extends AbstractWatch<IGetDataRequest, GetData> {
 
             public static GetData fromRecord(IGetDataRequest request) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                ZNodePath path = ZNodePath.of(request.getPath());
                 boolean watch = request.getWatch();
                 return new GetData(path, watch);
             }
@@ -478,7 +478,7 @@ public abstract class Operations {
                 super(OpCode.GET_DATA);
             }
 
-            public GetData(ZNodeLabel.Path path, boolean watch) {
+            public GetData(ZNodePath path, boolean watch) {
                 super(OpCode.GET_DATA, path, watch);
             }
 
@@ -552,7 +552,7 @@ public abstract class Operations {
         public static class SetAcl extends AbstractVersion<ISetACLRequest, SetAcl> {
 
             public static SetAcl fromRecord(ISetACLRequest request) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                ZNodePath path = ZNodePath.of(request.getPath());
                 int version = request.getVersion();
                 List<Acls.Acl> acl = Acls.Acl.fromRecordList(request.getAcl());
                 return new SetAcl(path, version, acl);
@@ -565,7 +565,7 @@ public abstract class Operations {
                 this.acl = Acls.Definition.ANYONE_ALL.asList();
             }
 
-            public SetAcl(ZNodeLabel.Path path, int version, List<Acls.Acl> acl) {
+            public SetAcl(ZNodePath path, int version, List<Acls.Acl> acl) {
                 super(OpCode.SET_ACL, path, version);
                 this.acl = acl;
             }
@@ -590,7 +590,7 @@ public abstract class Operations {
         public static class SetData extends AbstractData<ISetDataRequest, SetData> implements VersionBuilder<ISetDataRequest, SetData> {
 
             public static SetData fromRecord(ISetDataRequest request) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                ZNodePath path = ZNodePath.of(request.getPath());
                 byte[] data = request.getData();
                 int version = request.getVersion();
                 return new SetData(path, data, version);
@@ -603,7 +603,7 @@ public abstract class Operations {
                 this.version = -1;
             }
 
-            public SetData(ZNodeLabel.Path path, byte[] data, int version) {
+            public SetData(ZNodePath path, byte[] data, int version) {
                 super(OpCode.SET_DATA, path, data);
                 this.version = version;
             }
@@ -628,7 +628,7 @@ public abstract class Operations {
         public static class Sync extends AbstractPath<ISyncRequest, Sync> {
 
             public static Sync fromRecord(ISyncRequest request) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(request.getPath());
+                ZNodePath path = ZNodePath.of(request.getPath());
                 return new Sync(path);
             }
             
@@ -636,7 +636,7 @@ public abstract class Operations {
                 super(OpCode.SYNC);
             }
 
-            public Sync(ZNodeLabel.Path path) {
+            public Sync(ZNodePath path) {
                 super(OpCode.SYNC, path);
             }
 
@@ -688,12 +688,12 @@ public abstract class Operations {
             }
 
             @Override
-            public ZNodeLabel.Path getPath() {
+            public ZNodePath getPath() {
                 return delegate().getPath();
             }
 
             @Override
-            public SerializedData<T,C,V> setPath(edu.uw.zookeeper.data.ZNodeLabel.Path path) {
+            public SerializedData<T,C,V> setPath(edu.uw.zookeeper.data.ZNodePath path) {
                 delegate().setPath(path);
                 return this;
             }
@@ -946,7 +946,7 @@ public abstract class Operations {
 
             public static Create fromRecord(Records.Response record) {
                 OpCode opcode = record.opcode();
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(((Records.PathGetter) record).getPath());
+                ZNodePath path = ZNodePath.of(((Records.PathGetter) record).getPath());
                 Stat stat = null;
                 if (record instanceof Records.StatGetter) {
                     stat = ((Records.StatGetter) record).getStat();
@@ -954,25 +954,25 @@ public abstract class Operations {
                 return new Create(opcode, stat, path);
             }
             
-            protected ZNodeLabel.Path path;
+            protected ZNodePath path;
             
             public Create() {
                 super(OpCode.CREATE);
-                this.path = ZNodeLabel.Path.root();
+                this.path = ZNodePath.root();
             }
             
-            public Create(OpCode opcode, Stat stat, ZNodeLabel.Path path) {
+            public Create(OpCode opcode, Stat stat, ZNodePath path) {
                 super(opcode, stat);
                 this.path = path;
             }
             
             @Override
-            public ZNodeLabel.Path getPath() {
+            public ZNodePath getPath() {
                 return path;
             }
 
             @Override
-            public Create setPath(ZNodeLabel.Path path) {
+            public Create setPath(ZNodePath path) {
                 this.path = path;
                 return this;
             }
@@ -1134,21 +1134,21 @@ public abstract class Operations {
                     stat = ((Records.StatGetter) record).getStat();
                 }
                 List<String> childrenStr = ((Records.ChildrenGetter) record).getChildren();
-                List<ZNodeLabel.Component> children = Lists.newArrayListWithCapacity(childrenStr.size());
+                List<ZNodePathComponent> children = Lists.newArrayListWithCapacity(childrenStr.size());
                 for (String e: childrenStr) {
-                    children.add(ZNodeLabel.Component.of(e));
+                    children.add(ZNodePathComponent.of(e));
                 }
                 return new GetChildren(opcode, stat, children);
             }
             
-            protected Iterable<ZNodeLabel.Component> children;
+            protected Iterable<ZNodePathComponent> children;
             
             public GetChildren() {
                 super(OpCode.GET_CHILDREN);
                 this.children = ImmutableList.of();
             }
 
-            public GetChildren(OpCode opcode, Stat stat, Iterable<ZNodeLabel.Component> children) {
+            public GetChildren(OpCode opcode, Stat stat, Iterable<ZNodePathComponent> children) {
                 super(opcode, stat);
                 this.children = children;
             }
@@ -1160,11 +1160,11 @@ public abstract class Operations {
                 return this;
             }
             
-            public Iterable<ZNodeLabel.Component> getChildren() {
+            public Iterable<ZNodePathComponent> getChildren() {
                 return children;
             }
             
-            public GetChildren setChildren(Iterable<ZNodeLabel.Component> children) {
+            public GetChildren setChildren(Iterable<ZNodePathComponent> children) {
                 this.children = children;
                 return this;
             }
@@ -1279,7 +1279,7 @@ public abstract class Operations {
 
             public static Notification fromRecord(IWatcherEvent record) {
                 return new Notification(
-                        ZNodeLabel.Path.of(record.getPath()),
+                        ZNodePath.of(record.getPath()),
                         EventType.fromInt(record.getType()),
                         KeeperState.fromInt(record.getState()));
             }
@@ -1294,7 +1294,7 @@ public abstract class Operations {
             }
 
             public Notification(
-                    ZNodeLabel.Path path,
+                    ZNodePath path,
                     EventType eventType,
                     KeeperState keeperState) {
                 super(OpCode.NOTIFICATION, path);
@@ -1374,7 +1374,7 @@ public abstract class Operations {
         public static class Sync extends AbstractPath<ISyncResponse, Sync> {
 
             public static Sync fromRecord(ISyncResponse record) {
-                ZNodeLabel.Path path = ZNodeLabel.Path.of(record.getPath());
+                ZNodePath path = ZNodePath.of(record.getPath());
                 return new Sync(path);
             }
             
@@ -1382,7 +1382,7 @@ public abstract class Operations {
                 super(OpCode.SYNC);
             }
 
-            public Sync(ZNodeLabel.Path path) {
+            public Sync(ZNodePath path) {
                 super(OpCode.SYNC, path);
             }
 
