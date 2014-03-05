@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.client;
+package edu.uw.zookeeper.data;
 
 
 import static com.google.common.base.Preconditions.*;
@@ -23,13 +23,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
-import edu.uw.zookeeper.data.DefaultsLabelTrieNode;
 import edu.uw.zookeeper.data.SimpleLabelTrie;
 import edu.uw.zookeeper.data.ZNodePath;
-import edu.uw.zookeeper.data.StampedReference;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.data.LabelTrie;
 import edu.uw.zookeeper.data.ZNodePathComponent;

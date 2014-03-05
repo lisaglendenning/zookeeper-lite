@@ -25,6 +25,7 @@ import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.ZNodePath;
+import edu.uw.zookeeper.data.ZNodePath.AbsoluteZNodePath;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
@@ -56,10 +57,10 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
     @Override
     public void invoke(final Invocation<Command> input)
             throws Exception {
-        ZNodePath root = (ZNodePath) input.getArguments()[1];
+        AbsoluteZNodePath root = (AbsoluteZNodePath) input.getArguments()[1];
         ClientExecutor<? super Records.Request, ?, ?> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getConnectionClientExecutor();
         final ListenableFuture<DeleteRoot> future = Futures.transform(
-                TreeFetcher.<Set<ZNodePath>>builder().setClient(client).setResult(new ComputeLeaves()).setRoot(root).build(), new DeleteRoot(client, root));
+                TreeFetcher.<Set<AbsoluteZNodePath>>builder().setClient(client).setResult(new ComputeLeaves()).setRoot(root).build(), new DeleteRoot(client, root));
         Futures.addCallback(future, new FutureCallback<DeleteRoot>(){
             @Override
             public void onSuccess(DeleteRoot result) {
@@ -101,23 +102,23 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
         }
     }
 
-    protected static class ComputeLeaves implements Processor<Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<Set<ZNodePath>>> {
+    protected static class ComputeLeaves implements Processor<Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<Set<AbsoluteZNodePath>>> {
 
-        protected final Set<ZNodePath> leaves;
+        protected final Set<AbsoluteZNodePath> leaves;
         
         public ComputeLeaves() {
             this.leaves = Sets.newHashSet();
         }
         
         @Override
-        public synchronized Optional<Set<ZNodePath>> apply(
+        public synchronized Optional<Set<AbsoluteZNodePath>> apply(
                 Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>> input)
                 throws Exception {
             if (input.isPresent()) {
                 Records.Response response = input.get().second().get().record();
                 if (response instanceof Records.ChildrenGetter) {
                     if (((Records.ChildrenGetter) response).getChildren().isEmpty()) {
-                        leaves.add(ZNodePath.of(((Records.PathGetter) input.get().first()).getPath()));
+                        leaves.add((AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) input.get().first()).getPath()));
                     }
                 }
                 return Optional.absent();
@@ -127,18 +128,18 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
         }
     }
     
-    protected static class DeleteRoot implements AsyncFunction<Optional<Set<ZNodePath>>, DeleteRoot> {
+    protected static class DeleteRoot implements AsyncFunction<Optional<Set<AbsoluteZNodePath>>, DeleteRoot> {
 
         protected final ClientExecutor<? super Records.Request, ?, ?> client;
-        protected final ZNodePath root;
+        protected final AbsoluteZNodePath root;
         
-        public DeleteRoot(ClientExecutor<? super Records.Request, ?, ?> client, ZNodePath root) {
+        public DeleteRoot(ClientExecutor<? super Records.Request, ?, ?> client, AbsoluteZNodePath root) {
             this.client = client;
             this.root = root;
         }
 
         @Override
-        public ListenableFuture<DeleteRoot> apply(Optional<Set<ZNodePath>> result) {
+        public ListenableFuture<DeleteRoot> apply(Optional<Set<AbsoluteZNodePath>> result) {
             if (result.isPresent()) {
                 DeleteLeaves task = new DeleteLeaves(result.get(), SettableFuturePromise.<DeleteRoot>create());
                 task.run();
@@ -149,9 +150,9 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
             }
         }
             
-        protected class DeleteLeaves extends PromiseTask<Set<ZNodePath>, DeleteRoot> implements FutureCallback<ZNodePath> {
+        protected class DeleteLeaves extends PromiseTask<Set<AbsoluteZNodePath>, DeleteRoot> implements FutureCallback<AbsoluteZNodePath> {
             
-            public DeleteLeaves(Set<ZNodePath> task, Promise<DeleteRoot> promise) {
+            public DeleteLeaves(Set<AbsoluteZNodePath> task, Promise<DeleteRoot> promise) {
                 super(task, promise);
             }
             
@@ -159,7 +160,7 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
                 if (task().isEmpty()) {
                     set(DeleteRoot.this);
                 } else {
-                    for (ZNodePath p: ImmutableSet.copyOf(task())) {
+                    for (AbsoluteZNodePath p: ImmutableSet.copyOf(task())) {
                         DeleteLeaf operation = new DeleteLeaf(p);
                         operation.run();
                     }
@@ -167,9 +168,9 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
             }
 
             @Override
-            public synchronized void onSuccess(ZNodePath leaf) {
+            public synchronized void onSuccess(AbsoluteZNodePath leaf) {
                 task().remove(leaf);
-                ZNodePath parent = (ZNodePath) leaf.head();
+                AbsoluteZNodePath parent = (AbsoluteZNodePath) leaf.head();
                 if (parent.startsWith(root)) {
                     boolean empty = true;
                     for (ZNodePath p: task()) {
@@ -196,9 +197,9 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
 
             protected class DeleteLeaf implements FutureCallback<Operation.ProtocolResponse<?>> {
                 
-                protected final ZNodePath leaf;
+                protected final AbsoluteZNodePath leaf;
                 
-                public DeleteLeaf(ZNodePath leaf) {
+                public DeleteLeaf(AbsoluteZNodePath leaf) {
                     this.leaf = leaf;
                 }
                 

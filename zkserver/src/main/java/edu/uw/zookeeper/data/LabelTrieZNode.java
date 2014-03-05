@@ -19,6 +19,7 @@ import com.google.common.collect.Maps;
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.ZNodeLabel;
+import edu.uw.zookeeper.data.ZNodePath.AbsoluteZNodePath;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.SessionRequest;
@@ -77,8 +78,8 @@ public class LabelTrieZNode extends SimpleLabelTrie.SimpleNode<LabelTrieZNode> {
 
     public static abstract class AbstractProcessor<V> implements Processors.CheckedProcessor<TxnOperation.Request<?>, V, KeeperException>, Reference<LabelTrie<LabelTrieZNode>> {
 
-        public static ZNodePath getPath(Records.PathGetter record) {
-            return ZNodePath.validated(record.getPath());
+        public static AbsoluteZNodePath getPath(Records.PathGetter record) {
+            return (AbsoluteZNodePath) ZNodePath.validated(record.getPath());
         }
         
         public static LabelTrieZNode getNode(LabelTrie<LabelTrieZNode> trie, ZNodeLabel path) throws KeeperException.NoNodeException {
@@ -110,7 +111,7 @@ public class LabelTrieZNode extends SimpleLabelTrie.SimpleNode<LabelTrieZNode> {
         @Override
         public V apply(TxnOperation.Request<?> request) throws KeeperException {
             Records.CreateModeGetter record = (Records.CreateModeGetter) request.record();
-            ZNodePath path = getPath(record);
+            AbsoluteZNodePath path = getPath(record);
             CreateMode mode = CreateMode.valueOf(record.getFlags());
             if (! mode.contains(CreateFlag.SEQUENTIAL) && get().containsKey(path)) {
                 throw new KeeperException.NodeExistsException(path.toString());
@@ -129,7 +130,7 @@ public class LabelTrieZNode extends SimpleLabelTrie.SimpleNode<LabelTrieZNode> {
                 Records.CreateModeGetter record,
                 CreateMode mode,
                 LabelTrieZNode parent,
-                ZNodePath path);
+                AbsoluteZNodePath path);
     }
 
     @Operational(OpCode.DELETE)
@@ -263,10 +264,10 @@ public class LabelTrieZNode extends SimpleLabelTrie.SimpleNode<LabelTrieZNode> {
                     Records.CreateModeGetter record,
                     CreateMode mode,
                     LabelTrieZNode parent,
-                    ZNodePath path) {
+                    AbsoluteZNodePath path) {
                 int cversion = parent.state().getChildren().getAndIncrement(request.zxid());
                 if (mode.contains(CreateFlag.SEQUENTIAL)) {
-                    path = ZNodePath.of(Sequential.fromInt(path, cversion).toString());
+                    path = (AbsoluteZNodePath) ZNodePath.of(Sequential.fromInt(path, cversion).toString());
                 }
                 
                 long ephemeralOwner = mode.contains(CreateFlag.EPHEMERAL) ? request.getSessionId() : Stats.CreateStat.ephemeralOwnerNone();
@@ -436,7 +437,7 @@ public class LabelTrieZNode extends SimpleLabelTrie.SimpleNode<LabelTrieZNode> {
             public ISyncResponse apply(TxnOperation.Request<?> request)
                     throws KeeperException {
                 ISyncRequest record = (ISyncRequest) request.record();
-                ZNodePath path = getPath(record);
+                AbsoluteZNodePath path = getPath(record);
                 getNode(get(), path);
                 return Operations.Responses.sync().setPath(path).build();        
             }
@@ -540,7 +541,7 @@ public class LabelTrieZNode extends SimpleLabelTrie.SimpleNode<LabelTrieZNode> {
                 Records.CreateModeGetter record,
                 CreateMode mode,
                 LabelTrieZNode parent,
-                ZNodePath path) {
+                AbsoluteZNodePath path) {
             return new CreateUndo(
                     Stats.ChildrenStat.copyOf(parent.state().getChildren()),
                     request,
