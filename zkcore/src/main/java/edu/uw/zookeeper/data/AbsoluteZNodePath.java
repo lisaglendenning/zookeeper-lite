@@ -27,8 +27,12 @@ public final class AbsoluteZNodePath extends ZNodePath {
     public ZNodePath parent() {
         // TODO: memoize?
         int lastSlash = toString().lastIndexOf(SLASH);
-        String parent = toString().substring(0, lastSlash);
-        return ZNodePath.fromString(parent);
+        if (lastSlash == 0) {
+            return RootZNodePath.getInstance();
+        } else {
+            String parent = toString().substring(0, lastSlash);
+            return ZNodePath.fromString(parent);
+        }
     }
 
     @Override

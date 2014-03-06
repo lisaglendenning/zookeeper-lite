@@ -16,7 +16,7 @@ public final class RelativeZNodePath extends ZNodeLabelVector {
 
     public static <T extends CharSequence> T validate(T path, int start, int end) {
         if (start < end) {
-            int lastSlash = -1;
+            int lastSlash = start-1;
             for (int i=start; i<end; ++i) {
                 char c = path.charAt(i);
                 if ((c == SLASH) || (i == end - 1)) {
@@ -49,9 +49,11 @@ public final class RelativeZNodePath extends ZNodeLabelVector {
                     }
                 }
             }
-            if (lastSlash < 0) {
+            if (lastSlash < start) {
                 throw new IllegalArgumentException(String.format("No slash in index range [%d,%d) for %s", start, end, path));
             }
+        } else {
+            throw new IllegalArgumentException(String.format("Empty index range [%d,%d) for %s", start, end, path));
         }
         return path;
     }

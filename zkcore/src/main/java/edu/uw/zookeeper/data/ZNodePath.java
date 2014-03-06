@@ -19,7 +19,18 @@ public abstract class ZNodePath extends ZNodeLabelVector {
             if (path.charAt(start) != SLASH) {
                 throw new IllegalArgumentException(String.format("Missing slash at index %d for %s", start, path));
             }
-            return RelativeZNodePath.validate(path, start+1, end);
+            if ((start + 1) < end) {
+                int j = start+1;
+                while (j<end && (path.charAt(j) != SLASH)) {
+                    j++;
+                }
+                if (j < end) {
+                    RelativeZNodePath.validate(path, start+1, end);
+                } else {
+                    ZNodeLabel.validate(path, start+1, end);
+                }
+            }
+            return path;
         } else {
             throw new IllegalArgumentException(String.format("Empty index range [%d,%d) for %s", start, end, path));
         }
