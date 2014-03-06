@@ -12,7 +12,6 @@ import com.google.common.collect.Sets;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons;
 import edu.uw.zookeeper.common.Eventful;
-import edu.uw.zookeeper.data.ZNodePath.AbsoluteZNodePath;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.SessionListener;
@@ -22,27 +21,27 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
 
     public static class WatchMatcher {
 
-        public static WatchMatcher exact(AbsoluteZNodePath path, Watcher.Event.EventType first, Watcher.Event.EventType...rest) {
+        public static WatchMatcher exact(ZNodePath path, Watcher.Event.EventType first, Watcher.Event.EventType...rest) {
             return exact(path, EnumSet.of(first, rest));
         }
 
-        public static WatchMatcher exact(AbsoluteZNodePath path, Watcher.Event.EventType first) {
+        public static WatchMatcher exact(ZNodePath path, Watcher.Event.EventType first) {
             return exact(path, EnumSet.of(first));
         }
 
-        public static WatchMatcher exact(AbsoluteZNodePath path, EnumSet<Watcher.Event.EventType> eventType) {
+        public static WatchMatcher exact(ZNodePath path, EnumSet<Watcher.Event.EventType> eventType) {
             return new WatchMatcher(path, PathMatchType.EXACT, eventType);
         }
 
-        public static WatchMatcher prefix(AbsoluteZNodePath path, Watcher.Event.EventType first) {
+        public static WatchMatcher prefix(ZNodePath path, Watcher.Event.EventType first) {
             return prefix(path, EnumSet.of(first));
         }
 
-        public static WatchMatcher prefix(AbsoluteZNodePath path, Watcher.Event.EventType first, Watcher.Event.EventType...rest) {
+        public static WatchMatcher prefix(ZNodePath path, Watcher.Event.EventType first, Watcher.Event.EventType...rest) {
             return prefix(path, EnumSet.of(first, rest));
         }
 
-        public static WatchMatcher prefix(AbsoluteZNodePath path, EnumSet<Watcher.Event.EventType> eventType) {
+        public static WatchMatcher prefix(ZNodePath path, EnumSet<Watcher.Event.EventType> eventType) {
             return new WatchMatcher(path, PathMatchType.PREFIX, eventType);
         }
         
@@ -50,12 +49,12 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
             EXACT, PREFIX;
         }
         
-        private final AbsoluteZNodePath path;
+        private final ZNodePath path;
         private final PathMatchType pathType;
         private final EnumSet<Watcher.Event.EventType> eventType;
         
         public WatchMatcher(
-                AbsoluteZNodePath path, 
+                ZNodePath path, 
                 PathMatchType pathType,
                 EnumSet<Watcher.Event.EventType> eventType) {
             super();
@@ -64,7 +63,7 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
             this.eventType = eventType;
         }
 
-        public AbsoluteZNodePath getPath() {
+        public ZNodePath getPath() {
             return path;
         }
 
@@ -90,11 +89,11 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
                 WatchListenerNode.root());
     }
     
-    protected final LabelTrie<WatchListenerNode> watchers;
+    protected final NameTrie<WatchListenerNode> watchers;
     
     protected WatchListeners(
             WatchListenerNode root) {
-        this.watchers = SimpleLabelTrie.forRoot(root);
+        this.watchers = SimpleNameTrie.forRoot(root);
     }
     
     @Override
@@ -111,7 +110,7 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
             while ((node != null) && node.listeners().isEmpty() && node.isEmpty()) {
                 WatchListenerNode parent = node.parent().get();
                 if (parent != null) {
-                    parent.remove(node.parent().label());
+                    parent.remove(node.parent().name());
                 }
                 node = parent;
             }
@@ -124,7 +123,7 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
     @Override
     public synchronized void handleNotification(Operation.ProtocolResponse<IWatcherEvent> message) {
         WatchEvent event = WatchEvent.fromRecord((IWatcherEvent) message.record());
-        for (WatchListenerNode node = SimpleLabelTrie.longestPrefix(watchers, event.getPath());
+        for (WatchListenerNode node = SimpleNameTrie.longestPrefix(watchers, event.getPath());
                 (node != null); node = node.parent().get()) {
             node.handleWatchEvent(event);
         }
@@ -160,17 +159,17 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
     public static class WatchListenerNode extends DefaultsLabelTrieNode.AbstractDefaultsNode<WatchListenerNode> implements Eventful<WatchListeners.WatchMatchListener>, WatchListener {
     
         public static WatchListenerNode root() {
-            LabelTrie.Pointer<WatchListenerNode> pointer = SimpleLabelTrie.<WatchListenerNode>rootPointer();
+            NameTrie.Pointer<WatchListenerNode> pointer = SimpleNameTrie.<WatchListenerNode>rootPointer();
             return new WatchListenerNode(pointer);
         }
 
         protected final Set<WatchMatchListener> listeners;
         
         protected WatchListenerNode(
-                LabelTrie.Pointer<WatchListenerNode> parent) {
-            super(SimpleLabelTrie.pathOf(parent), 
+                NameTrie.Pointer<WatchListenerNode> parent) {
+            super(SimpleNameTrie.pathOf(parent), 
                     parent, 
-                    Maps.<ZNodeLabel, WatchListenerNode>newHashMap());
+                    Maps.<ZNodeName, WatchListenerNode>newHashMap());
             this.listeners = Sets.newHashSet();
         }
 
@@ -207,8 +206,8 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
         }
 
         @Override
-        protected WatchListenerNode newChild(ZNodeLabel label) {
-            LabelTrie.Pointer<WatchListenerNode> pointer = SimpleLabelTrie.weakPointer(label, this);
+        protected WatchListenerNode newChild(ZNodeName label) {
+            NameTrie.Pointer<WatchListenerNode> pointer = SimpleNameTrie.weakPointer(label, this);
             return new WatchListenerNode(pointer);
         }
     }

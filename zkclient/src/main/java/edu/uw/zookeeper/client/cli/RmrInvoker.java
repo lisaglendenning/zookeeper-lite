@@ -23,9 +23,9 @@ import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
+import edu.uw.zookeeper.data.AbsoluteZNodePath;
 import edu.uw.zookeeper.data.Operations;
-import edu.uw.zookeeper.data.ZNodePath;
-import edu.uw.zookeeper.data.ZNodePath.AbsoluteZNodePath;
+import edu.uw.zookeeper.data.ZNodeLabelVector;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
@@ -118,7 +118,7 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
                 Records.Response response = input.get().second().get().record();
                 if (response instanceof Records.ChildrenGetter) {
                     if (((Records.ChildrenGetter) response).getChildren().isEmpty()) {
-                        leaves.add((AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) input.get().first()).getPath()));
+                        leaves.add(AbsoluteZNodePath.fromString(((Records.PathGetter) input.get().first()).getPath()));
                     }
                 }
                 return Optional.absent();
@@ -170,10 +170,10 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
             @Override
             public synchronized void onSuccess(AbsoluteZNodePath leaf) {
                 task().remove(leaf);
-                AbsoluteZNodePath parent = (AbsoluteZNodePath) leaf.head();
+                AbsoluteZNodePath parent = (AbsoluteZNodePath) ((AbsoluteZNodePath) leaf).parent();
                 if (parent.startsWith(root)) {
                     boolean empty = true;
-                    for (ZNodePath p: task()) {
+                    for (ZNodeLabelVector p: task()) {
                         if (p.startsWith(parent)) {
                             empty = false;
                             break;

@@ -21,49 +21,48 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.UnmodifiableIterator;
 
 import edu.uw.zookeeper.common.AbstractPair;
-import edu.uw.zookeeper.data.ZNodePath.AbsoluteZNodePath;
 
 
-public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E> {
+public class SimpleNameTrie<E extends NameTrie.Node<E>> implements NameTrie<E> {
     
-    public static <E extends Node<E>> SimpleLabelTrie<E> forRoot(E root) {
-        return new SimpleLabelTrie<E>(root);
+    public static <E extends Node<E>> SimpleNameTrie<E> forRoot(E root) {
+        return new SimpleNameTrie<E>(root);
     }
     
-    public static ZNodeLabel toLabel(Object obj) {
-        ZNodeLabel label;
-        if (obj instanceof ZNodeLabel) {
-            label = (ZNodeLabel) obj;
+    public static ZNodeName toName(Object obj) {
+        ZNodeName name;
+        if (obj instanceof ZNodeName) {
+            name = (ZNodeName) obj;
         } else if (obj == null) {
-            label = ZNodeLabel.none();
+            name = RootZNodeLabel.getInstance();
         } else {
-            label = ZNodeLabel.of(obj.toString());
+            name = ZNodeName.fromString(obj.toString());
         }
-        return label;
+        return name;
     }
     
     public static <E extends Node<E>> ParentIterator<E> parentIterator(Pointer<? extends E> child) {
         return ParentIterator.from(child);
     }
 
-    public static <E extends Node<E>> AbsoluteZNodePath pathOf(Pointer<? extends E> pointer) {
+    public static <E extends Node<E>> ZNodePath pathOf(Pointer<? extends E> pointer) {
         E parent = pointer.get();
         if (parent == null) {
-            return ZNodePath.root();
+            return RootZNodePath.getInstance();
         } else {
-            return (AbsoluteZNodePath) ZNodePath.joined(parent.path(), pointer.label());
+            return parent.path().join(pointer.name());
         }
     }
 
     public static <E extends Node<E>> StrongPointer<E> rootPointer() {
-        return StrongPointer.from(ZNodeLabel.none(), null);
+        return StrongPointer.from(RootZNodeLabel.getInstance(), null);
     }
     
-    public static <E extends Node<E>> StrongPointer<E> strongPointer(ZNodeLabel label, E node) {
+    public static <E extends Node<E>> StrongPointer<E> strongPointer(ZNodeName label, E node) {
         return StrongPointer.from(label, node);
     }
     
-    public static <E extends Node<E>> WeakPointer<E> weakPointer(ZNodeLabel label, E node) {
+    public static <E extends Node<E>> WeakPointer<E> weakPointer(ZNodeName label, E node) {
         return WeakPointer.from(label, node);
     }
 
@@ -75,8 +74,8 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
         return new BreadthFirstTraversal<E>(node);
     }
     
-    public static <E extends Node<E>> E longestPrefix(LabelTrie<E> trie, AbsoluteZNodePath path) {
-        Iterator<ZNodePathComponent> remaining = path.iterator();
+    public static <E extends Node<E>> E longestPrefix(NameTrie<E> trie, ZNodePath path) {
+        Iterator<ZNodeLabel> remaining = path.iterator();
         E node = trie.root();
         while (remaining.hasNext()) {
             E next = node.get(remaining.next());
@@ -92,7 +91,7 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
     public static class ParentIterator<E extends Node<E>> extends UnmodifiableIterator<Pointer<? extends E>> {
     
         public static <E extends Node<E>> ParentIterator<E> from(Pointer<? extends E> child) {
-            return new ParentIterator<E>(StrongPointer.from(child.label(), child.get()));
+            return new ParentIterator<E>(StrongPointer.from(child.name(), child.get()));
         }
     
         protected Pointer<? extends E> next;
@@ -112,22 +111,22 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
                 throw new NoSuchElementException();
             }
             Pointer<? extends E> last = next;
-            next = StrongPointer.from(last.get().parent().label(), last.get().parent().get());
+            next = StrongPointer.from(last.get().parent().name(), last.get().parent().get());
             return last;
         }
     }
 
-    public static class StrongPointer<E extends Node<E>> extends AbstractPair<ZNodeLabel, E> implements Pointer<E> {
+    public static class StrongPointer<E extends Node<E>> extends AbstractPair<ZNodeName, E> implements Pointer<E> {
 
-        public static <E extends Node<E>> StrongPointer<E> from(ZNodeLabel label, E node) {
+        public static <E extends Node<E>> StrongPointer<E> from(ZNodeName label, E node) {
             return new StrongPointer<E>(label, node);
         }
         
-        public StrongPointer(ZNodeLabel label, E node) {
+        public StrongPointer(ZNodeName label, E node) {
             super(label, node);
         }
         
-        public ZNodeLabel label() {
+        public ZNodeName name() {
             return first;
         }
         
@@ -138,22 +137,22 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
         @Override
         public String toString() {
             return Objects.toStringHelper(this)
-                    .addValue(label())
+                    .addValue(name())
                     .toString();
         }
     }
 
-    public static class WeakPointer<E extends Node<E>> extends AbstractPair<ZNodeLabel, WeakReference<E>> implements Pointer<E> {
+    public static class WeakPointer<E extends Node<E>> extends AbstractPair<ZNodeName, WeakReference<E>> implements Pointer<E> {
 
-        public static <E extends Node<E>> WeakPointer<E> from(ZNodeLabel label, E node) {
+        public static <E extends Node<E>> WeakPointer<E> from(ZNodeName label, E node) {
             return new WeakPointer<E>(label, node);
         }
         
-        public WeakPointer(ZNodeLabel label, E node) {
+        public WeakPointer(ZNodeName label, E node) {
             super(label, new WeakReference<E>(node));
         }
         
-        public ZNodeLabel label() {
+        public ZNodeName name() {
             return first;
         }
         
@@ -164,7 +163,7 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
         @Override
         public String toString() {
             return Objects.toStringHelper(this)
-                    .addValue(label())
+                    .addValue(name())
                     .toString();
         }
     }
@@ -262,23 +261,23 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
         }
     }
 
-    public static abstract class SimpleNode<E extends SimpleNode<E>> extends ForwardingMap<ZNodeLabel, E> implements Node<E> {
+    public static abstract class SimpleNode<E extends SimpleNode<E>> extends ForwardingMap<ZNodeName, E> implements Node<E> {
         
         private final Pointer<? extends E> parent;
-        private final Map<ZNodeLabel, E> children;
-        private final AbsoluteZNodePath path;
+        private final Map<ZNodeName, E> children;
+        private final ZNodePath path;
         
         protected SimpleNode(
-                AbsoluteZNodePath path,
+                ZNodePath path,
                 Pointer<? extends E> parent,
-                Map<ZNodeLabel, E> children) {
+                Map<ZNodeName, E> children) {
             this.parent = parent;
             this.children = children;
             this.path = path;
         }
 
         @Override
-        public AbsoluteZNodePath path() {
+        public ZNodePath path() {
             return path;
         }
 
@@ -289,17 +288,17 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
         
         @Override
         public boolean containsKey(Object key) {
-            return children.containsKey(toLabel(key));
+            return children.containsKey(toName(key));
         }
 
         @Override
         public E get(Object k) {
-            return children.get(toLabel(k));
+            return children.get(toName(k));
         }
 
         @Override
         public E remove(Object k) {
-            return children.remove(toLabel(k));
+            return children.remove(toName(k));
         }
         
         @Override
@@ -311,14 +310,14 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
         }
 
         @Override
-        protected Map<ZNodeLabel, E> delegate() {
+        protected Map<ZNodeName, E> delegate() {
             return children;
         }
     }
     
     private final E root;
     
-    protected SimpleLabelTrie(E root) {
+    protected SimpleNameTrie(E root) {
         this.root = root;
     }
     
@@ -345,22 +344,22 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
     }
 
     @Override
-    public Set<Map.Entry<AbsoluteZNodePath, E>> entrySet() {
-        ImmutableSet.Builder<Map.Entry<AbsoluteZNodePath, E>> entries = ImmutableSet.builder();
+    public Set<Map.Entry<ZNodePath, E>> entrySet() {
+        ImmutableSet.Builder<Map.Entry<ZNodePath, E>> entries = ImmutableSet.builder();
         for (E e: this) {
-            entries.add(new AbstractMap.SimpleImmutableEntry<AbsoluteZNodePath, E>(e.path(), e));
+            entries.add(new AbstractMap.SimpleImmutableEntry<ZNodePath, E>(e.path(), e));
         }
         return entries.build();
     }
 
     @Override
     public E get(Object k) {
-        ZNodeLabel label = toLabel(k);
-        Iterator<ZNodePathComponent> remaining;
-        if (label instanceof ZNodePath) { 
-            remaining = ((ZNodePath) label).iterator();
+        ZNodeName name = toName(k);
+        Iterator<? extends AbstractZNodeLabel> remaining;
+        if (name instanceof ZNodeLabelVector) { 
+            remaining = ((ZNodeLabelVector) name).iterator();
         } else {
-            remaining = Iterators.singletonIterator((ZNodePathComponent) label);
+            remaining = Iterators.singletonIterator((AbstractZNodeLabel) name);
         }
         E node = root();
         while ((node != null) && remaining.hasNext()) {
@@ -375,8 +374,8 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
     }
 
     @Override
-    public Set<AbsoluteZNodePath> keySet() {
-        ImmutableSet.Builder<AbsoluteZNodePath> keys = ImmutableSet.builder();
+    public Set<ZNodePath> keySet() {
+        ImmutableSet.Builder<ZNodePath> keys = ImmutableSet.builder();
         for (E e: this) {
             keys.add(e.path());
         }
@@ -384,18 +383,18 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
     }
 
     @Override
-    public E put(AbsoluteZNodePath k, E v) {
-        E parent = get(k.head());
+    public E put(ZNodePath k, E v) {
+        E parent = get(((AbsoluteZNodePath) k).parent());
         if (parent == null) {
             throw new IllegalStateException(k.toString());
         } else {
-            return parent.put(v.parent().label(), v);
+            return parent.put(v.parent().name(), v);
         }
     }
 
     @Override
-    public void putAll(Map<? extends AbsoluteZNodePath, ? extends E> m) {
-        for (Map.Entry<? extends AbsoluteZNodePath, ? extends E> e: m.entrySet()) {
+    public void putAll(Map<? extends ZNodePath, ? extends E> m) {
+        for (Map.Entry<? extends ZNodePath, ? extends E> e: m.entrySet()) {
             put(e.getKey(), e.getValue());
         }
     }
@@ -406,7 +405,7 @@ public class SimpleLabelTrie<E extends LabelTrie.Node<E>> implements LabelTrie<E
         if (node != null) {
             E parent = node.parent().get();
             if (parent != null) {
-                return parent.remove(node.parent().label());
+                return parent.remove(node.parent().name());
             } else {
                 checkState(!node.path().isRoot());
                 return node;

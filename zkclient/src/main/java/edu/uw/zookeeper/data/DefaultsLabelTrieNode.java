@@ -3,17 +3,15 @@ package edu.uw.zookeeper.data;
 import java.util.Iterator;
 import java.util.Map;
 
-import edu.uw.zookeeper.data.ZNodePath.AbsoluteZNodePath;
 
-
-public interface DefaultsLabelTrieNode<E extends DefaultsLabelTrieNode<E>> extends LabelTrie.Node<E> {
+public interface DefaultsLabelTrieNode<E extends DefaultsLabelTrieNode<E>> extends NameTrie.Node<E> {
     
-    E putIfAbsent(ZNodeLabel label);
+    E putIfAbsent(ZNodeName label);
 
-    public static abstract class AbstractDefaultsNode<E extends AbstractDefaultsNode<E>> extends SimpleLabelTrie.SimpleNode<E> implements DefaultsLabelTrieNode<E> {
+    public static abstract class AbstractDefaultsNode<E extends AbstractDefaultsNode<E>> extends SimpleNameTrie.SimpleNode<E> implements DefaultsLabelTrieNode<E> {
 
-        public static <E extends DefaultsLabelTrieNode<E>> E putIfAbsent(LabelTrie<E> trie, AbsoluteZNodePath path) {
-            Iterator<ZNodePathComponent> remaining = path.iterator();
+        public static <E extends DefaultsLabelTrieNode<E>> E putIfAbsent(NameTrie<E> trie, ZNodePath path) {
+            Iterator<ZNodeLabel> remaining = path.iterator();
             E node = trie.root();
             while (remaining.hasNext()) {
                 node = node.putIfAbsent(remaining.next());
@@ -22,14 +20,14 @@ public interface DefaultsLabelTrieNode<E extends DefaultsLabelTrieNode<E>> exten
         }
         
         protected AbstractDefaultsNode(
-                AbsoluteZNodePath path,
-                LabelTrie.Pointer<? extends E> parent,
-                Map<ZNodeLabel, E> children) {
+                ZNodePath path,
+                NameTrie.Pointer<? extends E> parent,
+                Map<ZNodeName, E> children) {
             super(path, parent, children);
         }
         
         @Override
-        public E putIfAbsent(ZNodeLabel label) {
+        public E putIfAbsent(ZNodeName label) {
             E child;
             if (delegate().containsKey(label)) {
                 child = delegate().get(label);
@@ -40,6 +38,6 @@ public interface DefaultsLabelTrieNode<E extends DefaultsLabelTrieNode<E>> exten
             return child;
         }
 
-        protected abstract E newChild(ZNodeLabel label);
+        protected abstract E newChild(ZNodeName label);
     }
 }

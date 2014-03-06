@@ -134,17 +134,17 @@ public class ZNodeSchema {
         public static class ZNodeTraversal extends AbstractIterator<ZNodeTraversal.Element> {
 
             public static class Element {
-                private final ZNodePath path;
+                private final ZNodeLabelVector path;
                 private final ZNodeSchema.Builder builder;
                 private final Object element;
                 
-                public Element(ZNodePath path, ZNodeSchema.Builder builder, Object element) {
+                public Element(ZNodeLabelVector path, ZNodeSchema.Builder builder, Object element) {
                     this.path = path;
                     this.builder = builder;
                     this.element = element;
                 }
 
-                public ZNodePath getPath() {
+                public ZNodeLabelVector getPath() {
                     return path;
                 }
 
@@ -163,7 +163,7 @@ public class ZNodeSchema {
                 this.pending = Lists.newLinkedList();
                 ZNodeSchema.Builder builder = fromClass(root);
                 if (builder != null) {
-                    pending.add(new Element(ZNodePath.root(), builder, root));
+                    pending.add(new Element(RootZNodePath.getInstance(), builder, root));
                 }
             }
 
@@ -171,10 +171,10 @@ public class ZNodeSchema {
             protected ZNodeTraversal.Element computeNext() {
                 if (! pending.isEmpty()) {
                     ZNodeTraversal.Element next = pending.pop();
-                    ZNodePath path = next.path;
+                    ZNodeLabelVector path = next.path;
                     ZNodeSchema.Builder parent = next.builder;
                     if (parent.getLabel().length() > 0) {
-                        path = (ZNodePath) ZNodePath.joined(path, parent.getLabel());
+                        path = path.join(ZNodeLabel.fromString(parent.getLabel()));
                     }
                     
                     Object obj = parent.getType();

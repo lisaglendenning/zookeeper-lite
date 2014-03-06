@@ -22,10 +22,11 @@ import com.google.common.util.concurrent.AbstractExecutionThreadService;
 
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.data.Operations;
+import edu.uw.zookeeper.data.AbsoluteZNodePath;
 import edu.uw.zookeeper.data.ZNodePath;
-import edu.uw.zookeeper.data.ZNodeLabel;
-import edu.uw.zookeeper.data.ZNodePath.AbsoluteZNodePath;
+import edu.uw.zookeeper.data.Operations;
+import edu.uw.zookeeper.data.ZNodeLabelVector;
+import edu.uw.zookeeper.data.ZNodeName;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.Records;
@@ -172,22 +173,22 @@ public class DispatchingInvoker extends AbstractExecutionThreadService implement
             case PATH:
             {
                 ClientExecutor<Operation.Request, ? extends Message.ServerResponse<?>, ?> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getConnectionClientExecutor();
-                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.canonicalized(ZNodePath.join(shell.getEnvironment().get(ShellInvoker.CWD_KEY).toString(), token));
+                ZNodePath path = ZNodePath.canonicalized(ZNodeLabelVector.join(shell.getEnvironment().get(ShellInvoker.CWD_KEY).toString(), token));
                 try {
                     Operations.Requests.GetChildren request = Operations.Requests.getChildren();
-                    if (token.isEmpty() || token.endsWith(Character.toString(ZNodeLabel.SLASH))) {
+                    if (token.isEmpty() || token.endsWith(Character.toString(ZNodeName.SLASH))) {
                         request.setPath(path);
                     } else {
-                        request.setPath((AbsoluteZNodePath) path.head());
+                        request.setPath(((AbsoluteZNodePath) path).parent());
                     }
                     Message.ServerResponse<?> response = client.submit(request.build()).get();
                     logger.trace("{} {} {}", path, token, response);
                     if (response.record() instanceof Records.ChildrenGetter) {
-                        if (token.isEmpty() || token.endsWith(Character.toString(ZNodeLabel.SLASH))) {
+                        if (token.isEmpty() || token.endsWith(Character.toString(ZNodeName.SLASH))) {
                             ret = cursor;
                             builder.addAll(((Records.ChildrenGetter) response.record()).getChildren());
                         } else {
-                            int lastSlash = token.lastIndexOf(ZNodeLabel.SLASH);
+                            int lastSlash = token.lastIndexOf(ZNodeName.SLASH);
                             String prefix;
                             if (lastSlash >= 0) {
                                 ret += lastSlash + 1;

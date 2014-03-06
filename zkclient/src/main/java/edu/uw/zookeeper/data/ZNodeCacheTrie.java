@@ -27,12 +27,11 @@ import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
-import edu.uw.zookeeper.data.SimpleLabelTrie;
-import edu.uw.zookeeper.data.ZNodePath;
+import edu.uw.zookeeper.data.SimpleNameTrie;
+import edu.uw.zookeeper.data.ZNodeLabelVector;
+import edu.uw.zookeeper.data.ZNodeName;
+import edu.uw.zookeeper.data.NameTrie;
 import edu.uw.zookeeper.data.ZNodeLabel;
-import edu.uw.zookeeper.data.LabelTrie;
-import edu.uw.zookeeper.data.ZNodePathComponent;
-import edu.uw.zookeeper.data.ZNodePath.AbsoluteZNodePath;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.SessionListener;
@@ -48,7 +47,7 @@ import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
  * Only caches the results of operations submitted through this wrapper.
  */
 public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> 
-        extends SimpleLabelTrie<E> implements ClientExecutor<I, V, ZNodeCacheTrie.CacheSessionListener<? super E>> {
+        extends SimpleNameTrie<E> implements ClientExecutor<I, V, ZNodeCacheTrie.CacheSessionListener<? super E>> {
 
     public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeCacheTrie<SimpleCachedNode,I,V> newInstance(
             ClientExecutor<I,V,SessionListener> client) {
@@ -150,8 +149,8 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
         protected final Map<Object, StampedReference.Updater<?>> cache;
 
         protected AbstractCachedNode(
-                LabelTrie.Pointer<? extends E> parent) {
-            super(pathOf(parent), parent, Maps.<ZNodeLabel, E>newHashMap());
+                NameTrie.Pointer<? extends E> parent) {
+            super(pathOf(parent), parent, Maps.<ZNodeName, E>newHashMap());
             this.stamp = -1L;
             this.cache = Maps.newHashMap();
         }
@@ -210,16 +209,16 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
     public static class SimpleCachedNode extends AbstractCachedNode<SimpleCachedNode> {
 
         public static SimpleCachedNode root() {
-            return new SimpleCachedNode(SimpleLabelTrie.<SimpleCachedNode>rootPointer());
+            return new SimpleCachedNode(SimpleNameTrie.<SimpleCachedNode>rootPointer());
         }
 
         protected SimpleCachedNode(
-                LabelTrie.Pointer<? extends SimpleCachedNode> parent) {
+                NameTrie.Pointer<? extends SimpleCachedNode> parent) {
             super(parent);
         }
         
         @Override
-        protected SimpleCachedNode newChild(ZNodeLabel label) {
+        protected SimpleCachedNode newChild(ZNodeName label) {
             Pointer<SimpleCachedNode> pointer = weakPointer(label, this);
             return new SimpleCachedNode(pointer);
         }
@@ -316,12 +315,12 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             switch (((Operation.Error) response).error()) {
             case NONODE:
             {
-                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
+                ZNodePath path = ZNodePath.fromString(((Records.PathGetter) request).getPath());
                 switch (request.opcode()) {
                 case CREATE:
                 case CREATE2:
                 {
-                    path = (AbsoluteZNodePath) path.head();
+                    path = ((AbsoluteZNodePath) path).parent();
                 }
                 case CHECK:
                 case DELETE:
@@ -343,7 +342,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             }
             case NODEEXISTS:
             {
-                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
                 add(path, zxid);    
                 break;
             }
@@ -355,14 +354,14 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             case CREATE:
             case CREATE2:
             {
-                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) response).getPath());
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) response).getPath());
                 add(path, zxid);
                 update(path, zxid, ImmutableList.of(request, response));
                 break;
             }
             case DELETE:
             {
-                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
                 remove(path, zxid);
                 break;
             }
@@ -371,7 +370,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             case GET_ACL:
             case SET_ACL:
             {
-                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
                 add(path, zxid);
                 update(path, zxid, ImmutableList.of(response));
                 break;
@@ -379,23 +378,23 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             case GET_CHILDREN:
             case GET_CHILDREN2:        
             {
-                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
                 List<String> children = ((Records.ChildrenGetter) response).getChildren();
                 E node = add(path, zxid);
-                for (Map.Entry<ZNodeLabel, E> entry: node.entrySet()) {
+                for (Map.Entry<ZNodeName, E> entry: node.entrySet()) {
                     if (! children.contains(entry.getKey().toString())) {
                         remove(entry.getValue().path(), zxid);
                     }
                 }
                 for (String child: children) {
-                    add((AbsoluteZNodePath) ZNodePath.joined(path, child), zxid);
+                    add(path.join(ZNodeLabel.fromString(child)), zxid);
                 }
                 update(path, zxid, ImmutableList.of(response));
                 break;
             }
             case GET_DATA:
             {
-                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
                 update(path, zxid, ImmutableList.of(response));
                 break;
             }
@@ -414,7 +413,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
             }
             case SET_DATA:
             {
-                AbsoluteZNodePath path = (AbsoluteZNodePath) ZNodePath.of(((Records.PathGetter) request).getPath());
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
                 update(path, zxid, ImmutableList.of(response));
                 break;
             }
@@ -424,7 +423,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
         }
     }
 
-    protected <T> void update(AbsoluteZNodePath path, long stamp, Iterable<? extends Record> records) {
+    protected <T> void update(ZNodePath path, long stamp, Iterable<? extends Record> records) {
         ImmutableList.Builder<UpdateVisitor<?>> visitors = ImmutableList.builder();
         for (Record record: records) {
             if (record instanceof Records.StatGetter) {
@@ -439,8 +438,8 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
         visitor.apply(node);
     }
 
-    protected E add(AbsoluteZNodePath path, long stamp) {
-        Iterator<ZNodePathComponent> remaining = path.iterator();
+    protected E add(ZNodePath path, long stamp) {
+        Iterator<ZNodeLabel> remaining = path.iterator();
         E node = root();
         while (remaining.hasNext()) {
             if (node.touch(stamp) < 0L) {
@@ -451,10 +450,10 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
         return node;
     }
 
-    protected E remove(AbsoluteZNodePath path, long stamp) {
+    protected E remove(ZNodePath path, long stamp) {
         E node = get(path);
         if ((node != null) && (node.stamp() <= stamp)) {
-            node.parent().get().remove(node.parent().label());
+            node.parent().get().remove(node.parent().name());
             node.touch(stamp);
             handleCacheUpdate(NodeRemovedCacheEvent.of(node));
             return node;

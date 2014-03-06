@@ -22,9 +22,9 @@ import com.google.common.util.concurrent.Service;
 import edu.uw.zookeeper.client.ConnectionClientExecutorService;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.data.ZNodePath;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.WatchEvent;
-import edu.uw.zookeeper.data.ZNodePath.AbsoluteZNodePath;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.ProtocolState;
@@ -326,45 +326,45 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
             }
             case CREATE:
                 return Operations.Requests.create()
-                        .setPath((AbsoluteZNodePath) input.getArguments()[1])
+                        .setPath((ZNodePath) input.getArguments()[1])
                         .setData(((String) input.getArguments()[2]).getBytes())
                         .setMode(((CreateModeArgument) input.getArguments()[3]).value())
                         .setStat(((BooleanArgument) input.getArguments()[4]).booleanValue())
                         .build();
             case EXISTS:
                 return Operations.Requests.exists()
-                        .setPath((AbsoluteZNodePath) input.getArguments()[1])
+                        .setPath((ZNodePath) input.getArguments()[1])
                         .setWatch(((BooleanArgument) input.getArguments()[2]).booleanValue())
                         .build();
             case GETACL:
                 return Operations.Requests.getAcl()
-                        .setPath((AbsoluteZNodePath) input.getArguments()[1])
+                        .setPath((ZNodePath) input.getArguments()[1])
                         .build();
             case GET:
                 return Operations.Requests.getData()
-                        .setPath((AbsoluteZNodePath) input.getArguments()[1])
+                        .setPath((ZNodePath) input.getArguments()[1])
                         .setWatch(((BooleanArgument) input.getArguments()[2]).booleanValue())
                         .build();
             case LS:
                 return Operations.Requests.getChildren()
-                        .setPath((AbsoluteZNodePath) input.getArguments()[1])
+                        .setPath((ZNodePath) input.getArguments()[1])
                         .setWatch(((BooleanArgument) input.getArguments()[2]).booleanValue())
                         .setStat(((BooleanArgument) input.getArguments()[3]).booleanValue())
                         .build();
             case RM:
                 return Operations.Requests.delete()
-                        .setPath((AbsoluteZNodePath) input.getArguments()[1])
+                        .setPath((ZNodePath) input.getArguments()[1])
                         .setVersion((Integer) input.getArguments()[2])
                         .build();
             case SET:
                 return Operations.Requests.setData()
-                        .setPath((AbsoluteZNodePath) input.getArguments()[1])
+                        .setPath((ZNodePath) input.getArguments()[1])
                         .setData(((String) input.getArguments()[2]).getBytes())
                         .setVersion((Integer) input.getArguments()[3])
                         .build();
             case SYNC:
                 return Operations.Requests.sync()
-                        .setPath((AbsoluteZNodePath) input.getArguments()[1])
+                        .setPath((ZNodePath) input.getArguments()[1])
                         .build();
             default:
                 throw new IllegalArgumentException(String.valueOf(input.getCommand()));

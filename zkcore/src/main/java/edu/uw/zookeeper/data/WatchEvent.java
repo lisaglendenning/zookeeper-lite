@@ -6,7 +6,6 @@ import org.apache.zookeeper.Watcher.Event.KeeperState;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.data.ZNodePath.AbsoluteZNodePath;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
@@ -19,18 +18,18 @@ public class WatchEvent {
         return of(
                 EventType.fromInt(record.getType()), 
                 KeeperState.fromInt(record.getState()), 
-                (AbsoluteZNodePath) ZNodePath.of(record.getPath()));
+                (ZNodePath) ZNodeLabelVector.fromString(record.getPath()));
     }
     
-    public static WatchEvent of(EventType eventType, KeeperState keeperState, AbsoluteZNodePath path) {
+    public static WatchEvent of(EventType eventType, KeeperState keeperState, ZNodePath path) {
         return new WatchEvent(eventType, keeperState, path);
     }
     
-    private final AbsoluteZNodePath path;
+    private final ZNodePath path;
     private final KeeperState keeperState;
     private final EventType eventType;
     
-    public WatchEvent(EventType eventType, KeeperState keeperState, AbsoluteZNodePath path) {
+    public WatchEvent(EventType eventType, KeeperState keeperState, ZNodePath path) {
         this.keeperState = keeperState;
         this.eventType = eventType;
         this.path = path;
@@ -44,7 +43,7 @@ public class WatchEvent {
         return eventType;
     }
     
-    public AbsoluteZNodePath getPath() {
+    public ZNodePath getPath() {
         return path;
     }
 

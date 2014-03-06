@@ -1,112 +1,104 @@
 package edu.uw.zookeeper.data;
 
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkArgument;
+
+import com.google.common.base.CharMatcher;
+
 import edu.uw.zookeeper.common.Reference;
 
-public abstract class ZNodeLabel implements CharSequence, Comparable<ZNodeLabel> {
-
-    public static final char SLASH = '/';
+public final class ZNodeLabel extends AbstractZNodeLabel {
     
-    @Serializes(from=String.class, to=ZNodeLabel.class)
-    public static ZNodeLabel of(String label) {
-        if (label.length() == 0) {
-            return None.getInstance();
-        } else if (label.indexOf(SLASH) >= 0) {
-            return ZNodePath.of(label);
-        } else {
-            return ZNodePathComponent.of(label);
+    /**
+     * @param label to be validated
+     * @return label
+     */
+    public static <T extends CharSequence> T validate(T label) {
+        return validate(label, 0, label.length());
+    }
+    
+    public static <T extends CharSequence> T validate(T label, int start, int end) {
+        checkArgument(start < end, "empty label");
+        for (int i=start; i<end; ++i) {
+            char c = label.charAt(i);
+            if (c == SLASH) {
+                throw new IllegalArgumentException(String.format("Slash at index %d of %s", i, label));
+            } else if (ILLEGAL_CHARACTERS.matches(c)) {
+                throw new IllegalArgumentException(String.format("Illegal character at index %d of %s", i, label));
+            }
         }
-    }
-    
-    public static None none() {
-        return None.getInstance();
-    }
-
-    private final String label;
-
-    protected ZNodeLabel(String label) {
-        this.label = checkNotNull(label);
-    }
-    
-    public boolean isNone() {
-        return (label.length() > 0);
-    }
-    
-    public boolean startsWith(ZNodeLabel prefix) {
-        return label.equals(prefix.label);
-    }
-
-    @Override
-    public int length() {
-        return label.length();
-    }
-
-    @Override
-    public char charAt(int arg0) {
-        return label.charAt(arg0);
-    }
-
-    @Override
-    public CharSequence subSequence(int arg0, int arg1) {
-        return label.subSequence(arg0, arg1);
-    }
-
-    @Override
-    public int compareTo(ZNodeLabel other) {
-        return label.compareTo(other.label);
-    }
-
-    @Serializes(from=ZNodeLabel.class, to=String.class)
-    @Override
-    public String toString() {
         return label;
     }
 
+    public static ZNodeLabel validated(String label) {
+        return fromString(validate(label));
+    }
+
+    public static ZNodeLabel validated(String label, int start, int end) {
+        return fromString(validate(label, start, end));
+    }
+    
+    @Serializes(from=String.class, to=ZNodeLabel.class)
+    public static ZNodeLabel fromString(String label) {
+        assert(! label.isEmpty());
+        return new ZNodeLabel(label);
+    }
+    
+    public static ZNodeLabel zookeeper() {
+        return Reserved.ZOOKEEPER.get();
+    }
+
+    public static ZNodeLabel self() {
+        return Reserved.SELF.get();
+    }
+
+    public static ZNodeLabel parent() {
+        return Reserved.PARENT.get();
+    }
+
+    private ZNodeLabel(String label) {
+        super(label);
+    }
+    
     @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (! (obj instanceof ZNodeLabel)) {
+    public boolean isRoot() {
+        return false;
+    }
+    
+    public boolean isReserved() {
+        return Reserved.contains(this);
+    }
+    
+    // illegal unicode values
+    private static final CharMatcher ILLEGAL_CHARACTERS = 
+            CharMatcher.inRange('\u0000', '\u001f')
+                .and(CharMatcher.inRange('\u007f', '\u009F'))
+                .and(CharMatcher.inRange('\ud800', '\uf8ff'))
+                .and(CharMatcher.inRange('\ufff0', '\uffff'))
+                .precomputed();
+
+    public static enum Reserved implements Reference<ZNodeLabel> {
+        ZOOKEEPER(ZNodeLabel.fromString("zookeeper")), 
+        SELF(ZNodeLabel.fromString(".")),
+        PARENT(ZNodeLabel.fromString(".."));
+        
+        public static boolean contains(ZNodeLabel c) {
+            for (ZNodeLabel.Reserved e: values()) {
+                if (e.get().equals(c)) {
+                    return true;
+                }
+            }
             return false;
         }
-        ZNodeLabel other = (ZNodeLabel) obj;
-        return label.equals(other.label);
-    }
-
-    @Override
-    public int hashCode() {
-        return label.hashCode();
-    }
-
-    public static final class None extends ZNodeLabel {
-    
-        public static None getInstance() {
-            return Reserved.NONE.get();
+        
+        private final ZNodeLabel value;
+        
+        private Reserved(ZNodeLabel value) {
+            this.value = value;
         }
         
-        private None() {
-            super("");
-        }
-    
         @Override
-        public boolean isNone() {
-            return true;
-        }
-    
-        protected static enum Reserved implements Reference<None> {
-            NONE(new None());
-    
-            private final None instance;
-            
-            private Reserved(None instance) {
-                this.instance = instance;
-            }
-            
-            @Override
-            public None get() {
-                return instance;
-            }
+        public ZNodeLabel get() {
+            return value;
         }
     }
 }
