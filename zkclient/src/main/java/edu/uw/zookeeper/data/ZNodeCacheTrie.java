@@ -132,7 +132,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
     public static interface CacheSessionListener<E extends CachedNode<E>> extends CacheListener<E>, SessionListener {
     }
     
-    public static interface CachedNode<E extends CachedNode<E>> extends DefaultsLabelTrieNode<E> {
+    public static interface CachedNode<E extends CachedNode<E>> extends DefaultsNode<E> {
 
         long stamp();
         
@@ -143,7 +143,7 @@ public class ZNodeCacheTrie<E extends ZNodeCacheTrie.CachedNode<E>, I extends Op
         <T> StampedReference<T> updateCached(Object type, StampedReference<T> value);
     }
     
-    public static abstract class AbstractCachedNode<E extends AbstractCachedNode<E>> extends DefaultsLabelTrieNode.AbstractDefaultsNode<E> implements CachedNode<E> {
+    public static abstract class AbstractCachedNode<E extends AbstractCachedNode<E>> extends DefaultsNode.AbstractDefaultsNode<E> implements CachedNode<E> {
 
         protected long stamp;
         protected final Map<Object, StampedReference.Updater<?>> cache;

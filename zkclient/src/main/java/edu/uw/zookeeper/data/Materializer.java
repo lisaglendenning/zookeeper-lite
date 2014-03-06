@@ -29,7 +29,7 @@ import edu.uw.zookeeper.protocol.proto.Records;
 public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNodeCacheTrie<Materializer.MaterializedNode, Records.Request, V> {
 
     public static <T extends Operation.ProtocolRequest<Records.Request>, V extends Operation.ProtocolResponse<?>> Materializer<V> newInstance(
-            NameTrie<LabelTrieSchema> schema, 
+            NameTrie<SchemaNode> schema, 
             Serializers.ByteCodec<Object> codec, 
             ClientExecutor<? super Records.Request, V, SessionListener> client) {
         return new Materializer<V>(schema, codec, client, new StrongConcurrentSet<CacheSessionListener<? super MaterializedNode>>(), MaterializedNode.root(schema));
@@ -40,13 +40,13 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
         return client.submit(request);
     }
     
-    protected final NameTrie<LabelTrieSchema> schema;
+    protected final NameTrie<SchemaNode> schema;
     protected final Serializers.ByteCodec<Object> codec;
     protected final Operator operator;
     protected final MaterializeVisitor materializer;
     
     protected Materializer(
-            NameTrie<LabelTrieSchema> schema, 
+            NameTrie<SchemaNode> schema, 
             Serializers.ByteCodec<Object> codec, 
             ClientExecutor<? super Records.Request, V, SessionListener> client,
             IConcurrentSet<CacheSessionListener<? super MaterializedNode>> listeners,
@@ -58,7 +58,7 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
         this.materializer = new MaterializeVisitor();
     }
     
-    public NameTrie<LabelTrieSchema> schema() {
+    public NameTrie<SchemaNode> schema() {
         return schema;
     }
     
@@ -82,20 +82,20 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
 
     public static class MaterializedNode extends ZNodeCacheTrie.AbstractCachedNode<MaterializedNode> {
     
-        public static MaterializedNode root(NameTrie<LabelTrieSchema> schema) {
+        public static MaterializedNode root(NameTrie<SchemaNode> schema) {
             return new MaterializedNode(SimpleNameTrie.<MaterializedNode>rootPointer(), schema.root());
         }
         
-        protected final LabelTrieSchema schema;
+        protected final SchemaNode schema;
         
         protected MaterializedNode(
                 NameTrie.Pointer<? extends MaterializedNode> parent, 
-                LabelTrieSchema schema) {
+                SchemaNode schema) {
             super(parent);
             this.schema = schema;
         }
         
-        public LabelTrieSchema schema() {
+        public SchemaNode schema() {
             return schema;
         }
         
@@ -106,7 +106,7 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
         @Override
         protected MaterializedNode newChild(ZNodeName label) {
             NameTrie.Pointer<MaterializedNode> pointer = SimpleNameTrie.weakPointer(label, this);
-            LabelTrieSchema node = (schema != null) ? LabelTrieSchema.match(schema, label) : null;
+            SchemaNode node = (schema != null) ? SchemaNode.match(schema, label) : null;
             return new MaterializedNode(pointer, node);
         }
         
@@ -138,7 +138,7 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
         @Override
         public Optional<? extends StampedReference<?>> apply(@Nullable MaterializedNode node) {
             if (node != null) {
-                LabelTrieSchema schemaNode = node.schema();
+                SchemaNode schemaNode = node.schema();
                 if ((schemaNode != null) && (schemaNode.schema().getType() instanceof Class<?>)) {
                     Class<?> cls = (Class<?>) schemaNode.schema().getType();
                     int mod = cls.getModifiers();
@@ -201,10 +201,10 @@ public class Materializer<V extends Operation.ProtocolResponse<?>> extends ZNode
         }
         
         public Submitter<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, Object>> create(ZNodePath path, Object data) {
-            LabelTrieSchema node = LabelTrieSchema.match(get().schema(), path);
+            SchemaNode node = SchemaNode.match(get().schema(), path);
             Operations.Requests.Create create = Operations.Requests.create().setPath(path);
             if (node != null) {
-                create.setMode(node.schema().getCreateMode()).setAcl(LabelTrieSchema.inheritedAcl(node));
+                create.setMode(node.schema().getCreateMode()).setAcl(SchemaNode.inheritedAcl(node));
             }
             return new Submitter<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, Object>>(
                     Operations.Requests.serialized(create, get().codec(), data), get());

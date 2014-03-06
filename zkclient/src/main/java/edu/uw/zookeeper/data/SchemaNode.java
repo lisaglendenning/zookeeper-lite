@@ -9,36 +9,36 @@ import com.google.common.base.Objects;
 import com.google.common.collect.Maps;
 
 
-public class LabelTrieSchema extends SimpleNameTrie.SimpleNode<LabelTrieSchema> {
+public class SchemaNode extends SimpleNameTrie.SimpleNode<SchemaNode> {
     
-    public static LabelTrieSchema root(ZNodeSchema schema) {
-        return new LabelTrieSchema(SimpleNameTrie.<LabelTrieSchema>rootPointer(), schema);
+    public static SchemaNode root(ZNodeSchema schema) {
+        return new SchemaNode(SimpleNameTrie.<SchemaNode>rootPointer(), schema);
     }
 
-    public static LabelTrieSchema child(LabelTrieSchema parent, ZNodeSchema schema) {
+    public static SchemaNode child(SchemaNode parent, ZNodeSchema schema) {
         return child(ZNodeName.fromString(schema.getLabel()), parent, schema);
     }
 
-    public static LabelTrieSchema child(ZNodeName label, LabelTrieSchema parent, ZNodeSchema schema) {
-        NameTrie.Pointer<LabelTrieSchema> childPointer = SimpleNameTrie.weakPointer(label, parent);
-        return new LabelTrieSchema(childPointer, schema);
+    public static SchemaNode child(ZNodeName label, SchemaNode parent, ZNodeSchema schema) {
+        NameTrie.Pointer<SchemaNode> childPointer = SimpleNameTrie.weakPointer(label, parent);
+        return new SchemaNode(childPointer, schema);
     }
 
-    public static LabelTrieSchema match(NameTrie<LabelTrieSchema> trie, ZNodePath path) {
+    public static SchemaNode match(NameTrie<SchemaNode> trie, ZNodePath path) {
         Iterator<ZNodeLabel> remaining = path.iterator();
-        LabelTrieSchema node = trie.root();
+        SchemaNode node = trie.root();
         while (remaining.hasNext() && (node != null)) {
             ZNodeLabel component = remaining.next();
-            node = LabelTrieSchema.match(node, component);
+            node = SchemaNode.match(node, component);
         }
         return node;
     }
 
-    public static LabelTrieSchema match(LabelTrieSchema node, ZNodeName label) {
-        LabelTrieSchema child = node.get(label);
+    public static SchemaNode match(SchemaNode node, ZNodeName label) {
+        SchemaNode child = node.get(label);
         if (child == null) {
             String labelString = label.toString();
-            for (Map.Entry<ZNodeName, LabelTrieSchema> entry: node.entrySet()) {
+            for (Map.Entry<ZNodeName, SchemaNode> entry: node.entrySet()) {
                 if (labelString.matches(entry.getKey().toString())) {
                     child = entry.getValue();
                     break;
@@ -48,13 +48,13 @@ public class LabelTrieSchema extends SimpleNameTrie.SimpleNode<LabelTrieSchema> 
         return child;
     }
 
-    public static List<Acls.Acl> inheritedAcl(LabelTrieSchema node) {
+    public static List<Acls.Acl> inheritedAcl(SchemaNode node) {
         List<Acls.Acl> none = Acls.Definition.NONE.asList();
         List<Acls.Acl> acl = node.schema.getAcl();
         if (none.equals(acl)) {
-            Iterator<NameTrie.Pointer<? extends LabelTrieSchema>> itr = SimpleNameTrie.parentIterator(node.parent());
+            Iterator<NameTrie.Pointer<? extends SchemaNode>> itr = SimpleNameTrie.parentIterator(node.parent());
             while (itr.hasNext()) {
-                LabelTrieSchema next = itr.next().get();
+                SchemaNode next = itr.next().get();
                 acl = next.schema().getAcl();
                 if (! none.equals(acl)) {
                     break;
@@ -66,8 +66,8 @@ public class LabelTrieSchema extends SimpleNameTrie.SimpleNode<LabelTrieSchema> 
         
     private final ZNodeSchema schema;
     
-    protected LabelTrieSchema(NameTrie.Pointer<LabelTrieSchema> parent, ZNodeSchema schema) {
-        super(SimpleNameTrie.pathOf(parent), parent, Maps.<ZNodeName, LabelTrieSchema>newHashMap());
+    protected SchemaNode(NameTrie.Pointer<SchemaNode> parent, ZNodeSchema schema) {
+        super(SimpleNameTrie.pathOf(parent), parent, Maps.<ZNodeName, SchemaNode>newHashMap());
         this.schema = schema;
     }
 

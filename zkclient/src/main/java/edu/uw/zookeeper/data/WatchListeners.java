@@ -156,7 +156,7 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
         }
     }
     
-    public static class WatchListenerNode extends DefaultsLabelTrieNode.AbstractDefaultsNode<WatchListenerNode> implements Eventful<WatchListeners.WatchMatchListener>, WatchListener {
+    public static class WatchListenerNode extends DefaultsNode.AbstractDefaultsNode<WatchListenerNode> implements Eventful<WatchListeners.WatchMatchListener>, WatchListener {
     
         public static WatchListenerNode root() {
             NameTrie.Pointer<WatchListenerNode> pointer = SimpleNameTrie.<WatchListenerNode>rootPointer();
