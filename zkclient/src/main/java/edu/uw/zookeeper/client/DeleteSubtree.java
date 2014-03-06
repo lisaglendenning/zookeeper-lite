@@ -20,6 +20,7 @@ import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.AbsoluteZNodePath;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.ZNodeLabelVector;
+import edu.uw.zookeeper.data.ZNodePath;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
@@ -100,7 +101,7 @@ public class DeleteSubtree implements AsyncFunction<Optional<Set<AbsoluteZNodePa
         @Override
         public synchronized void onSuccess(AbsoluteZNodePath leaf) {
             task().remove(leaf);
-            AbsoluteZNodePath parent = (AbsoluteZNodePath) ((AbsoluteZNodePath) leaf).parent();
+            ZNodePath parent = leaf.parent();
             if (parent.startsWith(root)) {
                 boolean empty = true;
                 for (ZNodeLabelVector p: task()) {
@@ -110,8 +111,8 @@ public class DeleteSubtree implements AsyncFunction<Optional<Set<AbsoluteZNodePa
                     }
                 }
                 if (empty) {
-                    task().add(parent);
-                    DeleteLeaf operation = new DeleteLeaf(parent);
+                    task().add((AbsoluteZNodePath) parent);
+                    DeleteLeaf operation = new DeleteLeaf((AbsoluteZNodePath) parent);
                     operation.run();
                 }
             }
