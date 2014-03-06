@@ -39,6 +39,17 @@ public final class AbsoluteZNodePath extends ZNodePath {
         return ZNodeLabel.fromString(tail);
     }
 
+    @Override
+    public ZNodePath join(ZNodeName other) {
+        String suffix = other.toString();
+        if (suffix.isEmpty()) {
+            return this;
+        } else if (suffix.charAt(0) == SLASH) {
+            throw new IllegalArgumentException(suffix);
+        }
+        return AbsoluteZNodePath.fromString(new StringBuilder(length() + suffix.length() + 1).append(toString()).append(SLASH).append(suffix).toString());
+    }
+    
     public static enum Reserved implements Reference<AbsoluteZNodePath> {
         ZOOKEEPER((AbsoluteZNodePath) root().join(ZNodeLabel.zookeeper())),
         QUOTA((AbsoluteZNodePath) ZOOKEEPER.get().join(ZNodeLabel.fromString("quota"))),

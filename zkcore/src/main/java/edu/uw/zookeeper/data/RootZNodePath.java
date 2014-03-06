@@ -26,6 +26,17 @@ public final class RootZNodePath extends ZNodePath {
     }
 
     @Override
+    public ZNodePath join(ZNodeName other) {
+        String suffix = other.toString();
+        if (suffix.isEmpty()) {
+            return this;
+        } else if (suffix.charAt(0) == SLASH) {
+            throw new IllegalArgumentException(suffix);
+        }
+        return AbsoluteZNodePath.fromString(new StringBuilder(suffix.length() + 1).append(SLASH).append(suffix).toString());
+    }
+    
+    @Override
     public UnmodifiableIterator<ZNodeLabel> iterator() {
         return Iterators.emptyIterator();
     }

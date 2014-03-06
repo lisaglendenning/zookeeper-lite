@@ -87,7 +87,7 @@ public abstract class ZNodeLabelVector extends ZNodeName implements Iterable<ZNo
 
     public abstract boolean isAbsolute();
     
-    public abstract ZNodeLabelVector join(ZNodeName suffix);
+    public abstract ZNodeLabelVector join(ZNodeName other);
 
     @Override
     public boolean startsWith(ZNodeName prefix) {

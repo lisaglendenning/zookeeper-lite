@@ -129,18 +129,10 @@ public abstract class ZNodePath extends ZNodeLabelVector {
         return true;
     }
 
+    @Override
+    public abstract ZNodePath join(ZNodeName other);
+
     public abstract boolean isRoot();
 
     public abstract AbstractZNodeLabel label();
-    
-    @Override
-    public ZNodePath join(ZNodeName other) {
-        String suffix = other.toString();
-        if (suffix.isEmpty()) {
-            return this;
-        } else if (suffix.charAt(0) == SLASH) {
-            throw new IllegalArgumentException(suffix);
-        }
-        return AbsoluteZNodePath.fromString(new StringBuilder(length() + suffix.length() + 1).append(toString()).append(SLASH).append(suffix).toString());
-    }
 }
