@@ -4,30 +4,16 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Set;
 
-import org.apache.zookeeper.KeeperException;
-
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.client.ClientExecutor;
-import edu.uw.zookeeper.client.TreeFetcher;
-import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.Processor;
-import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.PromiseTask;
-import edu.uw.zookeeper.common.SettableFuturePromise;
+import edu.uw.zookeeper.client.DeleteSubtree;
 import edu.uw.zookeeper.data.AbsoluteZNodePath;
-import edu.uw.zookeeper.data.Operations;
-import edu.uw.zookeeper.data.ZNodeLabelVector;
-import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoker.Command> {
@@ -47,11 +33,11 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
     }
     
     protected final Shell shell;
-    protected final Set<ListenableFuture<DeleteRoot>> pending;
+    protected final Set<ListenableFuture<DeleteSubtree>> pending;
     
     public RmrInvoker(Shell shell) {
         this.shell = shell;
-        this.pending = Collections.synchronizedSet(Sets.<ListenableFuture<DeleteRoot>>newHashSet());
+        this.pending = Collections.synchronizedSet(Sets.<ListenableFuture<DeleteSubtree>>newHashSet());
     }
 
     @Override
@@ -59,11 +45,10 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
             throws Exception {
         AbsoluteZNodePath root = (AbsoluteZNodePath) input.getArguments()[1];
         ClientExecutor<? super Records.Request, ?, ?> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getConnectionClientExecutor();
-        final ListenableFuture<DeleteRoot> future = Futures.transform(
-                TreeFetcher.<Set<AbsoluteZNodePath>>builder().setClient(client).setResult(new ComputeLeaves()).setRoot(root).build(), new DeleteRoot(client, root));
-        Futures.addCallback(future, new FutureCallback<DeleteRoot>(){
+        final ListenableFuture<DeleteSubtree> future = DeleteSubtree.forRoot(root, client);
+        Futures.addCallback(future, new FutureCallback<DeleteSubtree>(){
             @Override
-            public void onSuccess(DeleteRoot result) {
+            public void onSuccess(DeleteSubtree result) {
                 pending.remove(future);
                 try {
                     shell.println(String.format("%s => OK", input));
@@ -98,131 +83,6 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
         synchronized (pending) {
             for (ListenableFuture<?> e: Iterables.consumingIterable(pending)) {
                 e.cancel(true);
-            }
-        }
-    }
-
-    protected static class ComputeLeaves implements Processor<Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Optional<Set<AbsoluteZNodePath>>> {
-
-        protected final Set<AbsoluteZNodePath> leaves;
-        
-        public ComputeLeaves() {
-            this.leaves = Sets.newHashSet();
-        }
-        
-        @Override
-        public synchronized Optional<Set<AbsoluteZNodePath>> apply(
-                Optional<Pair<Records.Request, ListenableFuture<? extends Operation.ProtocolResponse<?>>>> input)
-                throws Exception {
-            if (input.isPresent()) {
-                Records.Response response = input.get().second().get().record();
-                if (response instanceof Records.ChildrenGetter) {
-                    if (((Records.ChildrenGetter) response).getChildren().isEmpty()) {
-                        leaves.add(AbsoluteZNodePath.fromString(((Records.PathGetter) input.get().first()).getPath()));
-                    }
-                }
-                return Optional.absent();
-            } else {
-                return Optional.of(leaves);
-            }
-        }
-    }
-    
-    protected static class DeleteRoot implements AsyncFunction<Optional<Set<AbsoluteZNodePath>>, DeleteRoot> {
-
-        protected final ClientExecutor<? super Records.Request, ?, ?> client;
-        protected final AbsoluteZNodePath root;
-        
-        public DeleteRoot(ClientExecutor<? super Records.Request, ?, ?> client, AbsoluteZNodePath root) {
-            this.client = client;
-            this.root = root;
-        }
-
-        @Override
-        public ListenableFuture<DeleteRoot> apply(Optional<Set<AbsoluteZNodePath>> result) {
-            if (result.isPresent()) {
-                DeleteLeaves task = new DeleteLeaves(result.get(), SettableFuturePromise.<DeleteRoot>create());
-                task.run();
-                return task;
-            } else {
-                // TODO
-                throw new UnsupportedOperationException();
-            }
-        }
-            
-        protected class DeleteLeaves extends PromiseTask<Set<AbsoluteZNodePath>, DeleteRoot> implements FutureCallback<AbsoluteZNodePath> {
-            
-            public DeleteLeaves(Set<AbsoluteZNodePath> task, Promise<DeleteRoot> promise) {
-                super(task, promise);
-            }
-            
-            public synchronized void run() {
-                if (task().isEmpty()) {
-                    set(DeleteRoot.this);
-                } else {
-                    for (AbsoluteZNodePath p: ImmutableSet.copyOf(task())) {
-                        DeleteLeaf operation = new DeleteLeaf(p);
-                        operation.run();
-                    }
-                }
-            }
-
-            @Override
-            public synchronized void onSuccess(AbsoluteZNodePath leaf) {
-                task().remove(leaf);
-                AbsoluteZNodePath parent = (AbsoluteZNodePath) ((AbsoluteZNodePath) leaf).parent();
-                if (parent.startsWith(root)) {
-                    boolean empty = true;
-                    for (ZNodeLabelVector p: task()) {
-                        if (p.startsWith(parent)) {
-                            empty = false;
-                            break;
-                        }
-                    }
-                    if (empty) {
-                        task().add(parent);
-                        DeleteLeaf operation = new DeleteLeaf(parent);
-                        operation.run();
-                    }
-                }
-                if (task().isEmpty()) {
-                    set(DeleteRoot.this);
-                }
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                setException(t);
-            }
-
-            protected class DeleteLeaf implements FutureCallback<Operation.ProtocolResponse<?>> {
-                
-                protected final AbsoluteZNodePath leaf;
-                
-                public DeleteLeaf(AbsoluteZNodePath leaf) {
-                    this.leaf = leaf;
-                }
-                
-                public void run() {
-                    Futures.addCallback(
-                            client.submit(Operations.Requests.delete().setPath(leaf).build()), 
-                            this);
-                }
-
-                @Override
-                public void onSuccess(Operation.ProtocolResponse<?> result) {
-                    if (result.record().opcode() == OpCode.DELETE) {
-                        DeleteLeaves.this.onSuccess(leaf);
-                    } else {
-                        // TODO
-                        onFailure(KeeperException.create(((Operation.Error) result.record()).error()));
-                    }
-                }
-
-                @Override
-                public void onFailure(Throwable t) {
-                    DeleteLeaves.this.onFailure(t);
-                }
             }
         }
     }
