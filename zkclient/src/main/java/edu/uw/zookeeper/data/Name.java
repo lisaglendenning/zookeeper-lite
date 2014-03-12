@@ -4,6 +4,6 @@ import java.lang.annotation.*;
 
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Label {
-    LabelType type() default LabelType.LABEL;
+public @interface Name {
+    NameType type() default NameType.STATIC;
 }

@@ -8,7 +8,7 @@ import java.lang.annotation.*;
 public @interface ZNode {
     CreateMode createMode() default CreateMode.PERSISTENT;
     Acls.Definition acl() default Acls.Definition.NONE;
-    String label() default "";
-    LabelType labelType() default LabelType.LABEL;
-    Class<?> type() default Void.class;
+    String name() default "";
+    NameType nameType() default NameType.STATIC;
+    Class<?> dataType() default Void.class;
 }

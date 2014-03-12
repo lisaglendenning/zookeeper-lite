@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.google.common.base.Objects;
@@ -20,6 +21,131 @@ import com.google.common.collect.Sets;
 import edu.uw.zookeeper.common.Pair;
 
 public class ZNodeSchema {
+    
+    public static ValueNode<ZNodeSchema> matchPath(NameTrie<ValueNode<ZNodeSchema>> trie, ZNodePath path) {
+        Iterator<ZNodeLabel> remaining = path.iterator();
+        ValueNode<ZNodeSchema> node = trie.root();
+        while (remaining.hasNext() && (node != null)) {
+            ZNodeLabel next = remaining.next();
+            node = matchChild(node, next);
+        }
+        return node;
+    }
+
+    public static ValueNode<ZNodeSchema> matchChild(ValueNode<ZNodeSchema> node, ZNodeName name) {
+        ValueNode<ZNodeSchema> child = node.get(name);
+        if (child == null) {
+            String labelString = name.toString();
+            for (Map.Entry<ZNodeName, ValueNode<ZNodeSchema>> entry: node.entrySet()) {
+                if (labelString.matches(entry.getKey().toString())) {
+                    child = entry.getValue();
+                    break;
+                }
+            }
+        }
+        return child;
+    }
+
+    public static List<Acls.Acl> inheritedAcl(ValueNode<ZNodeSchema> node) {
+        List<Acls.Acl> none = Acls.Definition.NONE.asList();
+        List<Acls.Acl> acl = node.get().getAcl();
+        if (none.equals(acl)) {
+            Iterator<NameTrie.Pointer<? extends ValueNode<ZNodeSchema>>> itr = SimpleNameTrie.parentIterator(node.parent());
+            while (itr.hasNext()) {
+                ValueNode<ZNodeSchema> next = itr.next().get();
+                acl = next.get().getAcl();
+                if (! none.equals(acl)) {
+                    break;
+                }
+            }
+        }
+        return acl;
+    }
+
+    public static Iterator<DeclarationTraversal.Element> fromHierarchy(Class<?> root) {
+        return new DeclarationTraversal(root);
+    }
+
+    public static class DeclarationTraversal extends AbstractIterator<DeclarationTraversal.Element> {
+    
+        public static class Element {
+            private final ZNodePath path;
+            private final ZNodeSchema.Builder builder;
+            private final Object element;
+            
+            public Element(ZNodePath path, ZNodeSchema.Builder builder, Object element) {
+                this.path = path;
+                this.builder = builder;
+                this.element = element;
+            }
+    
+            public ZNodePath getPath() {
+                return path;
+            }
+    
+            public ZNodeSchema.Builder getBuilder() {
+                return builder;
+            }
+    
+            public Object getElement() {
+                return element;
+            }
+        }
+        
+        protected final LinkedList<DeclarationTraversal.Element> pending;
+        
+        public DeclarationTraversal(Class<?> root) {
+            this.pending = Lists.newLinkedList();
+            ZNodeSchema.Builder builder = Builder.fromClass(root);
+            if (builder != null) {
+                pending.add(new Element(RootZNodePath.getInstance(), builder, root));
+            }
+        }
+    
+        @Override
+        protected DeclarationTraversal.Element computeNext() {
+            if (pending.isEmpty()) {
+                return endOfData();
+            } else {
+                DeclarationTraversal.Element next = pending.pop();
+                ZNodePath path = next.path;
+                ZNodeSchema.Builder parent = next.builder;
+                if (parent.getName().length() > 0) {
+                    path = path.join(ZNodeLabel.fromString(parent.getName()));
+                }
+                
+                Object obj = parent.getDeclaration();
+                Class<?> type = (obj instanceof Class) ? (Class<?>)obj : obj.getClass();
+                
+                Set<Field> fields = Sets.newHashSet(type.getDeclaredFields());
+                fields.addAll(Arrays.asList(type.getFields()));
+                for (Field f: fields) {
+                    ZNodeSchema.Builder builder = Builder.fromAnnotatedMember(f);
+                    if (builder != null) {
+                        pending.push(new Element(path, builder, f));
+                    }
+                }
+    
+                Set<Method> methods = Sets.newHashSet(type.getDeclaredMethods());
+                methods.addAll(Arrays.asList(type.getMethods()));
+                for (Method m: methods) {
+                    ZNodeSchema.Builder builder = Builder.fromAnnotatedMember(m);
+                    if (builder != null) {
+                        pending.push(new Element(path, builder, m));
+                    }
+                }
+                
+                for (Class<?> c: type.getClasses()) {
+                    ZNodeSchema.Builder builder = Builder.fromClass(c);
+                    if (builder != null) {
+                        pending.push(new Element(path, builder, c));
+                    }
+                }
+                
+                return next;
+            }
+        }
+    }
 
     public static class Builder {
 
@@ -28,7 +154,16 @@ public class ZNodeSchema {
         }
 
         public static ZNodeSchema.Builder fromSchema(ZNodeSchema schema) {
-            return new Builder(schema.getLabel(), schema.getLabelType(), schema.getCreateMode(), schema.getAcl(), schema.getType());
+            return new Builder(schema.getDeclaration(), schema.getName(), schema.getNameType(), schema.getCreateMode(), schema.getAcl(), schema.getDataType());
+        }
+
+        public static ZNodeSchema.Builder fromAnnotation(Object declaration, ZNode annotation) {
+            String label = annotation.name();
+            NameType labelType = annotation.nameType();
+            CreateMode createMode = annotation.createMode();
+            List<Acls.Acl> acl = annotation.acl().asList();
+            Object dataType = annotation.dataType();
+            return new Builder(declaration, label, labelType, createMode, acl, dataType);
         }
 
         public static ZNodeSchema.Builder fromAnnotated(AnnotatedElement element) {
@@ -36,78 +171,63 @@ public class ZNodeSchema {
             if (annotation == null) {
                 return null;
             }
-            ZNodeSchema.Builder builder = fromAnnotation(annotation);
-            if (Void.class == builder.getType()) {
+            ZNodeSchema.Builder builder = fromAnnotation(element, annotation);
+            if (Void.class == builder.getDataType()) {
                 if (element instanceof Field) {
-                    builder.setType(((Field) element).getType());
+                    builder.setDataType(((Field) element).getType());
                 } else if (element instanceof Method) {
-                    builder.setType(((Method) element).getReturnType());
-                } else {
-                    builder.setType(element);
+                    builder.setDataType(((Method) element).getReturnType());
                 }
             }
             return builder;
         }
         
-        public static ZNodeSchema.Builder fromAnnotation(ZNode annotation) {
-            String label = annotation.label();
-            LabelType labelType = annotation.labelType();
-            CreateMode createMode = annotation.createMode();
-            List<Acls.Acl> acl = annotation.acl().asList();
-            Object type = annotation.type();
-            return new Builder(label, labelType, createMode, acl, type);
-        }
-        
-        public static ZNodeSchema.Builder fromClass(Object obj) {
-            Class<?> type = (obj instanceof Class) ? (Class<?>)obj : obj.getClass();
-            ZNodeSchema.Builder builder = fromAnnotated(type);
+        public static ZNodeSchema.Builder fromClass(Class<?> cls) {
+            ZNodeSchema.Builder builder = fromAnnotated(cls);
             if (builder == null) {
                 return null;
             }
-            if (type != obj) {
-                builder.setType(obj);
-            }
             
-            Pair<Label, ? extends Member> memberLabel = null;
+            Pair<Name, ? extends Member> memberName = null;
             
-            // Method label annotation overrides class and field
-            Method[][] allMethods = {type.getDeclaredMethods(), type.getMethods()};
+            // Method Name annotation overrides class and field
+            Method[][] allMethods = {cls.getDeclaredMethods(), cls.getMethods()};
             for (Method[] methods: allMethods) {
-                if (memberLabel != null) {
+                if (memberName != null) {
                     break;
                 }
                 for (Method m: methods) {
-                    Label labelAnnotation = m.getAnnotation(Label.class);
-                    if (labelAnnotation != null) {
-                        memberLabel = Pair.create(labelAnnotation, m);
+                    Name annotation = m.getAnnotation(Name.class);
+                    if (annotation != null) {
+                        memberName = Pair.create(annotation, m);
                         break;
                     }
                 }
             }
             
-            // Field Label annotation overrides class
-            Field[][] allFields = {type.getDeclaredFields(), type.getFields()};
+            // Field Name annotation overrides class
+            Field[][] allFields = {cls.getDeclaredFields(), cls.getFields()};
             for (Field[] fields: allFields) {
-                if (memberLabel != null) {
+                if (memberName != null) {
                     break;
                 }
                 for (Field f: fields) {
-                    Label labelAnnotation = f.getAnnotation(Label.class);
-                    if (labelAnnotation != null) {
-                        memberLabel = Pair.create(labelAnnotation, f);
+                    Name annotation = f.getAnnotation(Name.class);
+                    if (annotation != null) {
+                        memberName = Pair.create(annotation, f);
                         break;
                     }
                 }
             }
 
-            if (memberLabel != null) {
-                builder.setLabelType(memberLabel.first().type());
-                Member member = memberLabel.second();
+            if (memberName != null) {
+                builder.setNameType(memberName.first().type());
+                Member member = memberName.second();
                 try {
-                    builder.setLabel(
+                    builder.setName(
                             (member instanceof Method) 
-                            ? (String) ((Method)member).invoke(obj)
-                            : ((Field)member).get(obj).toString());
+                            ? (String) ((Method)member).invoke(cls)
+                            : ((Field)member).get(cls).toString());
                 } catch (Exception e) {
                     throw Throwables.propagate(e);
                 }
@@ -121,131 +241,59 @@ public class ZNodeSchema {
             if (builder == null) {
                 return null;
             }
-            if (builder.getLabel().length() == 0) {
-                builder.setLabel(member.getName());
+            if (builder.getName().length() == 0) {
+                builder.setName(member.getName());
             }
             return builder;
         }
         
-        public static Iterator<ZNodeTraversal.Element> traverse(Object obj) {
-            return new ZNodeTraversal(obj);
-        }
+        protected static final ZNodeSchema DEFAULT = new ZNodeSchema(null, "", NameType.NONE, CreateMode.PERSISTENT, Acls.Definition.NONE.asList(), Void.class);
 
-        public static class ZNodeTraversal extends AbstractIterator<ZNodeTraversal.Element> {
-
-            public static class Element {
-                private final ZNodeLabelVector path;
-                private final ZNodeSchema.Builder builder;
-                private final Object element;
-                
-                public Element(ZNodeLabelVector path, ZNodeSchema.Builder builder, Object element) {
-                    this.path = path;
-                    this.builder = builder;
-                    this.element = element;
-                }
-
-                public ZNodeLabelVector getPath() {
-                    return path;
-                }
-
-                public ZNodeSchema.Builder getBuilder() {
-                    return builder;
-                }
-
-                public Object getElement() {
-                    return element;
-                }
-            }
-            
-            protected final LinkedList<ZNodeTraversal.Element> pending;
-            
-            public ZNodeTraversal(Object root) {
-                this.pending = Lists.newLinkedList();
-                ZNodeSchema.Builder builder = fromClass(root);
-                if (builder != null) {
-                    pending.add(new Element(RootZNodePath.getInstance(), builder, root));
-                }
-            }
-
-            @Override
-            protected ZNodeTraversal.Element computeNext() {
-                if (! pending.isEmpty()) {
-                    ZNodeTraversal.Element next = pending.pop();
-                    ZNodeLabelVector path = next.path;
-                    ZNodeSchema.Builder parent = next.builder;
-                    if (parent.getLabel().length() > 0) {
-                        path = path.join(ZNodeLabel.fromString(parent.getLabel()));
-                    }
-                    
-                    Object obj = parent.getType();
-                    Class<?> type = (obj instanceof Class) ? (Class<?>)obj : obj.getClass();
-                    
-                    Set<Field> fields = Sets.newHashSet(type.getDeclaredFields());
-                    fields.addAll(Arrays.asList(type.getFields()));
-                    for (Field f: fields) {
-                        ZNodeSchema.Builder builder = fromAnnotatedMember(f);
-                        if (builder != null) {
-                            pending.push(new Element(path, builder, f));
-                        }
-                    }
-
-                    Set<Method> methods = Sets.newHashSet(type.getDeclaredMethods());
-                    methods.addAll(Arrays.asList(type.getMethods()));
-                    for (Method m: methods) {
-                        ZNodeSchema.Builder builder = fromAnnotatedMember(m);
-                        if (builder != null) {
-                            pending.push(new Element(path, builder, m));
-                        }
-                    }
-                    
-                    for (Class<?> c: type.getClasses()) {
-                        ZNodeSchema.Builder builder = fromClass(c);
-                        if (builder != null) {
-                            pending.push(new Element(path, builder, c));
-                        }
-                    }
-                    
-                    return next;
-                }
-                return endOfData();
-            }
-        }
-        
-        protected static final ZNodeSchema DEFAULT = new ZNodeSchema("", LabelType.NONE, CreateMode.PERSISTENT, Acls.Definition.NONE.asList(), Void.class);
-        
-        protected String label;
-        protected LabelType labelType;
+        protected Object declaration;
+        protected String name;
+        protected NameType labelType;
         protected CreateMode createMode;
         protected List<Acls.Acl> acl;
-        protected Object type;
+        protected Object dataType;
         
         public Builder(
-                String label,
-                LabelType labelType, 
+                Object declaration,
+                String name,
+                NameType labelType, 
                 CreateMode createMode,
                 List<Acls.Acl> acl,
-                Object type) {
-            this.label = label;
+                Object dataType) {
+            this.declaration = declaration;
+            this.name = name;
             this.labelType = labelType;
             this.createMode = createMode;
             this.acl = acl;
-            this.type = type;
+            this.dataType = dataType;
+        }
+
+        public Object getDeclaration() {
+            return declaration;
         }
         
-        public String getLabel() {
-            return label;
+        public ZNodeSchema.Builder setDeclaration(Object declaration) {
+            this.declaration = declaration;
+            return this;
         }
         
-        public ZNodeSchema.Builder setLabel(String label) {
-            this.label = label;
+        public String getName() {
+            return name;
+        }
+        
+        public ZNodeSchema.Builder setName(String label) {
+            this.name = label;
             return this;
         }
 
-        public LabelType getLabelType() {
+        public NameType getNameType() {
             return labelType;
         }
         
-        public ZNodeSchema.Builder setLabelType(LabelType labelType) {
+        public ZNodeSchema.Builder setNameType(NameType labelType) {
             this.labelType = labelType;
             return this;
         }
@@ -267,29 +315,30 @@ public class ZNodeSchema {
             this.acl = acl;
             return this;
         }
-        
-        public Object getType() {
-            return type;
+
+        public Object getDataType() {
+            return dataType;
         }
         
-        public ZNodeSchema.Builder setType(Object type) {
-            this.type = type;
+        public ZNodeSchema.Builder setDataType(Object dataType) {
+            this.dataType = dataType;
             return this;
         }
         
         public ZNodeSchema build() {
-            return ZNodeSchema.of(
-                    getLabel(), getLabelType(), getCreateMode(), getAcl(), getType());
+            return ZNodeSchema.create(
+                    getDeclaration(), getName(), getNameType(), getCreateMode(), getAcl(), getDataType());
         }
 
         @Override
         public String toString() {
             return Objects.toStringHelper(this)
-                    .add("label", getLabel())
-                    .add("labelType", getLabelType())
+                    .add("declaration", getDeclaration())
+                    .add("name", getName())
+                    .add("nameType", getNameType())
                     .add("createMode", getCreateMode())
                     .add("acl", getAcl())
-                    .add("type", getType())
+                    .add("dataType", getDataType())
                     .toString();
         }
     }
@@ -298,40 +347,48 @@ public class ZNodeSchema {
         return Builder.DEFAULT;
     }
     
-    public static ZNodeSchema of(
-            String label,
-            LabelType labelType, 
+    public static ZNodeSchema create(
+            Object declaration,
+            String name,
+            NameType nameType, 
             CreateMode createMode,
             List<Acls.Acl> acl,
-            Object type) {
-        return new ZNodeSchema(label, labelType, createMode, ImmutableList.copyOf(acl), type);
+            Object dataType) {
+        return new ZNodeSchema(declaration, name, nameType, createMode, ImmutableList.copyOf(acl), dataType);
     }
-    
-    private final String label;
-    private final LabelType labelType;
+
+    private final Object declaration;
+    private final String name;
+    private final NameType nameType;
     private final CreateMode createMode;
     private final List<Acls.Acl> acl;
-    private final Object type;
+    private final Object dataType;
     
     protected ZNodeSchema(
-            String label,
-            LabelType labelType, 
+            Object declaration,
+            String name,
+            NameType nameType, 
             CreateMode createMode,
             List<Acls.Acl> acl,
-            Object type) {
-        this.label = label;
-        this.labelType = labelType;
+            Object dataType) {
+        this.declaration = declaration;
+        this.name = name;
+        this.nameType = nameType;
         this.createMode = createMode;
         this.acl = acl;
-        this.type = type;
+        this.dataType = dataType;
+    }
+
+    public Object getDeclaration() {
+        return declaration;
     }
     
-    public String getLabel() {
-        return label;
+    public String getName() {
+        return name;
     }
     
-    public LabelType getLabelType() {
-        return labelType;
+    public NameType getNameType() {
+        return nameType;
     }
     
     public CreateMode getCreateMode() {
@@ -342,18 +399,19 @@ public class ZNodeSchema {
         return acl;
     }
     
-    public Object getType() {
-        return type;
+    public Object getDataType() {
+        return dataType;
     }
 
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .add("label", getLabel())
-                .add("labelType", getLabelType())
+                .add("declaration", getDeclaration())
+                .add("name", getName())
+                .add("nameType", getNameType())
                 .add("createMode", getCreateMode())
                 .add("acl", getAcl())
-                .add("type", getType())
+                .add("dataType", getDataType())
                 .toString();
     }
 
@@ -366,15 +424,16 @@ public class ZNodeSchema {
             return false;
         }
         ZNodeSchema other = (ZNodeSchema) obj;
-        return Objects.equal(getLabel(), other.getLabel())
-                && Objects.equal(getLabelType(), other.getLabelType())
+        return Objects.equal(getDeclaration(), other.getDeclaration())
+                && Objects.equal(getName(), other.getName())
+                && Objects.equal(getNameType(), other.getNameType())
                 && Objects.equal(getCreateMode(), other.getCreateMode())
                 && Objects.equal(getAcl(), other.getAcl())
-                && Objects.equal(getType(), other.getType());
+                && Objects.equal(getDataType(), other.getDataType());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(getLabel(), getLabelType(), getCreateMode(), getAcl(), getType());
+        return Objects.hashCode(getDeclaration(), getName());
     }
 }
