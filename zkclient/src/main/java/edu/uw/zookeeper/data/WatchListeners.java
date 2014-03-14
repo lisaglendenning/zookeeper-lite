@@ -191,7 +191,7 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
         public void handleWatchEvent(WatchEvent event) {
             for (WatchMatchListener listener: listeners) {
                 if ((path().equals(event.getPath()) || (listener.getWatchMatcher().getPathType() == WatchMatcher.PathMatchType.PREFIX))
-                        && listener.getWatchMatcher().getEventType().contains(event.getType())) {
+                        && listener.getWatchMatcher().getEventType().contains(event.getEventType())) {
                     listener.handleWatchEvent(event);
                 }
             }

@@ -162,7 +162,7 @@ public class ZNodeSchema {
             NameType labelType = annotation.nameType();
             CreateMode createMode = annotation.createMode();
             List<Acls.Acl> acl = annotation.acl().asList();
-            Object dataType = annotation.dataType();
+            Class<?> dataType = annotation.dataType();
             return new Builder(declaration, label, labelType, createMode, acl, dataType);
         }
 
@@ -254,7 +254,7 @@ public class ZNodeSchema {
         protected NameType labelType;
         protected CreateMode createMode;
         protected List<Acls.Acl> acl;
-        protected Object dataType;
+        protected Class<?> dataType;
         
         public Builder(
                 Object declaration,
@@ -262,7 +262,7 @@ public class ZNodeSchema {
                 NameType labelType, 
                 CreateMode createMode,
                 List<Acls.Acl> acl,
-                Object dataType) {
+                Class<?> dataType) {
             this.declaration = declaration;
             this.name = name;
             this.labelType = labelType;
@@ -316,11 +316,11 @@ public class ZNodeSchema {
             return this;
         }
 
-        public Object getDataType() {
+        public Class<?> getDataType() {
             return dataType;
         }
         
-        public ZNodeSchema.Builder setDataType(Object dataType) {
+        public ZNodeSchema.Builder setDataType(Class<?> dataType) {
             this.dataType = dataType;
             return this;
         }
@@ -353,7 +353,7 @@ public class ZNodeSchema {
             NameType nameType, 
             CreateMode createMode,
             List<Acls.Acl> acl,
-            Object dataType) {
+            Class<?> dataType) {
         return new ZNodeSchema(declaration, name, nameType, createMode, ImmutableList.copyOf(acl), dataType);
     }
 
@@ -362,7 +362,7 @@ public class ZNodeSchema {
     private final NameType nameType;
     private final CreateMode createMode;
     private final List<Acls.Acl> acl;
-    private final Object dataType;
+    private final Class<?> dataType;
     
     protected ZNodeSchema(
             Object declaration,
@@ -370,7 +370,7 @@ public class ZNodeSchema {
             NameType nameType, 
             CreateMode createMode,
             List<Acls.Acl> acl,
-            Object dataType) {
+            Class<?> dataType) {
         this.declaration = declaration;
         this.name = name;
         this.nameType = nameType;
@@ -399,7 +399,7 @@ public class ZNodeSchema {
         return acl;
     }
     
-    public Object getDataType() {
+    public Class<?> getDataType() {
         return dataType;
     }
 
