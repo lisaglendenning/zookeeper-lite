@@ -50,7 +50,7 @@ public class ZNodeSchema {
         List<Acls.Acl> none = Acls.Definition.NONE.asList();
         List<Acls.Acl> acl = node.get().getAcl();
         if (none.equals(acl)) {
-            Iterator<NameTrie.Pointer<? extends ValueNode<ZNodeSchema>>> itr = SimpleNameTrie.parentIterator(node.parent());
+            Iterator<NameTrie.Pointer<? extends ValueNode<ZNodeSchema>>> itr = SimpleLabelTrie.parentIterator(node.parent());
             while (itr.hasNext()) {
                 ValueNode<ZNodeSchema> next = itr.next().get();
                 acl = next.get().getAcl();
@@ -117,7 +117,7 @@ public class ZNodeSchema {
                 Object obj = parent.getDeclaration();
                 Class<?> type = (obj instanceof Class) ? (Class<?>)obj : obj.getClass();
                 
-                Set<Field> fields = Sets.newHashSet(type.getDeclaredFields());
+                Set<Field> fields = Sets.newHashSet(type.getFields());
                 fields.addAll(Arrays.asList(type.getFields()));
                 for (Field f: fields) {
                     ZNodeSchema.Builder builder = Builder.fromAnnotatedMember(f);
@@ -126,7 +126,7 @@ public class ZNodeSchema {
                     }
                 }
     
-                Set<Method> methods = Sets.newHashSet(type.getDeclaredMethods());
+                Set<Method> methods = Sets.newHashSet(type.getMethods());
                 methods.addAll(Arrays.asList(type.getMethods()));
                 for (Method m: methods) {
                     ZNodeSchema.Builder builder = Builder.fromAnnotatedMember(m);

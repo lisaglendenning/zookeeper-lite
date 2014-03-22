@@ -18,4 +18,6 @@ public interface NameTrie<E extends NameTrie.Node<E>> extends Map<ZNodePath, E>,
     }
     
     abstract public E root();
+    
+    abstract public E longestPrefix(ZNodePath path);
 }

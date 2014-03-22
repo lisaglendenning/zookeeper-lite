@@ -2,14 +2,14 @@ package edu.uw.zookeeper.data;
 
 public abstract class AbstractZNodeLabel extends ZNodeName {
     
-    public static RootZNodeLabel root() {
-        return RootZNodeLabel.getInstance();
+    public static EmptyZNodeLabel empty() {
+        return EmptyZNodeLabel.getInstance();
     }
 
     @Serializes(from=String.class, to=AbstractZNodeLabel.class)
     public static AbstractZNodeLabel fromString(String label) {
         if (label.isEmpty()) {
-            return RootZNodeLabel.getInstance();
+            return EmptyZNodeLabel.getInstance();
         } else {
             return ZNodeLabel.fromString(label);
         }
@@ -19,5 +19,5 @@ public abstract class AbstractZNodeLabel extends ZNodeName {
         super(label);
     }
 
-    public abstract boolean isRoot();
+    public abstract boolean isEmpty();
 }

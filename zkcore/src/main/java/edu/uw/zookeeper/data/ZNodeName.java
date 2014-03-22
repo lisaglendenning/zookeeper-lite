@@ -11,7 +11,7 @@ public abstract class ZNodeName implements CharSequence, Comparable<ZNodeName> {
         if (label.indexOf(SLASH) >= 0) {
             return ZNodeLabelVector.fromString(label);
         } else {
-            return ZNodeLabel.fromString(label);
+            return AbstractZNodeLabel.fromString(label);
         }
     }
 

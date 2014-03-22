@@ -27,7 +27,7 @@ import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.data.NameTrie;
 import edu.uw.zookeeper.data.ZNodeNode;
-import edu.uw.zookeeper.data.SimpleNameTrie;
+import edu.uw.zookeeper.data.SimpleLabelTrie;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.NotificationListener;
@@ -96,7 +96,7 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
         }
         
         public NameTrie<ZNodeNode> getDefaultData() {
-            return SimpleNameTrie.forRoot(ZNodeNode.root());
+            return SimpleLabelTrie.forRoot(ZNodeNode.root());
         }
 
         public SessionManager getSessions() {

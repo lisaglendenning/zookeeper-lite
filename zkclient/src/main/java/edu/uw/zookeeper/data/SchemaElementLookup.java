@@ -10,7 +10,7 @@ import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.data.NameTrie;
 import edu.uw.zookeeper.data.ValueNode;
-import edu.uw.zookeeper.data.SimpleNameTrie;
+import edu.uw.zookeeper.data.SimpleLabelTrie;
 import edu.uw.zookeeper.data.ZNodeSchema;
 import edu.uw.zookeeper.data.ZNodeSchema.DeclarationTraversal;
 import edu.uw.zookeeper.data.ZNodePath;
@@ -34,7 +34,7 @@ public class SchemaElementLookup extends Pair<NameTrie<ValueNode<ZNodeSchema>>, 
                 } else {
                     node = ValueNode.root(ZNodeSchema.getDefault());
                 }
-                schema = SimpleNameTrie.forRoot(node);
+                schema = SimpleLabelTrie.forRoot(node);
             }
             ValueNode<ZNodeSchema> node;
             if (path.isRoot()) {

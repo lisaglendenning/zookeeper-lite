@@ -8,15 +8,28 @@ public interface DefaultsNode<E extends DefaultsNode<E>> extends NameTrie.Node<E
     
     E putIfAbsent(ZNodeName label);
 
-    public static abstract class AbstractDefaultsNode<E extends AbstractDefaultsNode<E>> extends SimpleNameTrie.SimpleNode<E> implements DefaultsNode<E> {
+    public static abstract class AbstractDefaultsNode<E extends AbstractDefaultsNode<E>> extends AbstractNameTrie.SimpleNode<E> implements DefaultsNode<E> {
 
         public static <E extends DefaultsNode<E>> E putIfAbsent(NameTrie<E> trie, ZNodePath path) {
-            Iterator<ZNodeLabel> remaining = path.iterator();
-            E node = trie.root();
+            return putIfAbsent(trie.root(), path.iterator());
+        }
+
+        public static <E extends DefaultsNode<E>> E putIfAbsent(E node, Iterator<ZNodeLabel> remaining) {
             while (remaining.hasNext()) {
                 node = node.putIfAbsent(remaining.next());
             }
             return node;
+        }
+
+        protected AbstractDefaultsNode(
+                NameTrie.Pointer<? extends E> parent) {
+            super(parent);
+        }
+        
+        protected AbstractDefaultsNode(
+                NameTrie.Pointer<? extends E> parent,
+                Map<ZNodeName, E> children) {
+            super(parent, children);
         }
         
         protected AbstractDefaultsNode(

@@ -60,7 +60,7 @@ public final class ZNodeLabel extends AbstractZNodeLabel {
     }
     
     @Override
-    public boolean isRoot() {
+    public boolean isEmpty() {
         return false;
     }
     

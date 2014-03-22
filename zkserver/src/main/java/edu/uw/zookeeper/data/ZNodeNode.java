@@ -25,21 +25,21 @@ import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.proto.*;
 import edu.uw.zookeeper.server.ByOpcodeTxnRequestProcessor;
 
-public class ZNodeNode extends SimpleNameTrie.SimpleNode<ZNodeNode> {
+public class ZNodeNode extends AbstractNameTrie.SimpleNode<ZNodeNode> {
 
     public static ZNodeNode root() {
         return root(ZNodeState.defaults());
     }
     
     public static ZNodeNode root(ZNodeState state) {
-        NameTrie.Pointer<ZNodeNode> pointer = SimpleNameTrie.strongPointer(RootZNodeLabel.getInstance(), null);
+        NameTrie.Pointer<ZNodeNode> pointer = SimpleLabelTrie.strongPointer(EmptyZNodeLabel.getInstance(), null);
         return new ZNodeNode(
                 pointer, 
                 state);
     }
     
     public static ZNodeNode child(ZNodeLabel label, ZNodeNode parent, ZNodeState state) {
-        NameTrie.Pointer<ZNodeNode> pointer = SimpleNameTrie.weakPointer(label, parent);
+        NameTrie.Pointer<ZNodeNode> pointer = SimpleLabelTrie.weakPointer(label, parent);
         return new ZNodeNode(
                 pointer, 
                 state);
@@ -48,7 +48,7 @@ public class ZNodeNode extends SimpleNameTrie.SimpleNode<ZNodeNode> {
     private final ZNodeState state;
     
     protected ZNodeNode(NameTrie.Pointer<? extends ZNodeNode> parent, ZNodeState state) {
-        super(SimpleNameTrie.pathOf(parent), parent, Maps.<ZNodeName, ZNodeNode>newHashMap());
+        super(SimpleLabelTrie.pathOf(parent), parent, Maps.<ZNodeName, ZNodeNode>newHashMap());
         this.state = state;
     }
 
@@ -480,7 +480,7 @@ public class ZNodeNode extends SimpleNameTrie.SimpleNode<ZNodeNode> {
         public Void apply(Records.Response result) {
             ZNodeNode node = trie.get(((Records.PathGetter) result).getPath());
             ZNodeNode parent = node.parent().get();
-            parent.remove(node.parent().name());
+            node.remove();
             parent.state().setChildren(parentStat);
             return null;
         }

@@ -4,14 +4,13 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.concurrent.Callable;
 
-import net.engio.mbassy.common.StrongConcurrentSet;
-
 import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.client.ClientExecutor;
+import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.Serializers;
 import edu.uw.zookeeper.data.NameTrie;
@@ -20,13 +19,13 @@ import edu.uw.zookeeper.protocol.SessionListener;
 import edu.uw.zookeeper.protocol.proto.ISetDataRequest;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class Materializer<E extends Materializer.MaterializedNode<E,?>, V extends Operation.ProtocolResponse<?>> extends ZNodeCache<E, Records.Request, V> {
+public class Materializer<E extends Materializer.MaterializedNode<E,?>, O extends Operation.ProtocolResponse<?>> implements ClientExecutor<Records.Request,O, SessionListener> {
 
     @SuppressWarnings("unchecked")
-    public static <E extends Materializer.MaterializedNode<E,?>, V extends Operation.ProtocolResponse<?>> Materializer<E,V> fromHierarchy(
+    public static <E extends Materializer.MaterializedNode<E,?>, O extends Operation.ProtocolResponse<?>> Materializer<E,O> fromHierarchy(
             Class<? extends E> rootType,
             Serializers.ByteCodec<Object> codec, 
-            ClientExecutor<? super Records.Request, V, SessionListener> client) {
+            ClientExecutor<? super Records.Request, O, SessionListener> client) {
         SchemaElementLookup schema = SchemaElementLookup.fromHierarchy(rootType);
         E root = null;
         for (Constructor<?> ctor: rootType.getConstructors()) {
@@ -45,31 +44,34 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, V extend
         return newInstance(schema, codec, client, root);
     }
     
-    public static <E extends Materializer.MaterializedNode<E,?>, V extends Operation.ProtocolResponse<?>> Materializer<E,V> newInstance(
+    public static <E extends Materializer.MaterializedNode<E,?>, O extends Operation.ProtocolResponse<?>> Materializer<E,O> newInstance(
             SchemaElementLookup schema, 
             Serializers.ByteCodec<Object> codec, 
-            ClientExecutor<? super Records.Request, V, SessionListener> client,
+            ClientExecutor<? super Records.Request,O,SessionListener> client,
             E root) {
-        return new Materializer<E,V>(schema, codec, client, new CacheEvents(new StrongConcurrentSet<CacheListener>()), SimpleNameTrie.forRoot(root));
+        return new Materializer<E,O>(schema, codec, LockableZNodeCache.<E,Records.Request,O>newInstance(client, root));
     }
     
     public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> 
-    ListenableFuture<V> submit(ClientExecutor<I, V, ?> client, I request) {
+    ListenableFuture<V> submit(ClientExecutor<? super I, V, ?> client, I request) {
         return client.submit(request);
     }
     
+    protected final LockableZNodeCache<E,Records.Request,O> cache;
     protected final SchemaElementLookup schema;
     protected final Serializers.ByteCodec<Object> codec;
     
     protected Materializer(
             SchemaElementLookup schema, 
             Serializers.ByteCodec<Object> codec, 
-            ClientExecutor<? super Records.Request, V, SessionListener> client,
-            CacheEvents events,
-            NameTrie<E> trie) {
-        super(client, events, trie);
+            LockableZNodeCache<E,Records.Request,O> cache) {
         this.schema = schema;
         this.codec = codec;
+        this.cache = cache;
+    }
+    
+    public LockableZNodeCache<E,Records.Request,O> cache() {
+        return cache;
     }
     
     public SchemaElementLookup schema() {
@@ -79,12 +81,35 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, V extend
     public Serializers.ByteCodec<Object> codec() {
         return codec;
     }
-    
-    public Operator<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, Object>> create(ZNodePath path) {
-        return create(null);
+
+    @Override
+    public void subscribe(SessionListener listener) {
+        cache.subscribe(listener);
+    }
+
+    @Override
+    public boolean unsubscribe(SessionListener listener) {
+        return cache.unsubscribe(listener);
+    }
+
+    @Override
+    public ListenableFuture<O> submit(Records.Request request) {
+        return cache.submit(request);
     }
     
-    public Operator<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, Object>> create(ZNodePath path, Object data) {
+    @Override
+    public ListenableFuture<O> submit(Records.Request request, Promise<O> promise) {
+        return cache.submit(request, promise);
+    }
+    
+    public Operator<Operations.Requests.Create> create(ZNodePath path) {
+        Operations.Requests.Create create = Operations.Requests.create().setPath(path);
+        ValueNode<ZNodeSchema> schema = ZNodeSchema.matchPath(this.schema.get(), path);
+        create.setMode(schema.get().getCreateMode()).setAcl(ZNodeSchema.inheritedAcl(schema));
+        return operator(create);
+    }
+    
+    public <V> Operator<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, V>> create(ZNodePath path, V data) {
         Operations.Requests.Create create = Operations.Requests.create().setPath(path);
         ValueNode<ZNodeSchema> schema = ZNodeSchema.matchPath(this.schema.get(), path);
         create.setMode(schema.get().getCreateMode()).setAcl(ZNodeSchema.inheritedAcl(schema));
@@ -115,7 +140,7 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, V extend
         return operator(Operations.Requests.setAcl().setPath(path));
     }
 
-    public Operator<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, V>> setData(ZNodePath path, V data) {
+    public <V> Operator<Operations.Requests.SerializedData<ISetDataRequest, Operations.Requests.SetData, V>> setData(ZNodePath path, V data) {
         Operations.Requests.SetData setData = Operations.Requests.setData().setPath(path);
         return operator(Operations.Requests.serialized(setData, codec, data));
     }
@@ -128,7 +153,7 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, V extend
         return new Operator<T>(builder);
     }
     
-    public class Operator<T extends Operations.Builder<? extends Records.Request>> implements Supplier<T>, Callable<ListenableFuture<V>> {
+    public class Operator<T extends Operations.Builder<? extends Records.Request>> implements Supplier<T>, Callable<ListenableFuture<O>> {
         
         protected final T builder;
         
@@ -137,8 +162,8 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, V extend
         }
 
         @Override
-        public ListenableFuture<V> call() throws Exception {
-            return submit(get().build());
+        public ListenableFuture<O> call() {
+            return cache().submit(get().build());
         }
 
         @Override
@@ -183,10 +208,14 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, V extend
             }
             V materialized;
             Class<?> type = schema.get().getDataType();
-            try {
-                materialized = (V) codec.fromBytes(data, type);
-            } catch (IOException e) {
-                throw Throwables.propagate(e);
+            if (type == Void.class) {
+                materialized = (V) data;
+            } else {
+                try {
+                    materialized = (V) codec.fromBytes(data, type);
+                } catch (IOException e) {
+                    throw Throwables.propagate(e);
+                }
             }
             return materialized;
         }
@@ -199,7 +228,7 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, V extend
         @SuppressWarnings("unchecked")
         @Override
         protected E newChild(ZNodeName name) {
-            NameTrie.Pointer<E> pointer = SimpleNameTrie.weakPointer(name, (E) this);
+            NameTrie.Pointer<E> pointer = SimpleLabelTrie.weakPointer(name, (E) this);
             ValueNode<ZNodeSchema> childSchema = (schema != null) ? ZNodeSchema.matchChild(schema, name) : null;
 
             // find the right Constructor

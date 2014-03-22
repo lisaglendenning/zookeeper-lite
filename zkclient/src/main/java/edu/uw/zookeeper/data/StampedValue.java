@@ -6,14 +6,14 @@ import com.google.common.base.Supplier;
 
 public final class StampedValue<T> implements Supplier<T >{
 
-    public static <T> StampedValue<T> of(long stamp, T value) {
+    public static <T> StampedValue<T> valueOf(long stamp, T value) {
         return new StampedValue<T>(stamp, value);
     }
     
     private final long stamp;
     private final T value;
     
-    private StampedValue(long stamp, T value) {
+    public StampedValue(long stamp, T value) {
         this.stamp = stamp;
         this.value = value;
     }

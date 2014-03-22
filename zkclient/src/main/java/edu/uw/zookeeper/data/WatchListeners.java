@@ -86,14 +86,14 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
     
     public static WatchListeners newInstance() {
         return new WatchListeners(
-                WatchListenerNode.root());
+                SimpleLabelTrie.forRoot(WatchListenerNode.root()));
     }
     
     protected final NameTrie<WatchListenerNode> watchers;
     
     protected WatchListeners(
-            WatchListenerNode root) {
-        this.watchers = SimpleNameTrie.forRoot(root);
+            NameTrie<WatchListenerNode> watchers) {
+        this.watchers = watchers;
     }
     
     @Override
@@ -121,18 +121,22 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
     }
 
     @Override
-    public synchronized void handleNotification(Operation.ProtocolResponse<IWatcherEvent> message) {
+    public void handleNotification(Operation.ProtocolResponse<IWatcherEvent> message) {
         WatchEvent event = WatchEvent.fromRecord((IWatcherEvent) message.record());
-        for (WatchListenerNode node = SimpleNameTrie.longestPrefix(watchers, event.getPath());
-                (node != null); node = node.parent().get()) {
-            node.handleWatchEvent(event);
-        }
+        handleWatchEvent(event);
     }
 
     @Override
     public synchronized void handleAutomatonTransition(Automaton.Transition<ProtocolState> transition) {
-        for (WatchListenerNode e: watchers) {
-            e.handleAutomatonTransition(transition);
+        for (WatchListenerNode node: watchers) {
+            node.handleAutomatonTransition(transition);
+        }
+    }
+    
+    public synchronized void handleWatchEvent(WatchEvent event) {
+        for (WatchListenerNode node = watchers.longestPrefix(event.getPath());
+                (node != null); node = node.parent().get()) {
+            node.handleWatchEvent(event);
         }
     }
     
@@ -159,7 +163,7 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
     public static class WatchListenerNode extends DefaultsNode.AbstractDefaultsNode<WatchListenerNode> implements Eventful<WatchListeners.WatchMatchListener>, WatchListener {
     
         public static WatchListenerNode root() {
-            NameTrie.Pointer<WatchListenerNode> pointer = SimpleNameTrie.<WatchListenerNode>rootPointer();
+            NameTrie.Pointer<WatchListenerNode> pointer = SimpleLabelTrie.<WatchListenerNode>rootPointer();
             return new WatchListenerNode(pointer);
         }
 
@@ -167,7 +171,7 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
         
         protected WatchListenerNode(
                 NameTrie.Pointer<WatchListenerNode> parent) {
-            super(SimpleNameTrie.pathOf(parent), 
+            super(SimpleLabelTrie.pathOf(parent), 
                     parent, 
                     Maps.<ZNodeName, WatchListenerNode>newHashMap());
             this.listeners = Sets.newHashSet();
@@ -207,7 +211,7 @@ public class WatchListeners implements SessionListener, Eventful<WatchListeners.
 
         @Override
         protected WatchListenerNode newChild(ZNodeName label) {
-            NameTrie.Pointer<WatchListenerNode> pointer = SimpleNameTrie.weakPointer(label, this);
+            NameTrie.Pointer<WatchListenerNode> pointer = SimpleLabelTrie.weakPointer(label, this);
             return new WatchListenerNode(pointer);
         }
     }

@@ -27,7 +27,7 @@ import edu.uw.zookeeper.common.Eventful;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
-import edu.uw.zookeeper.data.SimpleNameTrie;
+import edu.uw.zookeeper.data.SimpleLabelTrie;
 import edu.uw.zookeeper.data.ZNodeLabelVector;
 import edu.uw.zookeeper.data.ZNodeName;
 import edu.uw.zookeeper.data.NameTrie;
@@ -47,19 +47,19 @@ import edu.uw.zookeeper.protocol.proto.Records.MultiOpResponse;
 /**
  * Only caches the results of operations submitted through this wrapper.
  * 
- * Use synchronize(cache()) for thread-safety on cache data.
+ * Not thread-safe.
  */
-public class ZNodeCache<E extends ZNodeCache.CacheNode<E,?>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> 
-        implements ClientExecutor<I, V, SessionListener> {
+public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.CacheNode<E,?>, I extends Operation.Request, O extends Operation.ProtocolResponse<?>> 
+        implements ClientExecutor<I, O, SessionListener> {
 
-    public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeCache<SimpleCacheNode,I,V> newInstance(
-            ClientExecutor<I,V,SessionListener> client) {
+    public static <I extends Operation.Request,O extends Operation.ProtocolResponse<?>> ZNodeCache<SimpleCacheNode,I,O> newInstance(
+            ClientExecutor<? super I,O,SessionListener> client) {
         return newInstance(client, SimpleCacheNode.root());
     }
     
-    public static <E extends ZNodeCache.CacheNode<E,?>, I extends Operation.Request, V extends Operation.ProtocolResponse<?>> ZNodeCache<E,I,V> newInstance(
-            ClientExecutor<I,V,SessionListener> client, E root) {
-        return new ZNodeCache<E,I,V>(client, new CacheEvents(new StrongConcurrentSet<CacheListener>()), SimpleNameTrie.forRoot(root));
+    public static <E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.CacheNode<E,?>,I extends Operation.Request, O extends Operation.ProtocolResponse<?>> ZNodeCache<E,I,O> newInstance(
+            ClientExecutor<? super I,O,SessionListener> client, E root) {
+        return new ZNodeCache<E,I,O>(client, new CacheEvents(new StrongConcurrentSet<CacheListener>()), SimpleLabelTrie.forRoot(root));
     }
 
     public static interface CacheListener {
@@ -123,9 +123,9 @@ public class ZNodeCache<E extends ZNodeCache.CacheNode<E,?>, I extends Operation
                 Records.ZNodeStatGetter stat,
                 long stamp,
                 NameTrie.Pointer<? extends E> parent) {
-            super(SimpleNameTrie.pathOf(parent), parent, Maps.<ZNodeName, E>newHashMap());
-            this.stat = StampedValue.of(stamp, stat);
-            this.data = StampedValue.of(stamp, data);
+            super(SimpleLabelTrie.pathOf(parent), parent, Maps.<ZNodeName, E>newHashMap());
+            this.stat = StampedValue.valueOf(stamp, stat);
+            this.data = StampedValue.valueOf(stamp, data);
             this.stamp = stamp;
         }
         
@@ -165,7 +165,7 @@ public class ZNodeCache<E extends ZNodeCache.CacheNode<E,?>, I extends Operation
                         Records.ZNodeStatGetter prev = stat.get();
                         Records.ZNodeStatGetter updated = new IStat(((Records.StatGetter) record).getStat());
                         if (! Objects.equal(prev, updated)) {
-                            stat = StampedValue.of(zxid, updated);
+                            stat = StampedValue.valueOf(zxid, updated);
                         }
                     }
                 }
@@ -174,7 +174,7 @@ public class ZNodeCache<E extends ZNodeCache.CacheNode<E,?>, I extends Operation
                         V prev = data.get();
                         V updated = transformData(((Records.DataGetter) record).getData());
                         if (! equivalentData(prev, updated)) {
-                            data = StampedValue.of(zxid, updated);
+                            data = StampedValue.valueOf(zxid, updated);
                             events = ImmutableList.of(NodeWatchEvent.nodeDataChanged(path()));
                         }
                     }
@@ -201,7 +201,7 @@ public class ZNodeCache<E extends ZNodeCache.CacheNode<E,?>, I extends Operation
     public static class SimpleCacheNode extends AbstractCacheNode<SimpleCacheNode, byte[]> {
 
         public static SimpleCacheNode root() {
-            return new SimpleCacheNode(SimpleNameTrie.<SimpleCacheNode>rootPointer());
+            return new SimpleCacheNode(SimpleLabelTrie.<SimpleCacheNode>rootPointer());
         }
         
 
@@ -230,25 +230,25 @@ public class ZNodeCache<E extends ZNodeCache.CacheNode<E,?>, I extends Operation
         
         @Override
         protected SimpleCacheNode newChild(ZNodeName label) {
-            NameTrie.Pointer<SimpleCacheNode> pointer = SimpleNameTrie.weakPointer(label, this);
+            NameTrie.Pointer<SimpleCacheNode> pointer = SimpleLabelTrie.weakPointer(label, this);
             return new SimpleCacheNode(pointer);
         }
     }
 
     // wrapper so that we can apply changes to the cache before
     // listeners are notified
-    protected class PromiseWrapper extends PromiseTask<I,V> {
+    protected class PromiseWrapper extends PromiseTask<I,O> {
 
         protected PromiseWrapper(I task) {
-            this(task, SettableFuturePromise.<V>create());
+            this(task, SettableFuturePromise.<O>create());
         }
 
-        protected PromiseWrapper(I task, Promise<V> delegate) {
+        protected PromiseWrapper(I task, Promise<O> delegate) {
             super(task, delegate);
         }
         
         @Override
-        public boolean set(V result) {
+        public boolean set(O result) {
             if (! isDone()) {
                 Records.Request request = (Records.Request)
                         ((task() instanceof Records.Request) ?
@@ -260,19 +260,19 @@ public class ZNodeCache<E extends ZNodeCache.CacheNode<E,?>, I extends Operation
         }
         
         @Override
-        protected Promise<V> delegate() {
+        protected Promise<O> delegate() {
             return delegate;
         }
     }
     
     protected final Logger logger;
     protected final ZxidTracker lastZxid;
-    protected final ClientExecutor<? super I, V, SessionListener> client;
+    protected final ClientExecutor<? super I, O, SessionListener> client;
     protected final NameTrie<E> trie;
     protected final CacheEvents events;
     
     protected ZNodeCache( 
-            ClientExecutor<? super I, V, SessionListener> client,
+            ClientExecutor<? super I, O, SessionListener> client,
             CacheEvents events,
             NameTrie<E> trie) {
         this.logger = LogManager.getLogger(getClass());
@@ -294,7 +294,7 @@ public class ZNodeCache<E extends ZNodeCache.CacheNode<E,?>, I extends Operation
         return lastZxid;
     }
     
-    public ClientExecutor<? super I, V, SessionListener> client() {
+    public ClientExecutor<? super I, O, SessionListener> client() {
         return client;
     }
     
@@ -309,12 +309,12 @@ public class ZNodeCache<E extends ZNodeCache.CacheNode<E,?>, I extends Operation
     }
 
     @Override
-    public ListenableFuture<V> submit(I request) {
+    public ListenableFuture<O> submit(I request) {
         return client.submit(request, new PromiseWrapper(request));
     }
     
     @Override
-    public ListenableFuture<V> submit(I request, Promise<V> promise) {
+    public ListenableFuture<O> submit(I request, Promise<O> promise) {
         return client.submit(request, new PromiseWrapper(request, promise));
     }
     
@@ -323,118 +323,116 @@ public class ZNodeCache<E extends ZNodeCache.CacheNode<E,?>, I extends Operation
         lastZxid.update(zxid);
         Records.Response response = result.record();
         ImmutableSet.Builder<NodeWatchEvent> events = ImmutableSet.builder();
-        synchronized (trie) {
-            if (response instanceof Operation.Error) {
-                switch (((Operation.Error) response).error()) {
-                case NONODE:
-                {
-                    ZNodePath path = ZNodePath.fromString(((Records.PathGetter) request).getPath());
-                    switch (request.opcode()) {
-                    case CREATE:
-                    case CREATE2:
-                    {
-                        path = ((AbsoluteZNodePath) path).parent();
-                    }
-                    case CHECK:
-                    case DELETE:
-                    case EXISTS:
-                    case GET_ACL:
-                    case GET_CHILDREN:
-                    case GET_CHILDREN2:
-                    case GET_DATA:
-                    case SET_ACL:
-                    case SET_DATA:
-                    {
-                        remove(path, zxid, events);
-                        return;
-                    }
-                    default:
-                        break;
-                    }
-                    break;
-                }
-                case NODEEXISTS:
-                {
-                    ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
-                    add(path, zxid, events);    
-                    break;
-                }
-                default:
-                    break;
-                }
-            } else {
-                switch (response.opcode()) {
+        if (response instanceof Operation.Error) {
+            switch (((Operation.Error) response).error()) {
+            case NONODE:
+            {
+                ZNodePath path = ZNodePath.fromString(((Records.PathGetter) request).getPath());
+                switch (request.opcode()) {
                 case CREATE:
                 case CREATE2:
                 {
-                    ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) response).getPath());
-                    update(path, zxid, events, request, response);
-                    break;
-                }
-                case DELETE:
-                {
-                    ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
-                    remove(path, zxid, events);
-                    break;
+                    path = ((AbsoluteZNodePath) path).parent();
                 }
                 case CHECK:
+                case DELETE:
                 case EXISTS:
                 case GET_ACL:
-                case SET_ACL:
-                {
-                    ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
-                    update(path, zxid, events, response);
-                    break;
-                }
                 case GET_CHILDREN:
-                case GET_CHILDREN2:        
-                {
-                    ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
-                    List<String> children = ((Records.ChildrenGetter) response).getChildren();
-                    E node = add(path, zxid, events);
-                    for (Map.Entry<ZNodeName, E> entry: node.entrySet()) {
-                        if (! children.contains(entry.getKey().toString())) {
-                            remove(entry.getValue().path(), zxid, events);
-                        }
-                    }
-                    for (String child: children) {
-                        add(path.join(ZNodeLabel.fromString(child)), zxid, events);
-                    }
-                    update(path, zxid, events, response);
-                    break;
-                }
+                case GET_CHILDREN2:
                 case GET_DATA:
-                {
-                    ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
-                    update(path, zxid, events, response);
-                    break;
-                }
-                case MULTI:
-                {
-                    int xid = result.xid();
-                    IMultiRequest requestRecord = (IMultiRequest) request;
-                    IMultiResponse responseRecord = (IMultiResponse) response;
-                    Iterator<MultiOpRequest> requests = requestRecord.iterator();
-                    Iterator<MultiOpResponse> responses = responseRecord.iterator();
-                    while (requests.hasNext()) {
-                         handleResult(requests.next(),
-                                ProtocolResponseMessage.of(xid, zxid, responses.next()));
-                    }
-                    break;
-                }
+                case SET_ACL:
                 case SET_DATA:
                 {
-                    ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
-                    update(path, zxid, events, response);
-                    break;
+                    remove(path, zxid, events);
+                    return;
                 }
                 default:
                     break;
                 }
+                break;
             }
-            
-            events().handleCacheEvent(events.build());
+            case NODEEXISTS:
+            {
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
+                add(path, zxid, events);    
+                break;
+            }
+            default:
+                break;
+            }
+        } else {
+            switch (response.opcode()) {
+            case CREATE:
+            case CREATE2:
+            {
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) response).getPath());
+                update(path, zxid, events, request, response);
+                break;
+            }
+            case DELETE:
+            {
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
+                remove(path, zxid, events);
+                break;
+            }
+            case CHECK:
+            case EXISTS:
+            case GET_ACL:
+            case SET_ACL:
+            {
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
+                update(path, zxid, events, response);
+                break;
+            }
+            case GET_CHILDREN:
+            case GET_CHILDREN2:        
+            {
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
+                List<String> children = ((Records.ChildrenGetter) response).getChildren();
+                E node = add(path, zxid, events);
+                for (Map.Entry<ZNodeName, E> entry: node.entrySet()) {
+                    if (! children.contains(entry.getKey().toString())) {
+                        remove(entry.getValue().path(), zxid, events);
+                    }
+                }
+                for (String child: children) {
+                    add(path.join(ZNodeLabel.fromString(child)), zxid, events);
+                }
+                update(path, zxid, events, response);
+                break;
+            }
+            case GET_DATA:
+            {
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
+                update(path, zxid, events, response);
+                break;
+            }
+            case MULTI:
+            {
+                int xid = result.xid();
+                IMultiRequest requestRecord = (IMultiRequest) request;
+                IMultiResponse responseRecord = (IMultiResponse) response;
+                Iterator<MultiOpRequest> requests = requestRecord.iterator();
+                Iterator<MultiOpResponse> responses = responseRecord.iterator();
+                while (requests.hasNext()) {
+                     handleResult(requests.next(),
+                            ProtocolResponseMessage.of(xid, zxid, responses.next()));
+                }
+                break;
+            }
+            case SET_DATA:
+            {
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
+                update(path, zxid, events, response);
+                break;
+            }
+            default:
+                break;
+            }
         }
+        
+        events().handleCacheEvent(events.build());
     }
 
     protected E add(ZNodePath path, long stamp, ImmutableSet.Builder<NodeWatchEvent> events) {
@@ -455,13 +453,13 @@ public class ZNodeCache<E extends ZNodeCache.CacheNode<E,?>, I extends Operation
     protected E remove(ZNodePath path, long stamp, ImmutableSet.Builder<NodeWatchEvent> events) {
         E node = trie.get(path);
         if ((node != null) && (node.stamp() < stamp)) {
-            node.parent().get().remove(node.parent().name());
-            events.add(NodeWatchEvent.nodeDeleted(node.path()));
-            events.add(NodeWatchEvent.nodeChildrenChanged((node.parent().get().path())));
-            return node;
-        } else {
-            return null;
+            if (node.remove()) {
+                events.add(NodeWatchEvent.nodeDeleted(node.path()));
+                events.add(NodeWatchEvent.nodeChildrenChanged((node.parent().get().path())));
+                return node;
+            }
         }
+        return null;
     }
 
     protected E update(ZNodePath path, long stamp, ImmutableSet.Builder<NodeWatchEvent> events, Record...records) {

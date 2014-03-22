@@ -101,7 +101,7 @@ public abstract class ZNodeLabelVector extends ZNodeName implements Iterable<ZNo
             throw new IndexOutOfBoundsException(String.valueOf(index));
         }
         if (index == 0) {
-            return RootZNodeLabel.getInstance();
+            return EmptyZNodeLabel.getInstance();
         } else if (index == length) {
             return this;
         } else {
@@ -118,7 +118,7 @@ public abstract class ZNodeLabelVector extends ZNodeName implements Iterable<ZNo
             throw new IndexOutOfBoundsException(String.valueOf(index));
         }
         if (index == length) {
-            return RootZNodeLabel.getInstance();
+            return EmptyZNodeLabel.getInstance();
         } else {
             if (charAt(index) != SLASH) {
                 throw new IllegalArgumentException(String.format("Cannot split suffix at index %d for %s", index, this));

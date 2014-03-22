@@ -21,8 +21,8 @@ public final class RootZNodePath extends ZNodePath {
     }
 
     @Override
-    public RootZNodeLabel label() {
-        return RootZNodeLabel.getInstance();
+    public EmptyZNodeLabel label() {
+        return EmptyZNodeLabel.getInstance();
     }
 
     @Override

@@ -44,7 +44,7 @@ public final class AbsoluteZNodePath extends ZNodePath {
     }
 
     @Override
-    public ZNodePath join(ZNodeName other) {
+    public AbsoluteZNodePath join(ZNodeName other) {
         String suffix = other.toString();
         if (suffix.isEmpty()) {
             return this;
