@@ -27,7 +27,6 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.EnsembleView;
@@ -39,6 +38,7 @@ import edu.uw.zookeeper.common.ForwardingPromise;
 import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.RuntimeModule;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
@@ -67,7 +67,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
             EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,V,SessionListener,?>>> factory) {
         return new ConnectionClientExecutorService<I,V>(factory, 
                 new StrongConcurrentSet<SessionListener>(), 
-                MoreExecutors.sameThreadExecutor());
+                SameThreadExecutor.getInstance());
     }
 
     public static <I extends Operation.Request, V extends Message.ServerResponse<?>> V disconnect(ConnectionClientExecutor<I,V,?,?> client) throws InterruptedException, ExecutionException, TimeoutException, KeeperException {
@@ -358,7 +358,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                     LoggingPromise.create(logger, 
                             SettableFuturePromise.<ConnectionClientExecutor<I,V,SessionListener,?>>create());
             Futures.addCallback(promise, ConnectionClientExecutorService.this);
-            promise.addListener(this, MoreExecutors.sameThreadExecutor());
+            promise.addListener(this, SameThreadExecutor.getInstance());
             return promise;
         }
 

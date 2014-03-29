@@ -18,12 +18,12 @@ import net.engio.mbassy.common.WeakConcurrentSet;
 
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.AbstractActor;
 import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 
 public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFuture<V> {
@@ -40,7 +40,6 @@ public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFut
                 logger);
     }
     
-    protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
     protected static final long NEVER_TIMEOUT = 0L;
 
     protected final ScheduledExecutorService scheduler;
@@ -62,7 +61,7 @@ public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFut
         this.listeners = checkNotNull(listeners);
         this.scheduled = null;
         
-        promise.addListener(this, SAME_THREAD_EXECUTOR);
+        promise.addListener(this, SameThreadExecutor.getInstance());
     }
 
     @Override

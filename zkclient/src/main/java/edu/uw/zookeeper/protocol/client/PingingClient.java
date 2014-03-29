@@ -22,6 +22,7 @@ import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.CodecConnection;
@@ -95,7 +96,7 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
     protected class PingTaskListener implements Runnable {
 
         public PingTaskListener() {
-            pingTask.addListener(this, SAME_THREAD_EXECUTOR);
+            pingTask.addListener(this, SameThreadExecutor.getInstance());
         }
         
         @Override
@@ -270,7 +271,7 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
                 parameters.touch();
                 lastPing = TimeValue.milliseconds(System.currentTimeMillis());
                 logger.trace(LoggingMarker.PING_MARKER.get(), "PING: {}", lastPing);
-                Futures.addCallback(connection.write((I) pingRequest), this, SAME_THREAD_EXECUTOR);
+                Futures.addCallback(connection.write((I) pingRequest), this, SameThreadExecutor.getInstance());
             }
         }
 

@@ -1,18 +1,14 @@
 package edu.uw.zookeeper.net;
 
 import java.net.SocketAddress;
-import java.util.concurrent.Executor;
-
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 
 public abstract class ForwardingConnection<I, O, T extends Connection<? super I, ? extends O, ?>, C extends ForwardingConnection<I,O,T,C>> implements Connection<I,O,C> {
 
-    protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
-    
     protected final Function<Object, C> RETURN_SELF;
     
     @SuppressWarnings("unchecked")
@@ -72,7 +68,7 @@ public abstract class ForwardingConnection<I, O, T extends Connection<? super I,
     @Override
     public ListenableFuture<? extends C> close() {
         return Futures.transform(
-                delegate().close(), RETURN_SELF, SAME_THREAD_EXECUTOR);
+                delegate().close(), RETURN_SELF, SameThreadExecutor.getInstance());
     }
 
     @Override

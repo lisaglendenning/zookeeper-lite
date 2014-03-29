@@ -4,14 +4,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
 public abstract class ForwardingService extends AbstractIdleService {
 
     @Override
     protected Executor executor() {
-        return MoreExecutors.sameThreadExecutor();
+        return SameThreadExecutor.getInstance();
     }
     
     @Override
@@ -27,7 +26,7 @@ public abstract class ForwardingService extends AbstractIdleService {
     protected void startService(Service service) throws ExecutionException {
         service.addListener(
                 new Listener(), 
-                MoreExecutors.sameThreadExecutor());
+                SameThreadExecutor.getInstance());
         switch (service.state()) {
         case NEW:
             service.startAsync();

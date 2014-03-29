@@ -5,7 +5,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.logging.log4j.LogManager;
@@ -18,13 +17,13 @@ import com.google.common.collect.MapMaker;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.AbstractActor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.RuntimeModule;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ConnectionFactory;
@@ -173,8 +172,6 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         return new ServerConnectionsHandler<C>(server, scheduler, timeOut, handlers);
     }
 
-    protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
-    
     protected final Logger logger;
     protected final TimeValue timeOut;
     protected final ScheduledExecutorService scheduler;
@@ -343,7 +340,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         protected class TimeOutListener implements Runnable {
 
             public TimeOutListener() {
-                timer.addListener(this, SAME_THREAD_EXECUTOR);
+                timer.addListener(this, SameThreadExecutor.getInstance());
             }
             
             @Override

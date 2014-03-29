@@ -18,14 +18,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
-
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.ForwardingPromise;
 import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.RootZNodePath;
 import edu.uw.zookeeper.data.ZNodeLabel;
@@ -269,7 +268,7 @@ public class TreeFetcher<V> implements Actor<ZNodePath> {
         }
         
         protected Executor getDefaultExecutor() {
-            return MoreExecutors.sameThreadExecutor();
+            return SameThreadExecutor.getInstance();
         }
     }
 

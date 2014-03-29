@@ -1,17 +1,14 @@
 package edu.uw.zookeeper.protocol.client;
 
-import java.util.concurrent.Executor;
-
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
-
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -21,8 +18,6 @@ public class ConnectTask
     extends PromiseTask<ConnectMessage.Request, ConnectMessage.Response> 
     implements FutureCallback<ConnectMessage.Request>, Connection.Listener<Operation.Response>, Runnable {
     
-    protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
-
     public static ConnectTask connect(
             Connection<? super ConnectMessage.Request, ? extends Operation.Response,?> connection,
             ConnectMessage.Request message) {
@@ -49,7 +44,7 @@ public class ConnectTask
         this.connection = connection;
         this.future = null;
         
-        addListener(this, SAME_THREAD_EXECUTOR);
+        addListener(this, SameThreadExecutor.getInstance());
     }
 
     @Override
@@ -86,7 +81,7 @@ public class ConnectTask
                     setException(e);
                     return;
                 }
-                Futures.addCallback(future, this, SAME_THREAD_EXECUTOR);
+                Futures.addCallback(future, this, SameThreadExecutor.getInstance());
             }
         } else {
             connection.unsubscribe(this);

@@ -1,28 +1,26 @@
 package edu.uw.zookeeper.protocol.client;
 
-import java.util.concurrent.Executor;
+import java.lang.ref.SoftReference;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import net.engio.mbassy.common.IConcurrentSet;
-import net.engio.mbassy.common.StrongConcurrentSet;
-
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolConnection;
-import edu.uw.zookeeper.protocol.SessionListener;
-
 
 public class OperationClientExecutor<C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>>
-    extends PendingQueueClientExecutor.Forwarding<Operation.Request, Message.ServerResponse<?>, PendingQueueClientExecutor.RequestTask<Operation.Request, Message.ServerResponse<?>>, C> {
+    extends PendingQueueClientExecutor<Operation.Request, Message.ServerResponse<?>, PendingQueueClientExecutor.RequestTask<Operation.Request, Message.ServerResponse<?>>, C, PendingQueueClientExecutor.PendingPromiseTask> {
 
     public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> OperationClientExecutor<C> newInstance(
             ConnectMessage.Request request,
@@ -56,13 +54,11 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
             ScheduledExecutorService executor) {
         return new OperationClientExecutor<C>(
                 xids,
+                LogManager.getLogger(OperationClientExecutor.class),
                 session,
                 connection,
                 timeOut,
-                executor,
-                new StrongConcurrentSet<SessionListener>(),
-                connection,
-                LogManager.getLogger(OperationClientExecutor.class));
+                executor);
     }
 
     protected final OperationActor actor;
@@ -70,16 +66,14 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
     
     protected OperationClientExecutor(
             AssignXidProcessor xids,
+            Logger logger,
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             TimeValue timeOut,
-            ScheduledExecutorService scheduler,
-            IConcurrentSet<SessionListener> listeners,
-            Executor executor,
-            Logger logger) {
-        super(session, connection, timeOut, scheduler, listeners);
+            ScheduledExecutorService scheduler) {
+        super(logger, session, connection, timeOut, scheduler);
         this.xids = xids;
-        this.actor = new OperationActor(executor, logger);
+        this.actor = new OperationActor(logger);
     }
 
     @Override
@@ -92,18 +86,37 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
         }
         return task;
     }
-    
+
+    @Override
+    public void onSuccess(PendingPromiseTask result) {
+        try {
+            Message.ServerResponse<?> response = result.get();
+            result.getPromise().set(response);
+        } catch (ExecutionException e) {
+            result.getPromise().setException(e.getCause());
+            onFailure(e.getCause());
+        } catch (CancellationException e) {
+            result.getPromise().cancel(true);
+        } catch (InterruptedException e) {
+            throw new AssertionError(e);
+        }
+    }
+
     @Override
     protected OperationActor actor() {
         return actor;
     }
 
+    @Override
+    protected Logger logger() {
+        return actor.logger();
+    }
+
     protected class OperationActor extends ForwardingActor {
 
         protected OperationActor(
-                Executor executor,
                 Logger logger) {
-            super(executor, logger);
+            super(connection, logger);
         }
 
         @Override
@@ -111,7 +124,13 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
             if (! input.isDone()) {
                 // Assign xids here so we can properly track message request -> response
                 Message.ClientRequest<?> message = (Message.ClientRequest<?>) xids.apply(input.task());
-                write(message, input.promise());
+                PendingPromiseTask task = PendingPromiseTask.create(
+                        input.promise(),
+                        new SoftReference<Message.ClientRequest<?>>(message), 
+                        SettableFuturePromise.<Message.ServerResponse<?>>create());
+                if (! pending.send(task)) {
+                    input.cancel(true);
+                }
             }
             return true;
         }

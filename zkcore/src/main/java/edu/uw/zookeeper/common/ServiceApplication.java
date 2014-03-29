@@ -7,7 +7,6 @@ import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Monitor;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.Service.State;
 
@@ -52,7 +51,7 @@ public class ServiceApplication implements Application {
             }
         };
         service.addListener(new ApplicationServiceListener(),
-                MoreExecutors.sameThreadExecutor());
+                SameThreadExecutor.getInstance());
     }
 
     public Service service() {

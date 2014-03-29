@@ -4,7 +4,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import com.google.common.base.Function;
@@ -13,8 +12,6 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.MapMaker;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
-
 import net.engio.mbassy.common.IConcurrentSet;
 import net.engio.mbassy.common.StrongConcurrentSet;
 import edu.uw.zookeeper.ZooKeeperApplication;
@@ -224,8 +221,6 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
         }
     }
 
-    protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
-    
     protected final TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> anonymousExecutor;
     protected final TaskExecutor<ConnectMessage.Request, ? extends ConnectMessage.Response> connectExecutor;
     protected final ConcurrentMap<Long, T> sessionExecutors;

@@ -3,16 +3,14 @@ package edu.uw.zookeeper.server;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
 import com.google.common.base.Objects;
 import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.MoreExecutors;
-
 import net.engio.mbassy.common.IConcurrentSet;
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
@@ -28,8 +26,6 @@ import edu.uw.zookeeper.protocol.server.SessionExecutor;
 
 public abstract class AbstractSessionExecutor<V> implements SessionExecutor, FutureCallback<V>, SessionListener {
 
-    protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
-    
     protected final Automaton<ProtocolState,ProtocolState> state;
     protected final IConcurrentSet<SessionListener> listeners;
     protected final Session session;
@@ -106,7 +102,7 @@ public abstract class AbstractSessionExecutor<V> implements SessionExecutor, Fut
     protected class TimeOutListener implements Runnable {
 
         public TimeOutListener() {
-            timer.addListener(this, SAME_THREAD_EXECUTOR);
+            timer.addListener(this, SameThreadExecutor.getInstance());
         }
         
         @Override

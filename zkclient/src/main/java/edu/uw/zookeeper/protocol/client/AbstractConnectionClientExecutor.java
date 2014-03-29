@@ -8,6 +8,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import net.engio.mbassy.common.IConcurrentSet;
+import net.engio.mbassy.common.StrongConcurrentSet;
 import net.engio.mbassy.common.WeakConcurrentSet;
 
 import org.apache.logging.log4j.LogManager;
@@ -19,20 +20,23 @@ import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons.AutomatonListener;
+import edu.uw.zookeeper.common.Eventful;
 import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.PromiseTask;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Operation.ProtocolResponse;
 import edu.uw.zookeeper.protocol.ProtocolConnection;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.Session;
@@ -40,7 +44,7 @@ import edu.uw.zookeeper.protocol.SessionListener;
 import edu.uw.zookeeper.protocol.TimeOutActor;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
-import edu.uw.zookeeper.protocol.proto.OpCode;
+import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 
 
 public abstract class AbstractConnectionClientExecutor<
@@ -51,34 +55,40 @@ public abstract class AbstractConnectionClientExecutor<
     O>
     implements ConnectionClientExecutor<I,V,SessionListener,C>, Connection.Listener<Operation.Response>,
         FutureCallback<O>, AutomatonListener<ProtocolState>, Actor<T> {
-    
-    protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
 
-    protected final C connection;
     protected final ListenableFuture<ConnectMessage.Response> session;
-    protected final TimeOutServer<O> timer;
-    protected final IConcurrentSet<SessionListener> listeners;
+    protected final C connection;
+    protected final Listeners listeners;
+    protected final TimeOutServer<Operation.Response> timer;
     protected final AtomicReference<Throwable> failure;
     
     protected AbstractConnectionClientExecutor(
             ListenableFuture<ConnectMessage.Response> session,
             C connection,
             TimeValue timeOut,
-            ScheduledExecutorService scheduler,
-            IConcurrentSet<SessionListener> listeners) {
-        this.connection = connection;
+            ScheduledExecutorService scheduler) {
+        this(session, connection, Listeners.create(), TimeOutServer.<Operation.Response>newTimeOutServer(TimeOutParameters.create(timeOut), scheduler), new AtomicReference<Throwable>());
+    }
+    
+    protected AbstractConnectionClientExecutor(
+            ListenableFuture<ConnectMessage.Response> session,
+            C connection,
+            Listeners listeners,
+            TimeOutServer<Operation.Response> timer,
+            AtomicReference<Throwable> failure) {
         this.session = session;
+        this.connection = connection;
         this.listeners = listeners;
-        this.timer = TimeOutServer.newTimeOutServer(TimeOutParameters.create(timeOut), scheduler);
-        this.failure = new AtomicReference<Throwable>();
+        this.timer = timer;
+        this.failure = failure;
 
         new TimeOutListener();
-        Futures.addCallback(this.session, this.timer, SAME_THREAD_EXECUTOR);
+        Futures.addCallback(this.session, this.timer, SameThreadExecutor.getInstance());
         this.connection.subscribe(this);
         this.connection.codec().subscribe(this);
         this.timer.run();
     }
-
+    
     public ListenableFuture<ConnectMessage.Response> session() {
         return session;
     }
@@ -89,19 +99,39 @@ public abstract class AbstractConnectionClientExecutor<
 
     @Override
     public void subscribe(SessionListener listener) {
-        listeners.add(listener);
+        listeners.subscribe(listener);
     }
 
     @Override
     public boolean unsubscribe(SessionListener listener) {
-        return listeners.remove(listener);
+        return listeners.unsubscribe(listener);
     }
 
     @Override
     public ListenableFuture<V> submit(I request) {
         return submit(request, SettableFuturePromise.<V>create());
     }
-
+    
+    @Override
+    public boolean send(T input) {
+        return actor().send(input);
+    }
+    
+    @Override
+    public Actor.State state() {
+        return actor().state();
+    }
+    
+    @Override
+    public boolean stop() {
+        return actor().stop();
+    }
+    
+    @Override
+    public void run() {
+        actor().run();
+    }
+    
     @Override
     public void handleConnectionState(Automaton.Transition<Connection.State> event) {
         if (Connection.State.CONNECTION_CLOSED == event.to()) {
@@ -126,19 +156,15 @@ public abstract class AbstractConnectionClientExecutor<
         logger().debug("Received: {}", message);
         timer.send(message);
         if (message instanceof Operation.ProtocolResponse<?>) {
-            if (((Operation.ProtocolResponse<?>) message).record().opcode() == OpCode.NOTIFICATION) {
-                for (SessionListener listener: listeners) {
-                    listener.handleNotification((Operation.ProtocolResponse<IWatcherEvent>) message);
-                }
+            if (((Operation.ProtocolResponse<?>) message).xid() == OpCodeXid.NOTIFICATION.xid()) {
+                listeners.handleNotification((Operation.ProtocolResponse<IWatcherEvent>) message);
             }
         }
     }
     
     @Override
     public void handleAutomatonTransition(Automaton.Transition<ProtocolState> transition) {
-        for (SessionListener listener: listeners) {
-            listener.handleAutomatonTransition(transition);
-        }
+        listeners.handleAutomatonTransition(transition);
     }
 
     @Override
@@ -170,6 +196,8 @@ public abstract class AbstractConnectionClientExecutor<
         return Objects.toStringHelper(this).add("session", sessionStr).add("connection", connection).toString();
     }
     
+    protected abstract Actor<? super T> actor();
+    
     protected abstract Logger logger();
 
     protected void doStop() {  
@@ -184,16 +212,74 @@ public abstract class AbstractConnectionClientExecutor<
         
         connection.close();
 
-        Iterator<?> itr = Iterators.consumingIterator(listeners.iterator());
-        while (itr.hasNext()) {
-            itr.next();
+        listeners.clear();
+    }
+    
+    public static class RequestTask<I extends Operation.Request, V extends Operation.ProtocolResponse<?>> extends PromiseTask<I,V> {
+
+        public static <I extends Operation.Request, V extends Operation.ProtocolResponse<?>> RequestTask<I,V> of(I task, Promise<V> promise) {
+            return new RequestTask<I,V>(task, promise);
         }
+        
+        public RequestTask(I task, Promise<V> promise) {
+            super(task, promise);
+        }
+        
+        public Promise<V> promise() {
+            return delegate();
+        }
+    }
+    
+    public static class Listeners implements Eventful<SessionListener>, SessionListener {
+        
+        public static Listeners create() {
+            return new Listeners(new StrongConcurrentSet<SessionListener>());
+        }
+        
+        protected final IConcurrentSet<SessionListener> listeners;
+        
+        public Listeners(IConcurrentSet<SessionListener> listeners) {
+            this.listeners = listeners;
+        }
+        
+        public void clear() {
+            Iterator<?> itr = Iterators.consumingIterator(listeners.iterator());
+            while (itr.hasNext()) {
+                itr.next();
+            }
+        }
+
+        @Override
+        public void subscribe(SessionListener listener) {
+            listeners.add(listener);
+        }
+
+        @Override
+        public boolean unsubscribe(SessionListener listener) {
+            return listeners.remove(listener);
+        }
+
+        @Override
+        public void handleAutomatonTransition(Automaton.Transition<ProtocolState> transition) {
+            for (SessionListener listener: listeners) {
+                listener.handleAutomatonTransition(transition);
+            }
+        }
+
+        @Override
+        public void handleNotification(
+                ProtocolResponse<IWatcherEvent> notification) {
+            for (SessionListener listener: listeners) {
+                listener.handleNotification(notification);
+            }
+        }
+        
     }
     
     protected class TimeOutListener implements Runnable {
 
         public TimeOutListener() {
-            timer.addListener(this, SAME_THREAD_EXECUTOR);
+            timer.addListener(this, SameThreadExecutor.getInstance());
         }
         
         @Override

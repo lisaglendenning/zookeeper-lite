@@ -1,17 +1,15 @@
 package edu.uw.zookeeper.client;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
-
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -84,7 +82,7 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?,?>> e
         
         @Override
         public ListenableFuture<OperationClientExecutor<C>> get(ConnectMessage.Request request) {
-            return Futures.transform(connections.get(), new Constructor(request), SAME_THREAD_EXECUTOR);
+            return Futures.transform(connections.get(), new Constructor(request), SameThreadExecutor.getInstance());
         }
         
         protected class Constructor implements Function<C, OperationClientExecutor<C>> {
@@ -103,8 +101,6 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?,?>> e
         }
     }
     
-    protected final static Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
-
     protected final DefaultsFactory<V, ? extends ListenableFuture<? extends C>> delegate;
     
     protected ServerViewFactory(
@@ -117,12 +113,12 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?,?>> e
     
     @Override
     public ListenableFuture<C> get() {
-        return Futures.transform(delegate.get(), this, SAME_THREAD_EXECUTOR);
+        return Futures.transform(delegate.get(), this, SameThreadExecutor.getInstance());
     }
 
     @Override
     public ListenableFuture<C> get(V value) {
-        return Futures.transform(delegate.get(value), this, SAME_THREAD_EXECUTOR);
+        return Futures.transform(delegate.get(value), this, SameThreadExecutor.getInstance());
     }
 
     @Override

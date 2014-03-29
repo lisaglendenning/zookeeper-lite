@@ -5,12 +5,12 @@ import java.util.concurrent.Executor;
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Monitor;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.typesafe.config.ConfigValueType;
 
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionListener;
@@ -70,7 +70,7 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
             ClientExecutor<? super I, O, T> delegate) {
         this.limit = limit;
         this.delegate = delegate;
-        this.executor = MoreExecutors.sameThreadExecutor();
+        this.executor = SameThreadExecutor.getInstance();
         this.listener = new Listener();
     }
     
