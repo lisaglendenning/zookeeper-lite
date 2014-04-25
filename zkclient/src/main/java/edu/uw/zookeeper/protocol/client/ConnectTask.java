@@ -2,10 +2,13 @@ package edu.uw.zookeeper.protocol.client;
 
 import org.apache.zookeeper.KeeperException;
 
+import com.google.common.base.Optional;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SameThreadExecutor;
@@ -14,35 +17,32 @@ import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Operation;
 
-public class ConnectTask
-    extends PromiseTask<ConnectMessage.Request, ConnectMessage.Response> 
+public class ConnectTask<C extends Connection<? super ConnectMessage.Request, ? extends Operation.Response,?>>
+    extends PromiseTask<Pair<ConnectMessage.Request, C>, ConnectMessage.Response> 
     implements FutureCallback<ConnectMessage.Request>, Connection.Listener<Operation.Response>, Runnable {
     
-    public static ConnectTask connect(
-            Connection<? super ConnectMessage.Request, ? extends Operation.Response,?> connection,
-            ConnectMessage.Request message) {
-        ConnectTask task = create(connection, message, SettableFuturePromise.<ConnectMessage.Response>create());
+    public static <C extends Connection<? super ConnectMessage.Request, ? extends Operation.Response,?>> ConnectTask<C> connect(
+            ConnectMessage.Request message,
+            C connection) {
+        ConnectTask<C> task = create(message, connection, SettableFuturePromise.<ConnectMessage.Response>create());
         task.run();
         return task;
     }
 
-    public static ConnectTask create(
-            Connection<? super ConnectMessage.Request, ? extends Operation.Response,?> connection,
+    public static <C extends Connection<? super ConnectMessage.Request, ? extends Operation.Response,?>> ConnectTask<C> create(
             ConnectMessage.Request message, 
+            C connection,
             Promise<ConnectMessage.Response> promise) {
-        return new ConnectTask(message, connection, promise);
+        return new ConnectTask<C>(Pair.create(message, connection), promise);
     }
     
-    protected final Connection<? super ConnectMessage.Request, ? extends Operation.Response,?> connection;
-    protected ListenableFuture<ConnectMessage.Request> future;
+    protected Optional<ListenableFuture<ConnectMessage.Request>> write;
     
     protected ConnectTask(
-            ConnectMessage.Request request,
-            Connection<? super ConnectMessage.Request, ? extends Operation.Response,?> connection,
+            Pair<ConnectMessage.Request, C> task,
             Promise<ConnectMessage.Response> promise) {
-        super(request, promise);
-        this.connection = connection;
-        this.future = null;
+        super(task, promise);
+        this.write = Optional.absent();
         
         addListener(this, SameThreadExecutor.getInstance());
     }
@@ -58,6 +58,8 @@ public class ConnectTask
     public void handleConnectionRead(Operation.Response message) {
         if (message instanceof ConnectMessage.Response) {
             set((ConnectMessage.Response) message);
+        } else {
+            setException(new IllegalStateException(String.valueOf(message)));
         }
     }
     
@@ -73,20 +75,20 @@ public class ConnectTask
     @Override
     public synchronized void run() {
         if (! isDone()) {
-            if (future == null) {
-                connection.subscribe(this);
+            if (! write.isPresent()) {
+                task.second().subscribe(this);
                 try {
-                    future = connection.write(task());
+                    write = Optional.of(task.second().write(task().first()));
                 } catch (Throwable e) {
                     setException(e);
                     return;
                 }
-                Futures.addCallback(future, this, SameThreadExecutor.getInstance());
+                Futures.addCallback(write.get(), this, SameThreadExecutor.getInstance());
             }
         } else {
-            connection.unsubscribe(this);
-            if (future != null) {
-                future.cancel(true);
+            task().second().unsubscribe(this);
+            if (write.isPresent()) {
+                write.get().cancel(true);
             }
         }
     } 

@@ -72,13 +72,17 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
                 legacy = true;
             }
             archive.endRecord(Records.CONNECT_TAG);
-            ConnectMessage.Request out = ConnectMessage.Request.newInstance(record, readOnly, legacy);
+            ConnectMessage.Request out = newInstance(record, readOnly, legacy);
             return out;
         }
 
         public static ConnectMessage.Request newInstance(IConnectRequest record, boolean readOnly,
                 boolean legacy) {
-            return NewRequest.newInstance(record, readOnly, legacy);
+            if (record.getSessionId() == edu.uw.zookeeper.protocol.Session.UNINITIALIZED_ID) {
+                return NewRequest.newInstance(record, readOnly, legacy);
+            } else {
+                return RenewRequest.newInstance(record, readOnly, legacy);
+            }
         }
 
         protected Request(IConnectRequest record) {
@@ -113,24 +117,20 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
                 return record;
             }
             
-            public static ConnectMessage.Request newInstance() {
+            public static NewRequest newInstance() {
                 return newInstance(newRecord());
             }
 
-            public static ConnectMessage.Request newInstance(TimeValue timeOut, long lastZxid) {
+            public static NewRequest newInstance(TimeValue timeOut, long lastZxid) {
                 return newInstance(toRecord(timeOut, lastZxid));
             }
             
-            public static ConnectMessage.Request newInstance(IConnectRequest record) {
+            public static NewRequest newInstance(IConnectRequest record) {
                 return newInstance(record, false, false);
             }
 
-            public static ConnectMessage.Request newInstance(IConnectRequest record, boolean readOnly, boolean legacy) {
-                if (record.getSessionId() != edu.uw.zookeeper.protocol.Session.UNINITIALIZED_ID) {
-                    return RenewRequest.newInstance(record, readOnly, legacy);
-                } else {
-                    return new NewRequest(record, readOnly, legacy);
-                }
+            public static NewRequest newInstance(IConnectRequest record, boolean readOnly, boolean legacy) {
+                return new NewRequest(record, readOnly, legacy);
             }
 
             private NewRequest(IConnectRequest record, boolean readOnly, boolean legacy) {

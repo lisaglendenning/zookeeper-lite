@@ -15,9 +15,10 @@ import edu.uw.zookeeper.protocol.server.ServerExecutor;
 public class SimpleServerBuilder<T extends ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor<?>, ?>> extends ZooKeeperApplication.ForwardingBuilder<List<Service>, T, SimpleServerBuilder<T>> {
 
     public static SimpleServerBuilder<?> defaults() {
+        ServerConnectionsHandler.Builder connections = ServerConnectionsHandler.builder();
         return fromBuilders(
-                SimpleServerExecutor.builder(), 
-                ServerConnectionsHandler.builder());
+                SimpleServerExecutor.builder(connections.getConnectionBuilder()), 
+                connections);
     }
 
     public static <T extends ZooKeeperApplication.RuntimeBuilder<? extends ServerExecutor<?>, ?>> SimpleServerBuilder<T> fromBuilders(

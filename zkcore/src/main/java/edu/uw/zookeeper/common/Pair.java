@@ -10,11 +10,11 @@ public class Pair<U,V> extends AbstractPair<U,V> {
         super(first, second);
     }
 
-    public U first() {
+    public final U first() {
         return first;
     }
 
-    public V second() {
+    public final V second() {
         return second;
     }
 }

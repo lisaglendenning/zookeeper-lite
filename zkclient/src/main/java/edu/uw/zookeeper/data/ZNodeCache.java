@@ -123,7 +123,16 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
                 Records.ZNodeStatGetter stat,
                 long stamp,
                 NameTrie.Pointer<? extends E> parent) {
-            super(SimpleLabelTrie.pathOf(parent), parent, Maps.<ZNodeName, E>newHashMap());
+            this(data, stat, stamp, parent, Maps.<ZNodeName, E>newHashMap());
+        }
+
+        protected AbstractCacheNode(
+                V data,
+                Records.ZNodeStatGetter stat,
+                long stamp,
+                NameTrie.Pointer<? extends E> parent,
+                Map<ZNodeName, E> children) {
+            super(SimpleLabelTrie.pathOf(parent), parent, children);
             this.stat = StampedValue.valueOf(stamp, stat);
             this.data = StampedValue.valueOf(stamp, data);
             this.stamp = stamp;

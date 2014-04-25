@@ -39,7 +39,7 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
             C connection,
             ScheduledExecutorService executor) {
         return newInstance(
-                ConnectTask.connect(connection, request),
+                ConnectTask.connect(request, connection),
                 xids,
                 connection,
                 TimeValue.milliseconds(request.getTimeOut()),

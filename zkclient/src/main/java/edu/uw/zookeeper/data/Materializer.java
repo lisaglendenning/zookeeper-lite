@@ -2,11 +2,13 @@ package edu.uw.zookeeper.data;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.client.ClientExecutor;
@@ -191,7 +193,18 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, O extend
                 Records.ZNodeStatGetter stat,
                 long stamp,
                 NameTrie.Pointer<? extends E> parent) {
-            super(data, stat, stamp, parent);
+            this(schema, codec, data, stat, stamp, parent, Maps.<ZNodeName, E>newHashMap());
+        }
+
+        protected MaterializedNode( 
+                ValueNode<ZNodeSchema> schema,
+                Serializers.ByteCodec<Object> codec,
+                V data,
+                Records.ZNodeStatGetter stat,
+                long stamp,
+                NameTrie.Pointer<? extends E> parent,
+                Map<ZNodeName, E> children) {
+            super(data, stat, stamp, parent, children);
             this.schema = schema;
             this.codec = codec;
         }

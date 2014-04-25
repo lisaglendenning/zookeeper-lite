@@ -29,7 +29,7 @@ public abstract class AbstractSessionExecutor<V> implements SessionExecutor, Fut
     protected final Automaton<ProtocolState,ProtocolState> state;
     protected final IConcurrentSet<SessionListener> listeners;
     protected final Session session;
-    protected final TimeOutActor<Message.ClientRequest<?>, Void> timer;
+    protected final TimeOutActor<Message.ClientSession, Void> timer;
     
     protected AbstractSessionExecutor(                
             Session session,
@@ -44,6 +44,10 @@ public abstract class AbstractSessionExecutor<V> implements SessionExecutor, Fut
                 scheduler);
         
         new TimeOutListener();
+    }
+    
+    public TimeOutActor<Message.ClientSession, Void> timer() {
+        return timer;
     }
 
     @Override

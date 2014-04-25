@@ -28,7 +28,7 @@ public class MessageClientExecutor<C extends ProtocolConnection<? super Message.
             C connection,
             ScheduledExecutorService executor) {
         return newInstance(
-                ConnectTask.connect(connection, request),
+                ConnectTask.connect(request, connection),
                 connection,
                 TimeValue.milliseconds(request.getTimeOut()),
                 executor);

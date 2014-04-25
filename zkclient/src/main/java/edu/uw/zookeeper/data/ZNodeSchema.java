@@ -22,9 +22,9 @@ import edu.uw.zookeeper.common.Pair;
 
 public class ZNodeSchema {
     
-    public static ValueNode<ZNodeSchema> matchPath(NameTrie<ValueNode<ZNodeSchema>> trie, ZNodePath path) {
+    public static <E extends NameTrie.Node<E>> E matchPath(NameTrie<E> trie, ZNodePath path) {
         Iterator<ZNodeLabel> remaining = path.iterator();
-        ValueNode<ZNodeSchema> node = trie.root();
+        E node = trie.root();
         while (remaining.hasNext() && (node != null)) {
             ZNodeLabel next = remaining.next();
             node = matchChild(node, next);
@@ -32,11 +32,11 @@ public class ZNodeSchema {
         return node;
     }
 
-    public static ValueNode<ZNodeSchema> matchChild(ValueNode<ZNodeSchema> node, ZNodeName name) {
-        ValueNode<ZNodeSchema> child = node.get(name);
+    public static <E extends NameTrie.Node<E>> E matchChild(E node, ZNodeName name) {
+        E child = node.get(name);
         if (child == null) {
-            String labelString = name.toString();
-            for (Map.Entry<ZNodeName, ValueNode<ZNodeSchema>> entry: node.entrySet()) {
+            final String labelString = name.toString();
+            for (Map.Entry<ZNodeName, E> entry: node.entrySet()) {
                 if (labelString.matches(entry.getKey().toString())) {
                     child = entry.getValue();
                     break;
