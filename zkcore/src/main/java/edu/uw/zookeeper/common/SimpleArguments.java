@@ -138,7 +138,7 @@ public class SimpleArguments implements Arguments {
         // System.property(sun.java.command)?
         this.options = Maps.newTreeMap();
         for (SimpleOption opt : checkNotNull(options)) {
-            add(opt);
+            this.options.put(opt.getName(), opt);
         }
         this.programName = programName;
         this.description = description;
@@ -157,25 +157,29 @@ public class SimpleArguments implements Arguments {
     }
 
     @Override
-    public Option addOption(String name, Optional<String> help,
+    public synchronized Option addOption(String name, Optional<String> help,
             Optional<String> defaultValue) {
-        SimpleOption option = new SimpleOption(name, help, defaultValue);
-        add(option);
-        return option;
+        if (options.containsKey(name)) {
+            SimpleOption existing = options.get(name);
+            if (!existing.getHelp().equals(help) || !existing.getDefaultValue().equals(defaultValue)) {
+                throw new IllegalArgumentException(name);
+            }
+            return existing;
+        } else {
+            SimpleOption option = new SimpleOption(name, help, defaultValue);
+            options.put(name, option);
+            return option;
+        }
     }
 
     @Override
     public Option addOption(String name, String help) {
-        SimpleOption option = new SimpleOption(name, help);
-        add(option);
-        return option;
+        return addOption(name, Optional.of(help), Optional.<String>absent());
     }
 
     @Override
     public Option addOption(String name) {
-        SimpleOption option = new SimpleOption(name);
-        add(option);
-        return option;
+        return addOption(name, Optional.<String>absent(), Optional.<String>absent());
     }
 
     @Override
@@ -266,12 +270,6 @@ public class SimpleArguments implements Arguments {
                 .add("args", Arrays.toString(args))
                 .add("options", Iterators.toString(iterator()))
                 .toString();
-    }
-
-    private synchronized void add(SimpleOption option) {
-        String name = option.getName();
-        checkArgument(! options.containsKey(name), String.valueOf(option));
-        options.put(name, option);
     }
 
     private String[] parse(String... args) {
