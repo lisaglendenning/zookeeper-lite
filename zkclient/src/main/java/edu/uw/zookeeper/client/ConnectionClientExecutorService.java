@@ -418,10 +418,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                     }
                     future.addListener(this, executor);
                 }
-                return;
-            }
-            
-            if (future.isDone()) {
+            } else if (future.isDone()) {
                 if (! isDone()) {
                     if (future.isCancelled()) {
                         cancel(true);

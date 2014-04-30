@@ -33,7 +33,7 @@ public class SimpleClientBuilder extends ConnectionClientExecutorService.Builder
             NetClientModule clientModule) {
         return ClientConnectionFactoryBuilder.defaults()
                 .setClientModule(clientModule)
-                .setTimeOut(TimeValue.create(Session.Parameters.NEVER_TIMEOUT, Session.Parameters.TIMEOUT_UNIT))
+                .setTimeOut(TimeValue.create(Session.Parameters.noTimeout(), Session.Parameters.timeoutUnit()))
                 .setConnectionFactory(
                         new ParameterizedFactory<CodecConnection<Message.ClientSession, Message.ServerSession, ProtocolCodec<Message.ClientSession,Message.ServerSession,Message.ClientSession,Message.ServerSession>,?>, ClientProtocolConnection<Message.ClientSession, Message.ServerSession,?,?>>() {
                             @Override

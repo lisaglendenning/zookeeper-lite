@@ -9,11 +9,13 @@ public abstract class ZNodePath extends ZNodeLabelVector {
     /**
      * @param path to be validated
      * @return path
+     * @throws IllegalArgumentException
      */
     public static String validate(String path) {
         return validate(path, 0, path.length());
     }
 
+    @SuppressWarnings("unchecked")
     public static <T extends CharSequence> T validate(T path, int start, int end) {
         if (start < end) {
             if (path.charAt(start) != SLASH) {
@@ -30,16 +32,20 @@ public abstract class ZNodePath extends ZNodeLabelVector {
                     ZNodeLabel.validate(path, start+1, end);
                 }
             }
-            return path;
+            return ((start > 0) || (end < path.length() - 1)) ? (T) path.subSequence(start, end) : path;
         } else {
             throw new IllegalArgumentException(String.format("Empty index range [%d,%d) for %s", start, end, path));
         }
     }
 
     public static ZNodePath validated(String path) {
-        return fromString(validate(path, 0, path.length()));
+        return fromString(validate(path));
     }
 
+    public static ZNodePath validated(String path, int start, int end) {
+        return fromString(validate(path));
+    }
+    
     /**
      * Validates, replaces self and parent labels, and trims slashes.
      * 

@@ -10,6 +10,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.MapMaker;
+import com.google.common.hash.Hashing;
 
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ZooKeeperApplication;
@@ -149,11 +150,7 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
         }
 
         public ServerBuilder setSessionExecutors(ConcurrentMap<Long, SimpleSessionExecutor> sessionExecutors) {
-            return newInstance(server, sessionExecutors, zxids, data, sessions, listeners, runtime);
-        }
-
-        public ConcurrentMap<Long, SimpleSessionExecutor> getDefaultSessionExecutors() {
-            return new MapMaker().makeMap();
+            return newInstance(connections, server, sessionExecutors, zxids, data, sessions, listeners, runtime);
         }
 
         @Override
@@ -171,10 +168,11 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
                 SessionManager sessions,
                 Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime) {
-            return newInstance(server, sessionExecutors, zxids, data, sessions, listeners, runtime);
+            return newInstance(connections, server, sessionExecutors, zxids, data, sessions, listeners, runtime);
         }
 
         protected ServerBuilder newInstance(
+                ServerConnectionFactoryBuilder connections,
                 SimpleServerSupplier server,
                 ConcurrentMap<Long, SimpleSessionExecutor> sessionExecutors,
                 ZxidGenerator zxids,
@@ -209,6 +207,10 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
                     getRuntimeModule().getConfiguration());
         }
         
+        protected ConcurrentMap<Long, SimpleSessionExecutor> getDefaultSessionExecutors() {
+            return new MapMaker().makeMap();
+        }
+
         protected ParameterizedFactory<Session, SimpleSessionExecutor> getDefaultSessionFactory() {
             return SimpleSessionExecutor.factory(
                     getRuntimeModule().getExecutors().get(ScheduledExecutorService.class), 
@@ -216,8 +218,8 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
         }
         
         protected short getDefaultSessionId() {
-            ServerInetAddressView address = connections.setDefaults().getAddress();
-            return (short) address.get().hashCode();
+            ServerInetAddressView address = connections.setRuntimeModule(getRuntimeModule()).setDefaults().getAddress();
+            return (short) Hashing.murmur3_32().hashInt(address.get().hashCode()).asInt();
         }
     }
 

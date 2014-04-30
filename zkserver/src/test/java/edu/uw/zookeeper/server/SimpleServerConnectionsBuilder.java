@@ -77,6 +77,6 @@ public class SimpleServerConnectionsBuilder extends ServerConnectionsHandler.Bui
     
     @Override
     protected TimeValue getDefaultTimeOut() {
-        return TimeValue.create(Session.Parameters.NEVER_TIMEOUT, Session.Parameters.TIMEOUT_UNIT);
+        return TimeValue.create(Session.Parameters.noTimeout(), Session.Parameters.timeoutUnit());
     }
 }

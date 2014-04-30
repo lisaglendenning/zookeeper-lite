@@ -8,9 +8,15 @@ import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import com.google.common.base.Objects;
+
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
+import edu.uw.zookeeper.common.Hex;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.protocol.Session;
 
@@ -19,7 +25,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
     public static DefaultSessionParametersPolicy fromConfiguration(short id, Configuration configuration) {
         TimeValue minTimeout = ConfigurableMinTimeout.get(configuration);
         TimeValue maxTimeout = ConfigurableMaxTimeout.get(configuration);
-        if (maxTimeout.value() != Session.Parameters.NEVER_TIMEOUT) {
+        if (maxTimeout.value() != Session.Parameters.noTimeout()) {
             checkArgument(minTimeout.value() <= maxTimeout.value());
         }
         return defaults(id, minTimeout, maxTimeout);
@@ -56,12 +62,14 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
             Random random,
             TimeValue minTimeout, 
             TimeValue maxTimeout) {
-        return new DefaultSessionParametersPolicy(
-                id, new AtomicInteger(counter), secret, random, minTimeout, maxTimeout);
+        DefaultSessionParametersPolicy instance = new DefaultSessionParametersPolicy(
+                id, new AtomicInteger(counter), secret, random, minTimeout, maxTimeout, LogManager.getLogger(DefaultSessionParametersPolicy.class));
+        return instance;
     }
 
-    protected static final ByteOrder BYTE_ORDER = ByteOrder.BIG_ENDIAN;
-
+    protected static final int PASSWORD_LENGTH = 16;
+    
+    protected final Logger logger;
     protected final Random random;
     protected final long secret;
     protected final short id;
@@ -75,19 +83,23 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
             long secret,
             Random random,
             TimeValue minTimeout, 
-            TimeValue maxTimeout) {
+            TimeValue maxTimeout,
+            Logger logger) {
         this.random = random;
         this.id = id;
         this.secret = secret;
         this.counter = counter;
         this.minTimeout = minTimeout;
         this.maxTimeout = maxTimeout;
+        this.logger = logger;
+        
+        logger.info("{}", this);
     }
 
     @Override
     public byte[] newPassword(long seed) {
         Random r = new Random(seed ^ secret);
-        byte p[] = new byte[Session.Parameters.PASSWORD_LENGTH];
+        byte p[] = new byte[PASSWORD_LENGTH];
         r.nextBytes(p);
         return p;
     }
@@ -100,27 +112,18 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
 
     @Override
     public long newSessionId() {
-        // TODO: add some other non-time-based seed
-        // to avoid collision with other servers
-        // ideally, seed would look like:
-        // sever-id | nonce
-        // so that we can map a session to a server easily
         int count = counter.incrementAndGet();
-        short nonce = (short) random.nextInt();
-        ByteBuffer bb = ByteBuffer.allocate(8);
-        bb.order(BYTE_ORDER);
-        bb.putShort(id);
-        bb.putInt(count);
-        bb.putInt(nonce);
-        bb.flip();
-        long sessionId = bb.getLong();
-        return sessionId;
+        byte[] nonce = new byte[2];
+        random.nextBytes(nonce);
+        ByteBuffer bb = ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN);
+        bb.putShort(id).put(nonce).putInt(count).flip();
+        return bb.getLong();
     }
 
     @Override
     public TimeValue boundTimeout(TimeValue timeOut) {
         TimeValue maxTimeout = maxTimeout();
-        if ((maxTimeout.value() != Session.Parameters.NEVER_TIMEOUT)
+        if ((maxTimeout.value() != Session.Parameters.noTimeout())
                 && (maxTimeout.value() < timeOut.value(maxTimeout.unit()))) {
             timeOut = maxTimeout;
         } else {
@@ -140,5 +143,10 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
     @Override
     public TimeValue minTimeout() {
         return minTimeout;
+    }
+    
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).add("id", String.format("0x%s", Hex.toPaddedHexString(id))).add("secret", String.format("0x%8s", Long.toHexString(secret)).replace(' ', '0')).add("counter", counter).add("minTimeout", minTimeout).add("maxTimeout", maxTimeout).toString();
     }
 }

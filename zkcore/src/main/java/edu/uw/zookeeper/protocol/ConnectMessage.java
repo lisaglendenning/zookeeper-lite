@@ -78,7 +78,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
 
         public static ConnectMessage.Request newInstance(IConnectRequest record, boolean readOnly,
                 boolean legacy) {
-            if (record.getSessionId() == edu.uw.zookeeper.protocol.Session.UNINITIALIZED_ID) {
+            if (record.getSessionId() == edu.uw.zookeeper.protocol.Session.uninitialized().id()) {
                 return NewRequest.newInstance(record, readOnly, legacy);
             } else {
                 return RenewRequest.newInstance(record, readOnly, legacy);
@@ -112,8 +112,8 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
                         Records.PROTOCOL_VERSION,
                         lastZxid,
                         timeOutMillis,
-                        edu.uw.zookeeper.protocol.Session.UNINITIALIZED_ID,
-                        edu.uw.zookeeper.protocol.Session.Parameters.NO_PASSWORD);
+                        edu.uw.zookeeper.protocol.Session.uninitialized().id(),
+                        edu.uw.zookeeper.protocol.Session.Parameters.uninitialized().password());
                 return record;
             }
             
@@ -238,7 +238,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
 
             public static ConnectMessage.Response newInstance(IConnectResponse record, boolean readOnly,
                     boolean legacy) {
-                if (record.getSessionId() == edu.uw.zookeeper.protocol.Session.UNINITIALIZED_ID) {
+                if (record.getSessionId() == edu.uw.zookeeper.protocol.Session.uninitialized().id()) {
                     return Invalid.newInstance(readOnly, legacy);
                 } else {
                     return new Valid(record, readOnly, legacy);
@@ -253,7 +253,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
         public static class Invalid extends ConnectMessage.Response {
 
             protected final static IConnectResponse RECORD = 
-                    new IConnectResponse(Records.PROTOCOL_VERSION, 0, edu.uw.zookeeper.protocol.Session.UNINITIALIZED_ID, edu.uw.zookeeper.protocol.Session.Parameters.NO_PASSWORD);
+                    new IConnectResponse(Records.PROTOCOL_VERSION, 0, edu.uw.zookeeper.protocol.Session.uninitialized().id(), edu.uw.zookeeper.protocol.Session.Parameters.uninitialized().password());
 
             public static Invalid newInstance() {
                 return newInstance(false, false);

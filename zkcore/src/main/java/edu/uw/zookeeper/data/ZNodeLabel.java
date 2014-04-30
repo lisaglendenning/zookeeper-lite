@@ -16,6 +16,7 @@ public final class ZNodeLabel extends AbstractZNodeLabel {
         return validate(label, 0, label.length());
     }
     
+    @SuppressWarnings("unchecked")
     public static <T extends CharSequence> T validate(T label, int start, int end) {
         checkArgument(start < end, "empty label");
         for (int i=start; i<end; ++i) {
@@ -26,7 +27,7 @@ public final class ZNodeLabel extends AbstractZNodeLabel {
                 throw new IllegalArgumentException(String.format("Illegal character at index %d of %s", i, label));
             }
         }
-        return label;
+        return ((start > 0) || (end < label.length() - 1)) ? (T) label.subSequence(start, end) : label;
     }
 
     public static ZNodeLabel validated(String label) {

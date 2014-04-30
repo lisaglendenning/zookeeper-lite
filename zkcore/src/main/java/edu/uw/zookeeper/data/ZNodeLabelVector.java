@@ -1,5 +1,7 @@
 package edu.uw.zookeeper.data;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Iterator;
 
 import com.google.common.base.Function;
@@ -15,10 +17,7 @@ public abstract class ZNodeLabelVector extends ZNodeName implements Iterable<ZNo
     public static String join(Iterator<String> labels) {
         StringBuilder builder = new StringBuilder();
         while (labels.hasNext()) {
-            String label = labels.next();
-            if (label == null) {
-                continue;
-            }
+            String label = checkNotNull(labels.next());
             if (builder.length() == 0) {
                 builder.append(label);
             } else if (! label.isEmpty()) {

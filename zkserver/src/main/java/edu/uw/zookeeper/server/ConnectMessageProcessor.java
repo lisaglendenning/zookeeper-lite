@@ -2,6 +2,8 @@ package edu.uw.zookeeper.server;
 
 import java.util.Arrays;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Function;
@@ -24,13 +26,15 @@ public class ConnectMessageProcessor
                         new ExistingSessionValidator(sessions)),
                 sessions);
     }
-    
+
+    protected final Logger logger;
     protected final ImmutableList<Function<ConnectMessage.Request, KeeperException.Code>> validators;
     protected final SessionManager sessions;
 
     protected ConnectMessageProcessor(
             ImmutableList<Function<ConnectMessage.Request, KeeperException.Code>> validators,
             SessionManager sessions) {
+        this.logger = LogManager.getLogger(this);
         this.validators = validators;
         this.sessions = sessions;
     }
@@ -48,11 +52,13 @@ public class ConnectMessageProcessor
         final Session session;
         if (input instanceof ConnectMessage.Request.NewRequest) {
             session = sessions.create(parameters.timeOut());
+            logger.debug("Created session {}", Session.toString(session.id()));
         } else {
             session = sessions.get(input.getSessionId());
             if (session == null) {
                 throw new IllegalArgumentException(new KeeperException.UnknownSessionException());
             }
+            logger.debug("Renewed session {}", Session.toString(input.getSessionId()));
         }
         
         return ConnectMessage.Response.Valid.newInstance(session, input.getReadOnly(), input.legacy());

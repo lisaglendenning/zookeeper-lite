@@ -9,11 +9,12 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
+import edu.uw.zookeeper.common.Hex;
 import edu.uw.zookeeper.common.TimeValue;
 
-public class Session {
+public final class Session {
 
-    public static final long UNINITIALIZED_ID = 0;
+    private static final long UNINITIALIZED_ID = 0;
     private static final Session UNINITIALIZED = new Session(UNINITIALIZED_ID, Parameters.uninitialized());
 
     public static Session uninitialized() {
@@ -25,13 +26,13 @@ public class Session {
     }
     
     public static String toString(long id) {
-        return String.format("0x%08x", id);
+        return String.format("0x%s", Hex.toPaddedHexString(id));
     }
     
     private final long id;
     private final Parameters parameters;
 
-    public Session(long id, Parameters parameters) {
+    private Session(long id, Parameters parameters) {
         this.id = id;
         this.parameters = checkNotNull(parameters);
     }
@@ -127,11 +128,18 @@ public class Session {
 
     public static class Parameters {
     
-        public static final long NEVER_TIMEOUT = 0;
-        public static final byte[] NO_PASSWORD = new byte[0];
-        public static final int PASSWORD_LENGTH = 16;
-        public static final TimeUnit TIMEOUT_UNIT = TimeUnit.MILLISECONDS;
-        private static final Parameters UNINITIALIZED_PARAMETERS = new Parameters(NEVER_TIMEOUT, NO_PASSWORD);
+        private static final long NO_TIMEOUT = 0L;
+        private static final byte[] NO_PASSWORD = new byte[0];
+        private static final TimeUnit TIMEOUT_UNIT = TimeUnit.MILLISECONDS;
+        private static final Parameters UNINITIALIZED_PARAMETERS = create(NO_TIMEOUT, NO_PASSWORD);
+        
+        public static long noTimeout() {
+            return NO_TIMEOUT;
+        }
+
+        public static TimeUnit timeoutUnit() {
+            return TIMEOUT_UNIT;
+        }
         
         public static Parameters uninitialized() {
             return UNINITIALIZED_PARAMETERS;
@@ -141,24 +149,20 @@ public class Session {
             return create(timeOut, NO_PASSWORD);
         }
     
-        public static Parameters create(long timeOut, byte[] password) {
-            return new Parameters(timeOut, password);
+        public static Parameters create(TimeValue timeOut, byte[] password) {
+            return new Parameters(timeOut.convert(TIMEOUT_UNIT), checkNotNull(password));
         }
     
-        public static Parameters create(TimeValue timeOut, byte[] password) {
-            return new Parameters(timeOut, password);
+        public static Parameters create(long timeOut, byte[] password) {
+            return new Parameters(TimeValue.create(timeOut, TIMEOUT_UNIT), checkNotNull(password));
         }
     
         private final TimeValue timeOut;
         private final byte[] password;
     
-        public Parameters(long timeOut, byte[] password) {
-            this(TimeValue.create(timeOut, TIMEOUT_UNIT), password);
-        }
-    
         private Parameters(TimeValue timeOut, byte[] password) {
-            this.timeOut = checkNotNull(timeOut);
-            this.password = checkNotNull(password);
+            this.timeOut = timeOut;
+            this.password = password;
         }
     
         public TimeValue timeOut() {
