@@ -4,6 +4,7 @@ import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -12,7 +13,13 @@ import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Processors.ForwardingProcessor;
 import edu.uw.zookeeper.data.CreateFlag;
 import edu.uw.zookeeper.data.CreateMode;
+import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.TxnOperation;
+import edu.uw.zookeeper.data.TxnRequest;
+import edu.uw.zookeeper.data.ZNodePath;
+import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
+import edu.uw.zookeeper.protocol.SessionRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.OpCode;
@@ -42,8 +49,17 @@ public class EphemeralProcessor extends ForwardingProcessor<TxnOperation.Request
         Records.Response response = delegate().apply(input);
         Long session = input.getSessionId();
         if (request.opcode() == OpCode.CLOSE_SESSION) {
-            for (String path: bySession.removeAll(session)) {
-                byPath.remove(path, session);
+            if (! (response instanceof Operation.Error)) {
+                for (String path: ImmutableSet.copyOf(bySession.get(session))) {
+                    apply(TxnRequest.of(
+                            input.getTime(), 
+                            input.zxid(), 
+                            SessionRequest.of(
+                                    input.getSessionId(), 
+                                    ProtocolRequestMessage.of(
+                                            input.xid(),
+                                            Operations.Requests.delete().setPath(ZNodePath.fromString(path)).build()))));
+                }
             }
         } else {
             apply(session, request, response);
