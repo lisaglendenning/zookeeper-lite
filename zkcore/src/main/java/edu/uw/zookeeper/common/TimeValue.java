@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.common;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.concurrent.TimeUnit;
@@ -27,7 +28,7 @@ public final class TimeValue implements Comparable<TimeValue> {
         try {
             unit = TimeUnit.valueOf(unitText.toUpperCase());
         } catch (IllegalArgumentException e) {
-            unit = SHORT_UNIT_NAMES.inverse().get(unitText.toLowerCase());
+            unit = unitFromShortName(unitText);
         }
         if (unit == null) {
             throw new IllegalArgumentException(String.valueOf(unitText));
@@ -49,8 +50,20 @@ public final class TimeValue implements Comparable<TimeValue> {
         String unit = m.group(2);
         return create(value, unit);
     }
+    
+    public static String unitToShortName(TimeUnit unit) {
+        String name = SHORT_UNIT_NAMES.get(unit);
+        checkArgument(name != null, String.valueOf(unit));
+        return name;
+    }
+    
+    public static TimeUnit unitFromShortName(String name) {
+        TimeUnit unit = SHORT_UNIT_NAMES.inverse().get(name.toLowerCase());
+        checkArgument(unit != null, String.valueOf(name));
+        return unit;
+    }
 
-    public static final ImmutableBiMap<TimeUnit, String> SHORT_UNIT_NAMES = 
+    protected static final ImmutableBiMap<TimeUnit, String> SHORT_UNIT_NAMES = 
             ImmutableBiMap.<TimeUnit, String>builder() 
                 .put(TimeUnit.DAYS, "d")
                 .put(TimeUnit.HOURS, "h")

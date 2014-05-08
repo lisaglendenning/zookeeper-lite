@@ -5,7 +5,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.logging.log4j.Logger;
+
 import net.engio.mbassy.common.IConcurrentSet;
+import net.engio.mbassy.common.StrongConcurrentSet;
 import net.engio.mbassy.common.WeakConcurrentSet;
 
 import com.google.common.base.Function;
@@ -23,6 +26,11 @@ public abstract class Automatons {
         return SimpleAutomaton.create(initialState);
     }
 
+    public static <Q,I,T extends Automaton<Q,I>> LoggingAutomaton<Q,I,T> createLogging(
+            Logger logger, T automaton) {
+        return LoggingAutomaton.create(logger, automaton);
+    }
+    
     public static <Q,I,T extends Automaton<Q,I>> SynchronizedAutomaton<Q,I,T> createSynchronized(
             T automaton) {
         return SynchronizedAutomaton.create(automaton);
@@ -30,7 +38,7 @@ public abstract class Automatons {
     
     public static <Q,I,T extends Automaton<Q,I>> SimpleEventfulAutomaton<Q,I,T> createEventful(
             T automaton) {
-        return SimpleEventfulAutomaton.create(automaton);
+        return SimpleEventfulAutomaton.createWeak(automaton);
     }
 
     public static <Q,I,T extends EventfulAutomaton<Q,I>> SynchronizedEventfulAutomaton<Q,I,T> createSynchronizedEventful(
@@ -41,17 +49,17 @@ public abstract class Automatons {
     /**
      * Not thread-safe
      */
-    public static class SimpleAutomaton<Q extends Function<I, Optional<Automaton.Transition<Q>>>, I> implements Automaton<Q,I> {
+    public static final class SimpleAutomaton<Q extends Function<I, Optional<Automaton.Transition<Q>>>, I> implements Automaton<Q,I> {
 
         public static <Q extends Function<I, Optional<Automaton.Transition<Q>>>, I> SimpleAutomaton<Q,I> create(
                 Q initialState) {
-            return new SimpleAutomaton<Q,I>(initialState);
+            return new SimpleAutomaton<Q,I>(checkNotNull(initialState));
         }
         
         private Q state;
      
         protected SimpleAutomaton(Q initialState) {
-            this.state = checkNotNull(initialState);
+            this.state = initialState;
         }
 
         @Override
@@ -76,28 +84,89 @@ public abstract class Automatons {
             return Objects.toStringHelper(Automaton.class).addValue(state).toString();
         }
     }
+
+    public static abstract class ForwardingAutomaton<Q,I,T extends Automaton<Q,? super I>> implements Automaton<Q,I> {
+
+        protected ForwardingAutomaton() {}
+
+        @Override
+        public Q state() {
+            return delegate().state();
+        }
+        
+        @Override
+        public Optional<Automaton.Transition<Q>> apply(I input) {
+            return delegate().apply(input);
+        }
+        
+        @Override
+        public String toString() {
+            return delegate().toString();
+        }
+        
+        protected abstract T delegate();
+    }
     
-    public static class SynchronizedAutomaton<Q,I,T extends Automaton<Q,I>> implements Automaton<Q,I> {
+    public static class LoggingAutomaton<Q,I,T extends Automaton<Q,I>> extends ForwardingAutomaton<Q,I,T> {
+
+        public static <Q,I,T extends Automaton<Q,I>> LoggingAutomaton<Q,I,T> create(
+                Logger logger, T automaton) {
+            return new LoggingAutomaton<Q,I,T>(checkNotNull(logger), checkNotNull(automaton));
+        }
+        
+        protected final Logger logger;
+        protected final T automaton;
+     
+        protected LoggingAutomaton(Logger logger, T automaton) {
+            this.logger = logger;
+            this.automaton = automaton;
+        }
+
+        @Override
+        public Optional<Automaton.Transition<Q>> apply(I input) {
+            Optional<Automaton.Transition<Q>> output = super.apply(input);
+            if (output.isPresent()) {
+                log(output.get());
+            }
+            return output;
+        }
+        
+        protected void log(Automaton.Transition<Q> transition) {
+            logger.debug("{} ({})", transition, this);
+        }
+        
+        @Override
+        protected T delegate() {
+            return automaton;
+        }
+    }
+    
+    public static class SynchronizedAutomaton<Q,I,T extends Automaton<Q,I>> extends ForwardingAutomaton<Q,I,T> {
 
         public static <Q,I,T extends Automaton<Q,I>> SynchronizedAutomaton<Q,I,T> create(
                 T automaton) {
-            return new SynchronizedAutomaton<Q,I,T>(automaton);
+            return new SynchronizedAutomaton<Q,I,T>(checkNotNull(automaton), new ReentrantReadWriteLock());
         }
         
         protected final ReadWriteLock lock;
         protected final T automaton;
 
         protected SynchronizedAutomaton(
-                T automaton) {
-            this.automaton = checkNotNull(automaton);
-            this.lock = new ReentrantReadWriteLock();
+                T automaton,
+                ReadWriteLock lock) {
+            this.automaton = automaton;
+            this.lock = lock;
+        }
+        
+        public ReadWriteLock lock() {
+            return lock;
         }
 
         @Override
         public Q state() {
             lock.readLock().lock();
             try {
-                return automaton.state();
+                return super.state();
             } finally {
                 lock.readLock().unlock();
             }
@@ -107,7 +176,7 @@ public abstract class Automatons {
         public Optional<Automaton.Transition<Q>> apply(I input) {
             lock.writeLock().lock();
             try {
-                return automaton.apply(input);
+                return super.apply(input);
             } finally {
                 lock.writeLock().unlock();
             }
@@ -115,7 +184,17 @@ public abstract class Automatons {
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(Automaton.class).addValue(state()).toString();
+            lock.readLock().lock();            
+            try {
+                return super.toString();
+            } finally {
+                lock.readLock().unlock();
+            }
+        }
+
+        @Override
+        protected T delegate() {
+            return automaton;
         }
     }
 
@@ -125,12 +204,18 @@ public abstract class Automatons {
     
     public static interface EventfulAutomaton<Q,I> extends Automaton<Q,I>, Eventful<AutomatonListener<Q>> {}
     
-    public static class SimpleEventfulAutomaton<Q,I,T extends Automaton<Q,I>> implements EventfulAutomaton<Q,I> {
+    public static final class SimpleEventfulAutomaton<Q,I,T extends Automaton<Q,I>> extends ForwardingAutomaton<Q,I,T> implements EventfulAutomaton<Q,I> {
 
-        public static <Q,I,T extends Automaton<Q,I>> SimpleEventfulAutomaton<Q,I,T> create(
+        public static <Q,I,T extends Automaton<Q,I>> SimpleEventfulAutomaton<Q,I,T> createWeak(
                 T automaton) {
             return new SimpleEventfulAutomaton<Q,I,T>(
-                    new WeakConcurrentSet<AutomatonListener<Q>>(), automaton);
+                    new WeakConcurrentSet<AutomatonListener<Q>>(), checkNotNull(automaton));
+        }
+        
+        public static <Q,I,T extends Automaton<Q,I>> SimpleEventfulAutomaton<Q,I,T> createStrong(
+                T automaton) {
+            return new SimpleEventfulAutomaton<Q,I,T>(
+                    new StrongConcurrentSet<AutomatonListener<Q>>(), checkNotNull(automaton));
         }
 
         private final IConcurrentSet<AutomatonListener<Q>> listeners;
@@ -139,13 +224,8 @@ public abstract class Automatons {
         protected SimpleEventfulAutomaton(
                 IConcurrentSet<AutomatonListener<Q>> listeners,
                 T automaton) {
-            this.listeners = checkNotNull(listeners);
-            this.automaton = checkNotNull(automaton);
-        }
-        
-        @Override
-        public Q state() {
-            return automaton.state();
+            this.listeners = listeners;
+            this.automaton = automaton;
         }
         
         /**
@@ -156,7 +236,7 @@ public abstract class Automatons {
             // even if automaton is synchronized
             // if this function is called concurrently we can end up
             // with events delivered out of order
-            Optional<Automaton.Transition<Q>> output = automaton.apply(input);
+            Optional<Automaton.Transition<Q>> output = super.apply(input);
             if (output.isPresent()) {
                 Automaton.Transition<Q> transition = output.get();
                 for (AutomatonListener<Q> listener: listeners) {
@@ -177,31 +257,32 @@ public abstract class Automatons {
         }
 
         @Override
-        public String toString() {
-            return Objects.toStringHelper(Automaton.class).addValue(state()).toString();
+        protected T delegate() {
+            return automaton;
         }
     }
     
-    public static class SynchronizedEventfulAutomaton<Q,I,T extends EventfulAutomaton<Q,I>> extends SynchronizedAutomaton<Q,I,T> implements EventfulAutomaton<Q,I> {
+    public static final class SynchronizedEventfulAutomaton<Q,I,T extends EventfulAutomaton<Q,I>> extends SynchronizedAutomaton<Q,I,T> implements EventfulAutomaton<Q,I> {
 
         public static <Q,I,T extends EventfulAutomaton<Q,I>> SynchronizedEventfulAutomaton<Q,I,T> create(
                 T automaton) {
-            return new SynchronizedEventfulAutomaton<Q,I,T>(automaton);
+            return new SynchronizedEventfulAutomaton<Q,I,T>(checkNotNull(automaton), new ReentrantReadWriteLock());
         }
 
         protected SynchronizedEventfulAutomaton(
-                T automaton) {
-            super(automaton);
+                T automaton,
+                ReadWriteLock lock) {
+            super(automaton, lock);
         }
 
         @Override
         public void subscribe(AutomatonListener<Q> listener) {
-            automaton.subscribe(listener);
+            delegate().subscribe(listener);
         }
 
         @Override
         public boolean unsubscribe(AutomatonListener<Q> listener) {
-            return automaton.unsubscribe(listener);
+            return delegate().unsubscribe(listener);
         }
     }
 }

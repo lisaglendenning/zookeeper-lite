@@ -23,10 +23,10 @@ public abstract class AbstractActor<T> implements Actor<T> {
 
     @Override
     public boolean send(T message) {
-        logger.debug("Received {} ({})", message, this);
         if (state() == State.TERMINATED) {
             return false;
         } else {
+            logger.debug("Received {} ({})", message, this);
             return doSend(message);
         }
     }
@@ -40,15 +40,16 @@ public abstract class AbstractActor<T> implements Actor<T> {
 
     @Override
     public void run() {
-        if (runEnter()) {
-            try {
+        try {
+            if (runEnter()) {
+                logger.trace("Running ({})", this);
                 doRun();
-            } catch (Throwable e) {
-                logger.warn("Unhandled error ({})", this, e);
-                stop();
-                throw Throwables.propagate(e);
+                runExit();
             }
-            runExit();
+        } catch (Throwable e) {
+            logger.warn("Unhandled error ({})", this, e);
+            stop();
+            throw Throwables.propagate(e);
         }
     }
 
@@ -81,6 +82,7 @@ public abstract class AbstractActor<T> implements Actor<T> {
 
     protected boolean schedule() {
         if (state.compareAndSet(State.WAITING, State.SCHEDULED)) {
+            logger.trace("Scheduling ({})", this);
             doSchedule();
             return true;
         }

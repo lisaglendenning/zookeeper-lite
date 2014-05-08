@@ -10,9 +10,9 @@ import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.ZxidReference;
 
-public class SimpleConnectExecutor<T extends AbstractSessionExecutor<?>> implements TaskExecutor<ConnectMessage.Request, ConnectMessage.Response> {
+public class SimpleConnectExecutor<T extends AbstractSessionExecutor> implements TaskExecutor<ConnectMessage.Request, ConnectMessage.Response> {
     
-    public static <T extends AbstractSessionExecutor<?>> SimpleConnectExecutor<T> defaults(
+    public static <T extends AbstractSessionExecutor> SimpleConnectExecutor<T> defaults(
             Map<Long, T> executors,
             SessionManager sessions,
             ZxidReference lastZxid) {
@@ -20,7 +20,7 @@ public class SimpleConnectExecutor<T extends AbstractSessionExecutor<?>> impleme
         return create(executors, processor);
     }
     
-    public static <T extends AbstractSessionExecutor<?>> SimpleConnectExecutor<T> create(
+    public static <T extends AbstractSessionExecutor> SimpleConnectExecutor<T> create(
             Map<Long, T> executors,
             Function<ConnectMessage.Request, ConnectMessage.Response> processor) {
         return new SimpleConnectExecutor<T>(executors, processor);

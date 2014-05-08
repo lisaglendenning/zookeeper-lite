@@ -1,53 +1,60 @@
 package edu.uw.zookeeper.protocol;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-import edu.uw.zookeeper.common.TimeValue;
 
+import com.google.common.base.Objects;
+
+/**
+ * Not thread-safe
+ */
 public class TimeOutParameters {
 
-    public static TimeOutParameters create(TimeValue timeOut) {
-        timeOut = timeOut.convert(TimeUnit.MILLISECONDS);
-        return new TimeOutParameters(System.currentTimeMillis(), timeOut.value());
+    public static TimeOutParameters milliseconds(long timeOut) {
+        return new TimeOutParameters(System.currentTimeMillis(), timeOut);
     }
     
-    private final AtomicLong timeOut;
-    private final AtomicLong nextTimeOut;
+    private long timeOut;
+    private long touch;
     
-    protected TimeOutParameters(long now, long timeOut) {
-        this.timeOut = new AtomicLong(timeOut);
-        this.nextTimeOut = new AtomicLong(now + timeOut);
+    protected TimeOutParameters(long touch, long timeOut) {
+        this.timeOut = timeOut;
+        this.touch = touch;
     }
     
     public TimeUnit getUnit() {
         return TimeUnit.MILLISECONDS;
     }
-    
-    public long getTimeOut() {
-        return timeOut.get();
-    }
 
-    public long setTimeOut(long timeOut) {
-        return this.timeOut.getAndSet(timeOut);
-    }
-    
-    public long getNextTimeOut() {
-        return nextTimeOut.get();
-    }
-
-    public void touch() {
-        long prev = nextTimeOut.get();
-        long next = now() + getTimeOut();
-        if (prev < next) {
-            nextTimeOut.compareAndSet(prev, next);
-        }
-    }
-    
-    public long now() {
+    public long getNow() {
         return System.currentTimeMillis();
     }
     
-    public long remaining() {
-        return getNextTimeOut() - now();
+    public long getTimeOut() {
+        return timeOut;
+    }
+
+    public void setTimeOut(long timeOut) {
+        this.timeOut = timeOut;
+    }
+    
+    public long getTouch() {
+        return touch;
+    }
+
+    public void setTouch(long touch) {
+        this.touch = touch;
+    }
+
+    public void setTouch() {
+        setTouch(getNow());
+    }
+    
+    public long getRemaining() {
+        return touch + timeOut - getNow();
+    }
+    
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).add("timeOut", getTimeOut()).add("remaining", getRemaining()).toString();
     }
 }

@@ -3,6 +3,7 @@ package edu.uw.zookeeper.protocol;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -10,13 +11,12 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import net.engio.mbassy.common.IConcurrentSet;
-import net.engio.mbassy.common.WeakConcurrentSet;
-
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.AbstractActor;
@@ -30,42 +30,43 @@ public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFut
 
     public static <T,V> TimeOutActor<T,V> create(
             TimeOutParameters parameters,
-            ScheduledExecutorService executor) {
-        Logger logger = LogManager.getLogger(TimeOutActor.class);
+            ScheduledExecutorService scheduler,
+            Logger logger) {
         return new TimeOutActor<T,V>(
-                parameters, 
-                executor,
-                new WeakConcurrentSet<Pair<Runnable,Executor>>(),
-                LoggingPromise.create(logger, SettableFuturePromise.<V>create()),
+                checkNotNull(parameters), 
+                checkNotNull(scheduler),
+                Sets.<Pair<Runnable,Executor>>newHashSet(),
+                LoggingPromise.create(checkNotNull(logger), SettableFuturePromise.<V>create()),
                 logger);
     }
     
-    protected static final long NEVER_TIMEOUT = 0L;
+    protected static final long NO_TIMEOUT = 0L;
 
     protected final ScheduledExecutorService scheduler;
     protected final TimeOutParameters parameters;
     protected final Promise<V> promise;
-    protected final IConcurrentSet<Pair<Runnable,Executor>> listeners;
-    protected volatile ScheduledFuture<?> scheduled;
+    protected final Set<Pair<Runnable,Executor>> listeners;
+    protected Optional<? extends ScheduledFuture<?>> scheduled;
     
     protected TimeOutActor(
             TimeOutParameters parameters,
-            ScheduledExecutorService executor,
-            IConcurrentSet<Pair<Runnable,Executor>> listeners,
+            ScheduledExecutorService scheduler,
+            Set<Pair<Runnable,Executor>> listeners,
             Promise<V> promise,
             Logger logger) {
         super(logger);
-        this.parameters = checkNotNull(parameters);
-        this.scheduler = checkNotNull(executor);
-        this.promise = checkNotNull(promise);
-        this.listeners = checkNotNull(listeners);
-        this.scheduled = null;
+        this.parameters = parameters;
+        this.scheduler = scheduler;
+        this.promise = promise;
+        this.listeners = listeners;
+        this.scheduled = Optional.absent();
         
         promise.addListener(this, SameThreadExecutor.getInstance());
     }
 
     @Override
     public synchronized void addListener(Runnable listener, Executor executor) {
+        // Why manually manage listeners?
         if (isDone()) {
             executor.execute(listener);
         } else {
@@ -100,51 +101,69 @@ public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFut
     }
     
     @Override
-    protected boolean doSend(T message) {
-        parameters.touch();
+    public String toString() {
+        return toStringHelper().toString();
+    }
+    
+    @Override
+    protected synchronized boolean doSend(T message) {
+        if (parameters.getTimeOut() != NO_TIMEOUT) {
+            parameters.setTouch();
+            schedule();
+        }
         return true;
     }
 
     @Override
     protected synchronized void doSchedule() {
-        if (parameters.getTimeOut() != NEVER_TIMEOUT) {
-            if (!isDone() && !scheduler.isShutdown() && (listeners.size() > 0)) {
-                scheduled = scheduler.schedule(this, parameters.getTimeOut(), parameters.getUnit());
-            } else {
-                stop();
-            }
-        } else {
+        if (isDone() || scheduler.isShutdown()) {
+            stop();
+        } else if (parameters.getTimeOut() == NO_TIMEOUT) {
             state.compareAndSet(State.SCHEDULED, State.WAITING);
+        } else if (!scheduled.isPresent()) {
+            long tick = nextTick();
+            TimeUnit unit = parameters.getUnit();
+            logger.trace("Scheduling for {} {} ({})", tick, unit, this);
+            scheduled = Optional.of(scheduler.schedule(this, tick, unit));
         }
     }
 
     @Override
-    protected void doRun() {
-        if (parameters.remaining() <= 0) {
-            promise.setException(new TimeoutException());
-        }
-        if (isDone()) {
-            stop();
+    protected synchronized void doRun() {
+        if (parameters.getRemaining() <= 0L) {
+            promise.setException(new TimeoutException(toString()));
         }
     }
     
     @Override
-    protected void runExit() {
+    protected synchronized void runExit() {
         if (state.compareAndSet(State.RUNNING, State.WAITING)) {
+            if (scheduled.isPresent()) {
+                scheduled = Optional.absent();
+            }
             schedule();
         }
     }
 
     @Override
     protected synchronized void doStop() {
-        if (scheduled != null) {
-            scheduled.cancel(false);
+        cancel(true);
+        if (scheduled.isPresent()) {
+            scheduled.get().cancel(false);
+            scheduled = Optional.absent();
         }
-        promise.cancel(true);
         Iterator<Pair<Runnable,Executor>> itr = Iterators.consumingIterator(listeners.iterator());
         while (itr.hasNext()) {
             Pair<Runnable,Executor> listener = itr.next();
             listener.second().execute(listener.first());
         }
+    }
+    
+    protected synchronized long nextTick() {
+        return Math.max(parameters.getRemaining(), 0L);
+    }
+    
+    protected synchronized Objects.ToStringHelper toStringHelper() {
+        return Objects.toStringHelper(this).add("parameters", parameters);
     }
 }

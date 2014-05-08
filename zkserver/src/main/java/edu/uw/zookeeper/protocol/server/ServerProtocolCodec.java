@@ -5,6 +5,7 @@ import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 
 import org.apache.jute.BinaryInputArchive;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -38,7 +39,9 @@ public class ServerProtocolCodec implements ProtocolCodec<Message.Server, Messag
         Automatons.SynchronizedEventfulAutomaton<ProtocolState,Object,?> automaton =
                 Automatons.createSynchronizedEventful(
                         Automatons.createEventful(
-                        ProtocolMessageAutomaton.asAutomaton(state)));
+                                Automatons.createLogging(
+                                        LogManager.getLogger(ServerProtocolCodec.class),
+                                        ProtocolMessageAutomaton.asAutomaton(state))));
         return new ServerProtocolCodec(automaton, ServerProtocolEncoder.create(automaton), ServerProtocolDecoder.create(automaton));
     }
 

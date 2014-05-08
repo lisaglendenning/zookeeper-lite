@@ -179,7 +179,7 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
                     }
                 }
                 if (record instanceof Records.DataGetter) {
-                    if (zxid > stat.stamp()) {
+                    if (zxid > data.stamp()) {
                         V prev = data.get();
                         V updated = transformData(((Records.DataGetter) record).getData());
                         if (! equivalentData(prev, updated)) {

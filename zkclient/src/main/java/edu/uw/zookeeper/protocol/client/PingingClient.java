@@ -1,21 +1,19 @@
 package edu.uw.zookeeper.protocol.client;
 
-import java.lang.ref.WeakReference;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-
-import net.engio.mbassy.common.IConcurrentSet;
-import net.engio.mbassy.common.WeakConcurrentSet;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.google.common.base.Objects;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons;
 import edu.uw.zookeeper.common.LoggingPromise;
@@ -29,9 +27,8 @@ import edu.uw.zookeeper.net.CodecConnection;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.LoggingMarker;
-import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.TimeOutActor;
+import edu.uw.zookeeper.protocol.PingTask;
 import edu.uw.zookeeper.protocol.TimeOutParameters;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolState;
@@ -40,7 +37,7 @@ import edu.uw.zookeeper.protocol.proto.IPingRequest;
 import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class PingingClient<I extends Operation.Request, O, V extends ProtocolCodec<?,?,?,?>, T extends CodecConnection<? super I, ? extends O, V, ?>> extends ClientProtocolConnection<I,O,V,T> implements FutureCallback<Object> {
+public class PingingClient<I extends Operation.Request, O, V extends ProtocolCodec<?,?,?,?>, T extends CodecConnection<? super I, ? extends O, V, ?>> extends ClientProtocolConnection<I,O,V,T> {
 
     public static <I extends Operation.Request, O, V extends ProtocolCodec<?,?,?,?>, T extends CodecConnection<? super I, ? extends O, V, ?>> ParameterizedFactory<T, PingingClient<I,O,V,T>> factory(
                 final TimeValue defaultTimeOut,
@@ -49,7 +46,7 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
                     @Override
                     public PingingClient<I,O,V,T> get(T value) {
                         return PingingClient.<I,O,V,T>newInstance(
-                                TimeOutParameters.create(defaultTimeOut),
+                                TimeOutParameters.milliseconds(defaultTimeOut.value(TimeUnit.MILLISECONDS)),
                                 executor,
                                 value);
                     }
@@ -63,7 +60,7 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
         return new PingingClient<I,O,V,T>(pingParameters, executor, connection);
     }
     
-    private final PingingTask<I,O,T> pingTask;
+    private final ClientPingTask<I,O,T> pingTask;
 
     protected PingingClient(
             TimeOutParameters pingParameters,
@@ -71,26 +68,14 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
             T connection) {
         super(connection);
         
-        this.pingTask = PingingTask.<I,O,T>create(connection, pingParameters, executor);
+        this.pingTask = ClientPingTask.<I,O,T>create(connection, pingParameters, executor);
         new PingTaskListener();
-        if (codec().state() == ProtocolState.CONNECTED) {
-            pingTask.run();
-        }
     }
 
     @Override
     public <I1 extends I> ListenableFuture<I1> write(I1 input) {
         pingTask.send(input);
         return super.write(input);
-    }
-
-    @Override
-    public void onSuccess(Object result) {
-    }
-
-    @Override
-    public void onFailure(Throwable t) {
-        close();
     }
 
     protected class PingTaskListener implements Runnable {
@@ -108,79 +93,78 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
                     } catch (InterruptedException e) {
                         throw new AssertionError(e);
                     } catch (ExecutionException e) {
-                        onFailure(e.getCause());
+                        close();
                     }
                 }
             }
         }
     }
     
-    protected static class PingingTask<I extends Operation.Request, O, T extends CodecConnection<? super I, ? extends O,? extends ProtocolCodec<?,?,?,?>,?>> extends TimeOutActor<I,Void> implements Connection.Listener<O>, Automatons.AutomatonListener<ProtocolState>, FutureCallback<I> {
+    protected static final class ClientPingTask<I extends Operation.Request, O, T extends CodecConnection<? super I, ? extends O,? extends ProtocolCodec<?,?,?,?>,?>> extends PingTask<I,O,T> implements Connection.Listener<O>, Automatons.AutomatonListener<ProtocolState> {
 
-        public static <I extends Operation.Request, O, T extends CodecConnection<? super I, ? extends O,? extends ProtocolCodec<?,?,?,?>,?>> PingingTask<I,O,T> create(
+        public static <I extends Operation.Request, O, T extends CodecConnection<? super I, ? extends O,? extends ProtocolCodec<?,?,?,?>,?>> ClientPingTask<I,O,T> create(
                 T connection,
                 TimeOutParameters parameters,
                 ScheduledExecutorService executor) {
-            Logger logger = LogManager.getLogger(PingingTask.class);
-            return new PingingTask<I,O,T>(
+            Logger logger = LogManager.getLogger(ClientPingTask.class);
+            ClientPingTask<I,O,T> task = new ClientPingTask<I,O,T>(
                     connection,
                     parameters, 
                     executor,
-                    new WeakConcurrentSet<Pair<Runnable,Executor>>(),
+                    Sets.<Pair<Runnable,Executor>>newHashSet(),
                     LoggingPromise.create(logger, SettableFuturePromise.<Void>create()),
                     logger);
+            // TODO: replay connection events?
+            return task;
         }
         
-        private final Message.ClientRequest<IPingRequest> pingRequest;
-        private final WeakReference<T> connection;
-        private volatile TimeValue lastPing = null;
+        private long lastPing = 0L;
 
-        public PingingTask(
+        @SuppressWarnings("unchecked")
+        protected ClientPingTask(
                 T connection,
                 TimeOutParameters parameters,
-                ScheduledExecutorService executor,
-                IConcurrentSet<Pair<Runnable,Executor>> listeners,
+                ScheduledExecutorService scheduler,
+                Set<Pair<Runnable,Executor>> listeners,
                 Promise<Void> promise,
                 Logger logger) {
-            super(parameters, executor, listeners, promise, logger);
-            this.connection = new WeakReference<T>(connection);
-            this.pingRequest = ProtocolRequestMessage.from(
-                    Records.newInstance(IPingRequest.class));
-            this.lastPing = null;
+            super((I) ProtocolRequestMessage.from(Records.newInstance(IPingRequest.class)), connection, parameters, scheduler, listeners, promise, logger);
             
-            connection.subscribe(this);
             connection.codec().subscribe(this);
         }
         
-        public TimeValue lastPing() {
+        public synchronized long lastPing() {
             return lastPing;
         }
         
         @Override
         public void handleConnectionRead(O message) {
-            if (logger.isTraceEnabled()) {
-                if (message instanceof Operation.ProtocolResponse<?>) {
-                    if (((Operation.ProtocolResponse<?>) message).record().opcode() == OpCode.PING) {
-                        TimeValue pong = TimeValue.milliseconds(System.currentTimeMillis());
-                        // of course, this pong could be for an earlier ping,
-                        // so this time difference is not very accurate...
-                        logger.trace(LoggingMarker.PING_MARKER.get(), String.format("PONG %s: %s",
-                                (lastPing == null) ? 0 : pong.difference(lastPing), pong));
+            if (message instanceof ConnectMessage.Response) {
+                if (message instanceof ConnectMessage.Response.Valid) {
+                    synchronized (this) {
+                        parameters.setTimeOut(((ConnectMessage.Response) message).getTimeOut());
+                        parameters.setTouch();
+                        schedule();
+                    }
+                } else {
+                    stop();
+                }
+            } else {
+                if (logger.isTraceEnabled()) {
+                    if (message instanceof Operation.ProtocolResponse<?>) {
+                        if (((Operation.ProtocolResponse<?>) message).record().opcode() == OpCode.PING) {
+                            synchronized (this) {
+                                // of course, this pong could be for an earlier ping,
+                                // so this time difference is not very accurate...
+                                long pong = parameters.getNow();
+                                assert (pong > lastPing);
+                                logger.trace(
+                                        LoggingMarker.PING_MARKER.get(), String.format("PONG %s: %s",
+                                        (lastPing > 0L) ? (pong - lastPing) : "null", this));
+                            }
+                        }
                     }
                 }
-            }
-        }
-
-        @Override
-        public void handleConnectionState(
-                Automaton.Transition<Connection.State> state) {
-            switch (state.to()) {
-            case CONNECTION_CLOSING:
-            case CONNECTION_CLOSED:
-                stop();
-                break;
-            default:
-                break;
             }
         }
 
@@ -189,7 +173,7 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
                 Automaton.Transition<ProtocolState> transition) {
             switch (transition.to()) {
             case CONNECTED:
-                run();
+                schedule();
                 break;
             case DISCONNECTING:
             case DISCONNECTED:
@@ -202,53 +186,19 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
         }
 
         @Override
-        public void onSuccess(I result) {
-        }
-
-        @Override
-        public void onFailure(Throwable t) {
-            promise.setException(t);
-        }
-        
-        @Override
-        public String toString() {
-            return Objects.toStringHelper(this).add("connection", connection.get()).toString();
-        }
-
-        @Override
         protected synchronized void doSchedule() {
-            if (parameters.getTimeOut() != NEVER_TIMEOUT) {
-                if ((connection.get() != null) && !isDone() && !scheduler.isShutdown()) {
-                    // somewhat arbitrary...
-                    long tick = Math.max(parameters.remaining() / 2, 0);
-                    scheduled = scheduler.schedule(this, tick, parameters.getUnit());
-                } else {
-                    stop();
-                }
-            } else {
-                state.compareAndSet(State.SCHEDULED, State.WAITING);
-            }
-        }
-
-        @Override
-        protected boolean doSend(I message) {
-            parameters.touch();
-            if (message instanceof ConnectMessage.Response) {
-                if (message instanceof ConnectMessage.Response.Valid) {
-                    parameters.setTimeOut(((ConnectMessage.Response) message).toParameters().timeOut().value());
-                    run();
-                } else {
-                    stop();
-                }
-            }
-            return true;
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        protected void doRun() {
             T connection = this.connection.get();
-            if (isDone() || (connection == null) || (connection.state() == Connection.State.CONNECTION_CLOSED)) {
+            if ((connection == null) || (connection.codec().state() != ProtocolState.CONNECTED)) {
+                state.compareAndSet(State.SCHEDULED, State.WAITING);
+            } else {
+                super.doSchedule();
+            }
+        }
+
+        @Override
+        protected synchronized void ping() {
+            T connection = this.connection.get();
+            if (connection == null) {
                 stop();
                 return;
             }
@@ -265,25 +215,27 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
             default:
                 break;
             }
-                
-            // should ping now, or ok to wait a while?
-            if (parameters.remaining() < parameters.getTimeOut() / 2) {
-                parameters.touch();
-                lastPing = TimeValue.milliseconds(System.currentTimeMillis());
-                logger.trace(LoggingMarker.PING_MARKER.get(), "PING: {}", lastPing);
-                Futures.addCallback(connection.write((I) pingRequest), this, SameThreadExecutor.getInstance());
+            
+            super.ping();
+            
+            if (state() != Actor.State.TERMINATED) {
+                lastPing = parameters.getTouch();
             }
         }
-
+        
         @Override
         protected synchronized void doStop() {
             T connection = this.connection.get();
             if (connection != null) {
-                connection.unsubscribe(this);
                 connection.codec().unsubscribe(this);
             }
             
             super.doStop();
+        }
+        
+        @Override   
+        protected synchronized Objects.ToStringHelper toStringHelper() {
+            return super.toStringHelper().add("lastPing", lastPing);
         }
     }
 }

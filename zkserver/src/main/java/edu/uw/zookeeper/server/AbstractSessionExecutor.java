@@ -4,12 +4,17 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Objects;
 import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.ListenableFuture;
+
 import net.engio.mbassy.common.IConcurrentSet;
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Automatons;
 import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
@@ -24,26 +29,29 @@ import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.protocol.server.SessionExecutor;
 
-public abstract class AbstractSessionExecutor<V> implements SessionExecutor, FutureCallback<V>, SessionListener {
+public abstract class AbstractSessionExecutor implements SessionExecutor, FutureCallback<Message.ServerResponse<?>>, SessionListener {
 
-    protected final Automaton<ProtocolState,ProtocolState> state;
+    protected final Automatons.EventfulAutomaton<ProtocolState, Object> state;
     protected final IConcurrentSet<SessionListener> listeners;
     protected final Session session;
     protected final TimeOutActor<Message.ClientSession, Void> timer;
     
     protected AbstractSessionExecutor(                
             Session session,
-            Automaton<ProtocolState,ProtocolState> state,
+            Automatons.EventfulAutomaton<ProtocolState, Object> state,
             IConcurrentSet<SessionListener> listeners,
             ScheduledExecutorService scheduler) {
         this.session = checkNotNull(session);
         this.state = checkNotNull(state);
         this.listeners = checkNotNull(listeners);
         this.timer = TimeOutActor.create(
-                TimeOutParameters.create(session.parameters().timeOut()), 
-                scheduler);
+                TimeOutParameters.milliseconds(session.parameters().timeOut().value(TimeUnit.MILLISECONDS)), 
+                scheduler,
+                LogManager.getLogger(this));
         
         new TimeOutListener();
+        state.subscribe(this);
+        timer.run();
     }
     
     public TimeOutActor<Message.ClientSession, Void> timer() {
@@ -60,6 +68,15 @@ public abstract class AbstractSessionExecutor<V> implements SessionExecutor, Fut
         return session;
     }
 
+    @Override
+    public ListenableFuture<Message.ServerResponse<?>> submit(Message.ClientRequest<?> request) {
+        timer.send(request);
+        state.apply(request);
+        ListenableFuture<Message.ServerResponse<?>> future = doSubmit(request);
+        new SubmitListener(future);
+        return future;
+    }
+    
     @Override
     public void subscribe(SessionListener listener) {
         listeners.add(listener);
@@ -83,25 +100,39 @@ public abstract class AbstractSessionExecutor<V> implements SessionExecutor, Fut
         for (SessionListener listener: listeners) {
             listener.handleAutomatonTransition(transition);
         }
+
+        switch (transition.to()) {
+        case ERROR:
+            // close session on error
+            Message.ClientRequest<Records.Request> request = ProtocolRequestMessage.of(0, Records.Requests.getInstance().get(OpCode.CLOSE_SESSION));
+            submit(request);
+            break;
+        case DISCONNECTED:
+            timer.cancel(false);
+            break;
+        default:
+            break;
+        }
+    }
+
+    @Override
+    public void onSuccess(Message.ServerResponse<?> result) {
+        try {
+            state.apply(result);
+        } catch (IllegalArgumentException e) {}
     }
     
     @Override
     public void onFailure(Throwable t) {
-        if (t instanceof TimeoutException) {
-            ProtocolState prevState = state.state();
-            ProtocolState nextState = ProtocolState.ERROR;
-            if (state.apply(nextState).isPresent()) {
-                handleAutomatonTransition(Automaton.Transition.create(prevState, nextState));
-                Message.ClientRequest<Records.Request> request = ProtocolRequestMessage.of(0, Records.Requests.getInstance().get(OpCode.CLOSE_SESSION));
-                submit(request);
-            }
-        }
+        state.apply(ProtocolState.ERROR);
     }
     
     @Override
     public String toString() {
         return Objects.toStringHelper(this).add("session", Session.toString(session().id())).toString();
     }
+    
+    protected abstract ListenableFuture<Message.ServerResponse<?>> doSubmit(Message.ClientRequest<?> request);
     
     protected class TimeOutListener implements Runnable {
 
@@ -112,7 +143,7 @@ public abstract class AbstractSessionExecutor<V> implements SessionExecutor, Fut
         @Override
         public void run() {
             if (timer.isDone()) {
-                if (! timer.isCancelled()) {
+                if (!timer.isCancelled()) {
                     try {
                         timer.get();
                     } catch (InterruptedException e) {
@@ -120,6 +151,34 @@ public abstract class AbstractSessionExecutor<V> implements SessionExecutor, Fut
                     } catch (ExecutionException e) {
                         onFailure(e.getCause());
                     }
+                }
+            }
+        }
+    }
+    
+    protected class SubmitListener implements Runnable {
+
+        private final ListenableFuture<Message.ServerResponse<?>> future;
+        
+        public SubmitListener(ListenableFuture<Message.ServerResponse<?>> future) {
+            this.future = future;
+            future.addListener(this, SameThreadExecutor.getInstance());
+        }
+        
+        @Override
+        public void run() {
+            if (future.isDone()) {
+                if (!future.isCancelled()) {
+                    Message.ServerResponse<?> result;
+                    try {
+                        result = future.get();
+                    } catch (InterruptedException e) {
+                        throw new AssertionError(e);
+                    } catch (ExecutionException e) {
+                        onFailure(e.getCause());
+                        return;
+                    }
+                    onSuccess(result);
                 }
             }
         }

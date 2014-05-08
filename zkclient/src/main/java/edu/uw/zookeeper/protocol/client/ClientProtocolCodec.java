@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import org.apache.logging.log4j.LogManager;
+
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -45,7 +47,9 @@ public class ClientProtocolCodec
         Automatons.SynchronizedEventfulAutomaton<ProtocolState, Object,?> automaton =
                 Automatons.createSynchronizedEventful(
                         Automatons.createEventful(
-                        ProtocolMessageAutomaton.asAutomaton(state)));
+                                Automatons.createLogging(
+                                        LogManager.getLogger(ClientProtocolCodec.class), 
+                                        ProtocolMessageAutomaton.asAutomaton(state))));
         Pending pending = Pending.newInstance();
         Encoder<? super Message.ClientSession, ?> encoder = 
                 Frame.FramedEncoder.create(

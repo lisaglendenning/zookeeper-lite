@@ -112,7 +112,16 @@ public enum ProtocolMessageAutomaton implements Automaton<ProtocolState, Message
         }
         
         public Optional<Automaton.Transition<ProtocolState>> apply(Message input) {
-            throw new IllegalArgumentException(String.valueOf(input));                    
+            if (input instanceof Message.ClientRequest) {
+                if (OpCode.CLOSE_SESSION == ((Message.ClientRequest<?>) input).record().opcode()) {
+                    return Optional.of(Automaton.Transition.create(state(), DISCONNECTING.state()));
+                }
+            } else if (input instanceof Message.ServerResponse) {
+                if (OpCode.CLOSE_SESSION == ((Message.ServerResponse<?>) input).record().opcode()) {
+                    return Optional.of(Automaton.Transition.create(state(), DISCONNECTED.state()));
+                }
+            }
+            throw new IllegalArgumentException(String.valueOf(input));    
         }
     };
     
@@ -132,7 +141,7 @@ public enum ProtocolMessageAutomaton implements Automaton<ProtocolState, Message
     }
     
     public static Automaton<ProtocolState, Object> asAutomaton() {
-        return new SimpleAutomaton(ANONYMOUS);
+        return asAutomaton(ProtocolState.ANONYMOUS);
     }
 
     public static Automaton<ProtocolState, Object> asAutomaton(ProtocolState state) {
@@ -142,7 +151,7 @@ public enum ProtocolMessageAutomaton implements Automaton<ProtocolState, Message
     /**
      * Not thread-safe
      */
-    public static class SimpleAutomaton implements Automaton<ProtocolState, Object> {
+    protected static final class SimpleAutomaton implements Automaton<ProtocolState, Object> {
         
         private ProtocolMessageAutomaton instance;
         

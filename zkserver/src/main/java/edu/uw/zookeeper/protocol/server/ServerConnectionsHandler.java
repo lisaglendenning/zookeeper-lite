@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -270,8 +271,10 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         public AnonymousConnectionHandler(C connection) {
             super(connection, LogManager.getLogger(AnonymousConnectionHandler.class));
             this.timer = TimeOutActor.create(
-                    TimeOutParameters.create(timeOut), scheduler);
+                    TimeOutParameters.milliseconds(timeOut.value(TimeUnit.MILLISECONDS)), scheduler,
+                    LogManager.getLogger(AnonymousConnectionHandler.class));
             new TimeOutListener();
+            timer.run();
         }
 
         @Override
@@ -318,13 +321,13 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         protected boolean doSend(Message.Client message) {
             timer.send(message);
             if (message instanceof FourLetterRequest) {
-                Futures.addCallback(server.anonymousExecutor().submit((FourLetterRequest) message), this, connection);
+                Futures.addCallback(server.anonymousExecutor().submit((FourLetterRequest) message), this, SameThreadExecutor.getInstance());
             } else if (message instanceof TelnetCloseRequest) {
                 connection.close();
             } else if (message instanceof ConnectMessage.Request) {
                 // now we know that no more messages will be read 
                 // by the connection until we write the response
-                Futures.addCallback(server.connectExecutor().submit((ConnectMessage.Request) message), this, connection);
+                Futures.addCallback(server.connectExecutor().submit((ConnectMessage.Request) message), this, SameThreadExecutor.getInstance());
             } else {
                 throw new AssertionError(String.valueOf(message));
             }
@@ -346,7 +349,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
             @Override
             public void run() {
                 if (timer.isDone()) {
-                    if (! timer.isCancelled()) {
+                    if (!timer.isCancelled()) {
                         try {
                             timer.get();
                         } catch (InterruptedException e) {
@@ -369,9 +372,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
             super(connection, LogManager.getLogger(SessionConnectionHandler.class));
             this.session = session;
             
-            if (state() != State.TERMINATED) {
-                session.subscribe(this);
-            }
+            session.subscribe(this);
         }
 
         @Override
@@ -411,7 +412,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         
         @Override
         protected boolean doSend(Message.ClientRequest<?> message) {
-            Futures.addCallback(session.submit(message), this, connection);
+            Futures.addCallback(session.submit(message), this, SameThreadExecutor.getInstance());
             return true;
         }
 

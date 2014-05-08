@@ -1,15 +1,16 @@
 package edu.uw.zookeeper.protocol.client;
 
 import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import net.engio.mbassy.common.IConcurrentSet;
 import net.engio.mbassy.common.StrongConcurrentSet;
-import net.engio.mbassy.common.WeakConcurrentSet;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -17,6 +18,7 @@ import org.apache.zookeeper.KeeperException;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -67,7 +69,7 @@ public abstract class AbstractConnectionClientExecutor<
             C connection,
             TimeValue timeOut,
             ScheduledExecutorService scheduler) {
-        this(session, connection, Listeners.create(), TimeOutServer.<Operation.Response>newTimeOutServer(TimeOutParameters.create(timeOut), scheduler), new AtomicReference<Throwable>());
+        this(session, connection, Listeners.create(), TimeOutServer.<Operation.Response>newTimeOutServer(TimeOutParameters.milliseconds(timeOut.value(TimeUnit.MILLISECONDS)), scheduler), new AtomicReference<Throwable>());
     }
     
     protected AbstractConnectionClientExecutor(
@@ -153,7 +155,7 @@ public abstract class AbstractConnectionClientExecutor<
     @SuppressWarnings("unchecked")
     @Override
     public void handleConnectionRead(Operation.Response message) {
-        logger().debug("Received: {}", message);
+        logger().debug("Read {} ({})", message, this);
         timer.send(message);
         if (message instanceof Operation.ProtocolResponse<?>) {
             if (((Operation.ProtocolResponse<?>) message).xid() == OpCodeXid.NOTIFICATION.xid()) {
@@ -181,19 +183,7 @@ public abstract class AbstractConnectionClientExecutor<
     
     @Override
     public String toString() {
-        String sessionStr = null;
-        if (session().isDone()) {
-            if (session.isCancelled()) {
-                sessionStr = "cancelled";
-            } else {
-                try {
-                    sessionStr = Session.toString(session().get().getSessionId());
-                } catch (Exception e) {
-                    sessionStr = e.toString();
-                }
-            }
-        }
-        return Objects.toStringHelper(this).add("session", sessionStr).add("connection", connection).toString();
+        return toStringHelper().toString();
     }
     
     protected abstract Actor<? super T> actor();
@@ -206,13 +196,27 @@ public abstract class AbstractConnectionClientExecutor<
         connection.unsubscribe(this);
         connection.codec().unsubscribe(this);
         
-        if (! session.isDone()) {
-            session.cancel(true);
-        }
+        session.cancel(false);
         
         connection.close();
 
         listeners.clear();
+    }
+    
+    protected Objects.ToStringHelper toStringHelper() {
+        String sessionStr = null;
+        if (session().isDone()) {
+            if (session.isCancelled()) {
+                sessionStr = "cancelled";
+            } else {
+                try {
+                    sessionStr = Session.toString(session().get().getSessionId());
+                } catch (Exception e) {
+                    sessionStr = e.toString();
+                }
+            }
+        }
+        return Objects.toStringHelper(this).add("session", sessionStr).add("connection", connection);
     }
     
     public static class RequestTask<I extends Operation.Request, V extends Operation.ProtocolResponse<?>> extends PromiseTask<I,V> {
@@ -285,7 +289,7 @@ public abstract class AbstractConnectionClientExecutor<
         @Override
         public void run() {
             if (timer.isDone()) {
-                if (! timer.isCancelled()) {
+                if (!timer.isCancelled()) {
                     try {
                         timer.get();
                     } catch (InterruptedException e) {
@@ -293,6 +297,8 @@ public abstract class AbstractConnectionClientExecutor<
                     } catch (ExecutionException e) {
                         onFailure(e.getCause());
                     }
+                } else {
+                    stop();
                 }
             }
         }
@@ -302,29 +308,31 @@ public abstract class AbstractConnectionClientExecutor<
 
         public static <V>TimeOutServer<V> newTimeOutServer(
                 TimeOutParameters parameters,
-                ScheduledExecutorService executor) {
+                ScheduledExecutorService scheduler) {
             Logger logger = LogManager.getLogger(TimeOutServer.class);
             return new TimeOutServer<V>(
                     parameters, 
-                    executor,
-                    new WeakConcurrentSet<Pair<Runnable,Executor>>(),
+                    scheduler,
+                    Sets.<Pair<Runnable,Executor>>newHashSet(),
                     LoggingPromise.create(logger, SettableFuturePromise.<V>create()),
                     logger);
         }
         
         public TimeOutServer(
                 TimeOutParameters parameters,
-                ScheduledExecutorService executor,
-                IConcurrentSet<Pair<Runnable,Executor>> listeners,
+                ScheduledExecutorService scheduler,
+                Set<Pair<Runnable,Executor>> listeners,
                 Promise<V> promise,
                 Logger logger) {
-            super(parameters, executor, listeners, promise, logger);
+            super(parameters, scheduler, listeners, promise, logger);
         }
 
         @Override
         public void onSuccess(ConnectMessage.Response result) {
             if (result instanceof ConnectMessage.Response.Valid) {
-                parameters.setTimeOut(((ConnectMessage.Response) result).toParameters().timeOut().value());
+                synchronized (this) {
+                    parameters.setTimeOut(((ConnectMessage.Response) result).getTimeOut());
+                }
             }
             
             send(result);
