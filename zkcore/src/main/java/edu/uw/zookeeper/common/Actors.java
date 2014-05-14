@@ -4,6 +4,8 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
+import javax.annotation.Nullable;
+
 import net.engio.mbassy.bus.BusRuntime;
 import net.engio.mbassy.bus.common.PubSubSupport;
 
@@ -23,12 +25,16 @@ public abstract class Actors {
             this.mailbox = mailbox;
         }
 
+        public boolean isReady() {
+            return !mailbox.isEmpty();
+        }
+        
         @Override
         protected boolean doSend(T message) {
-            if (! mailbox.offer(message)) {
+            if (!mailbox.offer(message)) {
                 return false;
             }
-            if (! schedule() && (state() == State.TERMINATED)) {
+            if (!schedule() && (state() == State.TERMINATED)) {
                 mailbox.remove(message);
                 return false;
             }
@@ -37,18 +43,17 @@ public abstract class Actors {
 
         @Override
         protected boolean schedule() {
-            if (!mailbox.isEmpty() && state.compareAndSet(State.WAITING, State.SCHEDULED)) {
-                doSchedule();
-                return true;
-            } else {
+            if (!isReady()) {
                 return false;
+            } else {
+                return super.schedule();
             }
         }
 
         @Override
         protected void doRun() throws Exception {
             T next;
-            while ((next = mailbox.poll()) != null) {
+            while ((next = next()) != null) {
                 logger.debug("Applying {} ({})", next, this);
                 if (! apply(next) || (state() == State.TERMINATED)) {
                     break;
@@ -66,6 +71,10 @@ public abstract class Actors {
         @Override
         protected void doStop() {
             mailbox.clear();
+        }
+        
+        protected @Nullable T next() {
+            return mailbox.poll();
         }
 
         protected abstract boolean apply(T input) throws Exception;
@@ -92,27 +101,9 @@ public abstract class Actors {
             super(mailbox, logger);
         }
 
-        public abstract boolean isReady();
-        
         @Override
-        protected boolean schedule() {
-            if (isReady() && state.compareAndSet(State.WAITING, State.SCHEDULED)) {
-                doSchedule();
-                return true;
-            } else {
-                return false;
-            }
-        }
-
-        @Override
-        protected void doRun() throws Exception {
-            T next;
-            while ((next = mailbox.peek()) != null) {
-                logger.debug("Applying {} ({})", next, this);
-                if (! apply(next) || (state() == State.TERMINATED)) {
-                    break;
-                }
-            }
+        protected @Nullable T next() {
+            return mailbox.peek();
         }
     }
 
@@ -138,16 +129,10 @@ public abstract class Actors {
             super(executor, mailbox, logger);
         }
         
-        protected synchronized void flush(T input) {
-            doRun();
-            logger.debug("Flushing {} ({})", input, this);
-            apply(input);
-        }
-
         @Override
         protected synchronized void doRun() {
             T next;
-            while ((next = mailbox.poll()) != null) {
+            while ((next = next()) != null) {
                 logger.debug("Applying {} ({})", next, this);
                 apply(next);
             }
@@ -159,6 +144,12 @@ public abstract class Actors {
         @Override
         protected void doStop() {
              doRun();
+        }
+
+        protected synchronized void flush(T input) {
+            doRun();
+            logger.debug("Flushing {} ({})", input, this);
+            apply(input);
         }
     }
     
@@ -180,7 +171,7 @@ public abstract class Actors {
         
         @Override
         public void execute(Runnable command) {
-            if (! send(command)) {
+            if (!send(command)) {
                 flush(command);
             }
         }
@@ -229,7 +220,7 @@ public abstract class Actors {
 
         @Override
         public void publish(T event) {
-            if (! send(event)) {
+            if (!send(event)) {
                 flush(event);
             }
         }
