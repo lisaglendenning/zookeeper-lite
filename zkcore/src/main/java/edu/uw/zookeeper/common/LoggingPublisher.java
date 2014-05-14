@@ -1,7 +1,7 @@
 package edu.uw.zookeeper.common;
 
 import net.engio.mbassy.bus.BusRuntime;
-import net.engio.mbassy.bus.PubSubSupport;
+import net.engio.mbassy.bus.common.PubSubSupport;
 
 import org.apache.logging.log4j.Logger;
 

@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
 import net.engio.mbassy.bus.BusRuntime;
-import net.engio.mbassy.bus.PubSubSupport;
+import net.engio.mbassy.bus.common.PubSubSupport;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

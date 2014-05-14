@@ -11,6 +11,9 @@
 		<version>0.5.7-SNAPSHOT</version>
 		<relativePath>../parent</relativePath>
 	</parent>
+    <properties>
+        <netty-version>4.0.19.Final</netty-version>
+    </properties>
 	<build>
 		<resources>
 			<resource>
@@ -85,7 +88,7 @@
 		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
-			<version>16.0.1</version>
+			<version>17.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.google.code.findbugs</groupId>
@@ -95,27 +98,27 @@
 		<dependency>
 			<groupId>io.netty</groupId>
 			<artifactId>netty-common</artifactId>
-			<version>4.0.15.Final</version>
+			<version>${netty-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>io.netty</groupId>
 			<artifactId>netty-buffer</artifactId>
-			<version>4.0.15.Final</version>
+			<version>${netty-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>io.netty</groupId>
 			<artifactId>netty-transport</artifactId>
-			<version>4.0.15.Final</version>
+			<version>${netty-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>io.netty</groupId>
 			<artifactId>netty-codec</artifactId>
-			<version>4.0.15.Final</version>
+			<version>${netty-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.typesafe</groupId>
 			<artifactId>config</artifactId>
-			<version>1.2.0</version>
+			<version>1.2.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.logging.log4j</groupId>
@@ -130,7 +133,7 @@
 	    <dependency>
             <groupId>net.engio</groupId>
             <artifactId>mbassador</artifactId>
-            <version>1.1.9</version>
+            <version>1.1.10</version>
         </dependency>
 		<dependency>
 			<groupId>junit</groupId>
