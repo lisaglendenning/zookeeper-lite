@@ -5,6 +5,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -204,6 +205,11 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         default:
             break;
         }
+    }
+    
+    @Override
+    protected Executor executor() {
+        return SameThreadExecutor.getInstance();
     }
 
     @Override

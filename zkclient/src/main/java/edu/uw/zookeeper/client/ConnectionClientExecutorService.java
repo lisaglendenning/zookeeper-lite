@@ -306,6 +306,11 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
         logger.debug("{}", this, t);
         stopAsync();
     }
+    
+    @Override
+    protected Executor executor() {
+        return executor;
+    }
 
     @Override
     protected void startUp() throws Exception {
