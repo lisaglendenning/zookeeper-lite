@@ -16,7 +16,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.LoggingPromise;
-import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.CallablePromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Codec;
 import edu.uw.zookeeper.net.Connection;
@@ -61,7 +61,7 @@ public class IntraVmCodecEndpoint<I,O,T extends Codec<I,? extends O,? extends I,
     @Override
     public <U extends I> ListenableFuture<U> write(U message, AbstractIntraVmEndpoint<?,?,?,? super ByteBuf> remote) {
         if (state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
-            EncodingEndpointWrite<U> task = new EncodingEndpointWrite<U>(remote, message, LoggingPromise.create(logger, SettableFuturePromise.<U>create()));
+            CallablePromiseTask<EncodingEndpointWrite<U>,U> task = CallablePromiseTask.create(new EncodingEndpointWrite<U>(remote, message), LoggingPromise.create(logger, SettableFuturePromise.<U>create()));
             execute(task);
             return task;
         } else {
@@ -106,33 +106,30 @@ public class IntraVmCodecEndpoint<I,O,T extends Codec<I,? extends O,? extends I,
 
         public EncodingEndpointWrite(
                 AbstractIntraVmEndpoint<?,?,?,? super ByteBuf> remote,
-                U task, 
-                Promise<U> promise) {
-            super(remote,task, promise);
+                U task) {
+            super(remote,task);
         }
         
         @Override
-        public Optional<U> call() {
+        public Optional<U> call() throws IOException {
             if (state() != Connection.State.CONNECTION_CLOSED) {
                 ByteBuf output = allocator.buffer();
                 logger.trace(LoggingMarker.NET_MARKER.get(), "ENCODING {}", this);
                 try {
-                    codec.encode(task, output);
+                    codec.encode(message, output);
                 } catch (IOException e) {
                     logger.warn(LoggingMarker.NET_MARKER.get(), "{}", this, e);
-                    setException(e);
-                    return Optional.absent();
+                    throw e;
                 }
                 if (remote.read(output)) {
-                    return Optional.of(task);
+                    return Optional.of(message);
                 } else {
                     close();
-                    setException(new ClosedChannelException());
+                    throw new ClosedChannelException();
                 }
             } else {
-                setException(new ClosedChannelException());
+                throw new ClosedChannelException();
             }
-            return Optional.absent();
         }
     }
 }

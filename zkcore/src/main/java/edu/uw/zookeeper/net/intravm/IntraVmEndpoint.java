@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.net.intravm;
 
+import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.Executor;
@@ -7,14 +8,13 @@ import java.util.concurrent.Executor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Eventful;
 import edu.uw.zookeeper.common.LoggingPromise;
-import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.CallablePromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.Stateful;
 import edu.uw.zookeeper.net.Connection;
@@ -43,7 +43,8 @@ public class IntraVmEndpoint<I,O> extends AbstractIntraVmEndpoint<I,O,I,O> imple
     @Override
     public <T extends I> ListenableFuture<T> write(T message, AbstractIntraVmEndpoint<?,?,?,? super I> remote) {
         if (state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
-            EndpointWrite<T> task = new EndpointWrite<T>(remote, message, LoggingPromise.create(logger, SettableFuturePromise.<T>create()));
+            CallablePromiseTask<EndpointWrite<T>,T> task = CallablePromiseTask.create(
+                    new EndpointWrite<T>(remote, message), LoggingPromise.create(logger, SettableFuturePromise.<T>create()));
             execute(task);
             return task;
         } else {
@@ -60,33 +61,26 @@ public class IntraVmEndpoint<I,O> extends AbstractIntraVmEndpoint<I,O,I,O> imple
         return false;
     }
     
-    public class EndpointWrite<T extends I> extends AbstractEndpointWrite<T> implements Runnable {
+    public class EndpointWrite<T extends I> extends AbstractEndpointWrite<T> {
 
         public EndpointWrite(
                 AbstractIntraVmEndpoint<?,?,?,? super I> remote,
-                T message,
-                Promise<T> promise) {
-            super(remote, message, promise);
+                T message) {
+            super(remote, message);
         }
         
         @Override
-        public Optional<T> call() {
+        public Optional<T> call() throws IOException {
             if (state() != Connection.State.CONNECTION_CLOSED) {
-                if (remote.read(task)) {
-                    return Optional.of(task);
+                if (remote.read(message)) {
+                    return Optional.of(message);
                 } else {
                     close();
-                    setException(new ClosedChannelException());
+                    throw new ClosedChannelException();
                 }
             } else {
-                setException(new ClosedChannelException());
+                throw new ClosedChannelException();
             }
-            return Optional.absent();
-        }
-
-        @Override
-        public String toString() {
-            return Objects.toStringHelper(getClass()).add("task", task).add("endpoint", remote).toString();
         }
     }
 

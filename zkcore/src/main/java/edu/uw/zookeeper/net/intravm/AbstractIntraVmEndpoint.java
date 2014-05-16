@@ -1,19 +1,19 @@
 package edu.uw.zookeeper.net.intravm;
 
 import java.net.SocketAddress;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 
 import org.apache.logging.log4j.Logger;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons;
 import edu.uw.zookeeper.common.Eventful;
 import edu.uw.zookeeper.common.Factories;
-import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.RunnablePromiseTask;
 import edu.uw.zookeeper.common.Stateful;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.LoggingMarker;
@@ -128,21 +128,21 @@ public abstract class AbstractIntraVmEndpoint<I,O,U,V> implements Stateful<Conne
         protected abstract void doRead();
     }
 
-    public abstract class AbstractEndpointWrite<T extends I> extends RunnablePromiseTask<T,T> {
+    public abstract class AbstractEndpointWrite<T extends I> implements Callable<Optional<T>> {
 
         protected final AbstractIntraVmEndpoint<?,?,?,? super U> remote;
+        protected final T message;
         
         public AbstractEndpointWrite(
                 AbstractIntraVmEndpoint<?,?,?,? super U> remote,
-                T message,
-                Promise<T> promise) {
-            super(message, promise);
+                T message) {
+            this.message = message;
             this.remote = remote;
         }
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(getClass()).add("task", task).add("endpoint", remote).toString();
+            return Objects.toStringHelper(getClass()).add("message", message).add("remote", remote).toString();
         }
     }
 

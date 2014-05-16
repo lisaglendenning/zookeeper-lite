@@ -1,7 +1,9 @@
 package edu.uw.zookeeper.net.intravm;
 
 
+import java.io.IOException;
 import java.net.SocketAddress;
+import java.util.concurrent.Callable;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -12,7 +14,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.LoggingPromise;
-import edu.uw.zookeeper.common.RunnablePromiseTask;
+import edu.uw.zookeeper.common.CallablePromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
 
@@ -21,7 +23,7 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
     protected final Logger logger;
     protected final T local;
     protected final AbstractIntraVmEndpoint<?,?,?,? super U> remote;
-    protected final Close close;
+    protected final CallablePromiseTask<Close,C> close;
     
     protected AbstractIntraVmConnection(
             T local,
@@ -29,7 +31,9 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
         this.logger = LogManager.getLogger(getClass());
         this.local = local;
         this.remote = remote;
-        this.close = new Close();
+        this.close = CallablePromiseTask.create(
+                new Close(), 
+                LoggingPromise.create(logger, SettableFuturePromise.<C>create()));
     }
     
     protected T local() {
@@ -105,17 +109,13 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
         return (C) this;
     }
     
-    protected class Close extends RunnablePromiseTask<C, C> implements Connection.Listener<Object> {
+    protected class Close implements Callable<Optional<C>>, Connection.Listener<Object> {
 
-        protected Close() {
-            super(self(), 
-                    LoggingPromise.create(
-                            logger, 
-                            SettableFuturePromise.<C>create()));
+        public Close() {
         }
         
         @Override
-        public Optional<C> call() throws Exception {
+        public Optional<C> call() throws IOException {
             logger.entry(this);
             Optional<C> result = Optional.absent();
             
@@ -136,7 +136,7 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
             
             if (local.state() == Connection.State.CONNECTION_CLOSED) {
                 local.unsubscribe(this);
-                result = Optional.of(task);
+                result = Optional.of(self());
             }
             
             switch (remote.state()) {
@@ -158,8 +158,7 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
         public void handleConnectionState(
                 Automaton.Transition<Connection.State> state) {
             if (state.to() == Connection.State.CONNECTION_CLOSED) {
-                local.unsubscribe(this);
-                set(task);
+                close();
             }
         }
 
@@ -168,8 +167,8 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
         }
 
         @Override
-        protected Objects.ToStringHelper toString(Objects.ToStringHelper toString) {
-            return super.toString(toString).add("state", state());
+        public String toString() {
+            return Objects.toStringHelper(this).add("state", state()).toString();
         }
     }
 }
