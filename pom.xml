@@ -16,6 +16,7 @@
 		<module>zkcore</module>
 		<module>zkclient</module>
 		<module>zkserver</module>
+        <module>testing</module>
 		<module>all</module>
 	</modules>
 	<build>
