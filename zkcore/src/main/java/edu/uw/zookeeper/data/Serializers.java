@@ -47,6 +47,10 @@ public enum Serializers {
     public static enum ToString implements Function<Object, String> {
         TO_STRING;
         
+        public static ToString getInstance() {
+            return TO_STRING;
+        }
+        
         @Override
         public String apply(Object input) {
             Class<?> inputType = input.getClass();

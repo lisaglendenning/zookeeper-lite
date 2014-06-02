@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Service;
 
+import edu.uw.zookeeper.ConfigurableTimeout;
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.AbstractActor;
 import edu.uw.zookeeper.common.Automaton;
@@ -53,8 +54,11 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
     public static class Builder implements ZooKeeperApplication.RuntimeBuilder<List<Service>, Builder> {
 
         public static Builder defaults() {
-            return new Builder(ServerConnectionFactoryBuilder.defaults(), 
-                    null, null);
+            return withConnectionBuilder(ServerConnectionFactoryBuilder.defaults());
+        }
+        
+        public static Builder withConnectionBuilder(ServerConnectionFactoryBuilder connectionBuilder) {
+            return new Builder(connectionBuilder, null, null);
         }
         
         protected final ServerConnectionFactoryBuilder connectionBuilder;
@@ -143,19 +147,30 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         }
 
         protected List<Service> doBuild() {
-            ServerConnectionFactory<? extends ServerProtocolConnection<?,?>> connections = connectionBuilder.build();
-            ServerConnectionsHandler<ServerProtocolConnection<?,?>> handler = ServerConnectionsHandler.newInstance(
+            final ServerConnectionFactory<? extends ServerProtocolConnection<?,?>> connections = connectionBuilder.build();
+            final ServerConnectionsHandler<ServerProtocolConnection<?,?>> handler = ServerConnectionsHandler.create(
                     getServerExecutor(),
                     getRuntimeModule().getExecutors().get(ScheduledExecutorService.class),
                     getTimeOut());
-            connections.subscribe(handler);
+            handler.addListener(
+                    new Service.Listener() {
+                        @Override
+                        public void running() {
+                            connections.subscribe(handler);
+                        }
+                        
+                        @Override
+                        public void stopping(State from) {
+                            connections.unsubscribe(handler);
+                        }
+                    }, SameThreadExecutor.getInstance());
             return Lists.<Service>newArrayList(
-                    connections,
-                    handler);
+                    handler,
+                    connections);
         }
         
         protected TimeValue getDefaultTimeOut() {
-            return ZooKeeperApplication.ConfigurableTimeout.get(
+            return ConfigurableTimeout.get(
                     getRuntimeModule().getConfiguration());
         }
         
@@ -164,7 +179,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         }
     }
     
-    public static <C extends ServerProtocolConnection<?,?>> ServerConnectionsHandler<C> newInstance(
+    public static <C extends ServerProtocolConnection<?,?>> ServerConnectionsHandler<C> create(
             ServerExecutor<?> server, 
             ScheduledExecutorService scheduler, 
             TimeValue timeOut) {
@@ -185,7 +200,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
             ScheduledExecutorService scheduler, 
             TimeValue timeOut,
             ConcurrentMap<C, ConnectionHandler<?>> handlers) {
-        this.logger = LogManager.getLogger(getClass());
+        this.logger = LogManager.getLogger(this);
         this.server = server;
         this.scheduler = scheduler;
         this.timeOut = timeOut;

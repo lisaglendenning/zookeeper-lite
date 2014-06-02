@@ -7,12 +7,12 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 
-import edu.uw.zookeeper.common.Factories;
 import edu.uw.zookeeper.data.Serializes;
 
-public class ServerInetAddressView extends Factories.Holder<InetSocketAddress> implements ServerView.Address<InetSocketAddress> {
+public class ServerInetAddressView implements Supplier<InetSocketAddress>, Comparable<ServerInetAddressView> {
 
     public static abstract class Address {
 
@@ -25,7 +25,7 @@ public class ServerInetAddressView extends Factories.Holder<InetSocketAddress> i
          * @param address InetSocketAddress to represent
          * @return "Address:Port"
          */
-        @Serializes(from=InetSocketAddress.class, to=String.class)
+        @Serializes
         public static String toString(InetSocketAddress address) {
             checkNotNull(address);
             // Prefer IP address, otherwise use the hostname
@@ -51,7 +51,7 @@ public class ServerInetAddressView extends Factories.Holder<InetSocketAddress> i
          * @return InetSocketAddress representing input
          * @throws UnknownHostException 
          */
-        @Serializes(from=String.class, to=InetSocketAddress.class)
+        @Serializes
         public static InetSocketAddress fromString(String input) throws UnknownHostException {
             checkNotNull(input);
             String[] fields = Iterables.toArray(SPLITTER.split(input), String.class);
@@ -80,17 +80,17 @@ public class ServerInetAddressView extends Factories.Holder<InetSocketAddress> i
         private Address() {}
     }
 
-    @Serializes(from=ServerInetAddressView.class, to=String.class)
-    public static String toString(ServerInetAddressView input) {
-        return Address.toString(checkNotNull(input).get());
-    }
-
-    @Serializes(from=String.class, to=ServerInetAddressView.class)
+    @Serializes
     public static ServerInetAddressView fromString(String input)
             throws UnknownHostException {
         return of(Address.fromString(input));
     }
 
+    @Serializes(to=EnsembleView.class)
+    public static EnsembleView<ServerInetAddressView> ensembleFromString(String input) {
+        return EnsembleView.copyOf(EnsembleView.fromString(input, ServerInetAddressView.class));
+    }
+    
     /**
      * Wild-card address and ephemeral port.
      */
@@ -124,13 +124,35 @@ public class ServerInetAddressView extends Factories.Holder<InetSocketAddress> i
         return new ServerInetAddressView(address);
     }
     
-    protected ServerInetAddressView(InetSocketAddress address) {
-        super(address);
+    private InetSocketAddress value;
+    
+    protected ServerInetAddressView(InetSocketAddress value) {
+        this.value = value;
+    }
+    
+    @Override
+    public InetSocketAddress get() {
+        return value;
     }
 
     @Override
-    public int compareTo(ServerView obj) {
-        ServerInetAddressView other = (ServerInetAddressView)obj;
-        return toString(this).compareTo(toString(other));
+    public int hashCode() {
+        return get().hashCode();
+    }
+    
+    @Override
+    public boolean equals(Object obj) {
+        return get().equals(obj);
+    }
+
+    @Serializes
+    @Override
+    public String toString() {
+        return Address.toString(get());
+    }
+
+    @Override
+    public int compareTo(ServerInetAddressView other) {
+        return toString().compareTo(other.toString());
     }
 }

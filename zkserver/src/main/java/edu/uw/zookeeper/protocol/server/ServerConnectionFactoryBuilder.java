@@ -13,7 +13,7 @@ import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.netty.server.NettyServerModule;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.server.ConfigurableServerAddressView;
+import edu.uw.zookeeper.server.ClientAddressConfiguration;
 
 public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.RuntimeBuilder<ServerConnectionFactory<? extends ServerProtocolConnection<?,?>>, ServerConnectionFactoryBuilder> {
 
@@ -167,6 +167,6 @@ public class ServerConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
     
     protected ServerInetAddressView getDefaultAddress() {
-        return ConfigurableServerAddressView.get(runtime.getConfiguration());
+        return ClientAddressConfiguration.get(runtime.getConfiguration());
     }
 }

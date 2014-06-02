@@ -1,8 +1,6 @@
 package edu.uw.zookeeper.client.cli;
 
 
-import static com.google.common.base.Preconditions.checkState;
-
 import java.io.IOException;
 
 import com.google.common.base.Throwables;
@@ -23,57 +21,44 @@ public class Main extends ZooKeeperApplication.ForwardingApplication {
         super(delegate);
     }
     
-    protected static class MainBuilder implements ZooKeeperApplication.RuntimeBuilder<Main, MainBuilder> {
+    protected static class MainBuilder extends ZooKeeperApplication.AbstractRuntimeBuilder<Main, MainBuilder> {
 
     	protected static final String DESCRIPTION = "ZooKeeper CLI Client\nType '?' at the prompt to get started.";
     	
-    	protected final RuntimeModule runtime;
-
         public MainBuilder() {
             this(null);
         }
         
         protected MainBuilder(RuntimeModule runtime) {
-            this.runtime = runtime;
+            super(runtime);
         }
 
         @Override
-        public RuntimeModule getRuntimeModule() {
-            return runtime;
-        }
-
-        @Override
-        public MainBuilder setRuntimeModule(RuntimeModule runtime) {
-            return newInstance(runtime);
-        }
-
-        @Override
-        public MainBuilder setDefaults() {
-            checkState(runtime != null);
-            return this;
-        }
-
-        @Override
-        public Main build() {
-            return setDefaults().doBuild();
-        }
-
         protected Main doBuild() {
-            getRuntimeModule().getConfiguration().getArguments().setDescription(DESCRIPTION);
+            getRuntimeModule().getConfiguration().getArguments().setDescription(getDescription());
             ServiceMonitor monitor = getRuntimeModule().getServiceMonitor();
             Shell shell;
             try {
-                shell = Shell.create(runtime);
+                shell = Shell.create(getRuntimeModule());
             } catch (IOException e) {
                 throw Throwables.propagate(e);
             }
             monitor.add(shell);
-            monitor.add(DispatchingInvoker.defaults(shell));
-            return new Main(ServiceApplication.newInstance(monitor));
+            monitor.add(newDispatchingInvoker(shell));
+            return new Main(ServiceApplication.forService(monitor));
         }
 
+        @Override
         protected MainBuilder newInstance(RuntimeModule runtime) {
             return new MainBuilder(runtime);
+        }
+
+        protected String getDescription() {
+            return DESCRIPTION;
+        }
+        
+        protected DispatchingInvoker newDispatchingInvoker(Shell shell) {
+            return DispatchingInvoker.defaults(shell);
         }
     }
 }

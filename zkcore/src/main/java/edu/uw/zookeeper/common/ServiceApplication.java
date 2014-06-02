@@ -5,97 +5,60 @@ import static com.google.common.base.Preconditions.*;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
-import com.google.common.util.concurrent.Monitor;
 import com.google.common.util.concurrent.Service;
-import com.google.common.util.concurrent.Service.State;
 
 /**
  * Application that starts a Service and waits for it to terminate.
  */
 public class ServiceApplication implements Application {
 
-    public static ServiceApplication newInstance(Service service) {
+    public static ServiceApplication forService(Service service) {
         return new ServiceApplication(service);
     }
     
-    private class ApplicationServiceListener extends
-            Service.Listener {
-
-        @Override
-        public void failed(State arg0, Throwable arg1) {
-            complete();
-        }
-
-        @Override
-        public void terminated(State arg0) {
-            complete();
-        }
-    }
-
-
-    private final Logger logger = LogManager.getLogger(getClass());
+    private final Logger logger;
     private final Service service;
-    private boolean completed;
-    private final Monitor monitor;
-    private final Monitor.Guard completedGuard;
 
-    public ServiceApplication(Service service) {
+    protected ServiceApplication(Service service) {
+        this.logger = LogManager.getLogger(this);
         this.service = checkNotNull(service);
-        this.completed = (service.state() == Service.State.FAILED || service
-                .state() == Service.State.TERMINATED);
-        this.monitor = new Monitor();
-        this.completedGuard = new Monitor.Guard(monitor) {
-            public boolean isSatisfied() {
-                return completed;
-            }
-        };
-        service.addListener(new ApplicationServiceListener(),
-                SameThreadExecutor.getInstance());
     }
 
     public Service service() {
         return service;
     }
 
-    public boolean completed() {
-        monitor.enter();
-        try {
-            return completed;
-        } finally {
-            monitor.leave();
-        }
-    }
-
-    private void complete() {
-        monitor.enter();
-        try {
-            completed = true;
-        } finally {
-            monitor.leave();
-        }
-    }
-
     @Override
     public void run() {
-        service().startAsync();
-        monitor.enter();
         try {
-            try {
-                monitor.waitFor(completedGuard);
-    
-            } finally {
-                monitor.leave();
+            Services.start(service()).awaitTerminated();
+        } catch (Exception e) {
+            logger.error("{}", this, e);
+            switch (service().state()) {
+            case NEW:
+            case STARTING:
+            case RUNNING:
+                Services.stopAndWait(service());
+                break;
+            default:
+                break;
             }
-        } catch (InterruptedException e) {
-            logger.warn("Interrupted", e);
-            service.stopAsync();
-            service.awaitTerminated();
             throw Throwables.propagate(e);
+        } finally {
+            switch (service().state()) {
+            case FAILED:
+                logger.error("FAILED: {}", this, service().failureCause());
+                break;
+            default:
+                break;
+            }
         }
-        
-        if (service.state() == State.FAILED) {
-            logger.error("Service FAILED", service().failureCause());
-        }
+    }
+    
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).addValue(service()).toString();
     }
 }

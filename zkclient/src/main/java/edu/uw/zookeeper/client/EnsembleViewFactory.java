@@ -124,7 +124,7 @@ public class EnsembleViewFactory<T> implements DefaultsFactory<ServerInetAddress
 
         @Override
         public ServerViewFactory<Session, OperationClientExecutor<C>> get(ServerInetAddressView view) {
-            return ServerViewFactory.newInstance(connections, view, timeOut, executor);
+            return ServerViewFactory.defaults(connections, view, timeOut, executor);
         }
     }
 

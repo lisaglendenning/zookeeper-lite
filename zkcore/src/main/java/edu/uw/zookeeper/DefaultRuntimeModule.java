@@ -6,7 +6,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -35,13 +34,13 @@ public class DefaultRuntimeModule implements RuntimeModule {
     }
     
     public static DefaultRuntimeModule fromConfiguration(Configuration configuration) {
-        return new DefaultRuntimeModule(
+        return create(
                 configuration,
-                ServiceMonitor.newInstance(), 
+                ServiceMonitor.defaults(), 
                 ListeningExecutorServiceFactory.newInstance(
-                        DefaultApplicationExecutorFactory.configured(configuration), 
-                        SingleDaemonThreadScheduledExectorFactory.defaults()),
-                DEFAULT_SHUTDOWN_TIMEOUT);
+                        DefaultApplicationExecutorFactory.fromConfiguration(configuration), 
+                        SingleThreadScheduledExectorFactory.defaults()),
+                ShutdownTimeoutConfiguration.get(configuration));
     }
     
     public static SimpleArguments arguments(String[] args) {
@@ -73,12 +72,16 @@ public class DefaultRuntimeModule implements RuntimeModule {
     public static class ThreadPoolExecutorPurger extends Pair<ScheduledExecutorService, ThreadPoolExecutor> implements Runnable {
 
         public static <T extends ThreadPoolExecutor> T purge(ScheduledExecutorService scheduler, T executor) {
+            return purge(scheduler, executor, DEFAULT_PURGE_INTERVAL);
+        }
+        
+        public static <T extends ThreadPoolExecutor> T purge(ScheduledExecutorService scheduler, T executor, TimeValue interval) {
             ThreadPoolExecutorPurger purger = new ThreadPoolExecutorPurger(scheduler, executor);
-            scheduler.scheduleAtFixedRate(purger, PURGE_INTERVAL.value(), PURGE_INTERVAL.value(), PURGE_INTERVAL.unit());
+            scheduler.scheduleAtFixedRate(purger, interval.value(), interval.value(), interval.unit());
             return executor;
         }
         
-        private static final TimeValue PURGE_INTERVAL = TimeValue.seconds(30);
+        private static final TimeValue DEFAULT_PURGE_INTERVAL = TimeValue.seconds(30);
         
         public ThreadPoolExecutorPurger(ScheduledExecutorService scheduler, ThreadPoolExecutor executor) {
             super(scheduler, executor);
@@ -90,23 +93,27 @@ public class DefaultRuntimeModule implements RuntimeModule {
         }
     }
 
-    public static class SingleDaemonThreadScheduledExectorFactory implements Factory<ScheduledExecutorService> {
+    public static class SingleThreadScheduledExectorFactory implements Factory<ScheduledExecutorService> {
 
-        public static SingleDaemonThreadScheduledExectorFactory defaults() {
-            return fromThreadFactory(PlatformThreadFactory.getInstance().get());
+        public static SingleThreadScheduledExectorFactory defaults() {
+            return defaults(PlatformThreadFactory.getInstance().get());
         }
         
-        public static SingleDaemonThreadScheduledExectorFactory fromThreadFactory(ThreadFactory threadFactory) {
-            return new SingleDaemonThreadScheduledExectorFactory(
+        public static SingleThreadScheduledExectorFactory defaults(ThreadFactory threadFactory) {
+            return fromThreadFactoryBuilder(
                     new ThreadFactoryBuilder()
                     .setThreadFactory(threadFactory)
                     .setDaemon(true)
                     .setNameFormat("scheduled-%d"));
         }
         
+        public static SingleThreadScheduledExectorFactory fromThreadFactoryBuilder(ThreadFactoryBuilder threadFactory) {
+            return new SingleThreadScheduledExectorFactory(threadFactory);
+        }
+        
         private final ThreadFactoryBuilder threadFactory;
 
-        protected SingleDaemonThreadScheduledExectorFactory(ThreadFactoryBuilder threadFactory) {
+        protected SingleThreadScheduledExectorFactory(ThreadFactoryBuilder threadFactory) {
             this.threadFactory = threadFactory;
         }
         
@@ -126,7 +133,7 @@ public class DefaultRuntimeModule implements RuntimeModule {
     @Configurable(path="runtime", key="poolSize", value="0", type=ConfigValueType.NUMBER)
     public static class DefaultApplicationExecutorFactory implements Factory<ExecutorService> {
 
-        public static DefaultApplicationExecutorFactory configured(
+        public static DefaultApplicationExecutorFactory fromConfiguration(
                 Configuration configuration) {
             return fromThreadFactory(configuration, PlatformThreadFactory.getInstance().get());
         }
@@ -174,8 +181,25 @@ public class DefaultRuntimeModule implements RuntimeModule {
             return instance;
         }
     }
+
+    @Configurable(path="runtime", key="shutdown", value="30 s", type=ConfigValueType.STRING)
+    public static abstract class ShutdownTimeoutConfiguration {
+        
+        public static TimeValue get(Configuration configuration) {
+            Configurable configurable = ShutdownTimeoutConfiguration.class.getAnnotation(Configurable.class);
+            Config config = configuration.withConfigurable(configurable)
+                    .getConfigOrEmpty(configurable.path());
+            return TimeValue.fromString(config.getString(configurable.key()));
+        }
+    }
     
-    protected static final TimeValue DEFAULT_SHUTDOWN_TIMEOUT = TimeValue.create(30L, TimeUnit.SECONDS);
+    public static DefaultRuntimeModule create(
+            Configuration configuration,
+            ServiceMonitor serviceMonitor,
+            ListeningExecutorServiceFactory executors,
+            TimeValue shutdownTimeout) {
+        return new DefaultRuntimeModule(configuration, serviceMonitor, executors, shutdownTimeout);
+    }
     
     protected final ServiceMonitor serviceMonitor;
     protected final Configuration configuration;

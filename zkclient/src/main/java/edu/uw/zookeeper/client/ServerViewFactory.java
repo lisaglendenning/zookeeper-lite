@@ -23,7 +23,7 @@ import edu.uw.zookeeper.protocol.client.ZxidTracker;
 
 public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?,?>> extends Pair<ServerInetAddressView, ZxidTracker> implements DefaultsFactory<V, ListenableFuture<C>>, Function<C, C> {
 
-    public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> ServerViewFactory<Session, OperationClientExecutor<C>> newInstance(
+    public static <C extends ProtocolConnection<? super Message.ClientSession, ? extends Operation.Response,?,?,?>> ServerViewFactory<Session, OperationClientExecutor<C>> defaults(
             ClientConnectionFactory<C> connections,
             ServerInetAddressView view,
             TimeValue timeOut,
@@ -50,7 +50,7 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?,?>> e
                 zxids);
     }
     
-    public static <V, C extends ConnectionClientExecutor<?,?,?,?>> ServerViewFactory<V,C> newInstance(
+    public static <V, C extends ConnectionClientExecutor<?,?,?,?>> ServerViewFactory<V,C> create(
             ServerInetAddressView view,
             DefaultsFactory<V, ? extends ListenableFuture<? extends C>> delegate,
             ZxidTracker zxids) {

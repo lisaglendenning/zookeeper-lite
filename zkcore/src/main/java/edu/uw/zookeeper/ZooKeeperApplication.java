@@ -2,16 +2,11 @@ package edu.uw.zookeeper;
 
 
 import static com.google.common.base.Preconditions.checkNotNull;
-
-import com.google.common.base.Function;
-
+import static com.google.common.base.Preconditions.checkState;
 import edu.uw.zookeeper.common.Application;
 import edu.uw.zookeeper.common.Builder;
-import edu.uw.zookeeper.common.Configurable;
-import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.RuntimeModule;
-import edu.uw.zookeeper.common.TimeValue;
 
 public abstract class ZooKeeperApplication implements Application {
 
@@ -31,6 +26,42 @@ public abstract class ZooKeeperApplication implements Application {
         
         C setDefaults();
     }
+    
+    public static abstract class AbstractRuntimeBuilder<T, C extends AbstractRuntimeBuilder<T,C>> implements RuntimeBuilder<T,C> {
+
+        protected final RuntimeModule runtime;
+        
+        protected AbstractRuntimeBuilder(
+                RuntimeModule runtime) {
+            this.runtime = runtime;
+        }
+
+        @Override
+        public RuntimeModule getRuntimeModule() {
+            return runtime;
+        }
+
+        @Override
+        public C setRuntimeModule(RuntimeModule runtime) {
+            return newInstance(runtime);
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public C setDefaults() {
+            checkState(getRuntimeModule() != null);
+            return (C) this;
+        }
+
+        @Override
+        public T build() {
+            return setDefaults().doBuild();
+        }
+
+        protected abstract C newInstance(RuntimeModule runtime);
+
+        protected abstract T doBuild();
+    }
 
     public static class ApplicationFactory<T extends RuntimeBuilder<? extends Application, ?>> implements ParameterizedFactory<RuntimeModule, Application> {
 
@@ -49,7 +80,7 @@ public abstract class ZooKeeperApplication implements Application {
             return builder.setRuntimeModule(runtime).setDefaults().build();
         }
     }
-    
+
     public static abstract class ForwardingBuilder<V, T extends RuntimeBuilder<?,?>, C extends ForwardingBuilder<V,T,C>> implements RuntimeBuilder<V,C> {
 
         protected final T delegate;
@@ -85,11 +116,11 @@ public abstract class ZooKeeperApplication implements Application {
         protected abstract V doBuild();
     }
     
-    public static class ForwardingApplication extends ZooKeeperApplication {
+    public static class ForwardingApplication implements Application {
 
-        protected final Application delegate;
+        protected final Runnable delegate;
         
-        public ForwardingApplication(Application delegate) {
+        public ForwardingApplication(Runnable delegate) {
             this.delegate = delegate;
         }
         
@@ -99,20 +130,5 @@ public abstract class ZooKeeperApplication implements Application {
         }
     }
     
-    @Configurable(arg="timeout", key="timeout", value="30 seconds", help="time")
-    public static class ConfigurableTimeout implements Function<Configuration, TimeValue> {
-    
-        public static TimeValue get(Configuration configuration) {
-            return new ConfigurableTimeout().apply(configuration);
-        }
-    
-        @Override
-        public TimeValue apply(Configuration configuration) {
-            Configurable configurable = getClass().getAnnotation(Configurable.class);
-            return TimeValue.fromString(
-                    configuration.withConfigurable(configurable)
-                        .getConfigOrEmpty(configurable.path())
-                            .getString(configurable.key()));
-        }
-    }
+    protected ZooKeeperApplication() {}
 }

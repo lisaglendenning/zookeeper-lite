@@ -46,13 +46,21 @@ public class Configuration {
     public static Configuration defaults(Arguments arguments) {
         return create(arguments, DefaultConfig.DEFAULT.get());
     }
+    
+    public static Configuration createEmpty() {
+        return create(SimpleArguments.defaults(), ConfigFactory.empty());
+    }
+    
+    public static Configuration fromConfiguration(Configuration configuration) {
+        return create(configuration.getArguments(), configuration.getConfig());
+    }
 
     public static Configuration create(Arguments arguments, Config config) {
         return new Configuration(arguments, config);
     }
 
     private final Arguments arguments;
-    private volatile Config config;
+    private Config config;
     
     protected Configuration(Arguments arguments, Config config) {
         this.arguments = arguments;
@@ -63,7 +71,7 @@ public class Configuration {
         return arguments;
     }
     
-    public Config getConfig() {
+    public synchronized Config getConfig() {
         return config;
     }
     
@@ -72,7 +80,7 @@ public class Configuration {
         return this;
     }
 
-    public Config getConfigOrEmpty(String path) {
+    public synchronized Config getConfigOrEmpty(String path) {
         Config config = this.config;
         if (! path.isEmpty()) {
             if (config.hasPath(path)) {
@@ -84,7 +92,7 @@ public class Configuration {
         return config;
     }
     
-    public Configuration withConfigurable(Configurable configurable) {
+    public synchronized Configuration withConfigurable(Configurable configurable) {
         String key = configurable.key();
         String arg = configurable.arg();
         if (key.isEmpty()) {
@@ -123,7 +131,7 @@ public class Configuration {
     }
     
     @Override
-    public String toString() {
+    public synchronized String toString() {
         return Objects.toStringHelper(this)
                 .add("config", config)
                 .add("arguments", arguments).toString();

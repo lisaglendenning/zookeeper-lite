@@ -5,6 +5,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.util.concurrent.ScheduledExecutorService;
 
+import edu.uw.zookeeper.ConfigurableTimeout;
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
@@ -137,7 +138,7 @@ public class ClientConnectionFactoryBuilder implements ZooKeeperApplication.Runt
     }
 
     protected TimeValue getDefaultTimeOut() {
-        return ZooKeeperApplication.ConfigurableTimeout.get(runtime.getConfiguration());
+        return ConfigurableTimeout.get(runtime.getConfiguration());
     }
     
     protected NetClientModule getDefaultClientModule() {

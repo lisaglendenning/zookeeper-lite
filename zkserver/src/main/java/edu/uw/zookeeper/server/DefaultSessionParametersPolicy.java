@@ -13,7 +13,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.common.base.Objects;
 
-import edu.uw.zookeeper.ZooKeeperApplication;
+import edu.uw.zookeeper.ConfigurableTimeout;
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.Hex;
@@ -32,7 +32,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
     }
 
     @Configurable(path="sessions", key="minTimeout", value="0 seconds", help="time")
-    public static class ConfigurableMinTimeout extends ZooKeeperApplication.ConfigurableTimeout {
+    public static class ConfigurableMinTimeout extends ConfigurableTimeout {
         
         public static TimeValue get(Configuration configuration) {
             return new ConfigurableMinTimeout().apply(configuration);
@@ -40,7 +40,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
     }
 
     @Configurable(path="sessions", key="maxTimeout", value="0 seconds", help="time")
-    public static class ConfigurableMaxTimeout extends ZooKeeperApplication.ConfigurableTimeout {
+    public static class ConfigurableMaxTimeout extends ConfigurableTimeout {
 
         public static TimeValue get(Configuration configuration) {
             return new ConfigurableMaxTimeout().apply(configuration);

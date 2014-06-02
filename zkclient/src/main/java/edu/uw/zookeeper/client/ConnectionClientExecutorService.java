@@ -20,6 +20,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.zookeeper.KeeperException;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
@@ -64,10 +65,9 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
         SessionListener {
 
     public static <I extends Operation.Request, V extends Message.ServerResponse<?>> ConnectionClientExecutorService<I,V> newInstance(
-            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,V,SessionListener,?>>> factory) {
-        return new ConnectionClientExecutorService<I,V>(factory, 
-                new StrongConcurrentSet<SessionListener>(), 
-                SameThreadExecutor.getInstance());
+            EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,V,SessionListener,?>>> factory,
+                    ScheduledExecutorService scheduler) {
+        return new ConnectionClientExecutorService<I,V>(factory, scheduler);
     }
 
     public static <I extends Operation.Request, V extends Message.ServerResponse<?>> V disconnect(ConnectionClientExecutor<I,V,?,?> client) throws InterruptedException, ExecutionException, TimeoutException, KeeperException {
@@ -89,11 +89,15 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
     }
 
     public static Builder builder() {
-        return new Builder(null, null, null, null);
+        return Builder.defaults();
     }
     
     public static class Builder implements ZooKeeperApplication.RuntimeBuilder<List<Service>, Builder> {
 
+        public static Builder defaults() {
+            return new Builder(null, null, null, null);
+        }
+        
         protected final RuntimeModule runtime;
         protected final ClientConnectionFactoryBuilder connectionBuilder;
         protected final ClientConnectionFactory<? extends ProtocolConnection<Message.ClientSession, Message.ServerSession,?,?,?>> clientConnectionFactory;
@@ -208,7 +212,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
         }
         
         protected EnsembleView<ServerInetAddressView> getDefaultEnsemble() {
-            return ConfigurableEnsembleView.get(getRuntimeModule().getConfiguration());
+            return EnsembleViewConfiguration.get(getRuntimeModule().getConfiguration());
         }
 
         protected ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> getDefaultConnectionClientExecutorService() {
@@ -220,7 +224,8 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                         getRuntimeModule().getExecutors().get(ScheduledExecutorService.class));
             ConnectionClientExecutorService<Operation.Request, Message.ServerResponse<?>> service =
                     ConnectionClientExecutorService.newInstance(
-                            ensembleFactory);
+                            ensembleFactory,
+                            getRuntimeModule().getExecutors().get(ScheduledExecutorService.class));
             return service;
         }
 
@@ -232,20 +237,17 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
     }
     
     protected final Logger logger;
-    protected final Executor executor;
     protected final EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,V,SessionListener,?>>> factory;
     protected final IConcurrentSet<SessionListener> listeners;
     protected final Client client;
     
     protected ConnectionClientExecutorService(
             EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,V,SessionListener,?>>> factory,
-            IConcurrentSet<SessionListener> listeners,
-            Executor executor) {
+                    ScheduledExecutorService scheduler) {
         this.logger = LogManager.getLogger(getClass());
         this.factory = factory;
-        this.listeners = listeners;
-        this.executor = executor;
-        this.client = new Client();
+        this.listeners = new StrongConcurrentSet<SessionListener>();
+        this.client = new Client(scheduler);
     }
 
     @Override
@@ -309,7 +311,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
     
     @Override
     protected Executor executor() {
-        return executor;
+        return SameThreadExecutor.getInstance();
     }
 
     @Override
@@ -348,14 +350,17 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
      */
     protected class Client extends ForwardingPromise<ConnectionClientExecutor<I,V,SessionListener,?>> implements Runnable, Connection.Listener<Object> {
 
-        protected volatile ServerInetAddressView server;
-        protected volatile ListenableFuture<? extends ConnectionClientExecutor<I,V,SessionListener,?>> future;
-        protected volatile Promise<ConnectionClientExecutor<I,V,SessionListener,?>> promise;
+        protected final ScheduledExecutorService scheduler;
+        protected Optional<ServerInetAddressView> server;
+        protected Optional<? extends ListenableFuture<? extends ConnectionClientExecutor<I,V,SessionListener,?>>> future;
+        protected Promise<ConnectionClientExecutor<I,V,SessionListener,?>> promise;
         
-        public Client() {
-            this.server = null;
-            this.future = null;
+        public Client(ScheduledExecutorService scheduler) {
+            this.scheduler = scheduler;
+            this.server = Optional.absent();
+            this.future = Optional.absent();
             this.promise = newPromise();
+            promise.addListener(this, SameThreadExecutor.getInstance());
         }
         
         protected Promise<ConnectionClientExecutor<I,V,SessionListener,?>> newPromise() {
@@ -366,26 +371,18 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
             promise.addListener(this, SameThreadExecutor.getInstance());
             return promise;
         }
-
-        @Override
-        public synchronized boolean cancel(boolean mayInterruptIfRunning) {
-            if (future != null) {
-                future.cancel(mayInterruptIfRunning);
-            }
-            return super.cancel(mayInterruptIfRunning);
-        }
-
-        @Override
-        public synchronized boolean set(ConnectionClientExecutor<I,V,SessionListener,?> value) {
-            if (! isDone()) {
-                value.connection().subscribe(this);
-                return super.set(value);
-            }
-            return false;
-        }
         
         @Override
         public synchronized void run() {
+            if (isDone()) {
+                if (isCancelled()) {
+                    if (future.isPresent()) {
+                        future.get().cancel(false);
+                    }
+                    return;
+                }
+            }
+            
             switch (state()) {
             case STOPPING:
             case TERMINATED:
@@ -396,10 +393,10 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                 break;
             }
             
-            if (future == null) {
-                if (! isCancelled()) {
-                    if (server == null) {
-                        server = factory.select();
+            if (!future.isPresent()) {
+                if (!isCancelled()) {
+                    if (!server.isPresent()) {
+                        server = Optional.of(factory.select());
                     }
                     if (isDone()) {
                         try {
@@ -409,27 +406,28 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                                     backoff();
                                     Session session = response.toSession();
                                     logger.info("Reconnecting session {} to {}", session, server);
-                                    future = factory.get(server).get(session);
+                                    future = Optional.of(factory.get(server.get()).get(session));
                                 }
                             }
                         } catch (Exception e) {
-                            future = null;
+                            future = Optional.absent();
                         }
                         promise = newPromise();
+                        addListener(this, SameThreadExecutor.getInstance());
                     }
-                    if (future == null) {
+                    if (!future.isPresent()) {
                         logger.info("Connecting new session to {}", server);
-                        future = factory.get(server).get();
+                        future = Optional.of(factory.get(server.get()).get());
                     }
-                    future.addListener(this, executor);
+                    future.get().addListener(this, executor());
                 }
-            } else if (future.isDone()) {
-                if (! isDone()) {
-                    if (future.isCancelled()) {
+            } else if (future.get().isDone()) {
+                if (!isDone()) {
+                    if (future.get().isCancelled()) {
                         cancel(true);
                     } else {
                         try {
-                            ConnectionClientExecutor<I,V,SessionListener,?> connection = future.get();
+                            ConnectionClientExecutor<I,V,SessionListener,?> connection = future.get().get();
                             if (connection.session().isDone()) {
                                 ConnectMessage.Response session;
                                 try {
@@ -438,7 +436,9 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                                     throw new ExecutionException(e);
                                 }
                                 if (session instanceof ConnectMessage.Response.Valid) {
-                                    set(connection);
+                                    if (set(connection)) {
+                                        connection.connection().subscribe(this);
+                                    }
                                     return;
                                 } else {
                                     // try again with a new session
@@ -447,17 +447,17 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                                     return;
                                 }
                             } else {
-                                connection.session().addListener(this, executor);
+                                connection.session().addListener(this, executor());
                                 return;
                             }
                         } catch (ExecutionException e) {
                             logger.warn("Error connecting to {}", server, e.getCause());
                             if (factory.view().size() > 1) {
-                                ServerInetAddressView prevServer = server;
+                                Optional<ServerInetAddressView> prevServer = server;
                                 do {
-                                    server = factory.select();
+                                    server = Optional.of(factory.select());
                                 } while (server.equals(prevServer));
-                                future = null;
+                                future = Optional.absent();
                                 run();
                                 return;
                             } else {
@@ -485,13 +485,13 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                     instance.unsubscribe(ConnectionClientExecutorService.this);
                 }
                 if (isRunning()) {
-                    logger.warn("Connection closed to {}", server);
+                    logger.warn("Connection closed to {}", server.get());
                     if (factory.view().size() > 1) {
-                        ServerInetAddressView prevServer = server;
+                        Optional<ServerInetAddressView> prevServer = server;
                         do {
-                            server = factory.select();
+                            server = Optional.of(factory.select());
                         } while (server.equals(prevServer));
-                        future = null;
+                        future = Optional.absent();
                         run();
                         return;
                     } else {
@@ -511,11 +511,11 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
             // so we'll wait a little while before trying to connect
             Random random = new Random();
             int millis = random.nextInt(1000) + 1000;
-            Thread.sleep(millis);
+            scheduler.schedule(this, millis, TimeUnit.MILLISECONDS);
         }
 
         @Override
-        protected Promise<ConnectionClientExecutor<I,V,SessionListener,?>> delegate() {
+        protected synchronized Promise<ConnectionClientExecutor<I,V,SessionListener,?>> delegate() {
             return promise;
         }
     }
