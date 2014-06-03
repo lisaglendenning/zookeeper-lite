@@ -16,16 +16,19 @@ import org.apache.jute.Record;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Eventful;
+import edu.uw.zookeeper.common.LoggingPromise;
 import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.PromiseTask;
+import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.SimpleLabelTrie;
 import edu.uw.zookeeper.data.ZNodeLabelVector;
@@ -146,7 +149,7 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
         @Override
         public long touch(long stamp) {
             if (this.stamp < stamp) {
-                long prev = stamp;
+                long prev = this.stamp;
                 this.stamp = stamp;
                 return prev;
             } else {
@@ -244,33 +247,23 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
         }
     }
 
-    // wrapper so that we can apply changes to the cache before
-    // listeners are notified
-    protected class PromiseWrapper extends PromiseTask<I,O> {
+    // to apply changes to the cache before listeners are notified
+    protected class CachingCallback implements Function<O,O> {
 
-        protected PromiseWrapper(I task) {
-            this(task, SettableFuturePromise.<O>create());
-        }
-
-        protected PromiseWrapper(I task, Promise<O> delegate) {
-            super(task, delegate);
+        protected final I request;
+        
+        public CachingCallback(I request) {
+            this.request = request;
         }
         
         @Override
-        public boolean set(O result) {
-            if (! isDone()) {
-                Records.Request request = (Records.Request)
-                        ((task() instanceof Records.Request) ?
-                                task() :
-                                    ((Operation.RecordHolder<?>) task()).record());
-                handleResult(request, result);
-            }
-            return super.set(result);
-        }
-        
-        @Override
-        protected Promise<O> delegate() {
-            return delegate;
+        public O apply(O input) {
+            Records.Request request = (Records.Request)
+                    ((this.request instanceof Records.Request) ?
+                            this.request :
+                                ((Operation.RecordHolder<?>) this.request).record());
+            handleResult(request, input);
+            return input;
         }
     }
     
@@ -319,12 +312,14 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
 
     @Override
     public ListenableFuture<O> submit(I request) {
-        return client.submit(request, new PromiseWrapper(request));
+        return submit(request, SettableFuturePromise.<O>create());
     }
     
     @Override
     public ListenableFuture<O> submit(I request, Promise<O> promise) {
-        return client.submit(request, new PromiseWrapper(request, promise));
+        return Futures.transform(
+                client.submit(request, LoggingPromise.create(logger, promise)), 
+                new CachingCallback(request), SameThreadExecutor.getInstance());
     }
     
     protected void handleResult(Records.Request request, Operation.ProtocolResponse<?> result) {
@@ -433,7 +428,7 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
             case SET_DATA:
             {
                 ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
-                update(path, zxid, events, response);
+                update(path, zxid, events, request, response);
                 break;
             }
             default:
@@ -447,14 +442,18 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
     protected E add(ZNodePath path, long stamp, ImmutableSet.Builder<NodeWatchEvent> events) {
         Iterator<ZNodeLabel> remaining = path.iterator();
         E node = trie.root();
-        while (remaining.hasNext()) {
+        while (true) {
             if (node.touch(stamp) < 0L) {
                 events.add(NodeWatchEvent.nodeCreated(node.path()));
                 if (! node.path().isRoot()) {
                     events.add(NodeWatchEvent.nodeChildrenChanged(node.parent().get().path()));
                 }
             }
-            node = node.putIfAbsent(remaining.next());
+            if (remaining.hasNext()) {
+                node = node.putIfAbsent(remaining.next());
+            } else {
+                break;
+            }
         }
         return node;
     }
