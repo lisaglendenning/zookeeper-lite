@@ -111,6 +111,10 @@ public abstract class ZNodeLabelVector extends ZNodeName implements Iterable<ZNo
         }
     }
 
+    public ZNodeName suffix(ZNodePath prefix) {
+        return suffix(prefix.isRoot() ? 0 : prefix.length());
+    }
+    
     public ZNodeName suffix(int index) {
         int length = length();
         if ((index < 0) || (index > length)) {
