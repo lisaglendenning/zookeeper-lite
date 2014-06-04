@@ -91,7 +91,7 @@ public abstract class ZNodeLabelVector extends ZNodeName implements Iterable<ZNo
     @Override
     public boolean startsWith(ZNodeName prefix) {
         int prefixLength = prefix.length();
-        return toString().startsWith(prefix.toString()) && ((length() == prefixLength) || (charAt(prefixLength) == SLASH));
+        return toString().startsWith(prefix.toString()) && ((length() == prefixLength) || (prefix instanceof RootZNodePath) || (charAt(prefixLength) == SLASH));
     }
 
     public ZNodeName prefix(int index) {
