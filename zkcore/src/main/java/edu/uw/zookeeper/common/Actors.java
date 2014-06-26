@@ -13,8 +13,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.google.common.collect.Queues;
+import com.google.common.util.concurrent.ListenableFuture;
 
 public abstract class Actors {
+
+    public static <T extends Actor<?>> T stopWhenDone(T actor, ListenableFuture<?> future) {
+        future.addListener(new StopActorListener(actor), SameThreadExecutor.getInstance());
+        return actor;
+    }
     
     public static abstract class QueuedActor<T> extends AbstractActor<T> {
         
@@ -120,6 +126,20 @@ public abstract class Actors {
         @Override
         protected void doSchedule() {
             executor.execute(this);
+        }
+    }
+
+    public static final class StopActorListener implements Runnable {
+        
+        private final Actor<?> actor;
+        
+        public StopActorListener(Actor<?> actor) {
+            this.actor = actor;
+        }
+        
+        @Override
+        public void run() {
+            actor.stop();
         }
     }
     

@@ -1,5 +1,10 @@
 package edu.uw.zookeeper.data;
 
+import java.util.Iterator;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
+
 public abstract class ZNodePath extends ZNodeLabelVector {
 
     public static RootZNodePath root() {
@@ -144,6 +149,41 @@ public abstract class ZNodePath extends ZNodeLabelVector {
     @Override
     public final boolean isAbsolute() {
         return true;
+    }
+    
+    public RelativeZNodePath relative(ZNodePath other) {
+        // calculate our common prefix
+        ImmutableList.Builder<String> parts = ImmutableList.builder();
+        Iterator<ZNodeLabel> myLabels = iterator();
+        Iterator<ZNodeLabel> otherLabels = other.iterator();
+        while (myLabels.hasNext() && otherLabels.hasNext()) {
+            ZNodeLabel next = myLabels.next();
+            if (next.equals(otherLabels.next())) {
+                parts.add(next.toString());
+            } else {
+                break;
+            }
+        }
+        ZNodePath prefix = ZNodePath.root().join(ZNodePath.fromString(ZNodePath.join(parts.build().iterator())));
+        
+        // calculate my difference to the prefix
+        parts = ImmutableList.builder();
+        ZNodeName mySuffix = suffix(prefix);
+        if (mySuffix instanceof EmptyZNodeLabel) {
+            parts.add(ZNodeLabel.self().toString());
+        } else {
+            Iterator<ZNodeLabel> itr = (mySuffix instanceof ZNodeLabel) ?
+                    Iterators.singletonIterator((ZNodeLabel) mySuffix) : 
+                        ((RelativeZNodePath) mySuffix).iterator(); 
+            while(itr.hasNext()) {
+                parts.add(ZNodeLabel.parent().toString());
+                itr.next();
+            }
+        }
+        
+        // add the other suffix
+        parts.add(other.suffix(prefix).toString());
+        return RelativeZNodePath.fromString(ZNodePath.join(parts.build().iterator()));
     }
 
     @Override

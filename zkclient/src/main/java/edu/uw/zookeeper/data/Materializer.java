@@ -23,12 +23,20 @@ import edu.uw.zookeeper.protocol.proto.Records;
 
 public class Materializer<E extends Materializer.MaterializedNode<E,?>, O extends Operation.ProtocolResponse<?>> implements ClientExecutor<Records.Request,O, SessionListener> {
 
-    @SuppressWarnings("unchecked")
     public static <E extends Materializer.MaterializedNode<E,?>, O extends Operation.ProtocolResponse<?>> Materializer<E,O> fromHierarchy(
             Class<? extends E> rootType,
             Serializers.ByteCodec<Object> codec, 
             ClientExecutor<? super Records.Request, O, SessionListener> client) {
         SchemaElementLookup schema = SchemaElementLookup.fromHierarchy(rootType);
+        return fromSchema(schema, rootType, codec, client);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <E extends Materializer.MaterializedNode<E,?>, O extends Operation.ProtocolResponse<?>> Materializer<E,O> fromSchema(
+            SchemaElementLookup schema, 
+            Class<? extends E> rootType,
+            Serializers.ByteCodec<Object> codec, 
+            ClientExecutor<? super Records.Request, O, SessionListener> client) {
         E root = null;
         for (Constructor<?> ctor: rootType.getConstructors()) {
             if (ctor.getParameterTypes().length == 2) {
@@ -105,17 +113,28 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, O extend
     }
     
     public Operator<Operations.Requests.Create> create(ZNodePath path) {
-        Operations.Requests.Create create = Operations.Requests.create().setPath(path);
-        ValueNode<ZNodeSchema> schema = ZNodeSchema.matchPath(this.schema.get(), path);
-        create.setMode(schema.get().getCreateMode()).setAcl(ZNodeSchema.inheritedAcl(schema));
-        return operator(create);
+        return operator(createParameters(path));
     }
     
-    public <V> Operator<Operations.Requests.SerializedData<Records.Request, Operations.Requests.Create, V>> create(ZNodePath path, V data) {
-        Operations.Requests.Create create = Operations.Requests.create().setPath(path);
+    public <V> Operator<? extends Operations.DataBuilder<? extends Records.Request, ?>> create(ZNodePath path, V data) {
+        if (data == null) {
+            return create(path);
+        } else {
+            return operator(Operations.Requests.serialized(createParameters(path), codec, data));
+        }
+    }
+    
+    protected Operations.Requests.Create createParameters(ZNodePath path) {
         ValueNode<ZNodeSchema> schema = ZNodeSchema.matchPath(this.schema.get(), path);
-        create.setMode(schema.get().getCreateMode()).setAcl(ZNodeSchema.inheritedAcl(schema));
-        return operator(Operations.Requests.serialized(create, codec, data));
+        Operations.Requests.Create create = Operations.Requests.create()
+                .setMode(schema.get().getCreateMode())
+                .setAcl(ZNodeSchema.inheritedAcl(schema));
+        if (create.getMode().contains(CreateFlag.SEQUENTIAL)) {
+            if (path.toString().endsWith(Sequential.SUFFIX_PATTERN.toString())) {
+                path = ZNodePath.fromString(path.toString().substring(0, path.toString().length()-Sequential.SUFFIX_PATTERN.toString().length()));
+            }
+        }
+        return create.setPath(path);
     }
     
     public Operator<Operations.Requests.Delete> delete(ZNodePath path) {
@@ -246,7 +265,7 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, O extend
 
             // find the right Constructor
             Class<?> type;
-            if (childSchema.get().getDeclaration() instanceof Class<?>) {
+            if ((childSchema != null) && childSchema.get().getDeclaration() instanceof Class<?>) {
                 type = (Class<?>) childSchema.get().getDeclaration();
             } else {
                 // TODO ?

@@ -1,6 +1,5 @@
 package edu.uw.zookeeper.common;
 
-import com.google.common.base.Objects;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
 
 public abstract class ForwardingPromise<V> extends ForwardingListenableFuture<V> implements Promise<V> {
@@ -20,6 +19,6 @@ public abstract class ForwardingPromise<V> extends ForwardingListenableFuture<V>
     
     @Override
     public String toString() {
-        return Objects.toStringHelper("").add("isDone", isDone()).toString();
+        return ToStringListenableFuture.toString(delegate());
     }
 }

@@ -28,7 +28,7 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?,?>> e
             ServerInetAddressView view,
             TimeValue timeOut,
             ScheduledExecutorService executor) {
-        ZxidTracker zxids = ZxidTracker.create();
+        ZxidTracker zxids = ZxidTracker.zero();
         final DefaultsFactory<Session, ConnectMessage.Request> requestFactory = ConnectMessage.Request.factory(timeOut, zxids);
         final FromRequestFactory<C> delegate = 
                 FromRequestFactory.create(

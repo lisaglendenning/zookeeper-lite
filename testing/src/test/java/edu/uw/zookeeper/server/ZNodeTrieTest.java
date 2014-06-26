@@ -1,4 +1,4 @@
-package edu.uw.zookeeper;
+package edu.uw.zookeeper.server;
 
 import static org.junit.Assert.*;
 
@@ -12,6 +12,7 @@ import org.junit.runners.JUnit4;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.ZNodeTrieExecutor;
 import edu.uw.zookeeper.client.SessionClientExecutor;
 import edu.uw.zookeeper.data.LockableZNodeCache;
 import edu.uw.zookeeper.data.ZNodeCache;

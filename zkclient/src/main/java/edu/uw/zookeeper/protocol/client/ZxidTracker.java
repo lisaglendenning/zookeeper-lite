@@ -34,11 +34,11 @@ public class ZxidTracker implements ZxidReference  {
         }
     }
     
-    public static ZxidTracker create() {
-        return new ZxidTracker(0L);
+    public static ZxidTracker zero() {
+        return forZxid(0L);
     }
     
-    public static ZxidTracker create(long lastZxid) {
+    public static ZxidTracker forZxid(long lastZxid) {
         return new ZxidTracker(lastZxid);
     }
     
@@ -46,22 +46,22 @@ public class ZxidTracker implements ZxidReference  {
         return new ZxidListener(tracker, connection);
     }
     
-    protected volatile long lastZxid;
+    protected volatile long maxZxid;
     
     protected ZxidTracker(long lastZxid) {
         super();
-        this.lastZxid = lastZxid;
+        this.maxZxid = lastZxid;
     }
 
     @Override
     public long get() {
-        return lastZxid;
+        return maxZxid;
     }
     
     public synchronized long update(long zxid) {
-        if (lastZxid < zxid) {
-            lastZxid = zxid;
+        if (maxZxid < zxid) {
+            maxZxid = zxid;
         }
-        return lastZxid;
+        return maxZxid;
     }
 }

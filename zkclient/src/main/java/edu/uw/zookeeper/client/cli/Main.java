@@ -36,16 +36,13 @@ public class Main extends ZooKeeperApplication.ForwardingApplication {
         @Override
         protected Main doBuild() {
             getRuntimeModule().getConfiguration().getArguments().setDescription(getDescription());
-            ServiceMonitor monitor = getRuntimeModule().getServiceMonitor();
             Shell shell;
             try {
-                shell = Shell.create(getRuntimeModule());
+                shell = newShell();
             } catch (IOException e) {
                 throw Throwables.propagate(e);
             }
-            monitor.add(shell);
-            monitor.add(newDispatchingInvoker(shell));
-            return new Main(ServiceApplication.forService(monitor));
+            return newMain(shell);
         }
 
         @Override
@@ -57,8 +54,20 @@ public class Main extends ZooKeeperApplication.ForwardingApplication {
             return DESCRIPTION;
         }
         
+        protected Shell newShell() throws IOException {
+            ServiceMonitor monitor = getRuntimeModule().getServiceMonitor();
+            Shell shell = Shell.create(getRuntimeModule());
+            monitor.add(shell);
+            monitor.add(newDispatchingInvoker(shell));
+            return shell;
+        }
+        
         protected DispatchingInvoker newDispatchingInvoker(Shell shell) {
             return DispatchingInvoker.defaults(shell);
+        }
+        
+        protected Main newMain(Shell shell) {
+            return new Main(ServiceApplication.forService(getRuntimeModule().getServiceMonitor()));
         }
     }
 }

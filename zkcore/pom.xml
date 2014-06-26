@@ -12,7 +12,7 @@
 		<relativePath>../parent</relativePath>
 	</parent>
     <properties>
-        <netty-version>4.0.19.Final</netty-version>
+        <netty-version>4.0.21.Final</netty-version>
     </properties>
 	<build>
 		<resources>

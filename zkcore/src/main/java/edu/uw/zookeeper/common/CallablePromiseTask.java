@@ -10,6 +10,14 @@ import edu.uw.zookeeper.common.PromiseTask;
 
 public class CallablePromiseTask<T extends Callable<Optional<V>>,V> extends PromiseTask<T,V> implements Runnable {
 
+    public static <T extends Callable<Optional<V>>,V> CallablePromiseTask<T,V> run(
+            T task, 
+            Promise<V> promise) {
+        CallablePromiseTask<T,V> instance = create(task, promise);
+        instance.run();
+        return instance;
+    }
+    
     public static <T extends Callable<Optional<V>>,V> CallablePromiseTask<T,V> create(
             T task, 
             Promise<V> promise) {

@@ -26,7 +26,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Eventful;
-import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
@@ -169,28 +169,30 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
         
         @Override
         public List<NodeWatchEvent> update(long zxid, Record...records) {
-            ImmutableList<NodeWatchEvent> events = ImmutableList.of();
+            final StampedValue<Records.ZNodeStatGetter> prevStat = stat;
+            final StampedValue<V> prevData = data;
             touch(zxid);
             for (Record record: records) {
                 if (record instanceof Records.StatGetter) {
                     if (zxid > stat.stamp()) {
-                        Records.ZNodeStatGetter prev = stat.get();
-                        Records.ZNodeStatGetter updated = new IStat(((Records.StatGetter) record).getStat());
-                        if (! Objects.equal(prev, updated)) {
-                            stat = StampedValue.valueOf(zxid, updated);
-                        }
+                        final Records.ZNodeStatGetter prev = stat.get();
+                        final Records.ZNodeStatGetter updated = new IStat(((Records.StatGetter) record).getStat());
+                        stat = StampedValue.valueOf(zxid, Objects.equal(prev, updated) ? prev : updated);
                     }
                 }
                 if (record instanceof Records.DataGetter) {
                     if (zxid > data.stamp()) {
-                        V prev = data.get();
-                        V updated = transformData(((Records.DataGetter) record).getData());
-                        if (! equivalentData(prev, updated)) {
-                            data = StampedValue.valueOf(zxid, updated);
-                            events = ImmutableList.of(NodeWatchEvent.nodeDataChanged(path()));
-                        }
+                        final V prev = data.get();
+                        final V updated = transformData(((Records.DataGetter) record).getData());
+                        data = StampedValue.valueOf(zxid, equivalentData(prev, updated) ? prev : updated);
                     }
                 }
+            }
+            final ImmutableList<NodeWatchEvent> events;
+            if ((data != prevData) && ((prevData.get() != data.get()) || ((prevStat != stat) && (prevStat.get() != null) && (prevStat.get().getVersion() < stat.get().getVersion())))) {
+                events = ImmutableList.of(NodeWatchEvent.nodeDataChanged(path()));
+            } else {
+                events = ImmutableList.of();
             }
             return events;
         }
@@ -280,7 +282,7 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
         this.logger = LogManager.getLogger(getClass());
         this.client = checkNotNull(client);
         this.events = checkNotNull(events);
-        this.lastZxid = ZxidTracker.create();
+        this.lastZxid = ZxidTracker.zero();
         this.trie = checkNotNull(trie);
     }
     
@@ -317,9 +319,11 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
     
     @Override
     public ListenableFuture<O> submit(I request, Promise<O> promise) {
-        return Futures.transform(
-                client.submit(request, LoggingPromise.create(logger, promise)), 
+        ListenableFuture<O> future = Futures.transform(
+                client.submit(request, promise), 
                 new CachingCallback(request), SameThreadExecutor.getInstance());
+        LoggingFutureListener.listen(logger, future);
+        return future;
     }
     
     protected void handleResult(Records.Request request, Operation.ProtocolResponse<?> result) {

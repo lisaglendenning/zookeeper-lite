@@ -13,7 +13,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Eventful;
-import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.CallablePromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.Stateful;
@@ -44,7 +44,9 @@ public class IntraVmEndpoint<I,O> extends AbstractIntraVmEndpoint<I,O,I,O> imple
     public <T extends I> ListenableFuture<T> write(T message, AbstractIntraVmEndpoint<?,?,?,? super I> remote) {
         if (state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
             CallablePromiseTask<EndpointWrite<T>,T> task = CallablePromiseTask.create(
-                    new EndpointWrite<T>(remote, message), LoggingPromise.create(logger, SettableFuturePromise.<T>create()));
+                    new EndpointWrite<T>(remote, message), 
+                    SettableFuturePromise.<T>create());
+            LoggingFutureListener.listen(logger, task);
             execute(task);
             return task;
         } else {

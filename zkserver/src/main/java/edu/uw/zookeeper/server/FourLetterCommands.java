@@ -19,6 +19,8 @@ import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterWord;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
+import edu.uw.zookeeper.protocol.FourLetterWords;
+import edu.uw.zookeeper.protocol.FourLetterWords.Mntr.MntrServerState;
 
 /**
  * TODO
@@ -76,7 +78,7 @@ public abstract class FourLetterCommands {
         
         public static final String IMOK = "imok";
 
-        protected static final FourLetterResponse RESPONSE = FourLetterResponse.create(IMOK);
+        protected static final FourLetterResponse RESPONSE = FourLetterResponse.fromString(IMOK);
         
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
@@ -90,7 +92,7 @@ public abstract class FourLetterCommands {
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
             long trace = 0L;
-            return FourLetterResponse.create(new StringBuilder().append(trace).toString());
+            return FourLetterResponse.fromString(new StringBuilder().append(trace).toString());
         }
     }
 
@@ -102,7 +104,7 @@ public abstract class FourLetterCommands {
             ByteBuf arg = Unpooled.wrappedBuffer(input.second());
             long trace = arg.readLong();
             arg.release();
-            return FourLetterResponse.create(new StringBuilder().append(trace).toString());
+            return FourLetterResponse.fromString(new StringBuilder().append(trace).toString());
         }
     }
 
@@ -166,7 +168,7 @@ public abstract class FourLetterCommands {
             if (! values.isEmpty()) {
                 builder.append('\n');
             }
-            return FourLetterResponse.create(String.format(FORMAT, builder.toString()));
+            return FourLetterResponse.fromString(String.format(FORMAT, builder.toString()));
         }
     }
 
@@ -221,7 +223,7 @@ public abstract class FourLetterCommands {
             if (! values.isEmpty()) {
                 builder.append('\n');
             }
-            return FourLetterResponse.create(builder.toString());
+            return FourLetterResponse.fromString(builder.toString());
         }
     }
 
@@ -230,7 +232,7 @@ public abstract class FourLetterCommands {
 
         public static final String RESULT = "Server stats reset.\n";
 
-        protected static final FourLetterResponse RESPONSE = FourLetterResponse.create(RESULT);
+        protected static final FourLetterResponse RESPONSE = FourLetterResponse.fromString(RESULT);
         
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
@@ -243,7 +245,7 @@ public abstract class FourLetterCommands {
 
         public static final String RESULT = "Connection stats reset.\n";
 
-        protected static final FourLetterResponse RESPONSE = FourLetterResponse.create(RESULT);
+        protected static final FourLetterResponse RESPONSE = FourLetterResponse.fromString(RESULT);
         
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
@@ -258,7 +260,7 @@ public abstract class FourLetterCommands {
         
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
-            return FourLetterResponse.create(
+            return FourLetterResponse.fromString(
                     String.format(
                             FORMAT, "", "", ""));
         }
@@ -275,7 +277,7 @@ public abstract class FourLetterCommands {
         
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
-            return FourLetterResponse.create(
+            return FourLetterResponse.fromString(
                     String.format(
                             FORMAT, ZOOKEEPER_VERSION, "", "", "", 0));
         }
@@ -288,7 +290,7 @@ public abstract class FourLetterCommands {
         
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
-            return FourLetterResponse.create(
+            return FourLetterResponse.fromString(
                     String.format(
                             FORMAT, ZOOKEEPER_VERSION, "",
                             String.format(STAT_FORMAT, ""), "", 0));
@@ -300,7 +302,7 @@ public abstract class FourLetterCommands {
 
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
-            return FourLetterResponse.create("\n");
+            return FourLetterResponse.fromString("\n");
         }
     }
     
@@ -308,7 +310,7 @@ public abstract class FourLetterCommands {
 
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
-            return FourLetterResponse.create("\n");
+            return FourLetterResponse.fromString("\n");
         }
     }
     
@@ -326,97 +328,32 @@ public abstract class FourLetterCommands {
 
     @FourLetterCommand(FourLetterWord.MNTR)
     public static class MntrCommand implements Processor<FourLetterRequest, FourLetterResponse> {
-
-        public static enum ZkServerState {
-            STANDALONE, READ_ONLY, LEADER, FOLLOWER, OBSERVER;
-            
-            @Override
-            public String toString() {
-                return name().replace('_', '-').toLowerCase();
-            }
-        }
-        
-        public static enum MntrKey {
-            ZK_VERSION,
-            ZK_AVG_LATENCY,
-            ZK_MAX_LATENCY,
-            ZK_MIN_LATENCY,
-            ZK_PACKETS_RECEIVED,
-            ZK_PACKETS_SENT,
-            ZK_NUM_ALIVE_CONNECTIONS,
-            ZK_OUTSTANDING_REQUESTS,
-            ZK_SERVER_STATE,
-            ZK_ZNODE_COUNT,
-            ZK_WATCH_COUNT,
-            ZK_EPHEMERALS_COUNT,
-            ZK_APPROXIMATE_DATA_SIZE;
-
-            public static Map<MntrKey, String> getValues() {
-                ImmutableSortedMap.Builder<MntrKey, String> builder = ImmutableSortedMap.naturalOrder();
-                for (MntrKey k: values()) {
-                    builder.put(k, k.value());
-                }
-                return builder.build();
-            }
-            
-            public String value() {
-                switch (this) {
-                case ZK_VERSION:
-                    return ZOOKEEPER_VERSION;
-                case ZK_AVG_LATENCY:
-                case ZK_MAX_LATENCY:
-                case ZK_MIN_LATENCY:
-                case ZK_APPROXIMATE_DATA_SIZE:
-                case ZK_PACKETS_RECEIVED:
-                case ZK_PACKETS_SENT:
-                case ZK_OUTSTANDING_REQUESTS:
-                    return String.valueOf(0L);
-                case ZK_NUM_ALIVE_CONNECTIONS:
-                case ZK_ZNODE_COUNT:
-                case ZK_EPHEMERALS_COUNT:
-                case ZK_WATCH_COUNT:
-                    return String.valueOf(0);
-                case ZK_SERVER_STATE:
-                    return ZkServerState.STANDALONE.toString();
-                }
-                return "";
-            }
-
-            @Override
-            public String toString() {
-                return name().toLowerCase();
-            }
-        }
-        
-        public static enum MntrUnixKey {
-            ZK_OPEN_FILE_DESCRIPTOR_COUNT,
-            ZK_MAX_FILE_DESCRIPTOR_COUNT;
-
-            @Override
-            public String toString() {
-                return name().toLowerCase();
-            }
-        }
-        
-        public static enum MntrLeaderKey {
-            ZK_FOLLOWERS,
-            ZK_SYNCED_FOLLOWERS,
-            ZK_PENDING_SYNCS;
-
-            @Override
-            public String toString() {
-                return name().toLowerCase();
-            }
-        }
         
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
-            Map<MntrKey, String> values = MntrKey.getValues();
+            ImmutableSortedMap.Builder<FourLetterWords.Mntr.MntrKey, String> properties = ImmutableSortedMap.naturalOrder();
+            for (FourLetterWords.Mntr.MntrKey k: FourLetterWords.Mntr.MntrKey.values()) {
+                Class<?> type = k.type();
+                String v;
+                if (type == String.class) {
+                    v = "";
+                } else if (type == Integer.class) {
+                    v = String.valueOf(0);
+                } else if (type == Long.class) {
+                    v = String.valueOf(0L);
+                } else if (type == MntrServerState.class) {
+                    v = FourLetterWords.Mntr.MntrServerState.STANDALONE.toString();
+                } else {
+                    throw new AssertionError();
+                }
+                properties.put(k, v);
+            }
+            Map<FourLetterWords.Mntr.MntrKey, String> values = properties.build();
             StringBuilder builder = Joiner.on('\n').withKeyValueSeparator("\t").appendTo(new StringBuilder(), values);
             if (! values.isEmpty()) {
                 builder.append('\n');
             }
-            return FourLetterResponse.create(builder.toString());
+            return FourLetterResponse.fromString(builder.toString());
         }
     }
 
@@ -434,7 +371,7 @@ public abstract class FourLetterCommands {
         
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
-            return FourLetterResponse.create(IsRoValue.RW.toString());
+            return FourLetterResponse.fromString(IsRoValue.RW.toString());
         }
     }
 }

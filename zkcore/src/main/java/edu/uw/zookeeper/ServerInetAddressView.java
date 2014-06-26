@@ -142,7 +142,10 @@ public class ServerInetAddressView implements Supplier<InetSocketAddress>, Compa
     
     @Override
     public boolean equals(Object obj) {
-        return get().equals(obj);
+        if (obj instanceof ServerInetAddressView) {
+            return get().equals(((ServerInetAddressView) obj).get());
+        }
+        return false;
     }
 
     @Serializes

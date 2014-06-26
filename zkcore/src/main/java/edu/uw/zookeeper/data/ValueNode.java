@@ -1,26 +1,47 @@
 package edu.uw.zookeeper.data;
 
 
+import java.util.Map;
+
 import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
-import com.google.common.collect.Maps;
+
+import edu.uw.zookeeper.data.NameTrie.Pointer;
 
 
-public class ValueNode<V> extends SimpleLabelTrie.SimpleNode<ValueNode<V>> implements Supplier<V> {
+public class ValueNode<V> extends AbstractNameTrie.SimpleNode<ValueNode<V>> implements Supplier<V> {
     
     public static <V> ValueNode<V> root(V value) {
-        return new ValueNode<V>(SimpleLabelTrie.<ValueNode<V>>rootPointer(), value);
+        return new ValueNode<V>(value, AbstractNameTrie.<ValueNode<V>>rootPointer());
     }
 
-    public static <V> ValueNode<V> child(ZNodeName name, ValueNode<V> parent, V value) {
-        NameTrie.Pointer<ValueNode<V>> childPointer = SimpleLabelTrie.weakPointer(name, parent);
-        return new ValueNode<V>(childPointer, value);
+    public static <V> ValueNode<V> child(V value, ZNodeName name, ValueNode<V> parent) {
+        return new ValueNode<V>(value, AbstractNameTrie.weakPointer(name, parent));
     }
 
     private final V value;
+
+    protected ValueNode(
+            V value,
+            Pointer<? extends ValueNode<V>> parent) {
+        super(parent);
+        this.value = value;
+    }
     
-    protected ValueNode(NameTrie.Pointer<ValueNode<V>> parent, V value) {
-        super(SimpleLabelTrie.pathOf(parent), parent, Maps.<ZNodeName, ValueNode<V>>newHashMap());
+    protected ValueNode(
+            V value,
+            Pointer<? extends ValueNode<V>> parent,
+            Map<ZNodeName, ValueNode<V>> children) {
+        super(parent, children);
+        this.value = value;
+    }
+    
+    protected ValueNode(
+            V value,
+            ZNodePath path,
+            Pointer<? extends ValueNode<V>> parent,
+            Map<ZNodeName, ValueNode<V>> children) {
+        super(path, parent, children);
         this.value = value;
     }
 

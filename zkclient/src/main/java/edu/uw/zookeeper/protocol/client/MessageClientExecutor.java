@@ -10,7 +10,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.TimeValue;
@@ -63,7 +63,9 @@ public class MessageClientExecutor<C extends ProtocolConnection<? super Message.
     public ListenableFuture<Message.ServerResponse<?>> submit(
             Message.ClientRequest<?> request, Promise<Message.ServerResponse<?>> promise) {
         RequestTask<Message.ClientRequest<?>, Message.ServerResponse<?>> task = 
-                RequestTask.<Message.ClientRequest<?>, Message.ServerResponse<?>>of(request, LoggingPromise.create(logger(), promise));
+                RequestTask.<Message.ClientRequest<?>, Message.ServerResponse<?>>of(
+                        request, promise);
+        LoggingFutureListener.listen(logger(), task);
         if (! send(task)) {
             task.cancel(true);
         }

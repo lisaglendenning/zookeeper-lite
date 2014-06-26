@@ -8,7 +8,7 @@ public enum CreateMode {
     EPHEMERAL(CreateFlag.EPHEMERAL),
     EPHEMERAL_SEQUENTIAL(CreateFlag.EPHEMERAL, CreateFlag.SEQUENTIAL);
 
-    static public CreateMode valueOf(int value) {
+    public static CreateMode valueOf(int value) {
         switch (value) {
         case 0: 
             return PERSISTENT;
@@ -17,7 +17,7 @@ public enum CreateMode {
         case 2: 
             return PERSISTENT_SEQUENTIAL;
         case 3: 
-            return EPHEMERAL_SEQUENTIAL ;
+            return EPHEMERAL_SEQUENTIAL;
         default:
             throw new IllegalArgumentException(String.valueOf(value));
         }
@@ -37,6 +37,17 @@ public enum CreateMode {
     
     public boolean contains(CreateFlag flag) {
         return flags.contains(flag);
+    }
+    
+    public CreateMode sequential() {
+        switch (this) {
+        case PERSISTENT:
+            return PERSISTENT_SEQUENTIAL;
+        case EPHEMERAL:
+            return EPHEMERAL_SEQUENTIAL;
+        default:
+            throw new IllegalArgumentException(String.valueOf(this));
+        }
     }
     
     public int intValue() {

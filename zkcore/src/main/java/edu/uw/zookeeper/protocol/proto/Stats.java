@@ -45,7 +45,7 @@ public class Stats {
     public static class CreateStat implements Records.CreateStatGetter {
 
         public static long ephemeralOwnerNone() {
-            return 0;
+            return 0L;
         }
 
         public static CreateStat nonEphemeral(long czxid) {

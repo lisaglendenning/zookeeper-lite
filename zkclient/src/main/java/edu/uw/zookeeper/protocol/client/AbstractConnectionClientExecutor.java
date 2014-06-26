@@ -27,7 +27,7 @@ import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons.AutomatonListener;
 import edu.uw.zookeeper.common.Eventful;
-import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
@@ -310,12 +310,14 @@ public abstract class AbstractConnectionClientExecutor<
                 TimeOutParameters parameters,
                 ScheduledExecutorService scheduler) {
             Logger logger = LogManager.getLogger(TimeOutServer.class);
-            return new TimeOutServer<V>(
+            TimeOutServer<V> timeOut = new TimeOutServer<V>(
                     parameters, 
                     scheduler,
                     Sets.<Pair<Runnable,Executor>>newHashSet(),
-                    LoggingPromise.create(logger, SettableFuturePromise.<V>create()),
+                    SettableFuturePromise.<V>create(),
                     logger);
+            LoggingFutureListener.listen(logger, timeOut);
+            return timeOut;
         }
         
         public TimeOutServer(

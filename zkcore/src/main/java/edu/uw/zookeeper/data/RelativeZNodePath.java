@@ -68,6 +68,10 @@ public final class RelativeZNodePath extends ZNodeLabelVector {
         return new RelativeZNodePath(path);
     }
     
+    public static RelativeZNodePath empty() {
+        return new RelativeZNodePath("");
+    }
+    
     private static final ZNodeLabel[] ILLEGAL_LABELS = { ZNodeLabel.self(), ZNodeLabel.parent() };
     
     private RelativeZNodePath(String label) {
@@ -78,6 +82,7 @@ public final class RelativeZNodePath extends ZNodeLabelVector {
     public boolean isAbsolute() {
         return false;
     }
+    
     @Override
     public RelativeZNodePath join(ZNodeName other) {
         String suffix = other.toString();

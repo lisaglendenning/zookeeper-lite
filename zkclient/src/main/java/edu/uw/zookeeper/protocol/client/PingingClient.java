@@ -16,7 +16,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons;
-import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Promise;
@@ -112,8 +112,9 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
                     parameters, 
                     executor,
                     Sets.<Pair<Runnable,Executor>>newHashSet(),
-                    LoggingPromise.create(logger, SettableFuturePromise.<Void>create()),
+                    SettableFuturePromise.<Void>create(),
                     logger);
+            LoggingFutureListener.listen(logger, task);
             // TODO: replay connection events?
             return task;
         }

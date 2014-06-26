@@ -1,10 +1,12 @@
 package edu.uw.zookeeper.data;
 
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.google.common.base.Converter;
+import com.google.common.base.Optional;
 import com.google.common.primitives.UnsignedInteger;
 
 /**
@@ -12,11 +14,50 @@ import com.google.common.primitives.UnsignedInteger;
  */
 public abstract class Sequential<T extends CharSequence & Comparable<? super T>, U extends Number> implements Comparable<Sequential<T,?>> {
 
-    protected static final SequentialConverter CONVERTER = new SequentialConverter();
+    public static final String SEQUENTIAL_FORMAT = "%s%010d";
+    public static final Pattern OVERFLOW_PATTERN = Pattern.compile(Overflowed.OVERFLOW_SEQUENCE.toString());
+    public static final Pattern SEQUENCE_PATTERN = Pattern.compile("[0-9]{10}");
+    public static final Pattern SUFFIX_PATTERN = Pattern.compile("((" + OVERFLOW_PATTERN + ")|(" + SEQUENCE_PATTERN + "))");
+    public static final Pattern LABEL_PATTERN = Pattern.compile("^(.+?)" + SUFFIX_PATTERN.pattern() + "$");
+
+    public static Optional<? extends Sequential<String,?>> maybeFromString(CharSequence input) {
+        final Matcher m = LABEL_PATTERN.matcher(input);
+        if (m.matches()) {
+            final String prefix = m.group(1);
+            final String sequence = m.group(4);
+            final Sequential<String,?> sequential;
+            if (sequence != null) {
+                sequential = Sequenced.of(prefix, UnsignedInteger.valueOf(sequence));
+            } else {
+                assert (m.group(3) != null);
+                sequential = Overflowed.of(prefix);
+            }
+            return Optional.of(sequential);
+        } else {
+            return Optional.absent();
+        }
+    }
 
     @Serializes(from=String.class, to=Sequential.class)
-    public static Sequential<?, ?> fromString(String input) {
-        return CONVERTER.reverse().convert(input);
+    public static Sequential<String,?> fromString(CharSequence input) {
+        Optional<? extends Sequential<String,?>> sequential = maybeFromString(input);
+        if (sequential.isPresent()) {
+            return sequential.get();
+        } else {
+            throw new IllegalArgumentException(String.valueOf(input));
+        }
+    }
+    
+    public static String toString(Sequential<?,?> input) {
+        return String.format(Locale.ENGLISH, SEQUENTIAL_FORMAT, input.prefix(), input.sequence().intValue());
+    }
+    
+    public static SequentialConverter converter() {
+        return new SequentialConverter();
+    }
+    
+    public static SequentialComparator comparator() {
+        return new SequentialComparator();
     }
     
     public static <T extends CharSequence & Comparable<? super T>> Sequential<T,?> fromInt(T prefix, int value) {
@@ -37,11 +78,11 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
 
     private final T prefix;
     
-    protected Sequential(T prefix) {
+    private Sequential(T prefix) {
         this.prefix = prefix;
     }
 
-    public T prefix() {
+    public final T prefix() {
         return prefix;
     }
     
@@ -50,38 +91,10 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
     @Serializes(from=Sequential.class, to=String.class)
     @Override
     public String toString() {
-        return String.valueOf(CONVERTER.convert(this));
+        return toString(this);
     }
     
-    public static class SequentialConverter extends Converter<Sequential<?,?>, CharSequence> {
-
-        public static final String SEQUENTIAL_FORMAT = "%s%010d";
-        public static final Pattern OVERFLOW_PATTERN = Pattern.compile(Overflowed.OVERFLOW_SEQUENCE.toString());
-        public static final Pattern SEQUENCE_PATTERN = Pattern.compile("[0-9]{10}");
-        public static final Pattern SUFFIX_PATTERN = Pattern.compile("(" + OVERFLOW_PATTERN + ")|(" + SEQUENCE_PATTERN + ")");
-        public static final Pattern LABEL_PATTERN = Pattern.compile("^(.+?)" + SUFFIX_PATTERN.pattern() + "$");
-        
-        @Override
-        protected Sequential<String, ?> doBackward(CharSequence input) {
-            Matcher m = LABEL_PATTERN.matcher(input);
-            if (! m.matches()) {
-                throw new IllegalArgumentException(String.valueOf(input));
-            }
-            if (m.group(2) != null) {
-                return Overflowed.of(m.group(1));
-            } else {
-                assert (m.group(3) != null);
-                return Sequenced.of(m.group(1), UnsignedInteger.valueOf(m.group(3)));
-            }
-        }
-
-        @Override
-        protected String doForward(Sequential<?, ?> input) {
-            return String.format(Locale.ENGLISH, SEQUENTIAL_FORMAT, input.prefix(), input.sequence().intValue());
-        }
-    }
-
-    public static class Sequenced<T extends CharSequence & Comparable<? super T>> extends Sequential<T, UnsignedInteger> {
+    public static final class Sequenced<T extends CharSequence & Comparable<? super T>> extends Sequential<T, UnsignedInteger> {
 
         public static <T extends CharSequence & Comparable<? super T>> Sequenced<T> of(T prefix, UnsignedInteger sequence) {
             return new Sequenced<T>(prefix, sequence);
@@ -89,7 +102,7 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
         
         private final UnsignedInteger sequence;
         
-        public Sequenced(T prefix, UnsignedInteger sequence) {
+        private Sequenced(T prefix, UnsignedInteger sequence) {
             super(prefix);
             this.sequence = sequence;
         }
@@ -119,7 +132,7 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
      * multiple overflows. For now we'll assume that the first one gets the
      * overflow value and the creation of the rest fails. 
      */
-    public static class Overflowed<T extends CharSequence & Comparable<? super T>> extends Sequential<T, Integer> {
+    public static final class Overflowed<T extends CharSequence & Comparable<? super T>> extends Sequential<T, Integer> {
 
         public static final Integer OVERFLOW_SEQUENCE = Integer.valueOf(Integer.MIN_VALUE + 1);
 
@@ -127,7 +140,7 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
             return new Overflowed<T>(prefix);
         }
         
-        public Overflowed(T prefix) {
+        private Overflowed(T prefix) {
             super(prefix);
         }
 
@@ -148,6 +161,56 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
                 }
             }
             return result;
+        }
+    }
+
+    public static final class SequentialConverter extends Converter<Sequential<?,?>, CharSequence> {
+    
+        public SequentialConverter() {}
+        
+        @Override
+        protected Sequential<String, ?> doBackward(CharSequence input) {
+            return fromString(input);
+        }
+    
+        @Override
+        protected String doForward(Sequential<?,?> input) {
+            return input.toString();
+        }
+    }
+
+    /**
+     * If the prefix is the same, orders sequential after non-sequential
+     */
+    public static final class SequentialComparator implements Comparator<String> {
+
+        public SequentialComparator() {}
+        
+        @Override
+        public int compare(String o1, String o2) {
+            Optional<? extends Sequential<String,?>> s1 = maybeFromString(o1);
+            Optional<? extends Sequential<String,?>> s2 = maybeFromString(o2);
+            if (s1.isPresent()) {
+                if (s2.isPresent()) {
+                    return (s1.get().compareTo(s2.get()));
+                } else {
+                    int cmp = s1.get().prefix().compareTo(o2);
+                    if (cmp == 0) {
+                        cmp = 1;
+                    }
+                    return cmp;
+                }
+            } else {
+                if (s2.isPresent()) {
+                    int cmp = o1.compareTo(s2.get().prefix());
+                    if (cmp == 0) {
+                        cmp = -1;
+                    }
+                    return cmp;
+                } else {
+                    return o1.compareTo(o2);
+                }
+            }
         }
     }
 }

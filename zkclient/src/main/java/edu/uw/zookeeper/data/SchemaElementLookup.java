@@ -41,7 +41,7 @@ public class SchemaElementLookup extends Pair<NameTrie<ValueNode<ZNodeSchema>>, 
                 node = schema.root();
             } else {
                 ValueNode<ZNodeSchema> parent = schema.get(next.getPath());
-                node = ValueNode.child(name, parent, nextSchema);
+                node = ValueNode.child(nextSchema, name, parent);
                 parent.put(node.parent().name(), node);
             }
             byElement.put(next.getElement(), node);

@@ -8,7 +8,11 @@ import edu.uw.zookeeper.common.Pair;
 
 public class FourLetterRequest extends Pair<FourLetterWord, byte[]> implements Message.ClientAnonymous {
 
-    public static FourLetterRequest of(FourLetterWord word, byte[] args) {
+    public static FourLetterRequest forWord(FourLetterWord word) {
+        return forArgs(word, new byte[0]);
+    }
+    
+    public static FourLetterRequest forArgs(FourLetterWord word, byte[] args) {
         return new FourLetterRequest(word, args);
     }
     
@@ -32,7 +36,7 @@ public class FourLetterRequest extends Pair<FourLetterWord, byte[]> implements M
                 args = new byte[0];
                 break;
             }
-            return Optional.of(FourLetterRequest.of(word, args));
+            return Optional.of(FourLetterRequest.forArgs(word, args));
         }
         return Optional.absent();
     }

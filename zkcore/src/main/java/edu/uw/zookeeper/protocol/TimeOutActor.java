@@ -20,7 +20,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.AbstractActor;
-import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.SameThreadExecutor;
@@ -32,12 +32,14 @@ public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFut
             TimeOutParameters parameters,
             ScheduledExecutorService scheduler,
             Logger logger) {
-        return new TimeOutActor<T,V>(
+        TimeOutActor<T,V> actor = new TimeOutActor<T,V>(
                 checkNotNull(parameters), 
                 checkNotNull(scheduler),
                 Sets.<Pair<Runnable,Executor>>newHashSet(),
-                LoggingPromise.create(checkNotNull(logger), SettableFuturePromise.<V>create()),
+                SettableFuturePromise.<V>create(),
                 logger);
+        LoggingFutureListener.listen(checkNotNull(logger), actor);
+        return actor;
     }
     
     protected static final long NO_TIMEOUT = 0L;

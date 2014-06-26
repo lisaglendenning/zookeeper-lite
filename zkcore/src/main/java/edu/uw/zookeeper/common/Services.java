@@ -36,4 +36,22 @@ public abstract class Services {
         stop(service).awaitTerminated();
         return service;
     }
+
+    public static <T extends Service.Listener> T listen(
+            T listener,
+            Service service) {
+        service.addListener(listener, SameThreadExecutor.getInstance());
+        switch (service.state()) {
+        case STARTING:
+            listener.starting();
+            break;
+        case RUNNING:
+            listener.starting();
+            listener.running();
+            break;
+        default:
+            break;
+        }
+        return listener;
+    }
 }

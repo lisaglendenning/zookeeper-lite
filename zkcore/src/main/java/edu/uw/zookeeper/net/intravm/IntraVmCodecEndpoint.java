@@ -15,7 +15,7 @@ import com.google.common.base.Optional;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.CallablePromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Codec;
@@ -61,7 +61,8 @@ public class IntraVmCodecEndpoint<I,O,T extends Codec<I,? extends O,? extends I,
     @Override
     public <U extends I> ListenableFuture<U> write(U message, AbstractIntraVmEndpoint<?,?,?,? super ByteBuf> remote) {
         if (state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
-            CallablePromiseTask<EncodingEndpointWrite<U>,U> task = CallablePromiseTask.create(new EncodingEndpointWrite<U>(remote, message), LoggingPromise.create(logger, SettableFuturePromise.<U>create()));
+            CallablePromiseTask<EncodingEndpointWrite<U>,U> task = CallablePromiseTask.create(new EncodingEndpointWrite<U>(remote, message), SettableFuturePromise.<U>create());
+            LoggingFutureListener.listen(logger, task);
             execute(task);
             return task;
         } else {

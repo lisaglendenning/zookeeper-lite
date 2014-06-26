@@ -13,7 +13,7 @@ import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Automaton;
-import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.CallablePromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
@@ -33,7 +33,8 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
         this.remote = remote;
         this.close = CallablePromiseTask.create(
                 new Close(), 
-                LoggingPromise.create(logger, SettableFuturePromise.<C>create()));
+                SettableFuturePromise.<C>create());
+        LoggingFutureListener.listen(logger, close);
     }
     
     protected T local() {

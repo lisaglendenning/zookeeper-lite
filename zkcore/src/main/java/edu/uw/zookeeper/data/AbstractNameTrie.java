@@ -182,6 +182,11 @@ public abstract class AbstractNameTrie<E extends NameTrie.Node<E>> implements Na
             throw new UnsupportedOperationException();
         }
         
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).add("strategy", strategy()).add("last", last).add("pending", pending).toString();
+        }
+        
         protected Iterable<E> childrenOf(E node) {
             return node.values();
         }

@@ -36,7 +36,7 @@ import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automaton.Transition;
 import edu.uw.zookeeper.common.ForwardingPromise;
-import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.SameThreadExecutor;
@@ -66,7 +66,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
 
     public static <I extends Operation.Request, V extends Message.ServerResponse<?>> ConnectionClientExecutorService<I,V> newInstance(
             EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,V,SessionListener,?>>> factory,
-                    ScheduledExecutorService scheduler) {
+            ScheduledExecutorService scheduler) {
         return new ConnectionClientExecutorService<I,V>(factory, scheduler);
     }
 
@@ -365,8 +365,8 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
         
         protected Promise<ConnectionClientExecutor<I,V,SessionListener,?>> newPromise() {
             Promise<ConnectionClientExecutor<I,V,SessionListener,?>> promise =
-                    LoggingPromise.create(logger, 
-                            SettableFuturePromise.<ConnectionClientExecutor<I,V,SessionListener,?>>create());
+                            SettableFuturePromise.create();
+            LoggingFutureListener.listen(logger, promise);
             Futures.addCallback(promise, ConnectionClientExecutorService.this);
             promise.addListener(this, SameThreadExecutor.getInstance());
             return promise;

@@ -16,7 +16,7 @@ import com.google.common.base.Objects;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Actors.ExecutedQueuedActor;
-import edu.uw.zookeeper.common.LoggingPromise;
+import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.common.SettableFuturePromise;
@@ -95,7 +95,10 @@ public abstract class AbstractChannelConnection<I,O,C extends AbstractChannelCon
 
     @Override
     public <T extends I> ListenableFuture<T> write(T message) {
-        PromiseTask<T,T> task = PromiseTask.of(message, LoggingPromise.create(logger, SettableFuturePromise.<T>create()));
+        PromiseTask<T,T> task = PromiseTask.of(
+                message, 
+                SettableFuturePromise.<T>create());
+        LoggingFutureListener.listen(logger, task); 
         if (! outbound.send(task)) {
             task.setException(new ClosedChannelException());
         }

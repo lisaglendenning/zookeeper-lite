@@ -14,6 +14,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.client.DeleteSubtree;
 import edu.uw.zookeeper.data.AbsoluteZNodePath;
+import edu.uw.zookeeper.data.ZNodePath;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoker.Command> {
@@ -33,22 +34,22 @@ public class RmrInvoker extends AbstractIdleService implements Invoker<RmrInvoke
     }
     
     protected final Shell shell;
-    protected final Set<ListenableFuture<DeleteSubtree>> pending;
+    protected final Set<ListenableFuture<?>> pending;
     
     public RmrInvoker(Shell shell) {
         this.shell = shell;
-        this.pending = Collections.synchronizedSet(Sets.<ListenableFuture<DeleteSubtree>>newHashSet());
+        this.pending = Collections.synchronizedSet(Sets.<ListenableFuture<?>>newHashSet());
     }
 
     @Override
     public void invoke(final Invocation<Command> input)
             throws Exception {
-        AbsoluteZNodePath root = (AbsoluteZNodePath) input.getArguments()[1];
         ClientExecutor<? super Records.Request, ?, ?> client = shell.getEnvironment().get(ClientExecutorInvoker.CLIENT_KEY).getConnectionClientExecutor();
-        final ListenableFuture<DeleteSubtree> future = DeleteSubtree.forRoot(root, client);
-        Futures.addCallback(future, new FutureCallback<DeleteSubtree>(){
+        ZNodePath root = (ZNodePath) input.getArguments()[1];
+        final ListenableFuture<?> future = root.isRoot() ? DeleteSubtree.deleteChildren(root, client): DeleteSubtree.deleteAll((AbsoluteZNodePath) root, client);
+        Futures.addCallback(future, new FutureCallback<Object>(){
             @Override
-            public void onSuccess(DeleteSubtree result) {
+            public void onSuccess(Object result) {
                 pending.remove(future);
                 try {
                     shell.println(String.format("%s => OK", input));

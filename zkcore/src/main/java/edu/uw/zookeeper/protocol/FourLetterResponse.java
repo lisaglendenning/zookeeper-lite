@@ -12,11 +12,11 @@ import com.google.common.base.Optional;
 
 public class FourLetterResponse implements Message.ServerAnonymous {
 
-    public static FourLetterResponse create(String strValue) {
+    public static FourLetterResponse fromString(String strValue) {
         return new FourLetterResponse(strValue);
     }
 
-    public static FourLetterResponse create(byte[] byteValue) {
+    public static FourLetterResponse fromBytes(byte[] byteValue) {
         return new FourLetterResponse(byteValue);
     }
 
@@ -29,7 +29,7 @@ public class FourLetterResponse implements Message.ServerAnonymous {
         if (length > 0) {
             byte[] bytes = new byte[length];
             input.readBytes(bytes);
-            FourLetterResponse response = FourLetterResponse.create(bytes);
+            FourLetterResponse response = FourLetterResponse.fromBytes(bytes);
             return Optional.of(response);
         }
         return Optional.absent();

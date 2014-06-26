@@ -4,7 +4,8 @@ import io.netty.buffer.ByteBuf;
 
 import java.io.IOException;
 
-import edu.uw.zookeeper.common.Singleton;
+import com.google.common.base.Supplier;
+
 import edu.uw.zookeeper.net.Encoder;
 
 public class EncodableEncoder implements Encoder<Encodable, Encodable> {
@@ -13,7 +14,7 @@ public class EncodableEncoder implements Encoder<Encodable, Encodable> {
         return Holder.INSTANCE.get();
     }
     
-    public static enum Holder implements Singleton<EncodableEncoder> {
+    public static enum Holder implements Supplier<EncodableEncoder> {
         INSTANCE(new EncodableEncoder());
 
         private final EncodableEncoder instance;
@@ -28,7 +29,7 @@ public class EncodableEncoder implements Encoder<Encodable, Encodable> {
         }
     }
     
-    public EncodableEncoder() {}
+    protected EncodableEncoder() {}
     
     @Override
     public Class<? extends Encodable> encodeType() {

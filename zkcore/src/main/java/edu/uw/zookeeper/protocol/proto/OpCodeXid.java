@@ -27,13 +27,16 @@ public enum OpCodeXid implements Operation.Coded, Operation.RequestId {
                             return input.xid();
                         }});
 
-    public static boolean has(int xid) {
-        return byXid.containsKey(xid);
+    public static boolean has(final int xid) {
+        final Integer key = Integer.valueOf(xid);
+        return byXid.containsKey(key);
     }
 
-    public static final OpCodeXid of(int xid) {
-        checkArgument(byXid.containsKey(xid));
-        return byXid.get(xid);
+    public static final OpCodeXid of(final int xid) {
+        final Integer key = Integer.valueOf(xid);
+        final OpCodeXid value = byXid.get(key);
+        checkArgument(value != null, String.valueOf(key));
+        return value;
     }
     
     public static final long NOTIFICATION_ZXID = -1L;
