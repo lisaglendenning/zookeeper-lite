@@ -246,6 +246,11 @@ public abstract class PendingQueueClientExecutor<
         }
         
         @Override
+        public String toString() {
+            return Objects.toStringHelper(this).addValue(callback).toString();
+        }
+        
+        @Override
         protected void doStop() {
             T task;
             while ((task = mailbox.peek()) != null) {

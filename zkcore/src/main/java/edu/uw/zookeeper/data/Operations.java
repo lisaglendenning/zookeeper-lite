@@ -1573,7 +1573,28 @@ public abstract class Operations {
         }
         return response;
     }
+    
+    public static Optional<Operation.Error> maybeMultiError(IMultiResponse response, KeeperException.Code... expected) throws KeeperException {
+        return Operations.maybeMultiError(response, "Unexpected Error", expected);
+    }
 
+    public static Optional<Operation.Error> maybeMultiError(IMultiResponse response, String message, KeeperException.Code... expected) throws KeeperException {
+        for (Records.MultiOpResponse record: response) {
+            if (record instanceof Operation.Error) {
+                Operation.Error error = (Operation.Error) record;
+                if (error.error() != KeeperException.Code.OK) {
+                    for (KeeperException.Code code: expected) {
+                        if (error.error() == code) {
+                            return Optional.of(error);
+                        }
+                    }
+                }
+                throw KeeperException.create(error.error(), message);
+            }
+        }
+        return Optional.absent();
+    }
+    
     public static Operation.Error expectError(Records.Response response, KeeperException.Code expected) throws KeeperException {
         return Operations.expectError(response, "Expected Error " + expected.toString(), expected);
     }

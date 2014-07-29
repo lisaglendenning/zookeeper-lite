@@ -5,7 +5,9 @@ import org.apache.logging.log4j.Logger;
 import com.google.common.base.Objects;
 import com.google.common.util.concurrent.ListenableFuture;
 
-public class LoggingFutureListener<V> extends ToStringListenableFuture<V> implements Runnable {
+import edu.uw.zookeeper.common.ToStringListenableFuture.SimpleToStringListenableFuture;
+
+public class LoggingFutureListener<V> extends SimpleToStringListenableFuture<V> implements Runnable {
 
     public static <V, T extends ListenableFuture<V>> T listen(
             Logger logger,
@@ -40,9 +42,14 @@ public class LoggingFutureListener<V> extends ToStringListenableFuture<V> implem
             logger().trace("DONE {}", this);
         }
     }
-    
+
     @Override
     public String toString() {
-        return toString(this, Objects.toStringHelper(delegate()));
+        return is3rdParty(delegate()) ? super.toString() : delegate().toString();
+    }
+    
+    @Override
+    protected Objects.ToStringHelper toStringHelper() {
+        return toStringHelper(Objects.toStringHelper(delegate()));
     }
 }

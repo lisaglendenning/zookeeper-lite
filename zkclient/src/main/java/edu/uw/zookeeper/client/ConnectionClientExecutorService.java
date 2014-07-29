@@ -416,8 +416,12 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                         addListener(this, SameThreadExecutor.getInstance());
                     }
                     if (!future.isPresent()) {
-                        logger.info("Connecting new session to {}", server);
-                        future = Optional.of(factory.get(server.get()).get());
+                        if (server.isPresent()) {
+                            logger.info("Connecting new session to {}", server.get());
+                            future = Optional.of(factory.get(server.get()).get());
+                        } else {
+                            cancel(false);
+                        }
                     }
                     future.get().addListener(this, executor());
                 }

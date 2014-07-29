@@ -1,12 +1,12 @@
 package edu.uw.zookeeper;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.typesafe.config.Config;
@@ -140,19 +140,26 @@ public class DefaultRuntimeModule implements RuntimeModule {
 
         public static DefaultApplicationExecutorFactory fromThreadFactory(
                 Configuration configuration, ThreadFactory threadFactory) {
-            Configurable configurable = DefaultApplicationExecutorFactory.class.getAnnotation(Configurable.class);
-            Config config = configuration.withConfigurable(configurable)
-                    .getConfigOrEmpty(configurable.path());
-            int corePoolSize = config.getInt(configurable.key());
-            if (corePoolSize == 0) {
-                corePoolSize = availableProcessors();
-            }
+            int corePoolSize = getCorePoolSize(configuration, DefaultApplicationExecutorFactory.class);
             int maxPoolSize = corePoolSize;
             return new DefaultApplicationExecutorFactory(
                     corePoolSize,
                     maxPoolSize,
                     TimeValue.seconds(60),
                     new ThreadFactoryBuilder().setThreadFactory(threadFactory).setNameFormat("main-pool-%d"));
+        }
+        
+        protected static int getCorePoolSize(
+                Configuration configuration,
+                Class<?> cls) {
+            Configurable configurable = cls.getAnnotation(Configurable.class);
+            Config config = configuration.withConfigurable(configurable)
+                    .getConfigOrEmpty(configurable.path());
+            int corePoolSize = config.getInt(configurable.key());
+            if (corePoolSize == 0) {
+                corePoolSize = availableProcessors();
+            }
+            return corePoolSize;
         }
 
         private final int corePoolSize;
@@ -172,13 +179,12 @@ public class DefaultRuntimeModule implements RuntimeModule {
         }
 
         @Override
-        public ThreadPoolExecutor get() {
-            ThreadPoolExecutor instance = new ThreadPoolExecutor(
+        public ExecutorService get() {
+            return new ThreadPoolExecutor(
                     corePoolSize, maxPoolSize,
                     keepAlive.value(), keepAlive.unit(),
-                    new LinkedBlockingQueue<Runnable>(),
+                    Queues.<Runnable>newLinkedBlockingQueue(),
                     threadFactory.build());
-            return instance;
         }
     }
 

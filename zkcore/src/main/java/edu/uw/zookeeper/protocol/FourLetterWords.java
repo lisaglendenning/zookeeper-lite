@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -226,6 +227,24 @@ public abstract class FourLetterWords {
         @Override
         public Iterator<Map.Entry<K,Collection<V>>> iterator() {
             return delegate.asMap().entrySet().iterator();
+        }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).addValue(delegate).toString();
+        }
+        
+        @Override
+        public int hashCode() {
+            return delegate.hashCode();
+        }
+        
+        @Override
+        public boolean equals(Object obj) {
+            if ((obj == null) || (obj.getClass() != getClass())) {
+                return false;
+            }
+            return Objects.equal(delegate, ((DetailedWatches<?,?>) obj).delegate);
         }
     }
     

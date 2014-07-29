@@ -28,6 +28,7 @@ import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
+import edu.uw.zookeeper.common.ToStringListenableFuture;
 import edu.uw.zookeeper.data.AbsoluteZNodePath;
 import edu.uw.zookeeper.data.RootZNodePath;
 import edu.uw.zookeeper.data.ZNodeLabel;
@@ -262,7 +263,7 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
         public String toString() {
             return Objects.toStringHelper(this)
                     .add("root", getRoot())
-                    .add("parameters", getRequests())
+                    .add("requests", getRequests())
                     .add("iterator", getIterator())
                     .add("result", getResult())
                     .add("client", getClient())
@@ -397,7 +398,7 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(builder).toString();
+        return Objects.toStringHelper(this).addValue(builder.getRoot()).addValue(ToStringListenableFuture.toString(future)).toString();
     }
 
     @Override

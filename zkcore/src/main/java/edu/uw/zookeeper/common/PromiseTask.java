@@ -36,7 +36,7 @@ public class PromiseTask<T,V> extends ForwardingPromise<V> {
     }
     
     protected Objects.ToStringHelper toString(Objects.ToStringHelper toString) {
-        return toString.add("task", task).add("future", delegate);
+        return toString.addValue(task).addValue(ToStringListenableFuture.toString3rdParty(delegate));
     }
 
     @Override

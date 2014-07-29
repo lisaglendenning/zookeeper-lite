@@ -4,23 +4,20 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 
-public class ToStringListenableFuture<V> extends ForwardingListenableFuture.SimpleForwardingListenableFuture<V> {
+public abstract class ToStringListenableFuture<V> extends ForwardingListenableFuture<V> {
 
-    public static <V> ToStringListenableFuture<V> create(
+    public static <V> SimpleToStringListenableFuture<V> simple(
             ListenableFuture<V> delegate) {
-        return new ToStringListenableFuture<V>(delegate);
+        return new SimpleToStringListenableFuture<V>(delegate);
     }
-
+    
     public static String toString(Future<?> future) {
-        return toString(future, Objects.toStringHelper(future));
-    }
-
-    public static String toString(Future<?> future, Objects.ToStringHelper toString) {
+        Object value;
         if (future.isDone()) {
-            Object value;
             if (future.isCancelled()) {
                 value = "cancelled";
             } else {
@@ -32,18 +29,49 @@ public class ToStringListenableFuture<V> extends ForwardingListenableFuture.Simp
                     value = e.getCause();
                 }
             }
-            toString.addValue(value);
+        } else {
+            value = "";
         }
-        return toString.toString();
+        return String.valueOf(value);
+    }
+    
+    public static boolean is3rdParty(Object obj) {
+        return !obj.getClass().getName().startsWith("edu.uw.");
+    }
+    
+    public static String toString3rdParty(Future<?> future) {
+        return is3rdParty(future) ? toString(future) : future.toString();
     }
 
-    protected ToStringListenableFuture(
-            ListenableFuture<V> delegate) {
-        super(delegate);
+    protected ToStringListenableFuture() {
+        super();
     }
     
     @Override
     public String toString() {
-        return toString(this);
+        return toStringHelper().toString();
+    }
+    
+    protected Objects.ToStringHelper toStringHelper() {
+        return toStringHelper(Objects.toStringHelper(this));
+    }
+    
+    protected Objects.ToStringHelper toStringHelper(Objects.ToStringHelper helper) {
+        return helper.addValue(toString(this));
+    }
+    
+    public static class SimpleToStringListenableFuture<V> extends ToStringListenableFuture<V> {
+
+        private final ListenableFuture<V> delegate;
+
+        protected SimpleToStringListenableFuture(
+                ListenableFuture<V> delegate) {
+            this.delegate = Preconditions.checkNotNull(delegate);
+        }
+
+        @Override
+        protected final ListenableFuture<V> delegate() {
+          return delegate;
+        }
     }
 }

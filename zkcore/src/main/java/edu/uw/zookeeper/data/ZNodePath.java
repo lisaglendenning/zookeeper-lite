@@ -164,11 +164,11 @@ public abstract class ZNodePath extends ZNodeLabelVector {
                 break;
             }
         }
-        ZNodePath prefix = ZNodePath.root().join(ZNodePath.fromString(ZNodePath.join(parts.build().iterator())));
+        final ZNodePath prefix = ZNodePath.root().join(ZNodePath.fromString(ZNodePath.join(parts.build().iterator())));
         
         // calculate my difference to the prefix
         parts = ImmutableList.builder();
-        ZNodeName mySuffix = suffix(prefix);
+        final ZNodeName mySuffix = suffix(prefix);
         if (mySuffix instanceof EmptyZNodeLabel) {
             parts.add(ZNodeLabel.self().toString());
         } else {

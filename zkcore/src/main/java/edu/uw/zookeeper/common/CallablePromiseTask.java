@@ -23,6 +23,20 @@ public class CallablePromiseTask<T extends Callable<Optional<V>>,V> extends Prom
             Promise<V> promise) {
         return new CallablePromiseTask<T,V>(task, promise);
     }
+
+    public static <T extends Callable<Optional<V>>,V> SynchronizedCallablePromiseTask<T,V> runSynchronized(
+            T task, 
+            Promise<V> promise) {
+        SynchronizedCallablePromiseTask<T,V> instance = createSynchronized(task, promise);
+        instance.run();
+        return instance;
+    }
+    
+    public static <T extends Callable<Optional<V>>,V> SynchronizedCallablePromiseTask<T,V> createSynchronized(
+            T task, 
+            Promise<V> promise) {
+        return new SynchronizedCallablePromiseTask<T,V>(task, promise);
+    }
     
     protected CallablePromiseTask(
             T task, 
@@ -43,6 +57,20 @@ public class CallablePromiseTask<T extends Callable<Optional<V>>,V> extends Prom
             cancel(false);
         } catch (Throwable t) {
             setException(t);
+        }
+    }
+    
+    public static class SynchronizedCallablePromiseTask<T extends Callable<Optional<V>>,V> extends CallablePromiseTask<T,V> {
+
+        protected SynchronizedCallablePromiseTask(
+                T task, 
+                Promise<V> promise) {
+            super(task, promise);
+        }
+
+        @Override
+        public synchronized void run() {
+            super.run();
         }
     }
 }

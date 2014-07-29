@@ -7,11 +7,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 
-public class ChainedFutures<V, T extends ListenableFuture<? extends V>> extends ForwardingListenableFuture<V> implements Callable<Optional<List<T>>> {
+public final class ChainedFutures<V, T extends ListenableFuture<? extends V>> extends ToStringListenableFuture<V> implements Callable<Optional<List<T>>> {
 
     public static <U,T extends ListenableFuture<? extends U>,V> ChainedFuturesTask<U,T,V> run(
             ChainedFuturesProcessor<U,T,V> chain,
@@ -61,17 +63,25 @@ public class ChainedFutures<V, T extends ListenableFuture<? extends V>> extends 
     public static <V, T extends ListenableFuture<? extends V>> ChainedFutures<V,T> chain(
             Function<? super List<T>, ? extends Optional<? extends T>> next,
             List<T> futures) {
-        return new ChainedFutures<V,T>(next, futures);
+        return chain(next, futures, LogManager.getLogger(ChainedFutures.class));
     }
 
-    protected final Logger logger;
-    protected final Function<? super List<T>, ? extends Optional<? extends T>> next;
-    protected final List<T> futures;
+    public static <V, T extends ListenableFuture<? extends V>> ChainedFutures<V,T> chain(
+            Function<? super List<T>, ? extends Optional<? extends T>> next,
+            List<T> futures,
+            Logger logger) {
+        return new ChainedFutures<V,T>(next, futures, logger);
+    }
+    
+    private final Logger logger;
+    private final Function<? super List<T>, ? extends Optional<? extends T>> next;
+    private final List<T> futures;
     
     protected ChainedFutures(
             Function<? super List<T>, ? extends Optional<? extends T>> next,
-            List<T> futures) {
-        this.logger = LogManager.getLogger(this);
+            List<T> futures,
+            Logger logger) {
+        this.logger = logger;
         this.next = next;
         this.futures = futures;
     }
@@ -93,6 +103,16 @@ public class ChainedFutures<V, T extends ListenableFuture<? extends V>> extends 
         }
         return Optional.absent();
     }
+    
+    @Override
+    protected Objects.ToStringHelper toStringHelper(Objects.ToStringHelper helper) {
+        helper.addValue(next);
+        ImmutableList.Builder<String> values = ImmutableList.builder();
+        for (T future: futures) {
+            values.add(ToStringListenableFuture.toString3rdParty(future));
+        }
+        return helper.addValue(values.build());
+    }
 
     @SuppressWarnings("unchecked")
     @Override
@@ -100,7 +120,7 @@ public class ChainedFutures<V, T extends ListenableFuture<? extends V>> extends 
         return (ListenableFuture<V>) (ListenableFuture<?>) futures.get(futures.size() - 1);
     }
 
-    public static class ChainedFuturesProcessor<U,T extends ListenableFuture<? extends U>,V> extends ForwardingListenableFuture<U> implements Callable<Optional<V>> {
+    public static final class ChainedFuturesProcessor<U,T extends ListenableFuture<? extends U>,V> extends ForwardingListenableFuture<U> implements Callable<Optional<V>> {
 
         public static <U,T extends ListenableFuture<? extends U>,V> ChainedFuturesProcessor<U,T,V> create(
                 ChainedFutures<U,T> chain,
@@ -108,8 +128,8 @@ public class ChainedFutures<V, T extends ListenableFuture<? extends V>> extends 
             return new ChainedFuturesProcessor<U,T,V>(chain, processor);
         }
         
-        protected final ChainedFutures<U,T> chain;
-        protected final Processor<? super List<T>,? extends V> processor;
+        private final ChainedFutures<U,T> chain;
+        private final Processor<? super List<T>,? extends V> processor;
         
         protected ChainedFuturesProcessor(
                 ChainedFutures<U, T> chain,
@@ -134,38 +154,35 @@ public class ChainedFutures<V, T extends ListenableFuture<? extends V>> extends 
         }
     }
     
-    public static class ChainedFuturesTask<U,T extends ListenableFuture<? extends U>,V> extends ForwardingListenableFuture<V> implements Runnable {
+    public static final class ChainedFuturesTask<U,T extends ListenableFuture<? extends U>,V> extends CallablePromiseTask<ChainedFuturesProcessor<U,T,V>,V> implements Runnable {
 
         public static <U,T extends ListenableFuture<? extends U>,V> ChainedFuturesTask<U,T,V> create(
                 ChainedFuturesProcessor<U,T,V> chain,
                 Promise<V> promise) {
-            return new ChainedFuturesTask<U,T,V>(
-                    CallablePromiseTask.create(
-                            chain, 
-                    promise));
+            return new ChainedFuturesTask<U,T,V>(chain, promise);
         }
         
-        protected final CallablePromiseTask<ChainedFuturesProcessor<U,T,V>,V> delegate;
-        
-        protected ChainedFuturesTask(CallablePromiseTask<ChainedFuturesProcessor<U,T,V>,V> delegate) {
-            this.delegate = delegate;
+        protected ChainedFuturesTask(
+                ChainedFuturesProcessor<U,T,V> chain,
+                Promise<V> promise) {
+            super(chain, promise);
         }
 
         @Override
         public synchronized void run() {
-            delegate().run();
+            super.run();
             if (!isDone()) {
-                delegate().task().addListener(this, SameThreadExecutor.getInstance());
+                task().addListener(this, SameThreadExecutor.getInstance());
             } else if (isCancelled()) {
-                if (!delegate().task().delegate().futures().isEmpty()) {
-                    delegate().task().delegate().cancel(false);
+                if (!task().delegate().futures().isEmpty()) {
+                    task().delegate().cancel(false);
                 }
             }
         }
         
         @Override
-        public CallablePromiseTask<ChainedFuturesProcessor<U,T,V>,V> delegate() {
-            return delegate;
-        } 
+        public synchronized String toString() {
+            return super.toString();
+        }
     }
 }
