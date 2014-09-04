@@ -113,10 +113,10 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
     @Override
     public long newSessionId() {
         int count = counter.incrementAndGet();
-        byte[] nonce = new byte[2];
+        byte[] nonce = new byte[1];
         random.nextBytes(nonce);
         ByteBuffer bb = ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN);
-        bb.putShort(id).put(nonce).putInt(count).flip();
+        bb.put((byte)0).putShort(id).put(nonce).putInt(count).flip();
         return bb.getLong();
     }
 

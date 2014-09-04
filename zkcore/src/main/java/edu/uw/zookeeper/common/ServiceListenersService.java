@@ -1,7 +1,5 @@
 package edu.uw.zookeeper.common;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import java.util.Iterator;
 import java.util.Map;
 import org.apache.logging.log4j.LogManager;
@@ -25,6 +23,10 @@ public class ServiceListenersService extends AbstractIdleService {
     protected ServiceListenersService(Iterable<? extends Service.Listener> listeners) {
         this.logger = LogManager.getLogger(this);
         this.delegate = new Listener(listeners);
+    }
+    
+    public Logger logger() {
+        return logger;
     }
     
     @Override
@@ -57,7 +59,6 @@ public class ServiceListenersService extends AbstractIdleService {
 
         public Listener(Iterable<? extends Service.Listener> listeners) {
             this.listeners = ImmutableList.copyOf(listeners);
-            checkState(!this.listeners.isEmpty());
             this.called = Maps.newHashMap();
         }
         

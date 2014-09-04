@@ -4,6 +4,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 
 import com.google.common.base.Optional;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
@@ -22,6 +23,24 @@ public class CallablePromiseTask<T extends Callable<Optional<V>>,V> extends Prom
             T task, 
             Promise<V> promise) {
         return new CallablePromiseTask<T,V>(task, promise);
+    }
+    
+    public static <T extends Callable<Optional<V>> & ListenableFuture<?>,V> CallablePromiseTask<T,V> listen(
+            T task, 
+            Promise<V> promise) {
+        return listen(create(task, promise));
+    }
+    
+    public static <T extends Callable<Optional<V>> & ListenableFuture<?>,V> CallablePromiseTask<T,V> listenSynchronized(
+            T task, 
+            Promise<V> promise) {
+        return listen(createSynchronized(task, promise));
+    }
+    
+    public static <T extends Callable<Optional<V>> & ListenableFuture<?>,V> CallablePromiseTask<T,V> listen(
+            CallablePromiseTask<T,V> task) {
+        task.task().addListener(task, SameThreadExecutor.getInstance());
+        return task;
     }
 
     public static <T extends Callable<Optional<V>>,V> SynchronizedCallablePromiseTask<T,V> runSynchronized(

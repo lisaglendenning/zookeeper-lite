@@ -6,7 +6,6 @@ import java.util.concurrent.Callable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -15,6 +14,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 public final class ChainedFutures<V, T extends ListenableFuture<? extends V>> extends ToStringListenableFuture<V> implements Callable<Optional<List<T>>> {
 
+    public static interface ChainedProcessor<T extends ListenableFuture<?>> extends Processor<List<T>, Optional<? extends T>> {
+    }
+    
     public static <U,T extends ListenableFuture<? extends U>,V> ChainedFuturesTask<U,T,V> run(
             ChainedFuturesProcessor<U,T,V> chain,
             Promise<V> promise) {
@@ -61,24 +63,24 @@ public final class ChainedFutures<V, T extends ListenableFuture<? extends V>> ex
      * Not threadsafe.
      */
     public static <V, T extends ListenableFuture<? extends V>> ChainedFutures<V,T> chain(
-            Function<? super List<T>, ? extends Optional<? extends T>> next,
+            Processor<? super List<T>, ? extends Optional<? extends T>> next,
             List<T> futures) {
         return chain(next, futures, LogManager.getLogger(ChainedFutures.class));
     }
 
     public static <V, T extends ListenableFuture<? extends V>> ChainedFutures<V,T> chain(
-            Function<? super List<T>, ? extends Optional<? extends T>> next,
+            Processor<? super List<T>, ? extends Optional<? extends T>> next,
             List<T> futures,
             Logger logger) {
         return new ChainedFutures<V,T>(next, futures, logger);
     }
     
     private final Logger logger;
-    private final Function<? super List<T>, ? extends Optional<? extends T>> next;
+    private final Processor<? super List<T>, ? extends Optional<? extends T>> next;
     private final List<T> futures;
     
     protected ChainedFutures(
-            Function<? super List<T>, ? extends Optional<? extends T>> next,
+            Processor<? super List<T>, ? extends Optional<? extends T>> next,
             List<T> futures,
             Logger logger) {
         this.logger = logger;

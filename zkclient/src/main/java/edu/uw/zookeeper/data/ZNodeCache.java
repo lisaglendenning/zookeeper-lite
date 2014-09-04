@@ -189,7 +189,9 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
                 }
             }
             final ImmutableList<NodeWatchEvent> events;
-            if ((data != prevData) && ((prevData.get() != data.get()) || ((prevStat != stat) && (prevStat.get() != null) && (prevStat.get().getVersion() < stat.get().getVersion())))) {
+            if (((data != prevData) && (prevData.get() != data.get())) || 
+                    ((prevStat != stat) && (prevStat.get() != stat.get()) && 
+                            ((prevStat.get() == null) || (prevStat.get().getVersion() < stat.get().getVersion())))) {
                 events = ImmutableList.of(NodeWatchEvent.nodeDataChanged(path()));
             } else {
                 events = ImmutableList.of();
@@ -327,10 +329,15 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
     }
     
     protected void handleResult(Records.Request request, Operation.ProtocolResponse<?> result) {
+        ImmutableSet.Builder<NodeWatchEvent> events = ImmutableSet.builder();
+        handleResult(request, result, events);
+        events().handleCacheEvent(events.build());
+    }
+    
+    protected void handleResult(Records.Request request, Operation.ProtocolResponse<?> result, ImmutableSet.Builder<NodeWatchEvent> events) {
         long zxid = result.zxid();
         lastZxid.update(zxid);
         Records.Response response = result.record();
-        ImmutableSet.Builder<NodeWatchEvent> events = ImmutableSet.builder();
         if (response instanceof Operation.Error) {
             switch (((Operation.Error) response).error()) {
             case NONODE:
@@ -399,9 +406,15 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
                 ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(((Records.PathGetter) request).getPath());
                 List<String> children = ((Records.ChildrenGetter) response).getChildren();
                 E node = add(path, zxid, events);
-                for (Map.Entry<ZNodeName, E> entry: node.entrySet()) {
-                    if (! children.contains(entry.getKey().toString())) {
-                        remove(entry.getValue().path(), zxid, events);
+                Iterator<Map.Entry<ZNodeName, E>> entries = node.entrySet().iterator();
+                while (entries.hasNext()) {
+                    Map.Entry<ZNodeName, E> entry = entries.next();
+                    if (!children.contains(entry.getKey().toString())) {
+                        E child = entry.getValue();
+                        if (child.stamp() < zxid) {
+                            entries.remove();
+                            removed(child, events);
+                        }
                     }
                 }
                 for (String child: children) {
@@ -425,7 +438,8 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
                 Iterator<MultiOpResponse> responses = responseRecord.iterator();
                 while (requests.hasNext()) {
                      handleResult(requests.next(),
-                            ProtocolResponseMessage.of(xid, zxid, responses.next()));
+                            ProtocolResponseMessage.of(xid, zxid, responses.next()),
+                            events);
                 }
                 break;
             }
@@ -439,8 +453,6 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
                 break;
             }
         }
-        
-        events().handleCacheEvent(events.build());
     }
 
     protected E add(ZNodePath path, long stamp, ImmutableSet.Builder<NodeWatchEvent> events) {
@@ -463,15 +475,22 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
     }
 
     protected E remove(ZNodePath path, long stamp, ImmutableSet.Builder<NodeWatchEvent> events) {
-        E node = trie.get(path);
+        return remove(trie.get(path), stamp, events);
+    }
+
+    protected E remove(E node, long stamp, ImmutableSet.Builder<NodeWatchEvent> events) {
         if ((node != null) && (node.stamp() < stamp)) {
             if (node.remove()) {
-                events.add(NodeWatchEvent.nodeDeleted(node.path()));
-                events.add(NodeWatchEvent.nodeChildrenChanged((node.parent().get().path())));
-                return node;
+                return removed(node, events);
             }
         }
         return null;
+    }
+
+    protected E removed(E node, ImmutableSet.Builder<NodeWatchEvent> events) {
+        events.add(NodeWatchEvent.nodeDeleted(node.path()));
+        events.add(NodeWatchEvent.nodeChildrenChanged((node.parent().get().path())));
+        return node;
     }
 
     protected E update(ZNodePath path, long stamp, ImmutableSet.Builder<NodeWatchEvent> events, Record...records) {

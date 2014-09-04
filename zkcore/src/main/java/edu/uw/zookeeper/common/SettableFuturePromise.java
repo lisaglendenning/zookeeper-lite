@@ -3,7 +3,7 @@ package edu.uw.zookeeper.common;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
-public class SettableFuturePromise<V> extends ForwardingListenableFuture<V> implements Promise<V> {
+public final class SettableFuturePromise<V> extends ForwardingListenableFuture<V> implements Promise<V> {
 
     public static <V> SettableFuturePromise<V> create() {
         return wrap(SettableFuture.<V>create());
@@ -13,9 +13,9 @@ public class SettableFuturePromise<V> extends ForwardingListenableFuture<V> impl
         return new SettableFuturePromise<V>(delegate);
     }
     
-    protected final SettableFuture<V> delegate;
+    private final SettableFuture<V> delegate;
     
-    protected SettableFuturePromise(SettableFuture<V> delegate) {
+    private SettableFuturePromise(SettableFuture<V> delegate) {
         this.delegate = delegate;
     }
     
@@ -27,6 +27,11 @@ public class SettableFuturePromise<V> extends ForwardingListenableFuture<V> impl
     @Override
     public boolean setException(Throwable throwable) {
         return delegate().setException(throwable);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringListenableFuture.toString(delegate);
     }
 
     @Override

@@ -5,7 +5,6 @@ import java.util.concurrent.ExecutionException;
 
 import org.apache.zookeeper.KeeperException;
 
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
@@ -14,6 +13,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.ChainedFutures;
+import edu.uw.zookeeper.common.ChainedFutures.ChainedProcessor;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.net.Connection;
@@ -25,7 +25,7 @@ import edu.uw.zookeeper.protocol.Message;
 /**
  * Assumes that the server response is a single packet.
  */
-public class FourLetterCommand extends ForwardingListenableFuture<String> implements Function<List<ListenableFuture<?>>,Optional<? extends ListenableFuture<?>>>, Connection.Listener<Message.ServerAnonymous>, Runnable {
+public class FourLetterCommand extends ForwardingListenableFuture<String> implements ChainedProcessor<ListenableFuture<?>>, Connection.Listener<Message.ServerAnonymous>, Runnable {
 
     public static ListenableFuture<String> call(
             FourLetterWord word,
@@ -67,7 +67,7 @@ public class FourLetterCommand extends ForwardingListenableFuture<String> implem
     
     @Override
     public Optional<? extends ListenableFuture<?>> apply(
-            List<ListenableFuture<?>> input) {
+            List<ListenableFuture<?>> input) throws Exception {
         if (input.isEmpty()) {
             return Optional.of(connection);
         }
@@ -76,8 +76,6 @@ public class FourLetterCommand extends ForwardingListenableFuture<String> implem
             Connection<? super Message.ClientAnonymous,? extends Message.ServerAnonymous,?> connection;
             try {
                 connection = this.connection.get();
-            } catch (InterruptedException e) {
-                throw new AssertionError(e);
             } catch (ExecutionException e) {
                 cancel(false);
                 return Optional.absent();
@@ -89,8 +87,6 @@ public class FourLetterCommand extends ForwardingListenableFuture<String> implem
         } else {
             try {
                 last.get();
-            } catch (InterruptedException e) {
-                throw new AssertionError(e);
             } catch (ExecutionException e) {
                 cancel(false);
                 return Optional.absent();
