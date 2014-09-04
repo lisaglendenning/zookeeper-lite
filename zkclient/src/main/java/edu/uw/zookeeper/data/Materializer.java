@@ -170,6 +170,11 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, O extend
         return operator(Operations.Requests.sync().setPath(path));
     }
     
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).addValue(((Class<?>) schema().get().root().get().getDeclaration()).getSimpleName()).toString();
+    }
+    
     protected <T extends Operations.Builder<? extends Records.Request>> Operator<T> operator(T builder) {
         return new Operator<T>(builder);
     }

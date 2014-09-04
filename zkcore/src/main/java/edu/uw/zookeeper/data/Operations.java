@@ -14,6 +14,7 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 
 import com.google.common.base.Functions;
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -61,6 +62,11 @@ public abstract class Operations {
         protected Builder<T> setOpCode(OpCode opcode) {
             this.opcode = opcode;
             return this;
+        }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).toString();
         }
     }
 
