@@ -3,13 +3,15 @@ package edu.uw.zookeeper.server;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterators;
@@ -21,13 +23,15 @@ import edu.uw.zookeeper.protocol.FourLetterWord;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.FourLetterWords;
 import edu.uw.zookeeper.protocol.FourLetterWords.Mntr.MntrServerState;
+import edu.uw.zookeeper.protocol.FourLetterWords.Wchs;
 
 /**
  * TODO
  */
 public abstract class FourLetterCommands {
 
-    public static Processor<FourLetterRequest, FourLetterResponse> getInstance(FourLetterWord word) {
+    @SuppressWarnings("unchecked")
+    public static Processor<FourLetterRequest, FourLetterResponse> create(FourLetterWord word, Object...args) throws InstantiationException, IllegalAccessException, InvocationTargetException {
         Class<? extends Processor<FourLetterRequest, FourLetterResponse>> type = Types.TYPES.get(word);
         if (type == null) {
             throw new UnsupportedOperationException(String.valueOf(word));
@@ -35,11 +39,18 @@ public abstract class FourLetterCommands {
         if (type.isEnum()) {
             return Iterators.getOnlyElement(Iterators.forArray(type.getEnumConstants()));
         } else {
-            try {
-                return type.newInstance();
-            } catch (Exception e) {
-                throw Throwables.propagate(e);
+            Constructor<?>[] ctors = type.getConstructors();
+            for (Constructor<?> ctor: ctors) {
+                if (ctor.getParameterTypes().length == args.length) {
+                    return (Processor<FourLetterRequest, FourLetterResponse>) ctor.newInstance(args);
+                }
             }
+            for (Constructor<?> ctor: ctors) {
+                if (ctor.getParameterTypes().length == 0) {
+                    return (Processor<FourLetterRequest, FourLetterResponse>) ctor.newInstance();
+                }
+            }
+            throw new IllegalArgumentException();
         }
     }
     
@@ -306,24 +317,98 @@ public abstract class FourLetterCommands {
         }
     }
     
-    public static class WatchCommand implements Processor<FourLetterRequest, FourLetterResponse> {
+    public static abstract class WatchCommand implements Processor<FourLetterRequest, FourLetterResponse> {
 
+        protected final ReentrantReadWriteLock lock;
+        protected final Watches dataWatches;
+        protected final Watches childWatches;
+        
+        protected WatchCommand(
+                ReentrantReadWriteLock lock,
+                Watches dataWatches,
+                Watches childWatches) {
+            this.lock = lock;
+            this.dataWatches = dataWatches;
+            this.childWatches = childWatches;
+        }
+        
         @Override
         public FourLetterResponse apply(FourLetterRequest input) {
-            return FourLetterResponse.fromString("\n");
+            lock.readLock().lock();
+            try {
+                return FourLetterResponse.fromString(apply());
+            } finally {
+                lock.readLock().unlock();
+            }
         }
+        
+        protected abstract String apply();
     }
     
     @FourLetterCommand(FourLetterWord.WCHC)
     public static class WchcCommand extends WatchCommand {
+
+        public WchcCommand(
+                SimpleServer.Builder<?> server) {
+            this(server.getLock(), server.getDataWatches(), server.getChildWatches());
+        }
+        
+        public WchcCommand(
+                ReentrantReadWriteLock lock,
+                Watches dataWatches,
+                Watches childWatches) {
+            super(lock, dataWatches, childWatches);
+        }
+        
+        @Override
+        protected String apply() {
+            return FourLetterWords.Wchc.toString(dataWatches.bySession());
+        }
     }
 
     @FourLetterCommand(FourLetterWord.WCHP)
     public static class WchpCommand extends WatchCommand {
+
+        public WchpCommand(
+                SimpleServer.Builder<?> server) {
+            this(server.getLock(), server.getDataWatches(), server.getChildWatches());
+        }
+        
+        public WchpCommand(
+                ReentrantReadWriteLock lock,
+                Watches dataWatches,
+                Watches childWatches) {
+            super(lock, dataWatches, childWatches);
+        }
+        
+        @Override
+        protected String apply() {
+            return FourLetterWords.Wchp.toString(dataWatches.byPath());
+        }
     }
 
     @FourLetterCommand(FourLetterWord.WCHS)
     public static class WchsCommand extends WatchCommand {
+
+        public WchsCommand(
+                SimpleServer.Builder<?> server) {
+            this(server.getLock(), server.getDataWatches(), server.getChildWatches());
+        }
+        
+        public WchsCommand(
+                ReentrantReadWriteLock lock,
+                Watches dataWatches,
+                Watches childWatches) {
+            super(lock, dataWatches, childWatches);
+        }
+        
+        @Override
+        protected String apply() {
+            return FourLetterWords.Wchs.toString(
+                    new Wchs(dataWatches.bySession().keySet().size(), 
+                            dataWatches.byPath().keySet().size(), 
+                            dataWatches.bySession().size()));
+        }
     }
 
     @FourLetterCommand(FourLetterWord.MNTR)

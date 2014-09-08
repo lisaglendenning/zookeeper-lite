@@ -1,38 +1,27 @@
 package edu.uw.zookeeper.server;
 
 import java.util.Iterator;
-import java.util.Set;
 
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
-
-import com.google.common.base.Function;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimaps;
-import com.google.common.collect.SetMultimap;
 
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Processors.ForwardingProcessor;
 import edu.uw.zookeeper.data.ZNodeLabelVector;
 import edu.uw.zookeeper.data.TxnOperation;
-import edu.uw.zookeeper.data.WatchEvent;
-import edu.uw.zookeeper.protocol.NotificationListener;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.ProtocolResponseMessage;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiResponse;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
-import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.protocol.proto.Records;
 
 public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Request<?>, Records.Response> implements Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> {
 
     public static WatcherEventProcessor create(
             Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate,
-            Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners) {
-        return new WatcherEventProcessor(delegate, new Watches(listeners), new Watches(listeners));
+            Watches dataWatches,
+            Watches childWatches) {
+        return new WatcherEventProcessor(delegate, dataWatches, childWatches);
     }
 
     public static IWatcherEvent created(String path) {
@@ -145,52 +134,5 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
     @Override
     protected Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate() {
         return delegate;
-    }
-    
-    public static class Watches {
-
-        protected final SetMultimap<String, Long> byPath;
-        protected final SetMultimap<Long, String> bySession;
-        protected final Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners;
-        protected final Logger logger;
-        
-        public Watches(
-                Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners) {
-            this.logger = LogManager.getLogger(getClass());
-            this.byPath = Multimaps.synchronizedSetMultimap(HashMultimap.<String, Long>create());
-            this.bySession = Multimaps.synchronizedSetMultimap(HashMultimap.<Long, String>create());
-            this.listeners = listeners;
-        }
-        
-        public void post(IWatcherEvent event) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("{}", WatchEvent.fromRecord(event));
-            }
-            ProtocolResponseMessage<IWatcherEvent> message = ProtocolResponseMessage.of(
-                    OpCodeXid.NOTIFICATION.xid(), 
-                    OpCodeXid.NOTIFICATION_ZXID,
-                    event);
-            String path = event.getPath();
-            for (Long session: byPath.removeAll(path)) {
-                bySession.remove(session, path);
-                NotificationListener<Operation.ProtocolResponse<IWatcherEvent>> listener = listeners.apply(session);
-                if (listener != null) {
-                    listener.handleNotification(message);
-                }
-            }
-        }
-        
-        public void put(Long session, String path) {
-            byPath.put(path, session);
-            bySession.put(session, path);
-        }
-        
-        public Set<String> remove(Long session) {
-            Set<String> paths = bySession.removeAll(session);
-            for (String path: paths) {
-                byPath.remove(path, session);
-            }
-            return paths;
-        }
     }
 }

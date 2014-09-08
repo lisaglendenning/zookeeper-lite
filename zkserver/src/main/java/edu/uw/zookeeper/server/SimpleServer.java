@@ -7,6 +7,7 @@ import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -50,19 +51,28 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
         protected final ZxidGenerator zxids;
         protected final NameTrie<ZNodeNode> data;
         protected final SessionManager sessions;
+        protected final ReentrantReadWriteLock lock;
+        protected final Watches dataWatches;
+        protected final Watches childWatches;
         protected final Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners;
         
         protected Builder(
                 ZxidGenerator zxids,
                 NameTrie<ZNodeNode> data,
                 SessionManager sessions,
+                ReentrantReadWriteLock lock,
+                Watches dataWatches,
+                Watches childWatches,
                 Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime) {
             this.zxids = zxids;
             this.data = data;
             this.sessions = sessions;
+            this.dataWatches = dataWatches;
+            this.childWatches = childWatches;
             this.runtime = runtime;
             this.listeners = listeners;
+            this.lock = lock;
         }
         
         @Override
@@ -72,7 +82,31 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
 
         @Override
         public C setRuntimeModule(RuntimeModule runtime) {
-            return newInstance(zxids, data, sessions, listeners, runtime);
+            return newInstance(zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
+        }
+        
+        public ReentrantReadWriteLock getLock() {
+            return lock;
+        }
+        
+        public C setLock(ReentrantReadWriteLock lock) {
+            return newInstance(zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
+        }
+        
+        public Watches getDataWatches() {
+            return dataWatches;
+        }
+        
+        public C setDataWatches(Watches dataWatches) {
+            return newInstance(zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
+        }
+        
+        public Watches getChildWatches() {
+            return dataWatches;
+        }
+        
+        public C setChildWatches(Watches childWatches) {
+            return newInstance(zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
         }
         
         public ZxidGenerator getZxids() {
@@ -80,7 +114,7 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
         }
         
         public C setZxids(ZxidGenerator zxids) {
-            return newInstance(zxids, data, sessions, listeners, runtime);
+            return newInstance(zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
         }
         
         public ZxidGenerator getDefaultZxids() {
@@ -92,7 +126,7 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
         }
 
         public C setData(NameTrie<ZNodeNode> data) {
-            return newInstance(zxids, data, sessions, listeners, runtime);
+            return newInstance(zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
         }
         
         public NameTrie<ZNodeNode> getDefaultData() {
@@ -104,7 +138,7 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
         }
 
         public C setSessions(SessionManager sessions) {
-            return newInstance(zxids, data, sessions, listeners, runtime);
+            return newInstance(zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
         }
 
         public Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> getListeners() {
@@ -112,13 +146,16 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
         }
 
         public C setListeners(Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners) {
-            return newInstance(zxids, data, sessions, listeners, runtime);
+            return newInstance(zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
         }
         
         @SuppressWarnings("unchecked")
         @Override
         public C setDefaults() {
             checkState(getRuntimeModule() != null);
+            if (getLock() == null) {
+                return setLock(getDefaultLock()).setDefaults();
+            }
             if (getZxids() == null) {
                 return setZxids(getDefaultZxids()).setDefaults();
             }
@@ -130,6 +167,12 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
             }
             if (getListeners() == null) {
                 return setListeners(getDefaultListeners()).setDefaults();
+            }
+            if (getDataWatches() == null) {
+                return setDataWatches(getDefaultWatches()).setDefaults();
+            }
+            if (getChildWatches() == null) {
+                return setChildWatches(getDefaultWatches()).setDefaults();
             }
             return (C) this;
         }
@@ -143,11 +186,15 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
                 ZxidGenerator zxids,
                 NameTrie<ZNodeNode> data,
                 SessionManager sessions,
+                ReentrantReadWriteLock lock,
+                Watches dataWatches,
+                Watches childWatches,
                 Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime);
 
         protected SimpleServer doBuild() {
             return SimpleServer.newInstance(
+                    getLock(),
                     getDefaultProcessor(), 
                     getRuntimeModule().getExecutors().get(ExecutorService.class));
         }
@@ -155,6 +202,14 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
         protected abstract Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> getDefaultListeners();
 
         protected abstract SessionManager getDefaultSessions();
+        
+        protected ReentrantReadWriteLock getDefaultLock() {
+            return new ReentrantReadWriteLock();
+        }
+        
+        protected Watches getDefaultWatches() {
+            return Watches.create(getListeners());
+        }
 
         protected Processor<SessionOperation.Request<?>, Message.ServerResponse<?>> getDefaultProcessor() {
             Processor<SessionOperation.Request<?>, Message.ServerResponse<?>> processor = 
@@ -198,29 +253,34 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
                     WatcherEventProcessor.create(
                             RequestErrorProcessor.<TxnOperation.Request<?>>create(
                                     ByOpcodeTxnRequestProcessor.create(
-                                            ImmutableMap.copyOf(processors))), 
-                            getListeners()));
+                                            ImmutableMap.copyOf(processors))),
+                            getDataWatches(), getChildWatches()));
         }
     }
     
     public static SimpleServer newInstance(
+            ReentrantReadWriteLock lock,
             Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor,
             Executor executor) {
         return new SimpleServer(
+                lock,
                 processor,
                 executor,
                 Queues.<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>>newConcurrentLinkedQueue(),
                 LogManager.getLogger(SimpleServer.class));
     }
 
+    protected final ReentrantReadWriteLock lock;
     protected final Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor;
     
     protected SimpleServer(
+            ReentrantReadWriteLock lock,
             Processor<? super SessionOperation.Request<?>, ? extends Message.ServerResponse<?>> processor,
             Executor executor,
             Queue<PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>>> mailbox,
             Logger logger) {
         super(executor, mailbox, logger);
+        this.lock = lock;
         this.processor = processor;
     }
     
@@ -235,13 +295,18 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
 
     @Override
     protected boolean apply(PromiseTask<SessionOperation.Request<?>, Message.ServerResponse<?>> input) {
-        if (! input.isDone()) {
-            try {
-                Message.ServerResponse<?> response = processor.apply(input.task());
-                input.set(response);
-            } catch (Exception e) {
-                input.setException(e);
+        lock.writeLock().lock();
+        try {
+            if (! input.isDone()) {
+                try {
+                    Message.ServerResponse<?> response = processor.apply(input.task());
+                    input.set(response);
+                } catch (Exception e) {
+                    input.setException(e);
+                }
             }
+        } finally {
+            lock.writeLock().unlock();
         }
         return true;
     }

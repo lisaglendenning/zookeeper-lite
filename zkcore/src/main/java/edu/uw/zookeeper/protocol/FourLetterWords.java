@@ -14,12 +14,13 @@ import java.util.regex.Pattern;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-
+import com.google.common.collect.Multimap;
 import edu.uw.zookeeper.common.AbstractPair;
 import edu.uw.zookeeper.data.ZNodePath;
 
@@ -163,23 +164,88 @@ public abstract class FourLetterWords {
             return delegate.entrySet().iterator();
         }
     }
+
+    public static abstract class Watches {
+        protected static final char ENDLINE = '\n';
+    }
     
-    public static abstract class DetailedWatches<K,V> implements Iterable<Map.Entry<K,Collection<V>>> {
-        protected static Splitter LINE_SPLITTER = 
+    public static final class Wchs extends Watches {
+        
+        public static Wchs fromString(CharSequence str) {
+            Matcher matcher = PATTERN.matcher(str);
+            return new Wchs(Integer.valueOf(matcher.group(1)).intValue(), Integer.valueOf(matcher.group(2)).intValue(), Integer.valueOf(matcher.group(3)).intValue());
+        }
+        
+        public static String toString(Wchs wchs) {
+            return new StringBuilder()
+                .append(wchs.getConnectionCount())
+                .append(CONNECTIONS)
+                .append(wchs.getPathCount())
+                .append(PATHS)
+                .append(ENDLINE)
+                .append(WATCHES)
+                .append(wchs.getWatchCount())
+                .append(ENDLINE).toString();
+        }
+        
+        protected static final String COUNT_PATTERN = "(%d+)";
+        protected static final String CONNECTIONS = " connections watching ";
+        protected static final String PATHS = " paths";
+        protected static final String WATCHES = "Total watches:";
+        protected static final Pattern PATTERN = Pattern.compile("^" + COUNT_PATTERN + CONNECTIONS + COUNT_PATTERN + PATHS + ENDLINE + WATCHES + COUNT_PATTERN + ENDLINE + "$");
+        
+        private final int connectionCount;
+        private final int pathCount;
+        private final int watchCount;
+        
+        public Wchs(int connectionCount, int pathCount, int watchCount) {
+            super();
+            this.connectionCount = connectionCount;
+            this.pathCount = pathCount;
+            this.watchCount = watchCount;
+        }
+        
+        public int getConnectionCount() {
+            return connectionCount;
+        }
+        
+        public int getPathCount() {
+            return pathCount;
+        }
+        
+        public int getWatchCount() {
+            return watchCount;
+        }
+        
+        public String toString() {
+            return Objects.toStringHelper(this).add("connections", connectionCount).add("paths", pathCount).add("watches", watchCount).toString();
+        }
+    }
+    
+    public static abstract class DetailedWatches<K,V> extends Watches implements Iterable<Map.Entry<K,Collection<V>>> {
+        
+        protected static final char VALUE_PREFIX = '\t';
+        protected static final String SESSION_PREFIX = "0x";
+        protected static final Pattern VALUE_PATTERN = Pattern.compile("^" + VALUE_PREFIX + "(.+)$");
+        protected static final Pattern SESSION_PATTERN = Pattern.compile("^" + SESSION_PREFIX + "(.+)$");
+        protected static final Splitter LINE_SPLITTER = 
                 Splitter.on(CharMatcher.anyOf("\r\n"))
                 .omitEmptyStrings();
         
-        protected static Pattern VALUE_LINE_PATTERN = Pattern.compile("^\t(.+)$");
-        protected static Pattern SESSION_LINE_PATTERN = Pattern.compile("^0x(.+)$");
-        
-        protected static Function<String,Long> STRING_TO_SESSION = new Function<String,Long>() {
+        protected static final Function<String,Long> STRING_TO_SESSION = new Function<String,Long>() {
             @Override
             public Long apply(String input) {
-                return Long.valueOf(SESSION_LINE_PATTERN.matcher(input).group(1), 16);
+                return Long.valueOf(SESSION_PATTERN.matcher(input).group(1), 16);
+            }
+        };
+        protected static final Function<Long,String> SESSION_TO_STRING = new Function<Long,String>() {
+            @Override
+            public String apply(Long input) {
+                return new StringBuilder().append(SESSION_PREFIX).append(Long.toHexString(input.longValue())).toString();
             }
         };
         
-        protected static Function<String,ZNodePath> STRING_TO_PATH = new Function<String,ZNodePath>() {
+        protected static final Function<String,ZNodePath> STRING_TO_PATH = new Function<String,ZNodePath>() {
             @Override
             public ZNodePath apply(String input) {
                 return ZNodePath.fromString(input);
@@ -188,14 +254,14 @@ public abstract class FourLetterWords {
         
         protected static <K,V> ImmutableSetMultimap<K,V> fromLines(
                 Iterator<String> lines, 
-                Function<String,K> toKey,
-                Function<String,V> toValue) {
+                Function<String,? extends K> toKey,
+                Function<String,? extends V> toValue) {
             ImmutableSetMultimap.Builder<K, V> values = ImmutableSetMultimap.builder();
             K key = null;
             while (lines.hasNext()) {
                 String line = lines.next();
                 Matcher valueMatcher;
-                if ((key != null) && (valueMatcher = VALUE_LINE_PATTERN.matcher(line)).matches()) {
+                if ((key != null) && (valueMatcher = VALUE_PATTERN.matcher(line)).matches()) {
                     V value = toValue.apply(valueMatcher.group(1));
                     values.put(key, value);
                 } else {
@@ -203,6 +269,21 @@ public abstract class FourLetterWords {
                 }
             }
             return values.build();
+        }
+        
+        protected static <K,V> String toString(
+                Multimap<K,V> values,
+                Function<? super K, String> fromKey,
+                Function<? super V,String> fromValue) {
+            StringBuilder toString = new StringBuilder();
+            for (Map.Entry<K, Collection<V>> entry: values.asMap().entrySet()) {
+                toString.append(fromKey.apply(entry.getKey())).append(ENDLINE);
+                for (V value: entry.getValue()) {
+                    toString.append(VALUE_PREFIX).append(fromValue.apply(value)).append(ENDLINE);
+                }
+            }
+            toString.append(ENDLINE);
+            return toString.toString();
         }
         
         protected final ImmutableSetMultimap<K,V> delegate;
@@ -264,6 +345,11 @@ public abstract class FourLetterWords {
             return new Wchc(watches);
         }
 
+        public static String toString(
+                Multimap<Long,?> values) {
+            return toString(values, SESSION_TO_STRING, Functions.toStringFunction());
+        }
+        
         private Wchc(ImmutableSetMultimap<Long,ZNodePath> delegate) {
             super(delegate);
         }
@@ -283,6 +369,11 @@ public abstract class FourLetterWords {
         
         public static Wchp fromMultimap(ImmutableSetMultimap<ZNodePath, Long> watches) {
             return new Wchp(watches);
+        }
+
+        public static String toString(
+                Multimap<?,Long> values) {
+            return toString(values, Functions.toStringFunction(), SESSION_TO_STRING);
         }
 
         private Wchp(ImmutableSetMultimap<ZNodePath, Long> delegate) {

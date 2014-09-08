@@ -12,10 +12,14 @@ import edu.uw.zookeeper.protocol.FourLetterResponse;
 
 public class FourLetterRequestProcessor implements Processor<FourLetterRequest, FourLetterResponse> {
 
-    public static FourLetterRequestProcessor newInstance() {
+    public static FourLetterRequestProcessor create(Object...args) {
         ImmutableMap.Builder<FourLetterWord, Processor<FourLetterRequest, FourLetterResponse>> builder = ImmutableMap.builder();
-        for (FourLetterWord e: FourLetterWord.values()) {
-            builder.put(e, FourLetterCommands.getInstance(e));
+        for (FourLetterWord word: FourLetterWord.values()) {
+            try {
+                builder.put(word, FourLetterCommands.create(word, args));
+            } catch (Exception e) {
+                throw new AssertionError(e);
+            }
         }
         return new FourLetterRequestProcessor(builder.build()); 
     }

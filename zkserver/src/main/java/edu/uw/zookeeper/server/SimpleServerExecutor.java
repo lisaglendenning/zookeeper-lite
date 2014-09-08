@@ -5,6 +5,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -97,14 +98,14 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
         }
         
         protected TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> getDefaultAnonymousExecutor() {
-            return ProcessorTaskExecutor.of(FourLetterRequestProcessor.newInstance());
+            return ProcessorTaskExecutor.of(FourLetterRequestProcessor.create(getServer()));
         }
     }
     
     public static class ServerBuilder extends SimpleServer.Builder<ServerBuilder> {
 
         public static ServerBuilder defaults(ServerConnectionFactoryBuilder connections) {
-            return new ServerBuilder(connections, new SimpleServerSupplier(null), null, null, null, null, null, null);
+            return new ServerBuilder(connections, new SimpleServerSupplier(null), null, null, null, null, null, null, null, null, null);
         }
         
         protected static class SimpleServerSupplier implements Supplier<SimpleServer> {
@@ -137,9 +138,12 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
                 ZxidGenerator zxids,
                 NameTrie<ZNodeNode> data,
                 SessionManager sessions,
+                ReentrantReadWriteLock lock,
+                Watches dataWatches,
+                Watches childWatches,
                 Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime) {
-            super(zxids, data, sessions, listeners, runtime);
+            super(zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
             this.connections = checkNotNull(connections);
             this.server = checkNotNull(server);
             this.sessionExecutors = sessionExecutors;
@@ -150,7 +154,7 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
         }
 
         public ServerBuilder setSessionExecutors(ConcurrentMap<Long, SimpleSessionExecutor> sessionExecutors) {
-            return newInstance(connections, server, sessionExecutors, zxids, data, sessions, listeners, runtime);
+            return newInstance(connections, server, sessionExecutors, zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
         }
 
         @Override
@@ -166,9 +170,12 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
                 ZxidGenerator zxids,
                 NameTrie<ZNodeNode> data,
                 SessionManager sessions,
+                ReentrantReadWriteLock lock,
+                Watches dataWatches,
+                Watches childWatches,
                 Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime) {
-            return newInstance(connections, server, sessionExecutors, zxids, data, sessions, listeners, runtime);
+            return newInstance(connections, server, sessionExecutors, zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
         }
 
         protected ServerBuilder newInstance(
@@ -178,9 +185,12 @@ public class SimpleServerExecutor<T extends SessionExecutor> implements ServerEx
                 ZxidGenerator zxids,
                 NameTrie<ZNodeNode> data,
                 SessionManager sessions,
+                ReentrantReadWriteLock lock,
+                Watches dataWatches,
+                Watches childWatches,
                 Function<Long, ? extends NotificationListener<Operation.ProtocolResponse<IWatcherEvent>>> listeners,
                 RuntimeModule runtime) {
-            return new ServerBuilder(connections, server, sessionExecutors, zxids, data, sessions, listeners, runtime);
+            return new ServerBuilder(connections, server, sessionExecutors, zxids, data, sessions, lock, dataWatches, childWatches, listeners, runtime);
         }
 
         @Override
