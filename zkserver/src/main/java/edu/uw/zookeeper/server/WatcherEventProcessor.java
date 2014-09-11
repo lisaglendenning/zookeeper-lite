@@ -1,24 +1,32 @@
 package edu.uw.zookeeper.server;
 
 import java.util.Iterator;
+import java.util.List;
 
+import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
 
+import com.google.common.collect.ImmutableList;
+
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Processors.ForwardingProcessor;
+import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.ZNodeLabelVector;
 import edu.uw.zookeeper.data.TxnOperation;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
 import edu.uw.zookeeper.protocol.proto.IMultiResponse;
+import edu.uw.zookeeper.protocol.proto.IRemoveWatchesRequest;
 import edu.uw.zookeeper.protocol.proto.IWatcherEvent;
+import edu.uw.zookeeper.protocol.proto.OpCode;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Request<?>, Records.Response> implements Processors.UncheckedProcessor<TxnOperation.Request<?>, Records.Response> {
+public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Request<?>, Records.Response> implements Processors.CheckedProcessor<TxnOperation.Request<?>, Records.Response, KeeperException> {
 
     public static WatcherEventProcessor create(
-            Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate,
+            Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate,
             Watches dataWatches,
             Watches childWatches) {
         return new WatcherEventProcessor(delegate, dataWatches, childWatches);
@@ -44,12 +52,12 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         return new IWatcherEvent(type, state, path);
     }
     
-    protected final Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate;
+    protected final Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate;
     protected final Watches dataWatches;
     protected final Watches childWatches;
 
     public WatcherEventProcessor(
-            Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate,
+            Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate,
             Watches dataWatches,
             Watches childWatches) {
         this.delegate = delegate;
@@ -58,11 +66,23 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
     }
     
     @Override
-    public Records.Response apply(TxnOperation.Request<?> input) {
-        return apply(input.getSessionId(), input.record(), delegate().apply(input));
+    public Records.Response apply(TxnOperation.Request<?> input) throws KeeperException {
+        KeeperException exception = null;
+        Records.Response response = null;
+        if (input.record().opcode() == OpCode.REMOVE_WATCHES) {
+            response = Operations.Responses.removeWatches().build();
+        } else {
+            try {
+                response = delegate().apply(input);
+            } catch (KeeperException e) {
+                exception = e;
+                response = null;
+            }
+        }
+        return apply(input.getSessionId(), input.record(), response, exception);
     }
     
-    protected Records.Response apply(Long session, Records.Request request, Records.Response response) {
+    protected Records.Response apply(Long session, Records.Request request, Records.Response response, KeeperException exception) throws KeeperException {
         switch (request.opcode()) {
         case GET_DATA:
         case EXISTS:
@@ -114,7 +134,39 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
             Iterator<Records.MultiOpRequest> requests = ((IMultiRequest) request).iterator();
             Iterator<Records.MultiOpResponse> responses = ((IMultiResponse) response).iterator();
             while (requests.hasNext()) {
-                apply(session, requests.next(), responses.next());
+                apply(session, requests.next(), responses.next(), exception);
+            }
+            break;
+        }
+        case REMOVE_WATCHES:
+        {
+            String path = ((IRemoveWatchesRequest) request).getPath();
+            List<Watches> types;
+            switch (Watcher.WatcherType.fromInt(((IRemoveWatchesRequest) request).getType())) {
+            case Any:
+                types = ImmutableList.of(dataWatches, childWatches);
+                break;
+            case Children:
+                types = ImmutableList.of(childWatches);
+                break;
+            case Data:
+                types = ImmutableList.of(dataWatches);
+                break;
+            default:
+                throw new AssertionError();
+            }
+            boolean removed = false;
+            for (Watches watches: types) {
+                if (watches.byPath().remove(path, session)) {
+                    if (!removed) {
+                        removed = true;
+                    }
+                }
+            }
+            if (!removed) {
+                if (exception == null) {
+                    exception = new KeeperException.NoWatcherException();
+                }
             }
             break;
         }
@@ -127,12 +179,16 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         default:
             break;
         }
-        
-        return response;
+
+        if (exception != null) {
+            throw exception;
+        } else {
+            return response;
+        }
     }
 
     @Override
-    protected Processors.UncheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response> delegate() {
+    protected Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate() {
         return delegate;
     }
 }

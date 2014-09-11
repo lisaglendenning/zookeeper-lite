@@ -24,6 +24,14 @@ public final class NodeWatchEvent extends WatchEvent {
     public static NodeWatchEvent nodeChildrenChanged(ZNodePath path) {
         return of(path, EventType.NodeChildrenChanged);
     }
+
+    public static NodeWatchEvent dataWatchRemoved(ZNodePath path) {
+        return of(path, EventType.DataWatchRemoved);
+    }
+
+    public static NodeWatchEvent childWatchRemoved(ZNodePath path) {
+        return of(path, EventType.ChildWatchRemoved);
+    }
     
     public static NodeWatchEvent of(ZNodePath path, EventType eventType) {
         return new NodeWatchEvent(path, eventType);

@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
 import org.apache.zookeeper.data.ACL;
@@ -202,7 +203,7 @@ public abstract class Operations {
             }
 
             public Check(ZNodePath path, int version) {
-                super(OpCode.DELETE, path, version);
+                super(OpCode.CHECK, path, version);
             }
 
             @Override
@@ -556,6 +557,43 @@ public abstract class Operations {
             }
         }
 
+        public static class RemoveWatches extends AbstractPath<IRemoveWatchesRequest, RemoveWatches> {
+
+            public static RemoveWatches fromRecord(IRemoveWatchesRequest request) {
+                ZNodePath path = (ZNodePath) ZNodeLabelVector.fromString(request.getPath());
+                Watcher.WatcherType type = Watcher.WatcherType.fromInt(request.getType());
+                return new RemoveWatches(path, type);
+            }
+            
+            protected Watcher.WatcherType type;
+            
+            public RemoveWatches() {
+                super(OpCode.REMOVE_WATCHES);
+                this.type = Watcher.WatcherType.Any;
+            }
+
+            public RemoveWatches(ZNodePath path, Watcher.WatcherType type) {
+                super(OpCode.REMOVE_WATCHES, path);
+                this.type = type;
+            }
+            
+            public Watcher.WatcherType getType() {
+                return type;
+            }
+            
+            public RemoveWatches setType(Watcher.WatcherType type) {
+                this.type = type;
+                return this;
+            }
+            
+            @Override
+            public IRemoveWatchesRequest build() {
+                IRemoveWatchesRequest record = new IRemoveWatchesRequest(
+                        getPath().toString(), getType().getIntValue());
+                return record;
+            }
+        }
+
         public static class SetAcl extends AbstractVersion<ISetACLRequest, SetAcl> {
 
             public static SetAcl fromRecord(ISetACLRequest request) {
@@ -835,6 +873,10 @@ public abstract class Operations {
         
         public static Ping ping() {
             return Ping.getInstance();
+        }
+        
+        public static RemoveWatches removeWatches() {
+            return new RemoveWatches();
         }
 
         public static SetAcl setAcl() {
@@ -1335,6 +1377,28 @@ public abstract class Operations {
                         getPath().toString());
             }
         }
+
+        public static enum RemoveWatches implements Builder<IRemoveWatchesResponse> {
+            REMOVE_WATCHES;
+            
+            public static RemoveWatches getInstance() {
+                return REMOVE_WATCHES;
+            }
+            
+            public static RemoveWatches fromRecord(IRemoveWatchesResponse request) {
+                return getInstance();
+            }
+
+            @Override
+            public OpCode getOpCode() {
+                return OpCode.REMOVE_WATCHES;
+            }
+
+            @Override
+            public IRemoveWatchesResponse build() {
+                return Records.getShared(IRemoveWatchesResponse.class);
+            }
+        }
     
         public static class SetAcl extends AbstractStat<ISetACLResponse, SetAcl> {
 
@@ -1533,6 +1597,10 @@ public abstract class Operations {
 
         public static Notification notification() {
             return new Notification();
+        }
+        
+        public static RemoveWatches removeWatches() {
+            return RemoveWatches.getInstance();
         }
         
         public static SetAcl setAcl() {

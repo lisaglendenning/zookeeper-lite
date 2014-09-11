@@ -250,11 +250,11 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
                 }
             });
             return EphemeralProcessor.create(
-                    WatcherEventProcessor.create(
-                            RequestErrorProcessor.<TxnOperation.Request<?>>create(
-                                    ByOpcodeTxnRequestProcessor.create(
-                                            ImmutableMap.copyOf(processors))),
-                            getDataWatches(), getChildWatches()));
+                    RequestErrorProcessor.<TxnOperation.Request<?>>create(
+                            WatcherEventProcessor.create(
+                                            ByOpcodeTxnRequestProcessor.create(
+                                                    ImmutableMap.copyOf(processors)),
+                                            getDataWatches(), getChildWatches())));
         }
     }
     

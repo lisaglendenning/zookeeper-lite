@@ -7,6 +7,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import org.apache.zookeeper.Watcher;
+
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -90,7 +92,12 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         
         @CommandDescriptor(arguments = {
                 @ArgumentDescriptor(token = TokenType.PATH) })
-        SYNC;
+        SYNC,
+        
+        @CommandDescriptor(names={ "rmwatch" }, arguments = {
+                @ArgumentDescriptor(token = TokenType.PATH),
+                @ArgumentDescriptor(name = "type", token = TokenType.ENUM, type = Watcher.WatcherType.class, value = "Any") })
+        REMOVE_WATCHES;
     };
     
     public static Environment.Key<ConnectionClientExecutorService.Builder> CLIENT_KEY = Environment.Key.create("CLIENT", ConnectionClientExecutorService.Builder.class);
@@ -362,6 +369,11 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
             case SYNC:
                 return Operations.Requests.sync()
                         .setPath((ZNodePath) input.getArguments()[1])
+                        .build();
+            case REMOVE_WATCHES:
+                return Operations.Requests.removeWatches()
+                        .setPath((ZNodePath) input.getArguments()[1])
+                        .setType((Watcher.WatcherType) input.getArguments()[2])
                         .build();
             default:
                 throw new IllegalArgumentException(String.valueOf(input.getCommand()));

@@ -359,7 +359,8 @@ public abstract class Records {
                                         IConnectRequest.class,
                                         IDisconnectRequest.class,
                                         IMultiRequest.class,
-                                        IReconfigRequest.class),
+                                        IReconfigRequest.class,
+                                        IRemoveWatchesRequest.class),
                                 new Function<Class<?>, OpCode>() {
                                    @Override public OpCode apply(Class<?> type) {
                                        return opCodeOf(type);
@@ -470,7 +471,8 @@ public abstract class Records {
                                         IWatcherEvent.class,
                                         ISetWatchesResponse.class,
                                         IErrorResponse.class,
-                                        IMultiResponse.class),
+                                        IMultiResponse.class,
+                                        IRemoveWatchesResponse.class),
                                 new Function<Class<?>, OpCode>() {
                                     @Override public OpCode apply(Class<?> type) {
                                         return opCodeOf(type);

@@ -75,6 +75,9 @@ public enum OpCode {
     },
 
     RECONFIG(ZooDefs.OpCode.reconfig) {
+    },
+
+    REMOVE_WATCHES(ZooDefs.OpCode.removeWatches) {
     };
 
     private static final ImmutableMap<Integer, OpCode> byInt = Maps
