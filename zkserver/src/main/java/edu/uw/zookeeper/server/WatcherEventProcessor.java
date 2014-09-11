@@ -9,6 +9,7 @@ import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 
 import edu.uw.zookeeper.common.Processors;
 import edu.uw.zookeeper.common.Processors.ForwardingProcessor;
@@ -99,7 +100,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         case CREATE:
         case CREATE2:
         {
-            if (! (response instanceof Operation.Error)) {
+            if ((response != null) && !(response instanceof Operation.Error)) {
                 String path = ((Records.PathGetter) response).getPath();
                 String parent = ZNodeLabelVector.headOf(path);
                 dataWatches.post(created(path));
@@ -111,7 +112,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         }
         case DELETE:
         {
-            if (! (response instanceof Operation.Error)) {
+            if ((response != null) && !(response instanceof Operation.Error)) {
                 String path = ((Records.PathGetter) request).getPath();
                 String parent = ZNodeLabelVector.headOf(path);
                 dataWatches.post(deleted(path));
@@ -123,7 +124,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         }
         case SET_DATA:
         {
-            if (! (response instanceof Operation.Error)) {
+            if ((response != null) && !(response instanceof Operation.Error)) {
                 String path = ((Records.PathGetter) request).getPath();
                 dataWatches.post(data(path));
             }
@@ -131,8 +132,8 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
         }
         case MULTI:
         {
-            Iterator<Records.MultiOpRequest> requests = ((IMultiRequest) request).iterator();
-            Iterator<Records.MultiOpResponse> responses = ((IMultiResponse) response).iterator();
+            Iterator<? extends Records.MultiOpRequest> requests = ((IMultiRequest) request).iterator();
+            Iterator<? extends Records.MultiOpResponse> responses = (response != null) ? ((IMultiResponse) response).iterator() : Iterators.cycle(Operations.Responses.error().setError(exception.code()).build());
             while (requests.hasNext()) {
                 apply(session, requests.next(), responses.next(), exception);
             }
