@@ -4,7 +4,7 @@ import java.util.EnumSet;
 
 import org.apache.zookeeper.Watcher;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 public final class WatchMatcher {
 
@@ -64,7 +64,7 @@ public final class WatchMatcher {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("path", path)
                 .add("pathType", pathType)
                 .add("eventType", eventType).toString();

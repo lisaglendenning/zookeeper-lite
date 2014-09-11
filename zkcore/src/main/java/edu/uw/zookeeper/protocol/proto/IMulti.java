@@ -6,7 +6,7 @@ import java.util.List;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.UnmodifiableIterator;
@@ -60,7 +60,7 @@ public abstract class IMulti<T extends Records.Coded> extends IOperationalRecord
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(Records.iteratorToBeanString(delegate().iterator())).toString();
+        return MoreObjects.toStringHelper(this).addValue(Records.iteratorToBeanString(delegate().iterator())).toString();
     }
 
     @Override

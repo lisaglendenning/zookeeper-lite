@@ -14,11 +14,12 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 public abstract class Actors {
 
     public static <T extends Actor<?>> T stopWhenDone(T actor, ListenableFuture<?> future) {
-        future.addListener(new StopActorListener(actor), SameThreadExecutor.getInstance());
+        future.addListener(new StopActorListener(actor), MoreExecutors.directExecutor());
         return actor;
     }
     

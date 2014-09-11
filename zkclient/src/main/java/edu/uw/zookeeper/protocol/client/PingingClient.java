@@ -9,9 +9,10 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Automaton;
@@ -20,7 +21,6 @@ import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.CodecConnection;
@@ -81,7 +81,7 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
     protected class PingTaskListener implements Runnable {
 
         public PingTaskListener() {
-            pingTask.addListener(this, SameThreadExecutor.getInstance());
+            pingTask.addListener(this, MoreExecutors.directExecutor());
         }
         
         @Override
@@ -235,7 +235,7 @@ public class PingingClient<I extends Operation.Request, O, V extends ProtocolCod
         }
         
         @Override   
-        protected synchronized Objects.ToStringHelper toStringHelper() {
+        protected synchronized MoreObjects.ToStringHelper toStringHelper() {
             return super.toStringHelper().add("lastPing", lastPing);
         }
     }

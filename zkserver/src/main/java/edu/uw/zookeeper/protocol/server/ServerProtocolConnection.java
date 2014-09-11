@@ -20,12 +20,9 @@ public class ServerProtocolConnection<V extends ProtocolCodec<?,?,?,?>,T extends
 
     @Override
     public void handleAutomatonTransition(Automaton.Transition<ProtocolState> transition) {
-        switch (transition.to()) {
-        case CONNECTED:
+        if (transition.to() == ProtocolState.CONNECTED) {
             // we now need to trigger a flush of any accumulated read buffer
             connection.read();
-        default:
-            break;
         }
         
         super.handleAutomatonTransition(transition);

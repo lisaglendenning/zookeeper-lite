@@ -2,7 +2,7 @@ package edu.uw.zookeeper.protocol;
 
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 /**
  * Not thread-safe
@@ -55,6 +55,6 @@ public class TimeOutParameters {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("timeOut", getTimeOut()).add("remaining", getRemaining()).toString();
+        return MoreObjects.toStringHelper(this).add("timeOut", getTimeOut()).add("remaining", getRemaining()).toString();
     }
 }

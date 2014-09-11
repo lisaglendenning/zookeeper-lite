@@ -7,7 +7,7 @@ import java.util.SortedMap;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -266,7 +266,7 @@ public class SimpleArguments implements Arguments {
     
     @Override
     public synchronized String toString() {
-        return Objects.toStringHelper(Arguments.class)
+        return MoreObjects.toStringHelper(Arguments.class)
                 .add("args", Arrays.toString(args))
                 .add("options", Iterators.toString(iterator()))
                 .toString();

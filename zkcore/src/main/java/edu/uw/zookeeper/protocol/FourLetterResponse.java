@@ -1,12 +1,12 @@
 package edu.uw.zookeeper.protocol;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-
 import io.netty.buffer.ByteBuf;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
@@ -64,7 +64,7 @@ public class FourLetterResponse implements Message.ServerAnonymous {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(stringValue()).toString();
+        return MoreObjects.toStringHelper(this).addValue(stringValue()).toString();
     }
 
     @Override

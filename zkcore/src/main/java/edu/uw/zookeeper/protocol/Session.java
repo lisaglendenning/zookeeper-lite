@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Function;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
@@ -47,7 +48,7 @@ public final class Session {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("id", toString(id))
+        return MoreObjects.toStringHelper(this).add("id", toString(id))
                 .add("parameters", parameters).toString();
     }
 
@@ -190,7 +191,7 @@ public final class Session {
                 // passwordStr = String.format("0x%0" + (password.length << 1) +
                 // "X", bi);
             }
-            return Objects.toStringHelper(this).add("password", passwordStr)
+            return MoreObjects.toStringHelper(this).add("password", passwordStr)
                     .add("timeOut", timeOut)
                     .toString();
         }

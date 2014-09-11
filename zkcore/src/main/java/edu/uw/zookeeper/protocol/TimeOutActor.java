@@ -13,17 +13,17 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.AbstractActor;
 import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 
 public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFuture<V> {
@@ -63,7 +63,7 @@ public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFut
         this.listeners = listeners;
         this.scheduled = Optional.absent();
         
-        promise.addListener(this, SameThreadExecutor.getInstance());
+        promise.addListener(this, MoreExecutors.directExecutor());
     }
 
     @Override
@@ -165,7 +165,7 @@ public class TimeOutActor<T,V> extends AbstractActor<T> implements ListenableFut
         return Math.max(parameters.getRemaining(), 0L);
     }
     
-    protected synchronized Objects.ToStringHelper toStringHelper() {
-        return Objects.toStringHelper(this).add("parameters", parameters);
+    protected synchronized MoreObjects.ToStringHelper toStringHelper() {
+        return MoreObjects.toStringHelper(this).add("parameters", parameters);
     }
 }

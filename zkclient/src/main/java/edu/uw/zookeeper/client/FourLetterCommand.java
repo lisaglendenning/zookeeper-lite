@@ -10,12 +10,12 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.ChainedFutures;
 import edu.uw.zookeeper.common.ChainedFutures.ChainedProcessor;
 import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
@@ -47,7 +47,7 @@ public class FourLetterCommand extends ForwardingListenableFuture<String> implem
         ListenableFuture<String> future = call(word, connection, response);
         future.addListener(
                 CloseConnection.create(connection), 
-                SameThreadExecutor.getInstance());
+                MoreExecutors.directExecutor());
         return future;
     }
     
@@ -62,7 +62,7 @@ public class FourLetterCommand extends ForwardingListenableFuture<String> implem
         this.word = word;
         this.connection = connection;
         this.response = response;
-        addListener(this, SameThreadExecutor.getInstance());
+        addListener(this, MoreExecutors.directExecutor());
     }
     
     @Override

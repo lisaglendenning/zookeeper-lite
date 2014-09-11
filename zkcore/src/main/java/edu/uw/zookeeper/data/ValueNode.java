@@ -3,7 +3,7 @@ package edu.uw.zookeeper.data;
 
 import java.util.Map;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Supplier;
 
 import edu.uw.zookeeper.data.NameTrie.Pointer;
@@ -52,7 +52,7 @@ public class ValueNode<V> extends AbstractNameTrie.SimpleNode<ValueNode<V>> impl
 
     @Override
     public String toString() {
-        return Objects.toStringHelper("")
+        return MoreObjects.toStringHelper("")
                 .add("path", path())
                 .add("children", keySet())
                 .add("value", get())

@@ -2,8 +2,9 @@ package edu.uw.zookeeper.common;
 
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.ToStringListenableFuture.SimpleToStringListenableFuture;
 
@@ -13,7 +14,7 @@ public class LoggingFutureListener<V> extends SimpleToStringListenableFuture<V> 
             Logger logger,
             T future) {
         LoggingFutureListener<V> listener = create(logger, future);
-        future.addListener(listener, SameThreadExecutor.getInstance());
+        future.addListener(listener, MoreExecutors.directExecutor());
         return future;
     }
     
@@ -49,7 +50,7 @@ public class LoggingFutureListener<V> extends SimpleToStringListenableFuture<V> 
     }
     
     @Override
-    protected Objects.ToStringHelper toStringHelper() {
-        return toStringHelper(Objects.toStringHelper(delegate()));
+    protected MoreObjects.ToStringHelper toStringHelper() {
+        return toStringHelper(MoreObjects.toStringHelper(delegate()));
     }
 }

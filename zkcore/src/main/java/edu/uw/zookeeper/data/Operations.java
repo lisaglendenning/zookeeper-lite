@@ -14,7 +14,7 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 
 import com.google.common.base.Functions;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -66,7 +66,7 @@ public abstract class Operations {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).toString();
+            return MoreObjects.toStringHelper(this).toString();
         }
     }
 

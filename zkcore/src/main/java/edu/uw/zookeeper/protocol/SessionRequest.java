@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.protocol;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.common.Reference;
@@ -42,7 +43,7 @@ public class SessionRequest<T extends Records.Request> implements SessionOperati
     }
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("sessionId", String.format("0x%08x", getSessionId()))
                 .add("request", get())
                 .toString();

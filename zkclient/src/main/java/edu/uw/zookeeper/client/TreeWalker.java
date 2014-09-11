@@ -15,18 +15,19 @@ import java.util.concurrent.TimeoutException;
 import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.AbstractActor;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.ToStringListenableFuture;
 import edu.uw.zookeeper.data.AbsoluteZNodePath;
@@ -147,7 +148,7 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("sync", sync)
                     .add("watch", watch)
                     .add("getData", getData)
@@ -261,7 +262,7 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("root", getRoot())
                     .add("requests", getRequests())
                     .add("iterator", getIterator())
@@ -304,7 +305,7 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
         }
         
         protected Executor getDefaultExecutor() {
-            return SameThreadExecutor.getInstance();
+            return MoreExecutors.directExecutor();
         }
     }
 
@@ -325,7 +326,7 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
                                 ((Records.ChildrenGetter) response).getChildren().iterator(),
                                 ChildToPath.forParent(path));
             } else {
-                return Iterators.emptyIterator();
+                return ImmutableSet.<AbsoluteZNodePath>of().iterator();
             }
         }
     }
@@ -398,7 +399,7 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(builder.getRoot()).addValue(ToStringListenableFuture.toString(future)).toString();
+        return MoreObjects.toStringHelper(this).addValue(builder.getRoot()).addValue(ToStringListenableFuture.toString(future)).toString();
     }
 
     @Override

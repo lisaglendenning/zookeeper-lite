@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 
 import edu.uw.zookeeper.common.Automaton;
@@ -181,7 +181,7 @@ public class ClientProtocolCodec
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("state", state()).toString();
+        return MoreObjects.toStringHelper(this).add("state", state()).toString();
     }
 
     public static class ClientProtocolEncoder implements 

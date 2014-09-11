@@ -5,6 +5,7 @@ import java.util.concurrent.CancellationException;
 
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
@@ -39,7 +40,7 @@ public class CallablePromiseTask<T extends Callable<Optional<V>>,V> extends Prom
     
     public static <T extends Callable<Optional<V>> & ListenableFuture<?>,V> CallablePromiseTask<T,V> listen(
             CallablePromiseTask<T,V> task) {
-        task.task().addListener(task, SameThreadExecutor.getInstance());
+        task.task().addListener(task, MoreExecutors.directExecutor());
         return task;
     }
 

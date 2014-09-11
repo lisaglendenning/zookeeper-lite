@@ -1,6 +1,6 @@
 package edu.uw.zookeeper.server;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterators;
 
 import edu.uw.zookeeper.common.TimeValue;
@@ -38,7 +38,7 @@ public abstract class AbstractSessionManager implements SessionManager {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(Iterators.toString(iterator())).toString();
+        return MoreObjects.toStringHelper(this).addValue(Iterators.toString(iterator())).toString();
     }
 
     protected Session newSession(long id, Session.Parameters parameters) {

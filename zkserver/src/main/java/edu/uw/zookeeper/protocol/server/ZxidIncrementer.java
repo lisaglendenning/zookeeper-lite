@@ -4,7 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 
 /**
@@ -42,7 +42,7 @@ public class ZxidIncrementer implements ZxidGenerator {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .addValue(String.format("0x%s", Long.toHexString(get())))
                 .toString();
     }

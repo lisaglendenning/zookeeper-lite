@@ -3,7 +3,7 @@ package edu.uw.zookeeper.client;
 import java.util.List;
 
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
@@ -45,6 +45,6 @@ public class PathToRequests implements Function<ZNodePath, List<Records.Request>
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(builders).toString();
+        return MoreObjects.toStringHelper(this).addValue(builders).toString();
     }
 }

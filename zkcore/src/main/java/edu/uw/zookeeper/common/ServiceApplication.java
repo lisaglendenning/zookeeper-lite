@@ -5,7 +5,7 @@ import static com.google.common.base.Preconditions.*;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Service;
 
@@ -59,6 +59,6 @@ public class ServiceApplication implements Application {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(service()).toString();
+        return MoreObjects.toStringHelper(this).addValue(service()).toString();
     }
 }

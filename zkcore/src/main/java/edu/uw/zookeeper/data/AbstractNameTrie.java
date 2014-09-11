@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ForwardingMap;
 import com.google.common.collect.ImmutableList;
@@ -114,7 +115,7 @@ public abstract class AbstractNameTrie<E extends NameTrie.Node<E>> implements Na
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .addValue(name())
                     .toString();
         }
@@ -140,7 +141,7 @@ public abstract class AbstractNameTrie<E extends NameTrie.Node<E>> implements Na
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .addValue(name())
                     .toString();
         }
@@ -184,7 +185,7 @@ public abstract class AbstractNameTrie<E extends NameTrie.Node<E>> implements Na
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).add("strategy", strategy()).add("last", last).add("pending", pending).toString();
+            return MoreObjects.toStringHelper(this).add("strategy", strategy()).add("last", last).add("pending", pending).toString();
         }
         
         protected Iterable<E> childrenOf(E node) {
@@ -319,7 +320,7 @@ public abstract class AbstractNameTrie<E extends NameTrie.Node<E>> implements Na
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("path", path())
                     .add("children", keySet())
                     .toString();

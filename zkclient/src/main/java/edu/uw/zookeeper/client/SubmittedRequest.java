@@ -1,6 +1,6 @@
 package edu.uw.zookeeper.client;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -34,6 +34,6 @@ public final class SubmittedRequest<I extends Operation.Request, O extends Opera
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("request", request).add("future", LoggingFutureListener.toString(future)).toString();
+        return MoreObjects.toStringHelper(this).add("request", request).add("future", LoggingFutureListener.toString(future)).toString();
     }
 }

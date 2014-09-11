@@ -8,13 +8,13 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.net.Connection;
 
 public abstract class PingTask<I,O,T extends Connection<? super I, ? extends O,?>> extends TimeOutActor<I,Void> implements Connection.Listener<O>{
@@ -75,7 +75,7 @@ public abstract class PingTask<I,O,T extends Connection<? super I, ? extends O,?
     }
     
     @Override   
-    protected synchronized Objects.ToStringHelper toStringHelper() {
+    protected synchronized MoreObjects.ToStringHelper toStringHelper() {
         return super.toStringHelper().add("connection", connection.get());
     }
     
@@ -87,7 +87,7 @@ public abstract class PingTask<I,O,T extends Connection<? super I, ? extends O,?
             logger.trace(LoggingMarker.PING_MARKER.get(), "PING: {}", this);
             parameters.setTouch();
             ListenableFuture<I> future = connection.write((I) ping);
-            future.addListener(new PingListener(future), SameThreadExecutor.getInstance());
+            future.addListener(new PingListener(future), MoreExecutors.directExecutor());
         }
     }
 

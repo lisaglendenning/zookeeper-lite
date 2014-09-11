@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Callable;
+
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -14,12 +15,12 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.client.ConnectionClientExecutorService;
 import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Automaton;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.data.ZNodePath;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.data.WatchEvent;
@@ -180,7 +181,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         }
         
         NotificationCallback cb = new NotificationCallback(client.getConnectionClientExecutor());
-        addListener(cb, SameThreadExecutor.getInstance());
+        addListener(cb, MoreExecutors.directExecutor());
         client.getConnectionClientExecutor().subscribe(cb);
     }
 
@@ -240,7 +241,7 @@ public class ClientExecutorInvoker extends AbstractIdleService implements Invoke
         @Override
         public ListenableFuture<String> call() throws Exception {
             ListenableFuture<? extends Operation.ProtocolResponse<?>> response = client.submit(request);
-            return Futures.transform(response, this, SameThreadExecutor.getInstance());
+            return Futures.transform(response, this);
         }
 
         @Override

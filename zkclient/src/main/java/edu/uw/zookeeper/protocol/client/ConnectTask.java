@@ -6,12 +6,12 @@ import com.google.common.base.Optional;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -44,7 +44,7 @@ public class ConnectTask<C extends Connection<? super ConnectMessage.Request, ? 
         super(task, promise);
         this.write = Optional.absent();
         
-        addListener(this, SameThreadExecutor.getInstance());
+        addListener(this, MoreExecutors.directExecutor());
     }
 
     @Override
@@ -83,7 +83,7 @@ public class ConnectTask<C extends Connection<? super ConnectMessage.Request, ? 
                     setException(e);
                     return;
                 }
-                Futures.addCallback(write.get(), this, SameThreadExecutor.getInstance());
+                Futures.addCallback(write.get(), this);
             }
         } else {
             task().second().unsubscribe(this);

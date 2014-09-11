@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.Map;
 
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -185,7 +185,7 @@ public enum ProtocolMessageAutomaton implements Automaton<ProtocolState, Message
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(Automaton.class).add("state", instance).toString();
+            return MoreObjects.toStringHelper(Automaton.class).add("state", instance).toString();
         }
     }
 }

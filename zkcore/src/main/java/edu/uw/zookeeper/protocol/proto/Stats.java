@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.jute.InputArchive;
 import org.apache.zookeeper.data.Stat;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Supplier;
 
 
@@ -103,7 +103,7 @@ public class Stats {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("czxid", getCzxid())
                     .add("ctime", getCtime())
                     .add("ephemeral", getEphemeralOwner())
@@ -190,7 +190,7 @@ public class Stats {
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("mzxid", getMzxid())
                     .add("mtime", getMtime())
                     .add("version", getVersion())
@@ -259,7 +259,7 @@ public class Stats {
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("pzxid", getPzxid())
                     .add("cversion", getCversion())
                     .toString();

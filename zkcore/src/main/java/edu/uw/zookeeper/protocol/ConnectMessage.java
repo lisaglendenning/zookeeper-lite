@@ -9,6 +9,7 @@ import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 import edu.uw.zookeeper.common.DefaultsFactory;
@@ -348,7 +349,7 @@ public abstract class ConnectMessage<T extends Record & Records.ConnectGetter> e
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("record", record)
                 .add("readOnly", readOnly)
                 .add("legacy", legacy).toString();

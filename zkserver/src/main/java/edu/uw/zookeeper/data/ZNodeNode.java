@@ -10,7 +10,7 @@ import java.util.Set;
 
 import org.apache.zookeeper.KeeperException;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -65,7 +65,7 @@ public class ZNodeNode extends AbstractNameTrie.SimpleNode<ZNodeNode> {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper("")
+        return MoreObjects.toStringHelper("")
                 .add("path", path())
                 .add("children", keySet())
                 .add("state", state())
@@ -742,7 +742,7 @@ public class ZNodeNode extends AbstractNameTrie.SimpleNode<ZNodeNode> {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("dataLength", getDataLength())
                     .add("stat", getStat())
                     .toString();
@@ -807,7 +807,7 @@ public class ZNodeNode extends AbstractNameTrie.SimpleNode<ZNodeNode> {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("acl", getAcl())
                     .add("aversion", getAversion())
                     .toString();
@@ -891,7 +891,7 @@ public class ZNodeNode extends AbstractNameTrie.SimpleNode<ZNodeNode> {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("create", getCreate())
                     .add("children", getChildren())
                     .add("data", getData())

@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -20,7 +20,6 @@ import edu.uw.zookeeper.common.Actors;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.PromiseTask;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
@@ -121,8 +120,8 @@ public abstract class PendingQueueClientExecutor<
         }
 
         @Override
-        protected Objects.ToStringHelper toString(Objects.ToStringHelper toString) {
-            return super.toString(toString.add("xid", xid));
+        protected MoreObjects.ToStringHelper toStringHelper(MoreObjects.ToStringHelper toString) {
+            return super.toStringHelper(toString.add("xid", xid));
         }
     } 
     
@@ -191,7 +190,7 @@ public abstract class PendingQueueClientExecutor<
                     Message.ClientRequest<?> request = message.getRequest();
                     if (request != null) {
                         ListenableFuture<? extends Message.ClientRequest<?>> writeFuture = connection.write(request);
-                        Futures.addCallback(writeFuture, message, SameThreadExecutor.getInstance());
+                        Futures.addCallback(writeFuture, message);
                     }
                 }
             } catch (Throwable t) {
@@ -247,7 +246,7 @@ public abstract class PendingQueueClientExecutor<
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).addValue(callback).toString();
+            return MoreObjects.toStringHelper(this).addValue(callback).toString();
         }
         
         @Override

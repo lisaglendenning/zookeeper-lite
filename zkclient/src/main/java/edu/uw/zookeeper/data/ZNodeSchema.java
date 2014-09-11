@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -332,7 +333,7 @@ public class ZNodeSchema {
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("declaration", getDeclaration())
                     .add("name", getName())
                     .add("nameType", getNameType())
@@ -405,7 +406,7 @@ public class ZNodeSchema {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("declaration", getDeclaration())
                 .add("name", getName())
                 .add("nameType", getNameType())

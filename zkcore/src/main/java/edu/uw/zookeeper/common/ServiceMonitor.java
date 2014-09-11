@@ -13,12 +13,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AbstractIdleService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
 /**
@@ -59,7 +60,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     
     public static ServiceMonitor defaults() {
         return create(Optional.<Executor>absent(),
-                SameThreadExecutor.getInstance(), 
+                MoreExecutors.directExecutor(), 
                 true, 
                 ImmutableList.<Service>of());
     }
@@ -156,7 +157,7 @@ public class ServiceMonitor extends AbstractIdleService implements Iterable<Serv
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .addValue(Iterators.toString(iterator())).toString();
     }
 

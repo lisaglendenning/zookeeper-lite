@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 import edu.uw.zookeeper.ConfigurableTimeout;
 import edu.uw.zookeeper.common.Configurable;
@@ -147,6 +147,6 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("id", String.format("0x%s", Hex.toPaddedHexString(id))).add("secret", String.format("0x%8s", Long.toHexString(secret)).replace(' ', '0')).add("counter", counter).add("minTimeout", minTimeout).add("maxTimeout", maxTimeout).toString();
+        return MoreObjects.toStringHelper(this).add("id", String.format("0x%s", Hex.toPaddedHexString(id))).add("secret", String.format("0x%8s", Long.toHexString(secret)).replace(' ', '0')).add("counter", counter).add("minTimeout", minTimeout).add("maxTimeout", maxTimeout).toString();
     }
 }

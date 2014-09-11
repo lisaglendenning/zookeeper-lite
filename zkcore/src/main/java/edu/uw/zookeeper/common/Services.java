@@ -1,5 +1,6 @@
 package edu.uw.zookeeper.common;
 
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
 public abstract class Services {
@@ -40,7 +41,7 @@ public abstract class Services {
     public static <T extends Service.Listener> T listen(
             T listener,
             Service service) {
-        service.addListener(listener, SameThreadExecutor.getInstance());
+        service.addListener(listener, MoreExecutors.directExecutor());
         switch (service.state()) {
         case STARTING:
             listener.starting();

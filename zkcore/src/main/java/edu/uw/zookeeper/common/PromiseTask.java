@@ -1,8 +1,8 @@
 package edu.uw.zookeeper.common;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
-public class PromiseTask<T,V> extends ForwardingPromise<V> {
+public class PromiseTask<T,V> extends ForwardingPromise.SimpleForwardingPromise<V> {
 
     public static <V> Promise<V> newPromise() {
         return SettableFuturePromise.<V>create();
@@ -18,29 +18,18 @@ public class PromiseTask<T,V> extends ForwardingPromise<V> {
     }
     
     protected final T task;
-    protected final Promise<V> delegate;
 
     public PromiseTask(T task, Promise<V> delegate) {
-        super();
+        super(delegate);
         this.task = task;
-        this.delegate = delegate;
     }
 
     public T task() {
         return task;
     }
-
-    @Override
-    public String toString() {
-        return toString(Objects.toStringHelper(this)).toString();
-    }
     
-    protected Objects.ToStringHelper toString(Objects.ToStringHelper toString) {
-        return toString.addValue(task).addValue(ToStringListenableFuture.toString3rdParty(delegate));
-    }
-
     @Override
-    protected Promise<V> delegate() {
-        return delegate;
+    protected MoreObjects.ToStringHelper toStringHelper(MoreObjects.ToStringHelper helper) {
+        return super.toStringHelper(helper.addValue(task()));
     }
 }

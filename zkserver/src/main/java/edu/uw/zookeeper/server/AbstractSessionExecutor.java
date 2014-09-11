@@ -8,14 +8,14 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import net.engio.mbassy.common.IConcurrentSet;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Automatons;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
@@ -129,7 +129,7 @@ public abstract class AbstractSessionExecutor implements SessionExecutor, Future
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("session", Session.toString(session().id())).toString();
+        return MoreObjects.toStringHelper(this).add("session", Session.toString(session().id())).toString();
     }
     
     protected abstract ListenableFuture<Message.ServerResponse<?>> doSubmit(Message.ClientRequest<?> request);
@@ -137,7 +137,7 @@ public abstract class AbstractSessionExecutor implements SessionExecutor, Future
     protected class TimeOutListener implements Runnable {
 
         public TimeOutListener() {
-            timer.addListener(this, SameThreadExecutor.getInstance());
+            timer.addListener(this, MoreExecutors.directExecutor());
         }
         
         @Override
@@ -162,7 +162,7 @@ public abstract class AbstractSessionExecutor implements SessionExecutor, Future
         
         public SubmitListener(ListenableFuture<Message.ServerResponse<?>> future) {
             this.future = future;
-            future.addListener(this, SameThreadExecutor.getInstance());
+            future.addListener(this, MoreExecutors.directExecutor());
         }
         
         @Override

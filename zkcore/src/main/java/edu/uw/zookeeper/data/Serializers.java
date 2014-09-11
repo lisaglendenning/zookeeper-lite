@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
 import com.google.common.base.Function;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -235,7 +236,7 @@ public enum Serializers {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("method", method())
                     .add("inputType", inputType())
                     .add("outputType", outputType())

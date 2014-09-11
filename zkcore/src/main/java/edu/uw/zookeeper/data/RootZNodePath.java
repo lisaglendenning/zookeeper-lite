@@ -1,6 +1,6 @@
 package edu.uw.zookeeper.data;
 
-import com.google.common.collect.Iterators;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.UnmodifiableIterator;
 
 import edu.uw.zookeeper.common.Reference;
@@ -38,7 +38,7 @@ public final class RootZNodePath extends ZNodePath {
     
     @Override
     public UnmodifiableIterator<ZNodeLabel> iterator() {
-        return Iterators.emptyIterator();
+        return ImmutableSet.<ZNodeLabel>of().iterator();
     }
     
     public static enum Reserved implements Reference<RootZNodePath> {

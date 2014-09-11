@@ -5,6 +5,7 @@ import java.lang.reflect.Constructor;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
@@ -172,7 +173,7 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, O extend
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).addValue(((Class<?>) schema().get().root().get().getDeclaration()).getSimpleName()).toString();
+        return MoreObjects.toStringHelper(this).addValue(((Class<?>) schema().get().root().get().getDeclaration()).getSimpleName()).toString();
     }
     
     protected <T extends Operations.Builder<? extends Records.Request>> Operator<T> operator(T builder) {
@@ -292,7 +293,7 @@ public class Materializer<E extends Materializer.MaterializedNode<E,?>, O extend
         
         @Override
         public String toString() {
-            return Objects.toStringHelper("")
+            return MoreObjects.toStringHelper("")
                     .add("path", path())
                     .add("children", keySet())
                     .add("stamp", stamp())

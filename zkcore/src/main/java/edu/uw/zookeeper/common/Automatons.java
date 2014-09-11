@@ -12,7 +12,7 @@ import net.engio.mbassy.common.StrongConcurrentSet;
 import net.engio.mbassy.common.WeakConcurrentSet;
 
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 
 public abstract class Automatons {
@@ -81,7 +81,7 @@ public abstract class Automatons {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(Automaton.class).addValue(state).toString();
+            return MoreObjects.toStringHelper(Automaton.class).addValue(state).toString();
         }
     }
 

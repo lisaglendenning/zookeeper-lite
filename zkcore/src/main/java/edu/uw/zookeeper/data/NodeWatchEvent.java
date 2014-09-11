@@ -4,6 +4,7 @@ package edu.uw.zookeeper.data;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 public final class NodeWatchEvent extends WatchEvent {
@@ -53,7 +54,7 @@ public final class NodeWatchEvent extends WatchEvent {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("path", getPath()).add("eventType", getEventType()).toString();
+        return MoreObjects.toStringHelper(this).add("path", getPath()).add("eventType", getEventType()).toString();
     }
 
     @Override

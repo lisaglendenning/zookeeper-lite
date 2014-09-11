@@ -15,12 +15,14 @@ import java.util.regex.Pattern;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
+
 import edu.uw.zookeeper.common.AbstractPair;
 import edu.uw.zookeeper.data.ZNodePath;
 
@@ -218,7 +220,7 @@ public abstract class FourLetterWords {
         }
         
         public String toString() {
-            return Objects.toStringHelper(this).add("connections", connectionCount).add("paths", pathCount).add("watches", watchCount).toString();
+            return MoreObjects.toStringHelper(this).add("connections", connectionCount).add("paths", pathCount).add("watches", watchCount).toString();
         }
     }
     
@@ -235,7 +237,11 @@ public abstract class FourLetterWords {
         protected static final Function<String,Long> STRING_TO_SESSION = new Function<String,Long>() {
             @Override
             public Long apply(String input) {
-                return Long.valueOf(SESSION_PATTERN.matcher(input).group(1), 16);
+                Matcher m = SESSION_PATTERN.matcher(input);
+                if (!m.matches()) {
+                    throw new IllegalArgumentException(input);
+                }
+                return Long.valueOf(m.group(1), 16);
             }
         };
         protected static final Function<Long,String> SESSION_TO_STRING = new Function<Long,String>() {
@@ -312,7 +318,7 @@ public abstract class FourLetterWords {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).addValue(delegate).toString();
+            return MoreObjects.toStringHelper(this).addValue(delegate).toString();
         }
         
         @Override

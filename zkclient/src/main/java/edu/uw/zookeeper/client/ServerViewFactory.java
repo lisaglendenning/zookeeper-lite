@@ -9,7 +9,6 @@ import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -82,7 +81,7 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?,?>> e
         
         @Override
         public ListenableFuture<OperationClientExecutor<C>> get(ConnectMessage.Request request) {
-            return Futures.transform(connections.get(), new Constructor(request), SameThreadExecutor.getInstance());
+            return Futures.transform(connections.get(), new Constructor(request));
         }
         
         protected class Constructor implements Function<C, OperationClientExecutor<C>> {
@@ -113,12 +112,12 @@ public class ServerViewFactory<V, C extends ConnectionClientExecutor<?,?,?,?>> e
     
     @Override
     public ListenableFuture<C> get() {
-        return Futures.transform(delegate.get(), this, SameThreadExecutor.getInstance());
+        return Futures.transform(delegate.get(), this);
     }
 
     @Override
     public ListenableFuture<C> get(V value) {
-        return Futures.transform(delegate.get(value), this, SameThreadExecutor.getInstance());
+        return Futures.transform(delegate.get(value), this);
     }
 
     @Override

@@ -5,7 +5,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 
 public abstract class ForwardingConnection<I, O, T extends Connection<? super I, ? extends O, ?>, C extends ForwardingConnection<I,O,T,C>> implements Connection<I,O,C> {
 
@@ -68,7 +67,7 @@ public abstract class ForwardingConnection<I, O, T extends Connection<? super I,
     @Override
     public ListenableFuture<? extends C> close() {
         return Futures.transform(
-                delegate().close(), RETURN_SELF, SameThreadExecutor.getInstance());
+                delegate().close(), RETURN_SELF);
     }
 
     @Override

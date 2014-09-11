@@ -4,7 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 /**
  * Generates increasing xid starting with 1.
@@ -55,7 +55,7 @@ public class XidIncrementer implements XidGenerator {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .addValue(String.format("0x%s", Integer.toHexString(get())))
                 .toString();
     }

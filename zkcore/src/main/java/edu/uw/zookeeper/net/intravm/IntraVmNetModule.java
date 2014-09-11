@@ -102,7 +102,7 @@ public class IntraVmNetModule implements NetClientModule, NetServerModule {
         return new ParameterizedFactory<Pair<? extends IntraVmCodecEndpoint<I,O,T>, ? extends AbstractIntraVmEndpoint<?,?,?,? super ByteBuf>>, C>() {
             @Override
             public C get(Pair<? extends IntraVmCodecEndpoint<I,O,T>, ? extends AbstractIntraVmEndpoint<?,?,?,? super ByteBuf>> value) {
-                IntraVmCodecConnection<I,O,T> endpoint = IntraVmCodecConnection.newInstance(value.first().getCodec(), value.first(), value.second());
+                IntraVmCodecConnection<I,O,T> endpoint = IntraVmCodecConnection.newInstance(value.first().codec(), value.first(), value.second());
                 return connectionFactory.get(endpoint);
             }
         };

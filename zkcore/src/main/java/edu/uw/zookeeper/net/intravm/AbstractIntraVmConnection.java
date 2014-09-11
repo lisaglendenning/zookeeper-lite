@@ -8,7 +8,7 @@ import java.util.concurrent.Callable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -72,22 +72,24 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
 
     @Override
     public C read() {
+        local.reader().run();
         return self();
     }
 
     @Override
     public <I1 extends I> ListenableFuture<I1> write(I1 message) {
-        return local.write(message, remote);
+        return local.writer().submit(message, remote);
     }
 
     @Override
     public C flush() {
+        local.writer().run();
         return self();
     }
 
     @Override
     public ListenableFuture<? extends C> close() {
-        if (! close.isDone()) {
+        if (!close.isDone()) {
             execute(close);
         }
         return close;
@@ -100,7 +102,7 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .addValue(String.format("%s => %s", localAddress(), remoteAddress()))
                 .toString();
     }
@@ -169,7 +171,7 @@ public abstract class AbstractIntraVmConnection<I,O,U,V, T extends AbstractIntra
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).add("state", state()).toString();
+            return MoreObjects.toStringHelper(this).addValue(state()).toString();
         }
     }
 }

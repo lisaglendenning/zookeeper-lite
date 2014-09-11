@@ -3,7 +3,7 @@ package edu.uw.zookeeper.protocol.proto;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.proto.ErrorResponse;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 import edu.uw.zookeeper.protocol.Operation;
 
@@ -36,7 +36,7 @@ public class IErrorResponse extends IOperationalRecord<ErrorResponse> implements
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .addValue(error()).toString();
     }
 }

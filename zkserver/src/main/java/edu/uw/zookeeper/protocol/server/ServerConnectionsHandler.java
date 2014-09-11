@@ -13,12 +13,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.zookeeper.KeeperException;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Lists;
 import com.google.common.collect.MapMaker;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.ConfigurableTimeout;
@@ -26,7 +27,6 @@ import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.AbstractActor;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.RuntimeModule;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ConnectionFactory;
@@ -163,7 +163,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
                         public void stopping(State from) {
                             connections.unsubscribe(handler);
                         }
-                    }, SameThreadExecutor.getInstance());
+                    }, MoreExecutors.directExecutor());
             return Lists.<Service>newArrayList(
                     handler,
                     connections);
@@ -224,7 +224,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
     
     @Override
     protected Executor executor() {
-        return SameThreadExecutor.getInstance();
+        return MoreExecutors.directExecutor();
     }
 
     @Override
@@ -269,7 +269,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("connection", connection)
                     .toString();
         }
@@ -342,13 +342,13 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         protected boolean doSend(Message.Client message) {
             timer.send(message);
             if (message instanceof FourLetterRequest) {
-                Futures.addCallback(server.anonymousExecutor().submit((FourLetterRequest) message), this, SameThreadExecutor.getInstance());
+                Futures.addCallback(server.anonymousExecutor().submit((FourLetterRequest) message), this);
             } else if (message instanceof TelnetCloseRequest) {
                 connection.close();
             } else if (message instanceof ConnectMessage.Request) {
                 // now we know that no more messages will be read 
                 // by the connection until we write the response
-                Futures.addCallback(server.connectExecutor().submit((ConnectMessage.Request) message), this, SameThreadExecutor.getInstance());
+                Futures.addCallback(server.connectExecutor().submit((ConnectMessage.Request) message), this);
             } else {
                 throw new AssertionError(String.valueOf(message));
             }
@@ -364,7 +364,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         protected class TimeOutListener implements Runnable {
 
             public TimeOutListener() {
-                timer.addListener(this, SameThreadExecutor.getInstance());
+                timer.addListener(this, MoreExecutors.directExecutor());
             }
             
             @Override
@@ -416,7 +416,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("session", Session.toString(session.session().id()))
                     .add("connection", connection)
                     .toString();
@@ -433,7 +433,7 @@ public class ServerConnectionsHandler<C extends ServerProtocolConnection<?,?>> e
         
         @Override
         protected boolean doSend(Message.ClientRequest<?> message) {
-            Futures.addCallback(session.submit(message), this, SameThreadExecutor.getInstance());
+            Futures.addCallback(session.submit(message), this);
             return true;
         }
 

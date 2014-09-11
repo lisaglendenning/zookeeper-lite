@@ -11,15 +11,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
 import net.engio.mbassy.common.IConcurrentSet;
 import net.engio.mbassy.common.StrongConcurrentSet;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.zookeeper.KeeperException;
-
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Iterators;
@@ -28,6 +24,7 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.EnsembleView;
@@ -39,9 +36,7 @@ import edu.uw.zookeeper.common.ForwardingPromise;
 import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.RuntimeModule;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
-import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
@@ -49,10 +44,10 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.Operation.ProtocolResponse;
 import edu.uw.zookeeper.protocol.ProtocolConnection;
-import edu.uw.zookeeper.protocol.ProtocolRequestMessage;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.Session;
 import edu.uw.zookeeper.protocol.SessionListener;
+import edu.uw.zookeeper.protocol.client.AbstractConnectionClientExecutor;
 import edu.uw.zookeeper.protocol.client.ClientConnectionFactoryBuilder;
 import edu.uw.zookeeper.protocol.client.ConnectionClientExecutor;
 import edu.uw.zookeeper.protocol.client.OperationClientExecutor;
@@ -68,24 +63,6 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
             EnsembleViewFactory<? extends ServerViewFactory<Session, ? extends ConnectionClientExecutor<I,V,SessionListener,?>>> factory,
             ScheduledExecutorService scheduler) {
         return new ConnectionClientExecutorService<I,V>(factory, scheduler);
-    }
-
-    public static <I extends Operation.Request, V extends Message.ServerResponse<?>> V disconnect(ConnectionClientExecutor<I,V,?,?> client) throws InterruptedException, ExecutionException, TimeoutException, KeeperException {
-        V response = null;
-        if (((client.connection().codec().state().compareTo(ProtocolState.CONNECTED)) <= 0) && 
-                (client.connection().state().compareTo(Connection.State.CONNECTION_CLOSING) < 0)) {
-            @SuppressWarnings("unchecked")
-            ListenableFuture<V> future = client.submit(
-                   (I) ProtocolRequestMessage.of(0, Operations.Requests.disconnect().build()));
-            int timeOut = client.session().isDone() ? client.session().get().getTimeOut() : 0;
-            if (timeOut > 0) {
-                response = future.get(timeOut, TimeUnit.MILLISECONDS);
-            } else {
-                response = future.get();
-            }
-            Operations.unlessError(response.record());
-        }
-        return response;
     }
 
     public static Builder builder() {
@@ -311,7 +288,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
     
     @Override
     protected Executor executor() {
-        return SameThreadExecutor.getInstance();
+        return MoreExecutors.directExecutor();
     }
 
     @Override
@@ -326,7 +303,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
             ConnectionClientExecutor<I,V,SessionListener,?> instance = null;
             try { 
                 instance = client.get();
-                disconnect(instance);      
+                AbstractConnectionClientExecutor.disconnect(instance);      
             } finally {
                 try {
                     if (instance != null) {
@@ -360,7 +337,6 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
             this.server = Optional.absent();
             this.future = Optional.absent();
             this.promise = newPromise();
-            promise.addListener(this, SameThreadExecutor.getInstance());
         }
         
         protected Promise<ConnectionClientExecutor<I,V,SessionListener,?>> newPromise() {
@@ -368,7 +344,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                             SettableFuturePromise.create();
             LoggingFutureListener.listen(logger, promise);
             Futures.addCallback(promise, ConnectionClientExecutorService.this);
-            promise.addListener(this, SameThreadExecutor.getInstance());
+            promise.addListener(this, MoreExecutors.directExecutor());
             return promise;
         }
         
@@ -413,7 +389,7 @@ public class ConnectionClientExecutorService<I extends Operation.Request, V exte
                             future = Optional.absent();
                         }
                         promise = newPromise();
-                        addListener(this, SameThreadExecutor.getInstance());
+                        addListener(this, MoreExecutors.directExecutor());
                     }
                     if (!future.isPresent()) {
                         if (server.isPresent()) {

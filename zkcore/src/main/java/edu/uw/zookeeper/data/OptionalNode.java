@@ -5,7 +5,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Map;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 
@@ -75,7 +75,7 @@ public class OptionalNode<V> extends DefaultsNode.AbstractDefaultsNode<OptionalN
 
     @Override
     public String toString() {
-        return Objects.toStringHelper("")
+        return MoreObjects.toStringHelper("")
                 .add("path", path())
                 .add("children", keySet())
                 .add("value", get())

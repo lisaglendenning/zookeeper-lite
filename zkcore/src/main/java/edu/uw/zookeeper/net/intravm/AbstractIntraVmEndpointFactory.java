@@ -8,10 +8,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.base.Supplier;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.Actors.ActorExecutor;
 import edu.uw.zookeeper.common.Factory;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 
 public abstract class AbstractIntraVmEndpointFactory<T extends AbstractIntraVmEndpoint<?,?,?,?>> implements Factory<T> {
 
@@ -25,7 +25,7 @@ public abstract class AbstractIntraVmEndpointFactory<T extends AbstractIntraVmEn
     }
     
     public static Factory<? extends Executor> sameThreadExecutors() {
-        return actorExecutors(SameThreadExecutor.getInstance());
+        return actorExecutors(MoreExecutors.directExecutor());
     }
     
     public static Factory<? extends Executor> actorExecutors(

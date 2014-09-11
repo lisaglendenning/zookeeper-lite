@@ -2,7 +2,7 @@ package edu.uw.zookeeper.client;
 
 import java.util.List;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
@@ -47,6 +47,6 @@ public final class SubmittedRequests<I extends Operation.Request, O extends Oper
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("requests", requests).add("future", LoggingFutureListener.toString(future)).toString();
+        return MoreObjects.toStringHelper(this).add("requests", requests).add("future", LoggingFutureListener.toString(future)).toString();
     }
 }

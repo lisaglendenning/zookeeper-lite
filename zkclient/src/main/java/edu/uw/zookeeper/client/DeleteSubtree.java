@@ -18,11 +18,11 @@ import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.uw.zookeeper.common.CallablePromiseTask;
 import edu.uw.zookeeper.common.Processor;
 import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.AbsoluteZNodePath;
 import edu.uw.zookeeper.data.AbstractNameTrie;
@@ -57,8 +57,7 @@ public class DeleteSubtree extends ForwardingListenableFuture<AbsoluteZNodePath>
                         }
                         return Futures.allAsList(deletes.build());
                     }
-                },
-                SameThreadExecutor.getInstance());
+                });
     }
     
     public static ListenableFuture<AbsoluteZNodePath> deleteAll(
@@ -78,7 +77,7 @@ public class DeleteSubtree extends ForwardingListenableFuture<AbsoluteZNodePath>
                             delete.cancel(false);
                         }
                     }
-                }, SameThreadExecutor.getInstance());
+                }, MoreExecutors.directExecutor());
         return Futures.transform(
                 fetcher,
                 new AsyncFunction<Optional<DeleteSubtree>,AbsoluteZNodePath>() {
@@ -87,7 +86,7 @@ public class DeleteSubtree extends ForwardingListenableFuture<AbsoluteZNodePath>
                             Optional<DeleteSubtree> input) throws Exception {
                         return input.get();
                     }
-                }, SameThreadExecutor.getInstance());
+                });
     }
     
     protected final SimpleLabelTrie<Node> trie;
@@ -108,7 +107,7 @@ public class DeleteSubtree extends ForwardingListenableFuture<AbsoluteZNodePath>
         this.delete = PathToQuery.forRequests(client, Operations.Requests.delete());
         this.deletes = Sets.newHashSet();
         this.promise = promise;
-        addListener(this, SameThreadExecutor.getInstance());
+        addListener(this, MoreExecutors.directExecutor());
     }
 
     @Override
@@ -180,7 +179,7 @@ public class DeleteSubtree extends ForwardingListenableFuture<AbsoluteZNodePath>
     protected DeleteLeaf delete(Node node) {
         DeleteLeaf listener = new DeleteLeaf(node, Futures.<Operation.ProtocolResponse<?>>allAsList(delete.apply(node.path()).call()));
         deletes.add(listener);
-        listener.addListener(listener, SameThreadExecutor.getInstance());
+        listener.addListener(listener, MoreExecutors.directExecutor());
         return listener;
     }
     
@@ -201,7 +200,7 @@ public class DeleteSubtree extends ForwardingListenableFuture<AbsoluteZNodePath>
                             Operations.Requests.sync().setPath(path).build(), 
                             Operations.Requests.getChildren().setPath(path).build());
             CallablePromiseTask<GetChildren,List<AbsoluteZNodePath>> task = CallablePromiseTask.create(new GetChildren(requests), promise);
-            requests.addListener(task, SameThreadExecutor.getInstance());
+            requests.addListener(task, MoreExecutors.directExecutor());
             return task;
         }
         

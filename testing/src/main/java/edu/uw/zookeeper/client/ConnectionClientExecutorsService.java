@@ -20,6 +20,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.EnsembleView;
@@ -33,7 +34,6 @@ import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.RuntimeModule;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
@@ -238,7 +238,7 @@ public class ConnectionClientExecutorsService
     
     protected ConnectionClientExecutorsService(
             DefaultsFactory<T, ? extends ListenableFuture<? extends C>> factory) {
-        this.executor = SameThreadExecutor.getInstance();
+        this.executor = MoreExecutors.directExecutor();
         this.factory = factory;
         this.executors = Collections.synchronizedSet(Sets.<C>newHashSet());
     }

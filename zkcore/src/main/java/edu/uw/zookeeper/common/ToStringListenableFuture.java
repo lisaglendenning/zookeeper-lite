@@ -3,7 +3,8 @@ package edu.uw.zookeeper.common;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-import com.google.common.base.Objects;
+import com.google.common.base.Function;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -42,6 +43,15 @@ public abstract class ToStringListenableFuture<V> extends ForwardingListenableFu
     public static String toString3rdParty(Future<?> future) {
         return is3rdParty(future) ? toString(future) : future.toString();
     }
+    
+    public static Function<Future<?>, String> toString3rdParty() {
+        return new Function<Future<?>, String>() {
+            @Override
+            public String apply(Future<?> input) {
+                return toString3rdParty(input);
+            }
+        };
+    }
 
     protected ToStringListenableFuture() {
         super();
@@ -52,11 +62,11 @@ public abstract class ToStringListenableFuture<V> extends ForwardingListenableFu
         return toStringHelper().toString();
     }
     
-    protected Objects.ToStringHelper toStringHelper() {
-        return toStringHelper(Objects.toStringHelper(this));
+    protected MoreObjects.ToStringHelper toStringHelper() {
+        return toStringHelper(MoreObjects.toStringHelper(this));
     }
     
-    protected Objects.ToStringHelper toStringHelper(Objects.ToStringHelper helper) {
+    protected MoreObjects.ToStringHelper toStringHelper(MoreObjects.ToStringHelper helper) {
         return helper.addValue(toString(this));
     }
     

@@ -2,7 +2,7 @@ package edu.uw.zookeeper.common;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -132,7 +132,7 @@ public class Configuration {
     
     @Override
     public synchronized String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("config", config)
                 .add("arguments", arguments).toString();
     }

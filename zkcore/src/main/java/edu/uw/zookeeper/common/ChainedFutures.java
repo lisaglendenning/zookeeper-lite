@@ -6,11 +6,13 @@ import java.util.concurrent.Callable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 public final class ChainedFutures<V, T extends ListenableFuture<? extends V>> extends ToStringListenableFuture<V> implements Callable<Optional<List<T>>> {
 
@@ -96,7 +98,12 @@ public final class ChainedFutures<V, T extends ListenableFuture<? extends V>> ex
     public Optional<List<T>> call() throws Exception {
         if (futures.isEmpty() || isDone()) {
             Optional<? extends T> next = this.next.apply(futures);
-            logger.trace("APPLIED {} TO {} => {}", this.next, futures, next.orNull());
+            if (logger.isDebugEnabled()) {
+                logger.debug("APPLIED {} TO {} => {}", 
+                        this.next, 
+                        Lists.transform(futures, ToStringListenableFuture.toString3rdParty()), 
+                        next.orNull());
+            }
             if (next.isPresent()) {
                 futures.add(next.get());
             } else {
@@ -107,7 +114,7 @@ public final class ChainedFutures<V, T extends ListenableFuture<? extends V>> ex
     }
     
     @Override
-    protected Objects.ToStringHelper toStringHelper(Objects.ToStringHelper helper) {
+    protected MoreObjects.ToStringHelper toStringHelper(MoreObjects.ToStringHelper helper) {
         helper.addValue(next);
         ImmutableList.Builder<String> values = ImmutableList.builder();
         for (T future: futures) {
@@ -174,7 +181,7 @@ public final class ChainedFutures<V, T extends ListenableFuture<? extends V>> ex
         public synchronized void run() {
             super.run();
             if (!isDone()) {
-                task().addListener(this, SameThreadExecutor.getInstance());
+                task().addListener(this, MoreExecutors.directExecutor());
             } else if (isCancelled()) {
                 if (!task().delegate().futures().isEmpty()) {
                     task().delegate().cancel(false);

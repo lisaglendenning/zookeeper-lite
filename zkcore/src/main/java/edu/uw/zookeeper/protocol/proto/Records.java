@@ -22,7 +22,7 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.EnumHashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -259,7 +259,7 @@ public abstract class Records {
      * Default string value without endlines.
      */
     public static String toString(Record record) {
-        return Objects.toStringHelper(record)
+        return MoreObjects.toStringHelper(record)
                 .addValue(record.toString().replaceAll("\\s", "")).toString();
     }
 
@@ -276,7 +276,7 @@ public abstract class Records {
      * Bean property string.
      */
     public static String toBeanString(Object obj) {
-        Objects.ToStringHelper helper = Objects.toStringHelper(obj);
+        MoreObjects.ToStringHelper helper = MoreObjects.toStringHelper(obj);
         BeanInfo beanInfo;
         try {
             beanInfo = Introspector.getBeanInfo(obj.getClass(), Object.class);

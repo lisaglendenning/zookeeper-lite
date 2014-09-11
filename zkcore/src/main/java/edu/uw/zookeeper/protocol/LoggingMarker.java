@@ -7,7 +7,7 @@ import com.google.common.base.Supplier;
 
 public enum LoggingMarker implements Supplier<Marker> {
     PROTOCOL_MARKER(MarkerManager.getMarker("EDU_UW_ZOOKEEPER_PROTOCOL")),
-    PING_MARKER(MarkerManager.getMarker("EDU_UW_ZOOKEEPER_PROTOCOL_PING", 
+    PING_MARKER(MarkerManager.getMarker("EDU_UW_ZOOKEEPER_PROTOCOL_PING").addParents( 
             PROTOCOL_MARKER.get()));
 
     private final Marker marker;

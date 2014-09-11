@@ -1,6 +1,5 @@
 package edu.uw.zookeeper.net.intravm;
 
-import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.Executor;
@@ -8,18 +7,12 @@ import java.util.concurrent.Executor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.Optional;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-
+import com.google.common.collect.Queues;
 import edu.uw.zookeeper.common.Eventful;
-import edu.uw.zookeeper.common.LoggingFutureListener;
-import edu.uw.zookeeper.common.CallablePromiseTask;
-import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.Stateful;
 import edu.uw.zookeeper.net.Connection;
 
-public class IntraVmEndpoint<I,O> extends AbstractIntraVmEndpoint<I,O,I,O> implements Stateful<Connection.State>, Eventful<Connection.Listener<? super O>>, Executor {
+public final class IntraVmEndpoint<I,O> extends AbstractIntraVmEndpoint<I,O,I,O> implements Stateful<Connection.State>, Eventful<Connection.Listener<? super O>>, Executor {
 
     public static <I,O> IntraVmEndpoint<I,O> newInstance(
             SocketAddress address,
@@ -32,69 +25,58 @@ public class IntraVmEndpoint<I,O> extends AbstractIntraVmEndpoint<I,O,I,O> imple
                 IntraVmPublisher.<O>defaults(executor, logger));
     }
     
+    private final EndpointReader reader;
+    private final EndpointWriter writer;
+    
     protected IntraVmEndpoint(
             SocketAddress address,
             Executor executor,
             Logger logger,
             IntraVmPublisher<O> publisher) {
         super(address, executor, logger, publisher);
+        this.reader = new EndpointReader();
+        this.writer = new EndpointWriter();
     }
     
     @Override
-    public <T extends I> ListenableFuture<T> write(T message, AbstractIntraVmEndpoint<?,?,?,? super I> remote) {
-        if (state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
-            CallablePromiseTask<EndpointWrite<T>,T> task = CallablePromiseTask.create(
-                    new EndpointWrite<T>(remote, message), 
-                    SettableFuturePromise.<T>create());
-            LoggingFutureListener.listen(logger, task);
-            execute(task);
-            return task;
-        } else {
-            return Futures.immediateFailedFuture(new ClosedChannelException());
-        }
+    public EndpointReader reader() {
+        return reader;
     }
 
     @Override
-    public boolean read(O message) {
-        if (state().compareTo(Connection.State.CONNECTION_CLOSING) < 0) {
-            execute(new EndpointRead(message));
-            return true;
-        }
-        return false;
+    public EndpointWriter writer() {
+        return writer;
     }
     
-    public class EndpointWrite<T extends I> extends AbstractEndpointWrite<T> {
+    public final class EndpointWriter extends AbstractEndpointWriter {
 
-        public EndpointWrite(
-                AbstractIntraVmEndpoint<?,?,?,? super I> remote,
-                T message) {
-            super(remote, message);
+        protected EndpointWriter() {
+            super(Queues.<EndpointWrite<? extends I,I>>newLinkedBlockingDeque());
         }
-        
+
         @Override
-        public Optional<T> call() throws IOException {
-            if (state() != Connection.State.CONNECTION_CLOSED) {
-                if (remote.read(message)) {
-                    return Optional.of(message);
-                } else {
-                    close();
-                    throw new ClosedChannelException();
-                }
+        protected boolean apply(EndpointWrite<? extends I, I> input)
+                throws Exception {
+            if (input.remote().reader().send(input.message())) {
+                input.run();
+                return true;
             } else {
-                throw new ClosedChannelException();
+                Exception e = new ClosedChannelException();
+                input.setException(e);
+                throw e;
             }
         }
     }
 
-    public class EndpointRead extends AbstractEndpointRead implements Runnable {
+    public final class EndpointReader extends AbstractEndpointReader {
 
-        public EndpointRead(O message) {
-            super(message);
+        protected EndpointReader() {
+            super(Queues.<O>newLinkedBlockingDeque());
         }
-        
+
         @Override
-        protected void doRead() {
-            publisher.send(get());
+        protected boolean apply(O input) throws Exception {
+            return publisher.send(input);
         }
     }
 }

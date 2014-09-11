@@ -17,6 +17,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import com.google.common.base.Function;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -28,7 +29,6 @@ import edu.uw.zookeeper.client.ClientExecutor;
 import edu.uw.zookeeper.common.Eventful;
 import edu.uw.zookeeper.common.LoggingFutureListener;
 import edu.uw.zookeeper.common.Promise;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.data.SimpleLabelTrie;
 import edu.uw.zookeeper.data.ZNodeLabelVector;
@@ -205,7 +205,7 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
 
         @Override
         public String toString() {
-            return Objects.toStringHelper("")
+            return MoreObjects.toStringHelper("")
                     .add("path", path())
                     .add("children", keySet())
                     .add("stamp", stamp())
@@ -323,7 +323,7 @@ public class ZNodeCache<E extends AbstractNameTrie.SimpleNode<E> & ZNodeCache.Ca
     public ListenableFuture<O> submit(I request, Promise<O> promise) {
         ListenableFuture<O> future = Futures.transform(
                 client.submit(request, promise), 
-                new CachingCallback(request), SameThreadExecutor.getInstance());
+                new CachingCallback(request));
         LoggingFutureListener.listen(logger, future);
         return future;
     }
