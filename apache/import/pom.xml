@@ -100,7 +100,14 @@ Missing ZooKeeper generated Java code. Did you run ant build-generated in ${zook
                                 <resource>
                                     <directory>${jute.source}</directory>
                                     <includes>
-                                        <include>*.java</include>
+                                        <include>BinaryInputArchive.java</include>
+                                        <include>BinaryOutputArchive.java</include>
+                                        <include>CsvOutputArchive.java</include>
+                                        <include>Index.java</include>
+                                        <include>InputArchive.java</include>
+                                        <include>OutputArchive.java</include>
+                                        <include>Record.java</include>
+                                        <include>Utils.java</include>
                                     </includes>
                                     <excludes>
                                         <exclude>*.class</exclude>
