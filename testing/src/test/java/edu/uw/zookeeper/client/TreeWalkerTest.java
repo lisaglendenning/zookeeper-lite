@@ -113,7 +113,7 @@ public class TreeWalkerTest {
             if (input.isPresent()) {
                 final Records.Response response = input.get().get().record();
                 if (response instanceof Records.ChildrenGetter) {
-                    final ZNodePath path = ZNodePath.fromString(((Records.PathGetter) input.get().request()).getPath());
+                    final ZNodePath path = ZNodePath.fromString(((Records.PathGetter) input.get().getValue()).getPath());
                     final Node parent = trie.get(path);
                     for (String child: ((Records.ChildrenGetter) response).getChildren()) {
                         ZNodeLabel label = ZNodeLabel.fromString(child);

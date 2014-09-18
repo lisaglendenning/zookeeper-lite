@@ -2,35 +2,33 @@ package edu.uw.zookeeper.common;
 
 import org.apache.logging.log4j.Logger;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
-import edu.uw.zookeeper.common.ToStringListenableFuture.SimpleToStringListenableFuture;
+public class LoggingFutureListener<T extends ListenableFuture<?>> implements Runnable {
 
-public class LoggingFutureListener<V> extends SimpleToStringListenableFuture<V> implements Runnable {
-
-    public static <V, T extends ListenableFuture<V>> T listen(
+    public static <T extends ListenableFuture<?>> T listen(
             Logger logger,
             T future) {
-        LoggingFutureListener<V> listener = create(logger, future);
+        LoggingFutureListener<T> listener = create(logger, future);
         future.addListener(listener, MoreExecutors.directExecutor());
         return future;
     }
     
-    public static <V> LoggingFutureListener<V> create(
+    public static <T extends ListenableFuture<?>> LoggingFutureListener<T> create(
             Logger logger,
-            ListenableFuture<V> future) {
-        return new LoggingFutureListener<V>(logger, future);
+            T future) {
+        return new LoggingFutureListener<T>(logger, future);
     }
 
     protected final Logger logger;
+    protected final T future;
     
     protected LoggingFutureListener(
             Logger logger,
-            ListenableFuture<V> delegate) {
-        super(delegate);
+            T future) {
         this.logger = logger;
+        this.future = future;
     }
     
     public Logger logger() {
@@ -39,18 +37,13 @@ public class LoggingFutureListener<V> extends SimpleToStringListenableFuture<V> 
 
     @Override
     public void run() {
-        if (isDone()) {
+        if (future.isDone()) {
             logger().trace("DONE {}", this);
         }
     }
 
     @Override
     public String toString() {
-        return is3rdParty(delegate()) ? super.toString() : delegate().toString();
-    }
-    
-    @Override
-    protected MoreObjects.ToStringHelper toStringHelper() {
-        return toStringHelper(MoreObjects.toStringHelper(delegate()));
+        return ToStringListenableFuture.toString3rdParty(future);
     }
 }

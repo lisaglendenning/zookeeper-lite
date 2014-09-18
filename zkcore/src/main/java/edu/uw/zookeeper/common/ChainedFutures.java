@@ -1,5 +1,10 @@
 package edu.uw.zookeeper.common;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -8,183 +13,286 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ForwardingCollection;
+import com.google.common.collect.ForwardingDeque;
+import com.google.common.collect.ForwardingList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.util.concurrent.ForwardingListenableFuture;
+import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
-public final class ChainedFutures<V, T extends ListenableFuture<? extends V>> extends ToStringListenableFuture<V> implements Callable<Optional<List<T>>> {
+/**
+ * Not threadsafe.
+ */
+public class ChainedFutures<E extends ListenableFuture<?>, V extends FutureChain<E>, U extends ChainedFutures.ChainedProcessor<E,? super V>> extends ForwardingCollection<E> implements FutureChain<E>, Callable<Optional<V>> {
 
-    public static interface ChainedProcessor<T extends ListenableFuture<?>> extends Processor<List<T>, Optional<? extends T>> {
+    public static interface ChainedProcessor<E extends ListenableFuture<?>, T extends FutureChain<E>> extends Processor<T, Optional<? extends E>> {
     }
-    
-    public static <U,T extends ListenableFuture<? extends U>,V> ChainedFuturesTask<U,T,V> run(
-            ChainedFuturesProcessor<U,T,V> chain,
+
+    public static <V> ChainedFuturesTask<V> run(
+            ChainedResult<V,?,?,?> chain) {
+        return run(chain, SettableFuturePromise.<V>create());
+    }
+
+    public static <V> ChainedFuturesTask<V> run(
+            ChainedResult<V,?,?,?> chain,
             Promise<V> promise) {
-        ChainedFuturesTask<U,T,V> task = task(chain, promise);
+        ChainedFuturesTask<V> task = task(chain, promise);
         task.run();
         return task;
     }
 
-    public static <U,T extends ListenableFuture<? extends U>,V> ChainedFuturesTask<U,T,V> task(
-            ChainedFuturesProcessor<U,T,V> chain,
-            Promise<V> promise) {
-        return ChainedFuturesTask.create(chain, promise);
+    public static <V> ChainedFuturesTask<V> task(
+            ChainedResult<V,?,?,?> chain) {
+        return task(chain, SettableFuturePromise.<V>create());
     }
 
-    public static <V,T extends ListenableFuture<? extends V>> Processor<List<T>,V> getLast() {
-        return new Processor<List<T>,V>() {
-            @Override
-            public V apply(List<T> input) throws Exception {
-                return (V) input.get(input.size()-1).get();
-            }
-        };
+    public static <V> ChainedFuturesTask<V> task(
+            ChainedResult<V,?,?,?> chain,
+            Promise<V> promise) {
+        return new ChainedFuturesTask<V>(chain, promise);
     }
     
-    public static <V> Processor<List<? extends ListenableFuture<?>>,V> castLast() {
-        return new Processor<List<? extends ListenableFuture<?>>,V>() {
+    public static <V, C extends FutureChain<?>, T extends Processor<? super C, ? extends V>, U extends ChainedFutures<?,? extends C,?>> ChainedResult<V,C,T,U> result(
+            T result, U chain) {
+        return ChainedResult.create(result, chain);
+    }
+
+    public static <V> Processor<FutureChain<?>,V> castLast() {
+        return new Processor<FutureChain<?>,V>() {
             @SuppressWarnings("unchecked")
             @Override
-            public V apply(List<? extends ListenableFuture<?>> input) throws Exception {
-                return (V) input.get(input.size()-1).get();
+            public V apply(FutureChain<?> input) throws Exception {
+                return (V) input.getLast().get();
             }
         };
     }
 
-    /**
-     * Not threadsafe.
-     */
-    public static <U,T extends ListenableFuture<? extends U>,V> ChainedFuturesProcessor<U,T,V> process(
-            ChainedFutures<U,T> chain,
-            Processor<? super List<T>,? extends V> processor) {
-        return ChainedFuturesProcessor.create(chain, processor);
-    }
-
-    /**
-     * Not threadsafe.
-     */
-    public static <V, T extends ListenableFuture<? extends V>> ChainedFutures<V,T> chain(
-            Processor<? super List<T>, ? extends Optional<? extends T>> next,
-            List<T> futures) {
-        return chain(next, futures, LogManager.getLogger(ChainedFutures.class));
-    }
-
-    public static <V, T extends ListenableFuture<? extends V>> ChainedFutures<V,T> chain(
-            Processor<? super List<T>, ? extends Optional<? extends T>> next,
-            List<T> futures,
-            Logger logger) {
-        return new ChainedFutures<V,T>(next, futures, logger);
+    public static <V> ChainedResult<V,?,?,?> castLast(ChainedFutures<?,?,?> chain) {
+        return result(ChainedFutures.<V>castLast(), chain);
     }
     
-    private final Logger logger;
-    private final Processor<? super List<T>, ? extends Optional<? extends T>> next;
-    private final List<T> futures;
+    public static <E extends ListenableFuture<?>, V extends FutureChain<E>, U extends ChainedFutures.ChainedProcessor<E,? super V>> ChainedFutures<E,V,U> apply(
+            U processor,
+            V chain) {
+        return apply(processor, chain, LogManager.getLogger(ChainedFutures.class));
+    }
+    
+    public static <E extends ListenableFuture<?>, U extends ChainedFutures.ChainedProcessor<E,? super ListChain<E,LinkedList<E>>>> ChainedFutures<E,ListChain<E,LinkedList<E>>,U> linkedList(
+            U processor) {
+        return list(processor, Lists.<E>newLinkedList());
+    }
+    
+    public static <E extends ListenableFuture<?>, U extends ChainedFutures.ChainedProcessor<E,? super ListChain<E,ArrayList<E>>>> ChainedFutures<E,ListChain<E,ArrayList<E>>,U> arrayList(
+            U processor) {
+        return list(processor, Lists.<E>newArrayList());
+    }
+    
+    public static <E extends ListenableFuture<?>, U extends ChainedFutures.ChainedProcessor<E,? super ListChain<E,ArrayList<E>>>> ChainedFutures<E,ListChain<E,ArrayList<E>>,U> arrayList(
+            U processor,
+            int capacity) {
+        return list(processor, Lists.<E>newArrayListWithCapacity(capacity));
+    }
+    
+    public static <E extends ListenableFuture<?>, T extends List<E>, U extends ChainedFutures.ChainedProcessor<E,? super ListChain<E,T>>> ChainedFutures<E,ListChain<E,T>,U> list(
+            U processor,
+            T chain) {
+        return apply(processor, list(chain));
+    }
+    
+    public static <E extends ListenableFuture<?>, U extends ChainedFutures.ChainedProcessor<E,? super DequeChain<E,ArrayDeque<E>>>> ChainedFutures<E,DequeChain<E,ArrayDeque<E>>,U> arrayDeque(
+            U processor) {
+        return deque(processor, Queues.<E>newArrayDeque());
+    }
+    
+    public static <E extends ListenableFuture<?>, T extends Deque<E>, U extends ChainedFutures.ChainedProcessor<E,? super DequeChain<E,T>>> ChainedFutures<E,DequeChain<E,T>,U> deque(
+            U processor,
+            T chain) {
+        return apply(processor, deque(chain));
+    }
+
+    public static <E extends ListenableFuture<?>, V extends FutureChain<E>, U extends ChainedFutures.ChainedProcessor<E,? super V>> ChainedFutures<E,V,U> apply(
+            U processor,
+            V chain,
+            Logger logger) {
+        return new ChainedFutures<E,V,U>(processor, chain, logger);
+    }
+    
+    public static <E extends ListenableFuture<?>, T extends List<E>> ListChain<E,T> list(T delegate) {
+        return ListChain.create(delegate);
+    }
+
+    public static <E extends ListenableFuture<?>, T extends Deque<E>> DequeChain<E,T> deque(T delegate) {
+        return new DequeChain<E,T>(delegate);
+    }
+    
+    protected final Logger logger;
+    protected final U processor;
+    protected final V chain;
     
     protected ChainedFutures(
-            Processor<? super List<T>, ? extends Optional<? extends T>> next,
-            List<T> futures,
+            U processor,
+            V chain,
             Logger logger) {
         this.logger = logger;
-        this.next = next;
-        this.futures = futures;
+        this.processor = processor;
+        this.chain = chain;
     }
     
-    public List<T> futures() {
-        return futures;
+    public U processor() {
+        return processor;
+    }
+    
+    public V chain() {
+        return chain;
     }
 
     @Override
-    public Optional<List<T>> call() throws Exception {
-        if (futures.isEmpty() || isDone()) {
-            Optional<? extends T> next = this.next.apply(futures);
+    public Optional<V> call() throws Exception {
+        if (chain().isEmpty() || chain().getLast().isDone()) {
+            Optional<? extends E> next = processor().apply(chain());
             if (logger.isDebugEnabled()) {
                 logger.debug("APPLIED {} TO {} => {}", 
-                        this.next, 
-                        Lists.transform(futures, ToStringListenableFuture.toString3rdParty()), 
+                        processor(), 
+                        Collections2.transform(chain(), ToStringListenableFuture.toString3rdParty()), 
                         next.orNull());
             }
             if (next.isPresent()) {
-                futures.add(next.get());
+                if (!chain().add(LoggingFutureListener.listen(logger, next.get()))) {
+                    throw new IllegalStateException();
+                }
             } else {
-                return Optional.of(futures);
+                return Optional.of(chain());
             }
         }
         return Optional.absent();
     }
     
     @Override
+    public E getLast() {
+        return chain().getLast();
+    }
+
+    @Override
+    public String toString() {
+        return toStringHelper(MoreObjects.toStringHelper(this)).toString();
+    }
+    
+    @Override
+    protected Collection<E> delegate() {
+        return chain();
+    }
+
     protected MoreObjects.ToStringHelper toStringHelper(MoreObjects.ToStringHelper helper) {
-        helper.addValue(next);
+        helper.addValue(processor());
         ImmutableList.Builder<String> values = ImmutableList.builder();
-        for (T future: futures) {
+        for (E future: chain()) {
             values.add(ToStringListenableFuture.toString3rdParty(future));
         }
         return helper.addValue(values.build());
     }
+    
+    public static class ListChain<E extends ListenableFuture<?>, T extends List<E>> extends ForwardingList<E> implements FutureChain.FutureListChain<E> {
 
-    @SuppressWarnings("unchecked")
-    @Override
-    protected ListenableFuture<V> delegate() {
-        return (ListenableFuture<V>) (ListenableFuture<?>) futures.get(futures.size() - 1);
-    }
-
-    public static final class ChainedFuturesProcessor<U,T extends ListenableFuture<? extends U>,V> extends ForwardingListenableFuture<U> implements Callable<Optional<V>> {
-
-        public static <U,T extends ListenableFuture<? extends U>,V> ChainedFuturesProcessor<U,T,V> create(
-                ChainedFutures<U,T> chain,
-                Processor<? super List<T>,? extends V> processor) {
-            return new ChainedFuturesProcessor<U,T,V>(chain, processor);
+        public static <E extends ListenableFuture<?>, T extends List<E>> ListChain<E,T> create(T delegate) {
+            return new ListChain<E,T>(delegate);
         }
         
-        private final ChainedFutures<U,T> chain;
-        private final Processor<? super List<T>,? extends V> processor;
+        private final T delegate;
         
-        protected ChainedFuturesProcessor(
-                ChainedFutures<U, T> chain,
-                Processor<? super List<T>,? extends V> processor) {
-            super();
-            this.chain = chain;
-            this.processor = processor;
+        protected ListChain(
+                T delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public E getLast() {
+            return get(size() - 1);
+        }
+
+        @Override
+        protected T delegate() {
+            return delegate;
+        }
+    }
+    
+    public static class DequeChain<E extends ListenableFuture<?>, T extends Deque<E>> extends ForwardingDeque<E> implements FutureChain.FutureDequeChain<E> {
+
+        public static <E extends ListenableFuture<?>, T extends Deque<E>> DequeChain<E,T> create(T delegate) {
+            return new DequeChain<E,T>(delegate);
+        }
+
+        private final T delegate;
+        
+        protected DequeChain(
+                T delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        protected T delegate() {
+            return delegate;
+        }
+    }
+
+    /**
+     * Not threadsafe.
+     */
+    public static final class ChainedResult<V, C extends FutureChain<?>, T extends Processor<? super C, ? extends V>, U extends ChainedFutures<?,? extends C,?>> extends AbstractPair<T,U> implements Callable<Optional<V>> {
+
+        public static <V, C extends FutureChain<?>, T extends Processor<? super C, ? extends V>, U extends ChainedFutures<?,? extends C,?>> ChainedResult<V,C,T,U> create(
+                T result, U chain) {
+            return new ChainedResult<V,C,T,U>(result, chain);
+        }
+        
+        protected ChainedResult(
+                T result, U chain) {
+            super(result, chain);
+        }
+        
+        public T result() {
+            return first;
+        }
+        
+        public U chain() {
+            return second;
         }
 
         @Override
         public Optional<V> call() throws Exception {
-            Optional<List<T>> futures = chain.call();
+            Optional<? extends C> futures = chain().call();
             if (futures.isPresent()) {
-                return Optional.<V>of(processor.apply(futures.get()));
+                return Optional.<V>of(result().apply(futures.get()));
             }
             return Optional.absent();
         }
-        
-        @Override
-        public ChainedFutures<U,T> delegate() {
-            return chain;
-        }
     }
     
-    public static final class ChainedFuturesTask<U,T extends ListenableFuture<? extends U>,V> extends CallablePromiseTask<ChainedFuturesProcessor<U,T,V>,V> implements Runnable {
+    public static final class ChainedFuturesTask<V> extends CallablePromiseTask<ChainedResult<V,?,?,?>,V> implements Runnable {
 
-        public static <U,T extends ListenableFuture<? extends U>,V> ChainedFuturesTask<U,T,V> create(
-                ChainedFuturesProcessor<U,T,V> chain,
+        public static <V> ChainedFuturesTask<V> create(
+                ChainedResult<V,?,?,?> chain,
                 Promise<V> promise) {
-            return new ChainedFuturesTask<U,T,V>(chain, promise);
+            return new ChainedFuturesTask<V>(chain, promise);
         }
         
         protected ChainedFuturesTask(
-                ChainedFuturesProcessor<U,T,V> chain,
+                ChainedResult<V,?,?,?> chain,
                 Promise<V> promise) {
             super(chain, promise);
         }
 
         @Override
         public synchronized void run() {
-            super.run();
+            FutureChain<?> chain = task().chain().chain();
             if (!isDone()) {
-                task().addListener(this, MoreExecutors.directExecutor());
+                super.run();
+                chain.getLast().addListener(this, MoreExecutors.directExecutor());
             } else if (isCancelled()) {
-                if (!task().delegate().futures().isEmpty()) {
-                    task().delegate().cancel(false);
+                if (!chain.isEmpty()) {
+                    chain.getLast().cancel(false);
                 }
             }
         }

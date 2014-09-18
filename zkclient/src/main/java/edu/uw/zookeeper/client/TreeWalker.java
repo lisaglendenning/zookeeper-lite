@@ -321,7 +321,7 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
         public Iterator<AbsoluteZNodePath> apply(SubmittedRequest<Records.Request,?> input) throws InterruptedException, ExecutionException {
             final Records.Response response = input.get().record();
             if (response instanceof Records.ChildrenGetter) {
-                final ZNodePath path = ZNodePath.fromString(((Records.PathGetter) input.request()).getPath());
+                final ZNodePath path = ZNodePath.fromString(((Records.PathGetter) input.getValue()).getPath());
                 return Iterators.transform(
                                 ((Records.ChildrenGetter) response).getChildren().iterator(),
                                 ChildToPath.forParent(path));

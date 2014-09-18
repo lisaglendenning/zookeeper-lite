@@ -128,7 +128,7 @@ public class DeleteSubtree extends ForwardingListenableFuture<AbsoluteZNodePath>
         if (input.isPresent()) {
             final Records.Response response = input.get().get().record();
             if (response instanceof Records.ChildrenGetter) {
-                final ZNodePath path = ZNodePath.fromString(((Records.PathGetter) input.get().request()).getPath());
+                final ZNodePath path = ZNodePath.fromString(((Records.PathGetter) input.get().getValue()).getPath());
                 final Node parent = Node.putIfAbsent(trie, path);
                 for (String child: ((Records.ChildrenGetter) response).getChildren()) {
                     parent.putIfAbsent(ZNodeLabel.fromString(child));
@@ -216,11 +216,11 @@ public class DeleteSubtree extends ForwardingListenableFuture<AbsoluteZNodePath>
             if (requests.isDone()) {
                 List<? extends Operation.ProtocolResponse<?>> responses = requests.get();
                 ImmutableList.Builder<AbsoluteZNodePath> children = ImmutableList.builder();
-                for (int i=0; i<requests.requests().size(); ++i) {
+                for (int i=0; i<requests.getValue().size(); ++i) {
                     Operation.ProtocolResponse<?> response = responses.get(i);
                     if (!Operations.maybeError(response.record(), KeeperException.Code.NONODE).isPresent()) {
                         if (response.record() instanceof Records.ChildrenGetter) {
-                            ZNodePath prefix = ZNodePath.fromString(((Records.PathGetter) requests.requests().get(i)).getPath());
+                            ZNodePath prefix = ZNodePath.fromString(((Records.PathGetter) requests.getValue().get(i)).getPath());
                             for (String child: ((Records.ChildrenGetter) response.record()).getChildren()) {
                                 children.add((AbsoluteZNodePath) prefix.join(ZNodeLabel.fromString(child)));
                             }
