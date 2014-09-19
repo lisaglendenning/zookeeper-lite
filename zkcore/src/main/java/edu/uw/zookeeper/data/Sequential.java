@@ -61,7 +61,7 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
     }
     
     public static <T extends CharSequence & Comparable<? super T>> Sequential<T,?> fromInt(T prefix, int value) {
-        if (value > 0) {
+        if (value >= 0) {
             return sequenced(prefix, UnsignedInteger.fromIntBits(value));
         } else {
             return overflowed(prefix);
