@@ -21,11 +21,31 @@ public abstract class Processors {
         public T apply(V input) throws E;
     }
     
+    public static <T,V> Constant<T,V> constant(
+            V value) {
+        return new Constant<T,V>(value);
+    }
+    
+    public static final class Constant<T,V> implements Processor<T,V> {
+        
+        private final V value;
+        
+        public Constant(
+                V value) {
+            this.value = value;
+        }
+
+        @Override
+        public V apply(T input) {
+            return value;
+        }
+    }
+    
     public static <T> Identity<T> identity() {
         return new Identity<T>();
     }
     
-    public static class Identity<T> implements Processor<T, T> {
+    public static final class Identity<T> implements Processor<T, T> {
         public Identity() {}
 
         @Override

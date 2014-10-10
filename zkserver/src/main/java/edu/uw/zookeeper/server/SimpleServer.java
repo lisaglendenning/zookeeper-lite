@@ -102,7 +102,7 @@ public class SimpleServer extends ExecutedQueuedActor<PromiseTask<SessionOperati
         }
         
         public Watches getChildWatches() {
-            return dataWatches;
+            return childWatches;
         }
         
         public C setChildWatches(Watches childWatches) {

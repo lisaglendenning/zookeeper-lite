@@ -57,7 +57,7 @@ public class WatcherEventProcessor extends ForwardingProcessor<TxnOperation.Requ
     protected final Watches dataWatches;
     protected final Watches childWatches;
 
-    public WatcherEventProcessor(
+    protected WatcherEventProcessor(
             Processors.CheckedProcessor<TxnOperation.Request<?>, ? extends Records.Response, KeeperException> delegate,
             Watches dataWatches,
             Watches childWatches) {
