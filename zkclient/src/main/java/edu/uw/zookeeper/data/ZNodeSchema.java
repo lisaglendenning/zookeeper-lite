@@ -21,7 +21,7 @@ import com.google.common.collect.Sets;
 
 import edu.uw.zookeeper.common.Pair;
 
-public class ZNodeSchema {
+public final class ZNodeSchema {
     
     public static <E extends NameTrie.Node<E>> E matchPath(NameTrie<E> trie, ZNodePath path) {
         Iterator<ZNodeLabel> remaining = path.iterator();
@@ -67,9 +67,10 @@ public class ZNodeSchema {
         return new DeclarationTraversal(root);
     }
 
-    public static class DeclarationTraversal extends AbstractIterator<DeclarationTraversal.Element> {
+    public static final class DeclarationTraversal extends AbstractIterator<DeclarationTraversal.Element> {
     
-        public static class Element {
+        public static final class Element {
+            
             private final ZNodePath path;
             private final ZNodeSchema.Builder builder;
             private final Object element;
@@ -136,7 +137,7 @@ public class ZNodeSchema {
                     }
                 }
                 
-                for (Class<?> c: type.getClasses()) {
+                for (Class<?> c: type.getDeclaredClasses()) {
                     ZNodeSchema.Builder builder = Builder.fromClass(c);
                     if (builder != null) {
                         pending.push(new Element(path, builder, c));
@@ -148,7 +149,7 @@ public class ZNodeSchema {
         }
     }
 
-    public static class Builder {
+    public static final class Builder {
 
         public static ZNodeSchema.Builder fromDefault() {
             return fromSchema(DEFAULT);
