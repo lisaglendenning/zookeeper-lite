@@ -83,7 +83,7 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
     public static final class Parameters {
 
         public static Parameters defaults() {
-            return valueOf(false, false, false, false, false);
+            return valueOf(true, false, false, false, false);
         }
         
         public static Parameters valueOf(boolean sync, boolean watch, boolean getData, boolean getAcl,
