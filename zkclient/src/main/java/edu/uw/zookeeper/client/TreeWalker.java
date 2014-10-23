@@ -14,7 +14,6 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.logging.log4j.LogManager;
 
-import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +31,6 @@ import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.ToStringListenableFuture;
 import edu.uw.zookeeper.data.AbsoluteZNodePath;
 import edu.uw.zookeeper.data.RootZNodePath;
-import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.data.ZNodePath;
 import edu.uw.zookeeper.data.Operations;
 import edu.uw.zookeeper.protocol.Operation;
@@ -157,10 +155,10 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
         }
     }
     
-    public static class Builder<V> implements edu.uw.zookeeper.common.Builder<TreeWalker<V>> {
+    public static final class Builder<V> implements edu.uw.zookeeper.common.Builder<TreeWalker<V>> {
     
         public static <V> Builder<V> defaults() {
-            return new Builder<V>(null, null, null, null, null, null);
+            return new Builder<V>(ZNodePath.root(), null, null, null, null, null);
         }
         
         private final ZNodePath root;
@@ -213,7 +211,7 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
             return result;
         }
         
-        public Builder<V> setResult(Processor<? super Optional<? extends SubmittedRequest<Records.Request,?>>, ? extends Optional<V>> result) {
+        public <U> Builder<U> setResult(Processor<? super Optional<? extends SubmittedRequest<Records.Request,?>>, ? extends Optional<U>> result) {
             return newInstance(root, requests, iterator, result, client, executor);
         }
 
@@ -278,14 +276,14 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
             return actor;
         }
 
-        protected Builder<V> newInstance(    
+        protected <U> Builder<U> newInstance(    
                 ZNodePath root,
                 PathToRequests requests,
                 Processor<? super SubmittedRequest<Records.Request,?>, ? extends Iterator<? extends ZNodePath>> iterator,
-                Processor<? super Optional<? extends SubmittedRequest<Records.Request,?>>, ? extends Optional<V>> result,
+                Processor<? super Optional<? extends SubmittedRequest<Records.Request,?>>, ? extends Optional<U>> result,
                 ClientExecutor<? super Records.Request, ? extends Operation.ProtocolResponse<?>, ?> client, 
                 Executor executor) {
-            return new Builder<V>(root, requests, iterator, result, client, executor);
+            return new Builder<U>(root, requests, iterator, result, client, executor);
         }
         
         protected ZNodePath getDefaultRoot() {
@@ -328,24 +326,6 @@ public class TreeWalker<V> extends AbstractActor<ZNodePath> implements Listenabl
             } else {
                 return ImmutableSet.<AbsoluteZNodePath>of().iterator();
             }
-        }
-    }
-
-    public static final class ChildToPath implements Function<String, AbsoluteZNodePath> {
-
-        public static ChildToPath forParent(ZNodePath parent) {
-            return new ChildToPath(parent);
-        }
-        
-        private final ZNodePath parent;
-        
-        protected ChildToPath(ZNodePath parent) {
-            this.parent = parent;
-        }
-        
-        @Override
-        public AbsoluteZNodePath apply(String input) {
-            return (AbsoluteZNodePath) parent.join(ZNodeLabel.fromString(input));
         }
     }
 
