@@ -85,6 +85,12 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
     public final T prefix() {
         return prefix;
     }
+
+    /**
+     * Orders by sequence then by prefix.
+     */
+    @Override
+    public abstract int compareTo(Sequential<T, ?> other);
     
     public abstract U sequence();
 
@@ -114,14 +120,15 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
 
         @Override
         public int compareTo(Sequential<T, ?> other) {
-            int result = prefix().compareTo(other.prefix());
-            if (result == 0) {
-                if (other instanceof Sequenced) {
-                    return sequence.compareTo(((Sequenced<?>) other).sequence);
-                } else {
-                    assert (other instanceof Overflowed);
-                    return -1;
+            int result;
+            if (other instanceof Sequenced) {
+                result = sequence.compareTo(((Sequenced<?>) other).sequence);
+                if (result == 0) {
+                    result = prefix().compareTo(other.prefix());
                 }
+            } else {
+                assert (other instanceof Overflowed);
+                result = -1;
             }
             return result;
         }
@@ -151,14 +158,12 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
 
         @Override
         public int compareTo(Sequential<T, ?> other) {
-            int result = prefix().compareTo(other.prefix());
-            if (result == 0) {
-                if (other instanceof Overflowed) {
-                    return 0;
-                } else {
-                    assert (other instanceof Sequenced);
-                    return 1;
-                }
+            int result;
+            if (other instanceof Sequenced) {
+                result = 1;
+            } else {
+                assert (other instanceof Overflowed);
+                result = prefix().compareTo(other.prefix());
             }
             return result;
         }
