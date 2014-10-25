@@ -35,17 +35,18 @@ public final class IteratingClient extends PromiseTask<Iterator<? extends Pair<?
     }
     
     @Override
-    public void run() {
+    public synchronized void run() {
         if (!isDone()) {
             if (task().hasNext()) {
-                pending.incrementAndGet();
                 Pair<? extends Records.Request, ? extends ListenableFuture<? extends Operation.ProtocolResponse<?>>> operation;
                 try {
+                    // note that this call is potentially blocking
                     operation = task().next();
                 } catch (Exception e) {
                     setException(e);
                     return;
                 }
+                pending.incrementAndGet();
                 new PendingOperation(operation.second());
                 executor.execute(this);
             } else if (pending.get() == 0) {
@@ -77,7 +78,7 @@ public final class IteratingClient extends PromiseTask<Iterator<? extends Pair<?
                     }
                 } finally {
                     if (pending.decrementAndGet() == 0) {
-                        IteratingClient.this.run();
+                        executor.execute(IteratingClient.this);
                     }
                 }
             }
