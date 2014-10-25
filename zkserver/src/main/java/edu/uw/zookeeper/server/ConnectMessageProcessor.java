@@ -52,13 +52,13 @@ public class ConnectMessageProcessor
         final Session session;
         if (input instanceof ConnectMessage.Request.NewRequest) {
             session = sessions.create(parameters.timeOut());
-            logger.debug("Created session {}", Session.toString(session.id()));
+            logger.info("Created session {}", Session.toString(session.id()));
         } else {
             session = sessions.get(input.getSessionId());
             if (session == null) {
                 throw new IllegalArgumentException(new KeeperException.UnknownSessionException());
             }
-            logger.debug("Renewed session {}", Session.toString(input.getSessionId()));
+            logger.info("Renewed session {}", Session.toString(input.getSessionId()));
         }
         
         return ConnectMessage.Response.Valid.newInstance(session, input.getReadOnly(), input.legacy());
