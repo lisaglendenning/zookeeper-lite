@@ -1,13 +1,10 @@
 package edu.uw.zookeeper.client;
 
 import java.util.Iterator;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Pair;
@@ -16,7 +13,7 @@ import edu.uw.zookeeper.common.PromiseTask;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.proto.Records;
 
-public class IteratingClient extends PromiseTask<Iterator<? extends Pair<? extends Records.Request, ? extends ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Void> implements Runnable {
+public final class IteratingClient extends PromiseTask<Iterator<? extends Pair<? extends Records.Request, ? extends ListenableFuture<? extends Operation.ProtocolResponse<?>>>>, Void> implements Runnable {
     
     public static IteratingClient create(
             Executor executor,
@@ -26,7 +23,7 @@ public class IteratingClient extends PromiseTask<Iterator<? extends Pair<? exten
     }
     
     protected final Executor executor;
-    protected final Set<PendingOperation> pending;
+    protected final AtomicInteger pending;
     
     protected IteratingClient(
             Executor executor,
@@ -34,15 +31,14 @@ public class IteratingClient extends PromiseTask<Iterator<? extends Pair<? exten
             Promise<Void> promise) {
         super(callable, promise);
         this.executor = executor;
-        this.pending = Sets.newConcurrentHashSet();
-        
-        addListener(this, executor);
+        this.pending = new AtomicInteger(0);
     }
     
     @Override
-    public synchronized void run() {
+    public void run() {
         if (!isDone()) {
             if (task().hasNext()) {
+                pending.incrementAndGet();
                 Pair<? extends Records.Request, ? extends ListenableFuture<? extends Operation.ProtocolResponse<?>>> operation;
                 try {
                     operation = task().next();
@@ -50,52 +46,41 @@ public class IteratingClient extends PromiseTask<Iterator<? extends Pair<? exten
                     setException(e);
                     return;
                 }
-                new PendingOperation(operation);
+                new PendingOperation(operation.second());
                 executor.execute(this);
-            } else if (pending.isEmpty()) {
+            } else if (pending.get() == 0) {
                 set(null);
-            }
-        } else {
-            Iterator<PendingOperation> itr = Iterators.consumingIterator(pending.iterator());
-            while (itr.hasNext()) {
-                itr.next().cancel(true);
             }
         }
     }
     
-    protected class PendingOperation extends ForwardingListenableFuture<Operation.ProtocolResponse<?>> implements Runnable {
-        private final Pair<? extends Records.Request, ? extends ListenableFuture<? extends Operation.ProtocolResponse<?>>> operation;
+    protected final class PendingOperation implements Runnable {
+        ListenableFuture<? extends Operation.ProtocolResponse<?>> future;
 
-        public PendingOperation(Pair<? extends Records.Request, ? extends ListenableFuture<? extends Operation.ProtocolResponse<?>>> operation) {
-            this.operation = operation;
-            pending.add(this);
-            addListener(this, executor);
+        public PendingOperation(ListenableFuture<? extends Operation.ProtocolResponse<?>> future) {
+            this.future = future;
+            future.addListener(this, executor);
         }
         
         @Override
         public void run() {
-            synchronized (IteratingClient.this) {
-                if (isDone()) {
-                    if (pending.remove(this)) {
-                        if (!isCancelled()) {
-                            try { 
-                                get();
-                            } catch (InterruptedException e) {
-                                throw new AssertionError(e);
-                            } catch (ExecutionException e) {
-                                setException(e.getCause());
-                            }
+            if (future.isDone()) {
+                try {
+                    if (!future.isCancelled()) {
+                        try { 
+                            future.get();
+                        } catch (InterruptedException e) {
+                            throw new AssertionError(e);
+                        } catch (ExecutionException e) {
+                            setException(e);
                         }
                     }
-                    IteratingClient.this.run();
+                } finally {
+                    if (pending.decrementAndGet() == 0) {
+                        IteratingClient.this.run();
+                    }
                 }
             }
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        protected ListenableFuture<Operation.ProtocolResponse<?>> delegate() {
-            return (ListenableFuture<Operation.ProtocolResponse<?>>) (ListenableFuture<?>) operation.second();
         }
     }
 }
