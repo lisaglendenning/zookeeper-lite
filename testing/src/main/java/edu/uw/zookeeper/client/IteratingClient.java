@@ -5,6 +5,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.Pair;
@@ -22,14 +23,14 @@ public final class IteratingClient extends PromiseTask<Iterator<? extends Pair<?
         return new IteratingClient(executor, operations, promise);
     }
     
-    protected final Executor executor;
-    protected final AtomicInteger pending;
+    private final Executor executor;
+    private final AtomicInteger pending;
     
     protected IteratingClient(
             Executor executor,
-            Iterator<? extends Pair<? extends Records.Request, ? extends ListenableFuture<? extends Operation.ProtocolResponse<?>>>> callable,
+            Iterator<? extends Pair<? extends Records.Request, ? extends ListenableFuture<? extends Operation.ProtocolResponse<?>>>> operations,
             Promise<Void> promise) {
-        super(callable, promise);
+        super(operations, promise);
         this.executor = executor;
         this.pending = new AtomicInteger(0);
     }
@@ -37,10 +38,10 @@ public final class IteratingClient extends PromiseTask<Iterator<? extends Pair<?
     @Override
     public synchronized void run() {
         if (!isDone()) {
+            // note that iterator calls are potentially blocking
             if (task().hasNext()) {
                 Pair<? extends Records.Request, ? extends ListenableFuture<? extends Operation.ProtocolResponse<?>>> operation;
                 try {
-                    // note that this call is potentially blocking
                     operation = task().next();
                 } catch (Exception e) {
                     setException(e);
@@ -56,7 +57,8 @@ public final class IteratingClient extends PromiseTask<Iterator<? extends Pair<?
     }
     
     protected final class PendingOperation implements Runnable {
-        ListenableFuture<? extends Operation.ProtocolResponse<?>> future;
+        
+        private final ListenableFuture<? extends Operation.ProtocolResponse<?>> future;
 
         public PendingOperation(ListenableFuture<? extends Operation.ProtocolResponse<?>> future) {
             this.future = future;
@@ -71,7 +73,7 @@ public final class IteratingClient extends PromiseTask<Iterator<? extends Pair<?
                         try { 
                             future.get();
                         } catch (InterruptedException e) {
-                            throw new AssertionError(e);
+                            throw Throwables.propagate(e);
                         } catch (ExecutionException e) {
                             setException(e);
                         }
