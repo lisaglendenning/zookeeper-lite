@@ -3,7 +3,6 @@ package edu.uw.zookeeper.data;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -1624,35 +1623,39 @@ public abstract class Operations {
         }
     }
 
-    public static <T extends Records.Response> T unlessError(T response) throws KeeperException {
-        return Operations.unlessError(response, "Unexpected Error");
+    public static <T extends Records.Response> T unlessError(Records.PathGetter request, T response) throws KeeperException {
+        return unlessError(response, request.getPath());
     }
 
-    public static <T extends Records.Response> T unlessError(T response, String message) throws KeeperException {
+    public static <T extends Records.Response> T unlessError(T response) throws KeeperException {
+        return unlessError(response, "");
+    }
+
+    public static <T extends Records.Response> T unlessError(T response, String path) throws KeeperException {
         if (response instanceof Operation.Error) {
             KeeperException.Code error = ((Operation.Error) response).error();
-            throw KeeperException.create(error, message);
+            throw KeeperException.create(error, path);
         } else {
             return response;
         }
     }
     
     public static IMultiResponse unlessMultiError(IMultiResponse response) throws KeeperException {
-        return Operations.unlessMultiError(response, "Unexpected Error");
+        return Operations.unlessMultiError(response, "");
     }
 
-    public static IMultiResponse unlessMultiError(IMultiResponse response, String message) throws KeeperException {
+    public static IMultiResponse unlessMultiError(IMultiResponse response, String path) throws KeeperException {
         for (Records.MultiOpResponse record: response) {
-            maybeError(record, message, KeeperException.Code.OK);
+            maybeError(record, path, KeeperException.Code.OK);
         }
         return response;
     }
     
     public static Optional<Operation.Error> maybeMultiError(IMultiResponse response, KeeperException.Code... expected) throws KeeperException {
-        return Operations.maybeMultiError(response, "Unexpected Error", expected);
+        return Operations.maybeMultiError(response, "", expected);
     }
 
-    public static Optional<Operation.Error> maybeMultiError(IMultiResponse response, String message, KeeperException.Code... expected) throws KeeperException {
+    public static Optional<Operation.Error> maybeMultiError(IMultiResponse response, String path, KeeperException.Code... expected) throws KeeperException {
         for (Records.MultiOpResponse record: response) {
             if (record instanceof Operation.Error) {
                 Operation.Error error = (Operation.Error) record;
@@ -1663,33 +1666,37 @@ public abstract class Operations {
                         }
                     }
                 }
-                throw KeeperException.create(error.error(), message);
+                throw KeeperException.create(error.error(), path);
             }
         }
         return Optional.absent();
     }
     
     public static Operation.Error expectError(Records.Response response, KeeperException.Code expected) throws KeeperException {
-        return Operations.expectError(response, "Expected Error " + expected.toString(), expected);
+        return Operations.expectError(response, "", expected);
     }
 
-    public static Operation.Error expectError(Records.Response response, String message, KeeperException.Code expected) throws KeeperException {
+    public static Operation.Error expectError(Records.Response response, String path, KeeperException.Code expected) throws KeeperException {
         if (response instanceof Operation.Error) {
             Operation.Error error = (Operation.Error) response;
             if (expected != error.error()) {
-                throw KeeperException.create(error.error(), message);
+                throw KeeperException.create(error.error(), path);
             }
             return error;
         } else {
-            throw new IllegalArgumentException(String.format("Unexpected Response: %s (%s)", response, message));
+            throw new KeeperException.RuntimeInconsistencyException();
         }
     }
 
-    public static Optional<Operation.Error> maybeError(Records.Response response, KeeperException.Code... expected) throws KeeperException {
-        return Operations.maybeError(response, "Expected Error " + Arrays.toString(expected), expected);
+    public static Optional<Operation.Error> maybeError(Records.PathGetter request, Records.Response response, KeeperException.Code... expected) throws KeeperException {
+        return Operations.maybeError(response, request.getPath(), expected);
     }
 
-    public static Optional<Operation.Error> maybeError(Records.Response response, String message, KeeperException.Code... expected) throws KeeperException {
+    public static Optional<Operation.Error> maybeError(Records.Response response, KeeperException.Code... expected) throws KeeperException {
+        return Operations.maybeError(response, "", expected);
+    }
+
+    public static Optional<Operation.Error> maybeError(Records.Response response, String path, KeeperException.Code... expected) throws KeeperException {
         if (response instanceof Operation.Error) {
             Operation.Error error = (Operation.Error) response;
             for (KeeperException.Code code: expected) {
@@ -1697,7 +1704,7 @@ public abstract class Operations {
                     return Optional.of(error);
                 }
             }
-            throw KeeperException.create(error.error(), message);
+            throw KeeperException.create(error.error(), path);
         }
         return Optional.absent();
     }
