@@ -1,9 +1,13 @@
 package edu.uw.zookeeper.data;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Comparator;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.annotation.Nonnull;
 
 import com.google.common.base.Converter;
 import com.google.common.base.Optional;
@@ -27,10 +31,10 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
             final String sequence = m.group(4);
             final Sequential<String,?> sequential;
             if (sequence != null) {
-                sequential = Sequenced.of(prefix, UnsignedInteger.valueOf(sequence));
+                sequential = Sequenced.valueOf(prefix, UnsignedInteger.valueOf(sequence));
             } else {
                 assert (m.group(3) != null);
-                sequential = Overflowed.of(prefix);
+                sequential = Overflowed.valueOf(prefix);
             }
             return Optional.of(sequential);
         } else {
@@ -69,16 +73,17 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
     }
 
     public static <T extends CharSequence & Comparable<? super T>> Sequenced<T> sequenced(T prefix, UnsignedInteger sequence) {
-        return Sequenced.of(prefix, sequence);
+        return Sequenced.valueOf(prefix, sequence);
     }
 
     public static <T extends CharSequence & Comparable<? super T>> Overflowed<T> overflowed(T prefix) {
-        return Overflowed.of(prefix);
+        return Overflowed.valueOf(prefix);
     }
 
     private final T prefix;
     
-    private Sequential(T prefix) {
+    private Sequential(@Nonnull T prefix) {
+        assert (prefix != null);
         this.prefix = prefix;
     }
 
@@ -99,16 +104,26 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
     public String toString() {
         return toString(this);
     }
+
+    @Override
+    public int hashCode() {
+        return sequence().hashCode();
+    }
     
     public static final class Sequenced<T extends CharSequence & Comparable<? super T>> extends Sequential<T, UnsignedInteger> {
 
-        public static <T extends CharSequence & Comparable<? super T>> Sequenced<T> of(T prefix, UnsignedInteger sequence) {
-            return new Sequenced<T>(prefix, sequence);
+        public static <T extends CharSequence & Comparable<? super T>> Sequenced<T> valueOf(T prefix, UnsignedInteger sequence) {
+            try {
+                checkNotNull(prefix).charAt(0);
+            } catch (IndexOutOfBoundsException e) {
+                throw new IllegalArgumentException("Sequenced prefix can't be empty");
+            }
+            return new Sequenced<T>(prefix, checkNotNull(sequence));
         }
         
         private final UnsignedInteger sequence;
         
-        private Sequenced(T prefix, UnsignedInteger sequence) {
+        private Sequenced(@Nonnull T prefix, @Nonnull UnsignedInteger sequence) {
             super(prefix);
             this.sequence = sequence;
         }
@@ -132,6 +147,16 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
             }
             return result;
         }
+        
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof Sequenced)) {
+                return false;
+            }
+            Sequenced<?> other = (Sequenced<?>) obj;
+            return sequence().equals(other.sequence())
+                    && prefix().equals(other.prefix());
+        }
     }
 
     /** 
@@ -143,11 +168,16 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
 
         public static final Integer OVERFLOW_SEQUENCE = Integer.valueOf(Integer.MIN_VALUE + 1);
 
-        public static <T extends CharSequence & Comparable<? super T>> Overflowed<T> of(T prefix) {
-            return new Overflowed<T>(prefix);
+        public static <T extends CharSequence & Comparable<? super T>> Overflowed<T> valueOf(T prefix) {
+            try {
+                checkNotNull(prefix).charAt(0);
+            } catch (IndexOutOfBoundsException e) {
+                throw new IllegalArgumentException("Overflowed prefix can't be empty");
+            }
+            return new Overflowed<T>(checkNotNull(prefix));
         }
         
-        private Overflowed(T prefix) {
+        private Overflowed(@Nonnull T prefix) {
             super(prefix);
         }
 
@@ -166,6 +196,14 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
                 result = prefix().compareTo(other.prefix());
             }
             return result;
+        }
+        
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof Overflowed)) {
+                return false;
+            }
+            return prefix().equals(((Overflowed<?>) obj).prefix());
         }
     }
 
