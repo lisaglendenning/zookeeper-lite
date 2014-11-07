@@ -1623,6 +1623,19 @@ public abstract class Operations {
         }
     }
 
+    public static <T extends Operation.ProtocolResponse<?>> T unlessProtocolError(Records.PathGetter request, T response) throws KeeperException {
+        return unlessProtocolError(response, request.getPath());
+    }
+
+    public static <T extends Operation.ProtocolResponse<?>> T unlessProtocolError(T response) throws KeeperException {
+        return unlessProtocolError(response, "");
+    }
+
+    public static <T extends Operation.ProtocolResponse<?>> T unlessProtocolError(T response, String path) throws KeeperException {
+        unlessError(response.record(), path);
+        return response;
+    }
+    
     public static <T extends Records.Response> T unlessError(Records.PathGetter request, T response) throws KeeperException {
         return unlessError(response, request.getPath());
     }
@@ -1688,12 +1701,24 @@ public abstract class Operations {
         }
     }
 
+    public static Optional<Operation.Error> maybeProtocolError(Records.PathGetter request, Operation.ProtocolResponse<?> response, KeeperException.Code... expected) throws KeeperException {
+        return maybeProtocolError(response, request.getPath(), expected);
+    }
+
+    public static Optional<Operation.Error> maybeProtocolError(Operation.ProtocolResponse<?> response, KeeperException.Code... expected) throws KeeperException {
+        return maybeProtocolError(response, "", expected);
+    }
+
+    public static Optional<Operation.Error> maybeProtocolError(Operation.ProtocolResponse<?> response, String path, KeeperException.Code... expected) throws KeeperException {
+        return maybeError(response.record(), path);
+    }
+
     public static Optional<Operation.Error> maybeError(Records.PathGetter request, Records.Response response, KeeperException.Code... expected) throws KeeperException {
-        return Operations.maybeError(response, request.getPath(), expected);
+        return maybeError(response, request.getPath(), expected);
     }
 
     public static Optional<Operation.Error> maybeError(Records.Response response, KeeperException.Code... expected) throws KeeperException {
-        return Operations.maybeError(response, "", expected);
+        return maybeError(response, "", expected);
     }
 
     public static Optional<Operation.Error> maybeError(Records.Response response, String path, KeeperException.Code... expected) throws KeeperException {
