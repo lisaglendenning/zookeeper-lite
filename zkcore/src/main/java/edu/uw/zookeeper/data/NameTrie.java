@@ -2,6 +2,8 @@ package edu.uw.zookeeper.data;
 
 import java.util.Map;
 
+import javax.annotation.Nonnull;
+
 import com.google.common.base.Supplier;
 
 
@@ -17,7 +19,7 @@ public interface NameTrie<E extends NameTrie.Node<E>> extends Map<ZNodePath, E>,
         ZNodePath path();
     }
     
-    abstract public E root();
+    abstract public @Nonnull E root();
     
-    abstract public E longestPrefix(ZNodePath path);
+    abstract public @Nonnull E longestPrefix(ZNodePath path);
 }

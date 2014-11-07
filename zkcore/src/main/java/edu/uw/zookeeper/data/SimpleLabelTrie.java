@@ -2,6 +2,8 @@ package edu.uw.zookeeper.data;
 
 import java.util.Iterator;
 
+import javax.annotation.Nonnull;
+
 
 
 public class SimpleLabelTrie<E extends NameTrie.Node<E>> extends AbstractNameTrie<E> {
@@ -15,7 +17,7 @@ public class SimpleLabelTrie<E extends NameTrie.Node<E>> extends AbstractNameTri
     }
 
     @Override
-    public E longestPrefix(ZNodePath path) {
+    public @Nonnull E longestPrefix(ZNodePath path) {
         Iterator<ZNodeLabel> remaining = path.iterator();
         E node = root();
         while (remaining.hasNext()) {

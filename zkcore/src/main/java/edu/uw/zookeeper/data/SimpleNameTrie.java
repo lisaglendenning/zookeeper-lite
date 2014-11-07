@@ -2,6 +2,8 @@ package edu.uw.zookeeper.data;
 
 import java.util.Map;
 
+import javax.annotation.Nonnull;
+
 
 public class SimpleNameTrie<E extends AbstractNameTrie.SimpleNode<E>> extends AbstractNameTrie<E> {
     
@@ -14,10 +16,10 @@ public class SimpleNameTrie<E extends AbstractNameTrie.SimpleNode<E>> extends Ab
     }
 
     @Override
-    public E longestPrefix(ZNodePath path) {
+    public @Nonnull E longestPrefix(ZNodePath path) {
         E node = root();
-        ZNodeName remaining = path.suffix(0);
-        while ((node != null) && !(remaining instanceof EmptyZNodeLabel)) {
+        ZNodeName remaining = path.suffix(node.path());
+        while (!(remaining instanceof EmptyZNodeLabel)) {
             E next = node.get(remaining);
             if (next != null) {
                 remaining = EmptyZNodeLabel.getInstance();
@@ -31,7 +33,11 @@ public class SimpleNameTrie<E extends AbstractNameTrie.SimpleNode<E>> extends Ab
                     }
                 }
             }
-            node = next;
+            if (next != null) {
+                node = next;
+            } else {
+                break;
+            } 
         }
         return node;
     }
