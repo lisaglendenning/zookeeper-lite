@@ -8,6 +8,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.LoggingFutureListener;
@@ -85,7 +86,7 @@ public class OperationClientExecutor<C extends ProtocolConnection<? super Messag
         if (! send(task)) {
             task.cancel(true);
         }
-        return task;
+        return Futures.nonCancellationPropagating(task);
     }
 
     @Override

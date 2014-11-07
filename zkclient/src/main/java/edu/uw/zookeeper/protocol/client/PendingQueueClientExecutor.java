@@ -217,7 +217,7 @@ public abstract class PendingQueueClientExecutor<
                     T task = null;
                     while (tasks.hasNext()) {
                         T next = tasks.next();
-                        if (next.xid() == xid) {
+                        if ((next.xid() == xid) && !next.isDone()) {
                             task = next;
                             break;
                         }
@@ -289,6 +289,11 @@ public abstract class PendingQueueClientExecutor<
             while ((request = mailbox.poll()) != null) {
                 request.cancel(true);
             }
+        }
+        
+        @Override
+        public String toString() {
+            return MoreObjects.toStringHelper(this).addValue(PendingQueueClientExecutor.this).toString();
         }
     }
 }
