@@ -21,7 +21,9 @@ import com.google.common.collect.UnmodifiableIterator;
 
 import edu.uw.zookeeper.common.AbstractPair;
 
-
+/**
+ * Not threadsafe.
+ */
 public abstract class AbstractNameTrie<E extends NameTrie.Node<E>> implements NameTrie<E> {
     
     public static ZNodePath toPath(Object obj) {

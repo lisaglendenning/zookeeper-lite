@@ -5,6 +5,11 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 
 
+/**
+ * NameTrie in which every edge is a ZNodeLabel or RelativeZNodePath.
+ * 
+ * Not threadsafe.
+ */
 public class SimpleNameTrie<E extends AbstractNameTrie.SimpleNode<E>> extends AbstractNameTrie<E> {
     
     public static <E extends AbstractNameTrie.SimpleNode<E>> SimpleNameTrie<E> forRoot(E root) {
@@ -62,7 +67,7 @@ public class SimpleNameTrie<E extends AbstractNameTrie.SimpleNode<E>> extends Ab
         if (parent.path().length() == k.length()) {
             parent = parent.parent().get();
         }
-        return parent.put(k.suffix(parent.path().length()), v);
+        return parent.put(k.suffix(parent.path()), v);
     }
 
     @Override

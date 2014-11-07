@@ -5,7 +5,11 @@ import java.util.Iterator;
 import javax.annotation.Nonnull;
 
 
-
+/**
+ * NameTrie in which every edge is a ZNodeLabel.
+ * 
+ * Not threadsafe.
+ */
 public class SimpleLabelTrie<E extends NameTrie.Node<E>> extends AbstractNameTrie<E> {
     
     public static <E extends Node<E>> SimpleLabelTrie<E> forRoot(E root) {
