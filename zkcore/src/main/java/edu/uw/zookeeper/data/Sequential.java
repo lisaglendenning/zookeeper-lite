@@ -56,11 +56,11 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
         return String.format(Locale.ENGLISH, SEQUENTIAL_FORMAT, input.prefix(), input.sequence().intValue());
     }
     
-    public static SequentialConverter converter() {
+    public static Converter<Sequential<?,?>, CharSequence> converter() {
         return new SequentialConverter();
     }
     
-    public static SequentialComparator comparator() {
+    public static Comparator<String> comparator() {
         return new SequentialComparator();
     }
     
@@ -223,7 +223,10 @@ public abstract class Sequential<T extends CharSequence & Comparable<? super T>,
     }
 
     /**
-     * If the prefix is the same, orders sequential after non-sequential
+     * Uses the inherent ordering of Strings and Sequentials.
+     * For mixed cases, compares the prefix of the Sequential to the String.
+     * if the prefix of the sequential equals the string,
+     * then the sequential is ordered higher.
      */
     public static final class SequentialComparator implements Comparator<String> {
 
