@@ -322,10 +322,13 @@ public abstract class AbstractNameTrie<E extends NameTrie.Node<E>> implements Na
         
         @Override
         public String toString() {
-            return MoreObjects.toStringHelper(this)
+            return toString(MoreObjects.toStringHelper(this)).toString();
+        }
+        
+        protected MoreObjects.ToStringHelper toString(MoreObjects.ToStringHelper toString) {
+            return toString
                     .add("path", path())
-                    .add("children", keySet())
-                    .toString();
+                    .add("children", keySet());
         }
 
         @Override
