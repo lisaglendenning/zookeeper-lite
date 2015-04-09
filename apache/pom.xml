@@ -18,7 +18,7 @@
 	</modules>
     <properties>
         <zookeeper.org>org/apache/zookeeper</zookeeper.org>
-        <zookeeper.version>3.5.0</zookeeper.version>
+        <zookeeper.version>3.6.0-SNAPSHOT</zookeeper.version>
         <zookeeper.source>${zookeeper.basedir}/src</zookeeper.source>
         <zookeeper.java>${zookeeper.source}/java</zookeeper.java>
         <zookeeper.java.main>${zookeeper.java}/main</zookeeper.java.main>
