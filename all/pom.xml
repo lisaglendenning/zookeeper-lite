@@ -101,7 +101,7 @@
 		</dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>testing</artifactId>
+            <artifactId>zklite-testing</artifactId>
             <version>${project.version}</version>
         </dependency>
 	</dependencies>
