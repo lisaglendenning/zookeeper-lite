@@ -6,7 +6,7 @@ import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.TimeValue;
 
-@Configurable(arg="timeout", key="timeout", value="30 seconds", help="time")
+@Configurable(arg="timeout", value="30 seconds", help="time")
 public class ConfigurableTimeout implements Function<Configuration, TimeValue> {
 
     public static TimeValue get(Configuration configuration) {
@@ -19,6 +19,6 @@ public class ConfigurableTimeout implements Function<Configuration, TimeValue> {
         return TimeValue.fromString(
                 configuration.withConfigurable(configurable)
                     .getConfigOrEmpty(configurable.path())
-                        .getString(configurable.key()));
+                        .getString(configurable.arg()));
     }
 }

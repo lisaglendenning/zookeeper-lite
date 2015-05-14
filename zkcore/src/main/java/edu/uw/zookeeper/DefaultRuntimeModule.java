@@ -188,7 +188,7 @@ public class DefaultRuntimeModule implements RuntimeModule {
         }
     }
 
-    @Configurable(path="runtime", key="shutdown", value="30 s", type=ConfigValueType.STRING)
+    @Configurable(path="runtime", key="shutdown", value="30 seconds", type=ConfigValueType.STRING)
     public static abstract class ShutdownTimeoutConfiguration {
         
         public static TimeValue get(Configuration configuration) {

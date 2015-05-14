@@ -31,7 +31,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
         return defaults(id, minTimeout, maxTimeout);
     }
 
-    @Configurable(path="sessions", key="minTimeout", value="0 seconds", help="time")
+    @Configurable(path="sessions", arg="minTimeout", value="0 seconds", help="time")
     public static class ConfigurableMinTimeout extends ConfigurableTimeout {
         
         public static TimeValue get(Configuration configuration) {
@@ -39,7 +39,7 @@ public class DefaultSessionParametersPolicy implements SessionParametersPolicy {
         }
     }
 
-    @Configurable(path="sessions", key="maxTimeout", value="0 seconds", help="time")
+    @Configurable(path="sessions", arg="maxTimeout", value="0 seconds", help="time")
     public static class ConfigurableMaxTimeout extends ConfigurableTimeout {
 
         public static TimeValue get(Configuration configuration) {

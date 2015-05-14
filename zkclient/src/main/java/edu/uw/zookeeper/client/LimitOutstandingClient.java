@@ -35,7 +35,7 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
         }
     }
 
-    @Configurable(arg="outstanding", key="outstanding", value="1000", type=ConfigValueType.NUMBER)
+    @Configurable(arg="outstanding", value="1000", type=ConfigValueType.NUMBER)
     public static class ConfigurableLimit implements Function<Configuration, Integer> {
 
         public static Integer get(Configuration configuration) {
@@ -47,7 +47,7 @@ public class LimitOutstandingClient<I extends Operation.Request, O extends Opera
             Configurable configurable = getClass().getAnnotation(Configurable.class);
             return configuration.withConfigurable(configurable)
                         .getConfigOrEmpty(configurable.path())
-                            .getInt(configurable.key());
+                            .getInt(configurable.arg());
         }
     }
     

@@ -32,15 +32,40 @@
 			<destName>client.py</destName>
 			<fileMode>0755</fileMode>
 		</file>
+        <file>
+            <outputDirectory>/etc</outputDirectory>
+            <source>${project.basedir}/../zkcore/src/main/resources/log4j2.xml</source>
+            <fileMode>0644</fileMode>
+        </file>
+        <file>
+            <outputDirectory>/etc</outputDirectory>
+            <source>${project.basedir}/../zkcore/src/main/resources/reference.conf</source>
+            <destName>core.conf</destName>
+            <fileMode>0644</fileMode>
+        </file>
+        <file>
+            <outputDirectory>/etc</outputDirectory>
+            <source>${project.basedir}/../testing/src/main/resources/reference.conf</source>
+            <destName>testing.conf</destName>
+            <fileMode>0644</fileMode>
+        </file>
+        <file>
+            <outputDirectory>/etc</outputDirectory>
+            <source>${project.basedir}/../zkclient/src/main/resources/reference.conf</source>
+            <destName>client.conf</destName>
+            <fileMode>0644</fileMode>
+        </file>
+        <file>
+            <outputDirectory>/etc</outputDirectory>
+            <source>${project.basedir}/../zkserver/src/main/resources/reference.conf</source>
+            <destName>server.conf</destName>
+            <fileMode>0644</fileMode>
+        </file>
 	</files>
 	<fileSets>
 		<fileSet>
 			<outputDirectory>/lib</outputDirectory>
 			<directory>${project.build.directory}/lib/compile</directory>
-		</fileSet>
-		<fileSet>
-			<outputDirectory>/etc</outputDirectory>
-			<directory>${project.basedir}/../zkcore/src/main/resources</directory>
 		</fileSet>
 	</fileSets>
 </assembly>

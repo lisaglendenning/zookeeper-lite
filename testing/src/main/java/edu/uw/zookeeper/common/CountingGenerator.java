@@ -48,11 +48,11 @@ public final class CountingGenerator<V> extends AbstractIterator<V> {
             Configurable configurable = getClass().getAnnotation(Configurable.class);
             return configuration.withConfigurable(configurable)
                         .getConfigOrEmpty(configurable.path())
-                            .getInt(configurable.key());
+                            .getInt(configurable.arg());
         }
     }
     
-    @Configurable(arg="iterations", key="iterations", value="10", type=ConfigValueType.NUMBER)
+    @Configurable(arg="iterations", value="10", type=ConfigValueType.NUMBER)
     public static class ConfigurableIterations extends ConfigurableInt {
 
         public static Integer get(Configuration configuration) {
@@ -60,7 +60,7 @@ public final class CountingGenerator<V> extends AbstractIterator<V> {
         }
     }
     
-    @Configurable(arg="logIterations", key="logIterations", value="10", type=ConfigValueType.NUMBER)
+    @Configurable(arg="logIterations", value="10", type=ConfigValueType.NUMBER)
     public static class ConfigurableLogIterations extends ConfigurableInt {
 
         public static Integer get(Configuration configuration) {

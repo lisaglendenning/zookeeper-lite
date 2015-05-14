@@ -10,7 +10,7 @@ import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 
-@Configurable(path="server", arg="clientAddress", key="clientAddress", value=":2181", help="address:port")
+@Configurable(path="server", arg="clientAddress", value=":2181", help="address:port")
 public abstract class ClientAddressConfiguration {
 
     public static Configurable getConfigurable() {
@@ -22,7 +22,7 @@ public abstract class ClientAddressConfiguration {
         String value = 
                 configuration.withConfigurable(configurable)
                 .getConfigOrEmpty(configurable.path())
-                    .getString(configurable.key());
+                    .getString(configurable.arg());
         try {
             return ServerInetAddressView.fromString(value);
         } catch (UnknownHostException e) {
@@ -32,7 +32,7 @@ public abstract class ClientAddressConfiguration {
     
     public static Configuration set(Configuration configuration, ServerInetAddressView value) {
         Configurable configurable = getConfigurable();
-        return configuration.withConfig(ConfigFactory.parseMap(ImmutableMap.<String,Object>builder().put(ConfigUtil.joinPath(configurable.path(), configurable.key()), value.toString()).build()));
+        return configuration.withConfig(ConfigFactory.parseMap(ImmutableMap.<String,Object>builder().put(ConfigUtil.joinPath(configurable.path(), configurable.arg()), value.toString()).build()));
     }
     
     protected ClientAddressConfiguration() {}

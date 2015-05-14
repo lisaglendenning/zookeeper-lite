@@ -21,6 +21,9 @@
 		<resources>
 			<resource>
 				<directory>${zookeeper.lite.source}/zkcore/src/main/resources</directory>
+                <includes>
+                    <include>log4j2.xml</include>
+                </includes>
 			</resource>
 		</resources>
 		<testResources>
